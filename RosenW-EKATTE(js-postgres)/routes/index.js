@@ -6,8 +6,6 @@ var munic = require('../jsons/municipalities.json');
 var settlements = require('../jsons/settlements.json');
 
 // Database connection
-const connectionString = 'postgresql://postgres:1234@localhost:5432/ekatte_db';
-
 const client = new pg.Client({
   user: 'postgres',
   host: 'localhost',

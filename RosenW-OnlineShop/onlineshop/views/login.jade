@@ -1,0 +1,14 @@
+doctype html
+html
+  head
+    title= title
+    link(rel='stylesheet', href='/stylesheets/form.css')
+  body
+    block content
+      div
+        form.form(method='post')
+          label Name :
+          input#name(type='text', name='dname')
+          label Password :
+          input#password(type='password', name='password')
+          input#login(type='submit', name='loginiBtn', value='Log In')

@@ -1,0 +1,18 @@
+doctype html
+html
+  head
+    title= title
+    link(rel='stylesheet', href='/stylesheets/form.css')
+  body
+    block content
+      div
+        form.form(method='post')
+          label Name :
+          input#name(type='text', name='dname')
+          label Email :
+          input#email(type='text', name='demail')
+          label Password :
+          input#password(type='password', name='password')
+          label Confirm Password :
+          input#cpassword(type='password', name='cpassword')
+          input#register(type='submit', name='regBtn', value='Register')
