@@ -123,9 +123,11 @@ function initMap() {
     });
 
     showAllMarkers();
+    showMarkerCount();
 }
 
 function showAllMarkers(){
+clearAllMarkers();
 <?php
     $result = $wpdb->get_results("SELECT * FROM markers");
     foreach ($result as $print){ ?>
@@ -135,9 +137,11 @@ function showAllMarkers(){
   });
 	filteredPlaces.push("<?php echo preg_replace("/\r?\n/", "\\n", addslashes($print->name)); ?>");
 	markers.push(marker);
+markerCount++;
 <?php
     }
 ?>
+showMarkerCount();
 }
 
 function clearAllMarkers() {
@@ -146,95 +150,80 @@ function clearAllMarkers() {
     }
     markers = [];
     markerCount = 0;
+
+showMarkerCount();
 }
 
 function submit() {
-    clearAllMarkers();
-    $.get("/markers/all").done(function(allMarkers) {
+    let fromCoords = fromBox.val().split(", ");
+    let toCoords = toBox.val().split(", ");
+    	clearAllMarkers();
+	console.log(markers.length);
         let nameToSearch = $("#findBox").val();
-        if (nameToSearch === "") {
-            allMarkers.forEach((element) => {
-                filteredPlaces.forEach((place) => {
-                    if (element.name == place) {
+        if (nameToSearch == "") {
+	<?php
+    		$markers = $wpdb->get_results("SELECT * FROM markers");
+    		foreach ($markers as $marker){ ?>
+
+                    if (
+<?php echo $marker->lat; ?> > fromCoords[0] && 
+<?php echo $marker->lng; ?> > fromCoords[1] && 
+<?php echo $marker->lat; ?> < toCoords[0] && 
+<?php echo $marker->lng; ?> < toCoords[1]) {
                         let curMarker = new google.maps.Marker({
                             position: {
-                                lat: element.lat,
-                                lng: element.lng
+                                lat: <?php echo $marker->lat; ?>,
+                                lng: <?php echo $marker->lng; ?>
                             },
                             map: map
                         });
                         markers.push(curMarker);
                         markerCount++;
                     }
-                });
-            });
+            <?php } ?>
         } else {
-            allMarkers.forEach((element) => {
-                if (nameToSearch == element.name) {
+            <?php
+    		$markers = $wpdb->get_results("SELECT * FROM markers");
+    		foreach ($markers as $marker){ ?>
+                if (nameToSearch == "<?php echo preg_replace("/\r?\n/", "\\n", addslashes($marker->name)); ?>") {
                     let curMarker = new google.maps.Marker({
                         position: {
-                            lat: element.lat,
-                            lng: element.lng
+                            lat: <?php echo $marker->lat; ?>,
+                                lng: <?php echo $marker->lng; ?>
                         },
                         map: map
                     });
                     markers.push(curMarker);
                     markerCount++;
                 }
-            });
+            <?php } ?>
         }
         showMarkerCount();
-    });
 }
 
 function changePlaces() {
     let fromCoords = fromBox.val().split(", ");
     let toCoords = toBox.val().split(", ");
-    let selectedValues = [];
 
     if (fromCoords.length === 2 && toCoords.length === 2 && isNumber(fromCoords[0]) && isNumber(fromCoords[1]) && isNumber(toCoords[0]) && isNumber(toCoords[1])) {
         while (filteredPlaces.length > 0) {
             filteredPlaces.pop();
         }
-//<?php
-//$results = $wpdb->get_results("SELECT * FROM markers as m where m.lat > 0 and m.lat < 30 and m.lng > 0 and m.lng < 50");
-//$results = $wpdb->get_results("SELECT * FROM markers as m where m.lat > 0 and m.lat < 30 and m.lng > 0 and m.lng < 50");
-//?>
-	
-        $.get("/markers/" + fromCoords[0] + "/" + toCoords[0] + "/" + fromCoords[1] + "/" + toCoords[1]).done(function(selectedMarkers) {
-            $.get("/relations/all").done(function(relations) {
-                $("input:checkbox").each(function() {
-                    let $this = $(this);
-                    if ($this.is(":checked")) {
-                        selectedValues.push($this.attr("id"));
-                    }
-                });
+<?php
+    $markers = $wpdb->get_results("SELECT * FROM markers");
+    foreach ($markers as $marker){
+?>
+    if (
+<?php echo $marker->lat; ?> > fromCoords[0] && 
+<?php echo $marker->lng; ?> > fromCoords[1] && 
+<?php echo $marker->lat; ?> < toCoords[0] && 
+<?php echo $marker->lng; ?> < toCoords[1]) {
+        filteredPlaces.push("<?php echo preg_replace("/\r?\n/", "\\n", addslashes($marker->name)); ?>");
+    }
 
-                let curSelectedMarkers = [];
-                selectedMarkers.forEach((marker) => {
-                    selectedValues.forEach((val) => {
-                        let markerIsOfType = false;
-                        let markerAlreadySelected = false;
-
-                        curSelectedMarkers.forEach((curSelectedMarker) => {
-                            if (curSelectedMarker == marker.id) {
-                                markerAlreadySelected = true;
-                            }
-                        });
-
-                        relations[marker.id].forEach((markerType) => {
-                            if (markerType == val) {
-                                markerIsOfType = true;
-                            }
-                        });
-                        if (markerIsOfType && !markerAlreadySelected) {
-                            curSelectedMarkers.push(marker.id);
-                            filteredPlaces.push(marker.name);
-                        }
-                    });
-                });
-            });
-        });
+<?php
+} 
+?>
     }
 }
 
