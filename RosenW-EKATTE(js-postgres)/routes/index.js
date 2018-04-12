@@ -20,7 +20,7 @@ router.get('/', function(req, res, next) {
   var settlements = [];
   var municipalities = [];
   var areas = [];
-  client.query('select * from selishta')
+  client.query('select * from selishta as s order by s.name asc')
   .then(data => {
     data.rows.forEach((row)=>{
       var curSettlement = {}
