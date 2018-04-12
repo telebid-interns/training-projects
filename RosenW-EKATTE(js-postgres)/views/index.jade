@@ -2,6 +2,11 @@ extends layout
 
 block content
   script(type='text/javascript' src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js")
+  script(type='text/javascript').
+    if(!window.jQuery){
+      alert("check internet connection");
+      window.stop();
+    }
   input#tbox(type='textbox')
   button#submit Submit
   div#info
@@ -34,7 +39,8 @@ block content
           }
       });
 
-      if(count>=15){
-          $('#info').append($('<p> още '+(count-14)+' резултата</p>'));
+      if(count>15){
+          $('#info').append($('<p> още '+(count-15)+' резултата</p>'));
           }                 
     });
+    

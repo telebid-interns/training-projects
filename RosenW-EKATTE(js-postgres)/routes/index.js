@@ -3,7 +3,7 @@ var router = express.Router();
 const pg = require('pg');
 var areas = require('../jsons/areas.json');
 var munic = require('../jsons/municipalities.json');
-var settlements = require('../jsons/settlements.json');
+var settlements = require('../jsons/settlements.json'); //todo json parser
 
 // Database connection
 const client = new pg.Client({
@@ -52,7 +52,7 @@ router.get('/', function(req, res, next) {
 });
 
 router.get('/insert', function(req, res, next) {
-  insertDataIntoDB();
+  //insertDataIntoDB();
   res.render('index', { 'data': 'done'});
 });
 
@@ -61,7 +61,7 @@ function insertDataIntoDB(){
     var areaId = area[0];
     var areaName = area[2];
     if(areaId.length === 3){
-    client.query("insert into oblasti (id, name) values('" + areaId + "', '"+ areaName + "');")
+    client.query("insert into oblasti (id, name) values('" + areaId + "', '"+ areaName + "');") // ' check
     .then(()=>{
       munic.Ek_obst.forEach((munic)=>{
         if(areaId === getAreaByMunicipId(munic[0])){

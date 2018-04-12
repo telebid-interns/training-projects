@@ -1,4 +1,11 @@
-extends layout
-
-block content
-  p Welcome to the shop
+doctype html
+html
+  head
+    title= title
+    link(rel='stylesheet', href='/stylesheets/form.css')
+    link(rel='stylesheet', href='/stylesheets/navbar.css')
+  body
+    block content
+  include ./navbar.jade
+  p Welcome to the shop, #{data.user}
+  

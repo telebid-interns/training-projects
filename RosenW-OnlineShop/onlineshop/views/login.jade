@@ -3,8 +3,10 @@ html
   head
     title= title
     link(rel='stylesheet', href='/stylesheets/form.css')
+    link(rel='stylesheet', href='/stylesheets/navbar.css')
   body
     block content
+      include ./navbar.jade
       div
         form.form(method='post')
           label Name :

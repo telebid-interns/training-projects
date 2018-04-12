@@ -27,8 +27,8 @@ input[type=text],[type=password] {
     padding-left: 5px;
     margin-bottom: 20px;
     margin-top: 8px;
-    box-shadow: 0 0 5px #00F5FF;
-    border: 2px solid #00F5FF;
+    box-shadow: 0 0 5px #000000;
+    border: 2px solid #000000;
     color: #4f4f4f;
     font-size: 16px;
 }
@@ -41,11 +41,11 @@ label{
 #register, #login {
     font-size: 20px;
     margin-top: 15px;
-    background: linear-gradient(#22abe9 5%, #36caf0 100%);
-    border: 1px solid #0F799E;
+    background: linear-gradient(#000000 5%, #4f4f4f 100%);
+    border: 1px solid #000000;
     padding: 7px 35px;
     color: white;
-    text-shadow: 0px 1px 0px #13506D;
+    text-shadow: 0px 1px 0px #000000;
     font-weight: bold;
     border-radius: 2px;
     cursor: pointer;
@@ -53,7 +53,7 @@ label{
 }
 
 #register:hover{
-    background: linear-gradient(#36caf0 5%, #22abe9 100%);
+    background: linear-gradient(#000000 5%, #4f4f4f 100%);
 }
 div {
     margin: auto;
