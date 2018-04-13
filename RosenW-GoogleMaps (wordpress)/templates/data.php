@@ -49,6 +49,58 @@
 #checkboxes label:hover {
   background-color: #1e90ff;
 }
+
+ul {list-style: none}
+
+   .ui-autocomplete {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 1000;
+    float: left;
+    display: none;
+    min-width: 160px;   
+    padding: 4px 0;
+    margin: 0 0 10px 25px;
+    list-style: none;
+    background-color: #ffffff;
+    border-color: #ccc;
+    border-color: rgba(0, 0, 0, 0.2);
+    border-style: solid;
+    border-width: 1px;
+    -webkit-border-radius: 5px;
+    -moz-border-radius: 5px;
+    border-radius: 5px;
+    -webkit-box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+    -moz-box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+    -webkit-background-clip: padding-box;
+    -moz-background-clip: padding;
+    background-clip: padding-box;
+    *border-right-width: 2px;
+    *border-bottom-width: 2px;
+}
+
+.ui-menu-item > a.ui-corner-all {
+    display: block;
+    padding: 3px 15px;
+    clear: both;
+    font-weight: normal;
+    line-height: 18px;
+    color: #555555;
+    white-space: nowrap;
+    text-decoration: none;
+}
+
+.ui-state-hover, .ui-state-active {
+    color: #ffffff;
+    text-decoration: none;
+    background-color: #0088cc;
+    border-radius: 0px;
+    -webkit-border-radius: 0px;
+    -moz-border-radius: 0px;
+    background-image: none;
+}
 </style>
 </head>
 
@@ -124,79 +176,35 @@ function initMap() {
 
     showAllMarkers();
     showMarkerCount();
-}
-
+}																																																	
+																																																																																		
 function showAllMarkers(){
-clearAllMarkers();
+    clearAllMarkers();
 <?php
-    $result = $wpdb->get_results("SELECT * FROM markers");
-    foreach ($result as $print){ ?>
-	var marker = new google.maps.Marker({
-    	position: {lat: <?php echo $print->lat; ?>,lng: <?php echo $print->lng; ?>},
-    	map: map
-  });
-	filteredPlaces.push("<?php echo preg_replace("/\r?\n/", "\\n", addslashes($print->name)); ?>");
-	markers.push(marker);
-markerCount++;
-<?php
-    }
-?>
-showMarkerCount();
-}
-
-function clearAllMarkers() {
-    for (let i = 0; i < markers.length; i++) {
-        markers[i].setMap(null);
-    }
-    markers = [];
-    markerCount = 0;
-
-showMarkerCount();
+    $result = $wpdb->get_results("SELECT * FROM markers");?>
+	let markerArray = <?php echo json_encode($result) ?>;
+	markerArray.forEach((m)=>{
+	    showMarker(Number(m.lat), Number(m.lng), m.name);
+	});
+    showMarkerCount();
 }
 
 function submit() {
-    let fromCoords = fromBox.val().split(", ");
-    let toCoords = toBox.val().split(", ");
     	clearAllMarkers();
-	console.log(markers.length);
+	<?php $markers = $wpdb->get_results("SELECT * FROM markers");?>
         let nameToSearch = $("#findBox").val();
+    	let markerArray = <?php echo json_encode($result) ?>;
         if (nameToSearch == "") {
-	<?php
-    		$markers = $wpdb->get_results("SELECT * FROM markers");
-    		foreach ($markers as $marker){ ?>
-
-                    if (
-<?php echo $marker->lat; ?> > fromCoords[0] && 
-<?php echo $marker->lng; ?> > fromCoords[1] && 
-<?php echo $marker->lat; ?> < toCoords[0] && 
-<?php echo $marker->lng; ?> < toCoords[1]) {
-                        let curMarker = new google.maps.Marker({
-                            position: {
-                                lat: <?php echo $marker->lat; ?>,
-                                lng: <?php echo $marker->lng; ?>
-                            },
-                            map: map
-                        });
-                        markers.push(curMarker);
-                        markerCount++;
-                    }
-            <?php } ?>
+		markerArray.forEach((m)=>{
+			showMarkerIfInRange(Number(m.lat), Number(m.lng));
+		});
         } else {
-            <?php
-    		$markers = $wpdb->get_results("SELECT * FROM markers");
-    		foreach ($markers as $marker){ ?>
-                if (nameToSearch == "<?php echo preg_replace("/\r?\n/", "\\n", addslashes($marker->name)); ?>") {
-                    let curMarker = new google.maps.Marker({
-                        position: {
-                            lat: <?php echo $marker->lat; ?>,
-                                lng: <?php echo $marker->lng; ?>
-                        },
-                        map: map
-                    });
-                    markers.push(curMarker);
-                    markerCount++;
-                }
-            <?php } ?>
+		markerArray.forEach((m)=>{
+			if (nameToSearch == m.name) {
+				showMarker(Number(m.lat), Number(m.lng));
+		        }
+		});
+                
         }
         showMarkerCount();
 }
@@ -209,29 +217,15 @@ function changePlaces() {
         while (filteredPlaces.length > 0) {
             filteredPlaces.pop();
         }
-<?php
-    $markers = $wpdb->get_results("SELECT * FROM markers");
-    foreach ($markers as $marker){
-?>
-    if (
-<?php echo $marker->lat; ?> > fromCoords[0] && 
-<?php echo $marker->lng; ?> > fromCoords[1] && 
-<?php echo $marker->lat; ?> < toCoords[0] && 
-<?php echo $marker->lng; ?> < toCoords[1]) {
-        filteredPlaces.push("<?php echo preg_replace("/\r?\n/", "\\n", addslashes($marker->name)); ?>");
-    }
 
-<?php
-} 
-?>
-    }
-}
+	<?php
+    $result = $wpdb->get_results("SELECT * FROM markers");?>
+	let markerArray = <?php echo json_encode($result) ?>;
 
-function isNumber(n) {
-    return !isNaN(parseFloat(n)) && isFinite(n);
-}
-function showMarkerCount() {
-    $("#count").text("Markers on map: " + markerCount);
+	markerArray.forEach((m)=>{
+        	pushNamesToFilteredPlaces(Number(m.lat),Number(m.lng),m.name);
+	});
+    }
 }
 
 </script>

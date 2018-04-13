@@ -1,9 +1,17 @@
 var express = require('express');
-var router = express.Router();
 const pg = require('pg');
-var areas = require('../jsons/areas.json');
-var munic = require('../jsons/municipalities.json');
-var settlements = require('../jsons/settlements.json'); //todo json parser
+var fs = require('fs');
+var sqlFormatter = require('pg-format');
+
+var router = express.Router();
+
+var areasData = fs.readFileSync('jsons/areas.json', 'utf8');
+var municData = fs.readFileSync('jsons/municipalities.json', 'utf8');
+var settlementsData = fs.readFileSync('jsons/settlements.json','utf8');
+
+var areasJson = JSON.parse(areasData);
+var municJson = JSON.parse(municData);
+var settlementsJson = JSON.parse(settlementsData);
 
 // Database connection
 const client = new pg.Client({
@@ -17,6 +25,15 @@ client.connect();
 
 /* GET home page. */
 router.get('/', function(req, res, next) {
+    res.render('index', { 'data': 'done'});
+});
+
+router.get('/insert', function(req, res, next) {
+  insertDataIntoDB();
+  res.render('index', { 'data': 'done'});
+});
+
+router.get('/getdata', function(req, res){
   var settlements = [];
   var municipalities = [];
   var areas = [];
@@ -28,7 +45,7 @@ router.get('/', function(req, res, next) {
       curSettlement['municipality'] = row.municipality_id;
       settlements.push(curSettlement);
     });
-    client.query('select * from obshtini').then(data => {
+    client.query('select * from obshtini as o order by o.name asc').then(data => {
       data.rows.forEach((row)=>{
         var curMunic = {}
         curMunic['id'] = row.id;
@@ -36,7 +53,7 @@ router.get('/', function(req, res, next) {
         curMunic['area'] = row.area_id;
         municipalities.push(curMunic);
       });
-      client.query('select * from oblasti')
+      client.query('select * from oblasti as o order by o.name asc')
       .then(data => {
         data.rows.forEach((row)=>{
           var curArea = {}
@@ -44,42 +61,38 @@ router.get('/', function(req, res, next) {
           curArea['name'] = row.name;
           areas.push(curArea);
         });
-        res.render('index', { data: {settlements, municipalities, areas}});
+        res.send({ settlements: settlements, municipalities: municipalities, areas: areas});
       });
     });
   })
   .catch(e => console.error(e.stack));
 });
 
-router.get('/insert', function(req, res, next) {
-  //insertDataIntoDB();
-  res.render('index', { 'data': 'done'});
-});
-
 function insertDataIntoDB(){
-  areas.Ek_obl.forEach((area)=>{
-    var areaId = area[0];
-    var areaName = area[2];
+  areasJson.Ek_obl.forEach((area)=>{
+    var areaId = addSlashes(area[0]);
+    var areaName = addSlashes(area[2]);
     if(areaId.length === 3){
-    client.query("insert into oblasti (id, name) values('" + areaId + "', '"+ areaName + "');") // ' check
+    client.query(sqlFormatter("insert into oblasti (id, name) values(%L, %L);", areaId, areaName))
     .then(()=>{
-      munic.Ek_obst.forEach((munic)=>{
-        if(areaId === getAreaByMunicipId(munic[0])){
-        var municId = munic[0];
-        var municName = munic[2];
-        client.query("insert into obshtini (id, name, area_id) values('" + municId + "', '"+ municName + "', '"+getAreaByMunicipId(municId)+"');")
-        .then(()=>{
-          settlements.Ek_atte.forEach((settlement)=>{
-          if(municId === settlement[4]){
-            var settlementId = settlement[0];
-            var settlementName = settlement[2];
-            var curMunicId = settlement[4];
-            client.query("insert into selishta (id, name, municipality_id) values('" + settlementId + "', '"+ settlementName + "', '"+curMunicId+"');")
-            .catch(e => console.error(e.stack));
-            }
-          });
-        })
-        .catch(e => console.error(e.stack));
+      municJson.Ek_obst.forEach((munic)=>{
+        if(areaId == getAreaByMunicipId(munic[0])){
+          var municId = addSlashes(munic[0]);
+          var municName = addSlashes(munic[2]);
+          var curAreaId = addSlashes(getAreaByMunicipId(municId));
+          client.query(sqlFormatter("insert into obshtini (id, name, area_id) values(%L, %L, %L);", municId, municName, curAreaId))
+          .then(()=>{
+            settlementsJson.Ek_atte.forEach((settlement)=>{
+            if(municId == settlement[4]){
+              var settlementId = addSlashes(settlement[0]);
+              var settlementName = addSlashes(settlement[2]);
+              var curMunicId = addSlashes(settlement[4]);
+              client.query(sqlFormatter("insert into selishta (id, name, municipality_id) values(%L, %L, %L);", settlementId, settlementName, curMunicId))
+              .catch(e => console.error(e.stack));
+              }
+            });
+          })
+          .catch(e => console.error(e.stack));
       }
       });
     })
@@ -91,6 +104,7 @@ function insertDataIntoDB(){
 function getAreaByMunicipId(id){
   return id.substr(0,3);
 }
+
 function getMunicipById (id){
   client.query("select name from obshtini where id = "+id)
   .then((selectedId) => {
@@ -98,6 +112,10 @@ function getMunicipById (id){
     res.render('index', { 'data': settlements});
   })
   .catch(e => console.error(e.stack));
+}
+
+function addSlashes( str ) {
+    return (str + '').replace(/[\\"']/g, '\\$&').replace(/\u0000/g, '\\0');
 }
 
 module.exports = router;
