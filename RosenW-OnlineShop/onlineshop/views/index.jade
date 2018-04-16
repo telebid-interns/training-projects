@@ -2,10 +2,21 @@ doctype html
 html
   head
     title= title
-    link(rel='stylesheet', href='/stylesheets/form.css')
     link(rel='stylesheet', href='/stylesheets/navbar.css')
   body
     block content
   include ./navbar.jade
-  p Welcome to the shop, #{data.user}
-  
+table(style='width:45%')
+  tr
+    th Name
+    th(align="right") Price
+    th(align="right") Quantity in stock
+  each item in data.prods
+      tr
+        td #{item.name}
+        td(align="right") $#{item.price}
+        td(align="right") #{item.quantity}
+        td(style='width: 10px')
+          input(type='text', placeholder='quant.', style='width: 50px') 
+        td
+          button add

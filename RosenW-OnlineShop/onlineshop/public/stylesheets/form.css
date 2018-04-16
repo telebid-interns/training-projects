@@ -38,7 +38,7 @@ label{
     font-size: 14px;
     font-weight: bold;
 }
-#register, #login {
+input[type=submit] {
     font-size: 20px;
     margin-top: 15px;
     background: linear-gradient(#000000 5%, #4f4f4f 100%);
