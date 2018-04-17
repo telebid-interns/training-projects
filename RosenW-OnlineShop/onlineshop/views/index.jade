@@ -3,20 +3,45 @@ html
   head
     title= title
     link(rel='stylesheet', href='/stylesheets/navbar.css')
+    script(type='text/javascript' src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js")
+
   body
     block content
   include ./navbar.jade
 table(style='width:45%')
   tr
+    th(align="left") №
     th Name
     th(align="right") Price
     th(align="right") Quantity in stock
   each item in data.prods
       tr
+        td #{item.number}
         td #{item.name}
         td(align="right") $#{item.price}
         td(align="right") #{item.quantity}
-        td(style='width: 10px')
-          input(type='text', placeholder='quant.', style='width: 50px') 
-        td
-          button add
+        if data.isLoggedIn
+          td(style='width: 10px')
+            input(id="input-#{item.id}" type='text', placeholder='quant.', style='width: 50px') 
+          td
+            button(onclick="add('#{item.id}')") add
+script.
+  function add(id){
+    let box = $('#input-' + id);
+    let textBoxValue = box.val();
+    box.val("");
+    if(isNumber(textBoxValue) && isWholeNumber(textBoxValue)){
+      $.post('/addtocart', {id: id, quant: textBoxValue});
+      alert('Product added to cart');
+    }
+  }
+  function isNumber(n) {
+    return !isNaN(parseFloat(n)) && isFinite(n);
+  }
+  function isWholeNumber(n){
+    var result = (n - Math.floor(n)) !== 0; 
+    if (result)
+    return false;
+    else
+    return true;
+  }

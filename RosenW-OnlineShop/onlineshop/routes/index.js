@@ -8,6 +8,7 @@ var sqlFormatter = require('pg-format');
 
 var isAdmin = false;
 var isLoggedIn = false;
+var loggedInUserId = '';
 var username = 'Guest';
 
 // Database connection
@@ -25,10 +26,11 @@ client.connect();
 router.get('/', function(req, res, next) {
   let products = [];
   client.query("select * from products as p order by p.name").then((prods)=>{
+    let number = 0;
     prods.rows.forEach((prod)=>{
+      prod.number = ++number;
       products.push(prod);
     });
-    console.log(products);
     res.render('index', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'prods': products}});
   })
 });
@@ -79,9 +81,15 @@ router.post('/register', function(req, res) {
     if(!stop){
       let hashedPass = passwordHash.generate(pass);
       if(validateEmail(email) && validateName(name) && validatePass(pass) && pass === cpass){
-        client.query(sqlFormatter("insert into accounts (id, email, name, pass, role) values(%L, %L, %L, %L, '1');", generateId(), email, name, hashedPass))
+        let newUserId = generateId();
+        client.query(sqlFormatter("insert into accounts (id, email, name, pass, role) values(%L, %L, %L, %L, '1');", newUserId, email, name, hashedPass))
+        .then(()=>{
+          client.query(sqlFormatter("insert into shopping_carts (id, userId) values(%L, %L)", generateId(), newUserId))
+          .then(()=>{
+            res.redirect(303, '/login');
+          });
+        })
         .catch(e => console.error(e.stack));
-        res.redirect(303, '/login');
       }else{
         res.redirect(303, '/register');
       }
@@ -105,7 +113,7 @@ router.post('/login', function(req, res) {
           if(passwordHash.verify(pass, account.pass)){
             isLoggedIn = true;
             username = account.name;
-            console.log(account.role);
+            loggedInUserId = account.id;
             if(account.role == 2){
               isAdmin = true;
             }
@@ -142,6 +150,64 @@ router.post('/add', function(req, res) {
         .catch(e => console.error(e.stack));
 
   res.redirect(303, '/');
+});
+
+/* GET cart page. */
+router.get('/cart', function(req, res, next) {
+  if(!isLoggedIn){
+    res.redirect(303, '/');
+  }
+  let currentCart = [];
+
+  client.query(sqlFormatter('select pr.name, sum(ci.quantity) as quantity, pr.price, pr.id from cart_items as ci join shopping_carts as sc on ci.cartId = sc.id join accounts as a on a.id = sc.userId join products as pr on pr.id = ci.prodId where a.id = %L group by pr.name, pr.price, pr.id order by pr.name asc', loggedInUserId))
+  .then((data)=>{
+    let totalPrice = 0;
+    let count = 1;
+    data.rows.forEach((row)=>{
+      totalPrice += (Number(row.price) * Number(row.quantity)); 
+      row.number = count++;
+      currentCart.push(row);
+    });
+    
+    res.render('cart', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'cart': currentCart, 'total': totalPrice}});
+  });
+});
+
+/* POST add to cart. */
+router.post('/addtocart', function(req, res) {
+  let id = req.body.id;
+  let quant = req.body.quant;
+
+  client.query(sqlFormatter("select id from shopping_carts where userid = %L;",  loggedInUserId)).then((data)=>{
+    let cartId = data.rows[0].id;
+    client.query(sqlFormatter("insert into cart_items values(%L, %L, %L, %L);", generateId(), id, quant, cartId))
+    .catch(e => console.error(e.stack));
+  });
+});
+
+/* POST remove from cart. */
+router.post('/remove', function(req, res) {
+  let itemId = req.body.id;
+
+  client.query(sqlFormatter("delete from cart_items as ci using shopping_carts as sc where ci.cartid = sc.id and ci.prodId = %L and sc.userid = %L",  itemId, loggedInUserId));
+});
+
+/* POST buy. */
+router.post('/buy', function(req, res) {
+
+  //cart clean up
+  client.query(sqlFormatter("delete from cart_items as ci using shopping_carts as sc where ci.cartid = sc.id and sc.userid = %L", loggedInUserId));
+  // select ci.prodid, ci.quantity, pr.price 
+  // from cart_items as ci 
+  // join shopping_carts as sc 
+  // on ci.cartId = sc.id 
+  // join products as pr 
+  // on pr.id = ci.prodId
+  // where sc.userId = 'ac81e103-65cc-b906-7d5f-dfb83aa1fe66';
+
+
+
+  client.query(sqlFormatter("select from ",  itemId));
 });
 
 function generateId() {
