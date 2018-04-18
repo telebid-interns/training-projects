@@ -28,15 +28,12 @@ table(style='width:45%')
     td
     td
     td
-        button(onclick="buyProducts('#{data.cart}')") buy
+      form.form(method='post')
+        input#buy(type='submit', name='buybtn', value='Buy')
 
 script.
     function remove(id, total){
         $.post('/remove', {id: id});
         $('#row-' + id).remove();
         $('#total').text('$'+(Number($('#total').text().substr(1)) - total));
-    }
-
-    function buyProducts(cart){
-        $.post('/buy', {cart: cart});
     }

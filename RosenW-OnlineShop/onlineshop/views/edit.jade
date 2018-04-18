@@ -1,0 +1,18 @@
+doctype html
+html
+  head
+    title= title
+    link(rel='stylesheet', href='/stylesheets/form.css')
+    link(rel='stylesheet', href='/stylesheets/navbar.css')
+  body
+    block content
+      include ./navbar.jade
+      div
+        form.form(method='post')
+          label Name :
+          input#name(type='text', name='name', value='#{data.name}')
+          label Price (in $) :
+          input#price(type='text', name='price', value='#{data.price}')
+          label Quantity :
+          input#quantity(type='text', name='quant', value='#{data.quantity}')
+          input#edit(type='submit', name='loginiBtn', value='Edit')

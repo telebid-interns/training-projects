@@ -25,12 +25,17 @@ table(style='width:45%')
             input(id="input-#{item.id}" type='text', placeholder='quant.', style='width: 50px') 
           td
             button(onclick="add('#{item.id}')") add
+        if data.isAdmin
+          td
+            button(onclick="location.href = 'edit/#{item.id}';") edit
+          td
+            button(onclick="location.href = 'delete/#{item.id}';") delete
 script.
   function add(id){
     let box = $('#input-' + id);
     let textBoxValue = box.val();
     box.val("");
-    if(isNumber(textBoxValue) && isWholeNumber(textBoxValue)){
+    if(isNumber(textBoxValue) && isWholeNumber(textBoxValue) && Number(textBoxValue)>0){
       $.post('/addtocart', {id: id, quant: textBoxValue});
       alert('Product added to cart');
     }

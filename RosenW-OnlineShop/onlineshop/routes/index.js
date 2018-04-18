@@ -54,8 +54,8 @@ router.get('/login', function(req, res, next) {
 /* GET logout. */
 router.get('/logout', function(req, res, next) {
   isLoggedIn = false;
-  username = 'Guest';  
   isAdmin = false;
+  username = 'Guest';  
   res.redirect(303, '/');
 });
 
@@ -140,6 +140,58 @@ router.get('/add', function(req, res, next) {
   res.render('add', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin}});
 });
 
+/* GET check page. */
+router.get('/check', function(req, res, next) {
+  if(!isAdmin){
+    res.redirect(303, '/');
+  }
+  let purchases = [];
+  let count = 1;
+  client.query(sqlFormatter("select p.date, p.id, a.name, st.name as state from accounts as a join purchases as p on a.id = p.userid join states as st on st.id = p.state order by p.date asc, state asc"))
+  .then((data)=>{
+    data.rows.forEach((row)=>{
+      row.number = count++;
+      purchases.push(row);
+    });
+    res.render('check', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'purchases': purchases}});  
+  });
+});
+
+/* GET check page. */
+router.get('/check/:id', function(req, res, next) {
+  if(!isAdmin){
+    res.redirect(303, '/');
+  }
+  let purchId = req.params.id;
+  
+  let currentCart = [];
+
+  client.query(sqlFormatter('select pr.name, sum(pi.quantity) as quantity, pr.price, pr.id from purchase_items as pi join purchases as pur on pi.purchaseId = pur.id join products as pr on pr.id = pi.prodid where pur.id = %L group by pr.name, pr.price, pr.id order by pr.name asc', purchId))
+  .then((data)=>{
+    let totalPrice = 0;
+    let count = 1;
+    data.rows.forEach((row)=>{
+      totalPrice += (Number(row.price) * Number(row.quantity)); 
+      row.number = count++;
+      currentCart.push(row);
+    });
+    res.render('purchases', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'cart': currentCart, 'total': totalPrice}});
+  });
+});
+
+/* POST check page. */
+router.post('/check/:id', function(req, res, next) {
+  if(!isAdmin){
+    res.redirect(303, '/');
+  }
+
+  let purchID = req.params.id;
+  let newState = req.body.state;
+
+  client.query(sqlFormatter("update purchases set state = %L where id = %L", newState, purchID))
+  .then(res.redirect(303, '/check'));
+});
+
 /* POST add prod page. */
 router.post('/add', function(req, res) {
   let name = req.body.name;
@@ -166,11 +218,48 @@ router.get('/cart', function(req, res, next) {
     data.rows.forEach((row)=>{
       totalPrice += (Number(row.price) * Number(row.quantity)); 
       row.number = count++;
+      row.quantity = parseFloat(Math.round(row.quantity * 100) / 100).toFixed(2);
       currentCart.push(row);
     });
-    
     res.render('cart', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'cart': currentCart, 'total': totalPrice}});
   });
+});
+
+/* GET edit page. */
+router.get('/edit/:id', function(req, res, next) {
+  if(!isAdmin){
+    res.redirect(303, '/');
+  }
+  let productId = req.params.id;
+  client.query(sqlFormatter("select p.name, p.price, p.quantity from products as p where p.id = %L", productId))
+  .then((data)=>{
+    let row = data.rows[0];
+    let name = row.name;
+    let price = row.price;
+    let quantity = row.quantity;
+
+    res.render('edit', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'name': name, 'price': price, 'quantity': quantity}});
+  });
+});
+
+//Delete product todo
+router.delete('/delete/:id', function(req,res){
+  console.log('DELETE');
+});
+
+
+/* POST edit page. */
+router.post('/edit/:id', function(req, res, next) {
+  if(!isAdmin){
+    res.redirect(303, '/');
+  }
+  let productId = req.params.id;
+  let name = req.body.name;
+  let price = req.body.price;
+  let quant = req.body.quant;
+
+  client.query(sqlFormatter("update products set name = %L, price = %L, quantity = %L where id = %L;", name, price, quant, productId))
+  .then(res.redirect(303, '/'));
 });
 
 /* POST add to cart. */
@@ -192,22 +281,50 @@ router.post('/remove', function(req, res) {
   client.query(sqlFormatter("delete from cart_items as ci using shopping_carts as sc where ci.cartid = sc.id and ci.prodId = %L and sc.userid = %L",  itemId, loggedInUserId));
 });
 
-/* POST buy. */
-router.post('/buy', function(req, res) {
+/* POST cart (buy). */
+router.post('/cart', function(req, res) {
+  let pass = true;
+  //get user prods
+  client
+  .query(sqlFormatter("select pr.id, ci.quantity, pr.quantity as max from cart_items as ci join products as pr on ci.prodid = pr.id join shopping_carts as sc on ci.cartid = sc.id where sc.userid = %L;", loggedInUserId))
+  .then((data)=>{
+    //check if cart empty todo
+    if(data.rows.length === 0){
+      pass = false;
+    }
+    data.rows.forEach((row)=>{
+      if(row.quantity > row.max){
+        pass = false;
+      }
+    });
 
-  //cart clean up
-  client.query(sqlFormatter("delete from cart_items as ci using shopping_carts as sc where ci.cartid = sc.id and sc.userid = %L", loggedInUserId));
-  // select ci.prodid, ci.quantity, pr.price 
-  // from cart_items as ci 
-  // join shopping_carts as sc 
-  // on ci.cartId = sc.id 
-  // join products as pr 
-  // on pr.id = ci.prodId
-  // where sc.userId = 'ac81e103-65cc-b906-7d5f-dfb83aa1fe66';
+    if(pass){
+      data.rows.forEach((row)=>{
+        //row.max = row.max - row.quant
+        let newQuantity = row.max - row.quantity;
+        client.query(sqlFormatter("update products set quantity = %L where id = %L", newQuantity, row.id));
+      });
+      //make a purchase
+      let currentPurchaseId = generateId();
+      client.query(sqlFormatter("insert into purchases values(%L, %L, 0, %L)", currentPurchaseId, loggedInUserId, getDate()));
 
-
-
-  client.query(sqlFormatter("select from ",  itemId));
+      data.rows.forEach((row)=>{
+        //add products to purchase
+        client.query(sqlFormatter("insert into purchase_items values(%L, %L, %L, %L)", generateId(), row.id, currentPurchaseId, row.quantity));
+      });
+    }
+  })
+  .then(()=>{
+    if(pass){
+      //cart clean up
+      client.query(sqlFormatter("delete from cart_items as ci using shopping_carts as sc where ci.cartid = sc.id and sc.userid = %L", loggedInUserId))
+      .then(()=>{
+        res.redirect(303, '/');
+      });  
+    }else{
+      res.redirect(303, '/cart');
+    }
+  });
 });
 
 function generateId() {
@@ -230,6 +347,24 @@ function validateName(name){
 function validatePass(pass){
   var reg = /^(\w{6,})$/;
   return reg.test(String(pass).toLowerCase());
+}
+
+function getDate(){
+  var today = new Date();
+  var dd = today.getDate();
+  var mm = today.getMonth()+1; //January is 0!
+  var yyyy = today.getFullYear();
+
+  if(dd<10) {
+      dd = '0'+dd
+  } 
+
+  if(mm<10) {
+      mm = '0'+mm
+  } 
+
+  today = dd + '-' + mm + '-' + yyyy;
+  return today;
 }
 
 module.exports = router;

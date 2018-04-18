@@ -15,17 +15,22 @@ table(style='width:45%')
     th(align="right") Quantity
     th(align="right") Total
   each item in data.cart
-      tr
+      tr(id="row-#{item.id}")
         td #{item.number}
         td #{item.name}
         td(align="right") #{item.quantity}
         td(align="right") $#{item.price * item.quantity}
-        td
-            button(onclick="remove('#{item.id}')") remove
   tr 
     td Total: 
-    td $#{data.total}
+    td#total $#{data.total}
     td
     td
     td
-        button(onclick="buyProducts()") buy
+
+
+form.form(method='post')
+    select(name='state')
+        option(value='0') Awaiting Delivery
+        option(value='1') Being Delivered
+        option(value='2') Delivered
+    input#change(type='submit', name='buybtn', value='Change')
