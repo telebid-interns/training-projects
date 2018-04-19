@@ -147,7 +147,7 @@ router.get('/check', function(req, res, next) {
   }
   let purchases = [];
   let count = 1;
-  client.query(sqlFormatter("select p.date, p.id, a.name, st.name as state from accounts as a join purchases as p on a.id = p.userid join states as st on st.id = p.state order by p.date asc, state asc"))
+  client.query(sqlFormatter("select p.date, p.id, a.name, st.name as state from accounts as a join purchases as p on a.id = p.userid join states as st on st.id = p.state order by state asc, p.date asc"))
   .then((data)=>{
     data.rows.forEach((row)=>{
       row.number = count++;
@@ -157,7 +157,7 @@ router.get('/check', function(req, res, next) {
   });
 });
 
-/* GET check page. */
+/* GET check:id page. */
 router.get('/check/:id', function(req, res, next) {
   if(!isAdmin){
     res.redirect(303, '/');
@@ -218,10 +218,11 @@ router.get('/cart', function(req, res, next) {
     data.rows.forEach((row)=>{
       totalPrice += (Number(row.price) * Number(row.quantity)); 
       row.number = count++;
-      row.quantity = parseFloat(Math.round(row.quantity * 100) / 100).toFixed(2);
+      row.price = parseFloat(Math.round(row.quantity * row.price * 100) / 100).toFixed(2);;
       currentCart.push(row);
     });
-    res.render('cart', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'cart': currentCart, 'total': totalPrice}});
+    let fixedPrice = parseFloat(Math.round(totalPrice * 100) / 100).toFixed(2);
+    res.render('cart', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'cart': currentCart, 'total': fixedPrice}});
   });
 });
 
@@ -242,9 +243,24 @@ router.get('/edit/:id', function(req, res, next) {
   });
 });
 
-//Delete product todo
-router.delete('/delete/:id', function(req,res){
-  console.log('DELETE');
+//get delete product
+router.get('/delete/:id', function(req,res){
+  if(!isAdmin){
+    res.redirect(303, '/');
+  }
+  let id = req.params.id;
+  client.query(sqlFormatter("delete from products as p where p.id = %L", id));
+  res.redirect(303, '/');
+});
+
+//get remove product from cart
+router.get('/remove/cart/:id', function(req,res){
+  if(!isLoggedIn){
+    res.redirect(303, '/');
+  }
+  let id = req.params.id;
+  client.query(sqlFormatter("delete from cart_items as ci using shopping_carts as sc where ci.cartid = sc.id and ci.prodid = %L and sc.userid = %L", id, loggedInUserId))
+  .then(res.redirect(303, '/cart'));
 });
 
 
@@ -318,9 +334,7 @@ router.post('/cart', function(req, res) {
     if(pass){
       //cart clean up
       client.query(sqlFormatter("delete from cart_items as ci using shopping_carts as sc where ci.cartid = sc.id and sc.userid = %L", loggedInUserId))
-      .then(()=>{
-        res.redirect(303, '/');
-      });  
+      .then(res.redirect(303, '/'));  
     }else{
       res.redirect(303, '/cart');
     }

@@ -19,9 +19,9 @@ table(style='width:45%')
         td #{item.number}
         td #{item.name}
         td(align="right") #{item.quantity}
-        td(align="right") $#{item.price * item.quantity}
+        td(align="right") $#{item.price}
         td
-            button(onclick="remove('#{item.id}', #{item.price * item.quantity})") remove
+            button(onclick="location.href = 'remove/cart/#{item.id}';") remove
   tr 
     td Total: 
     td#total $#{data.total}

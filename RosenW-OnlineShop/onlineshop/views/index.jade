@@ -22,7 +22,7 @@ table(style='width:45%')
         td(align="right") #{item.quantity}
         if data.isLoggedIn
           td(style='width: 10px')
-            input(id="input-#{item.id}" type='text', placeholder='quant.', style='width: 50px') 
+            input(id="input-#{item.id}" type='text', placeholder='quant.', style='width: 50px', maxlength="3" ) 
           td
             button(onclick="add('#{item.id}')") add
         if data.isAdmin
@@ -35,7 +35,7 @@ script.
     let box = $('#input-' + id);
     let textBoxValue = box.val();
     box.val("");
-    if(isNumber(textBoxValue) && isWholeNumber(textBoxValue) && Number(textBoxValue)>0){
+    if(isNumber(textBoxValue) && isWholeNumber(textBoxValue) && Number(textBoxValue)>0 && Number(textBoxValue)<1000){
       $.post('/addtocart', {id: id, quant: textBoxValue});
       alert('Product added to cart');
     }
