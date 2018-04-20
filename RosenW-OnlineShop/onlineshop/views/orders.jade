@@ -11,18 +11,16 @@ html
 table(style='width:45%')
   tr
     th(align="left") №
-    th(align="left") User
     th(align="left") State
     th(align="right") Date
   each item in data.purchases
       tr
         td #{item.number}
-        td #{item.name}
         td(align="left") #{item.state}
         td(align="right") #{item.date}
         td
-            button(onclick="location.href = 'check/#{item.id}';") see
+            button(onclick="location.href = 'order/#{item.id}';") see
 
 script.
   //make link with black bg
-  $('#nav-pur').addClass('page');
+  $('#nav-orders').addClass('page');

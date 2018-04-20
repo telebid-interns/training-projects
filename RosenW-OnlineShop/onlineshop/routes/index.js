@@ -29,6 +29,7 @@ router.get('/', function(req, res, next) {
     let number = 0;
     prods.rows.forEach((prod)=>{
       prod.number = ++number;
+      prod.price = addTrailingZeros(prod.price);
       products.push(prod);
     });
     res.render('index', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'prods': products}});
@@ -157,13 +158,51 @@ router.get('/check', function(req, res, next) {
   });
 });
 
+/* GET orders page. */
+router.get('/orders', function(req, res, next) {
+  if(!isLoggedIn){
+    res.redirect(303, '/');
+  }
+  let purchases = [];
+  let count = 1;
+  client.query(sqlFormatter('select p.id, p.date, s.name as state from purchases as p join states as s on s.id = p.state where p.userid = %L order by state asc, p.date asc;', loggedInUserId))
+  .then((data)=>{
+    data.rows.forEach((row)=>{
+      row.number = count++;
+      purchases.push(row);
+    });
+    res.render('orders', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'purchases': purchases}});
+  });
+});
+
+/* GET order:id page. */
+router.get('/order/:id', function(req, res, next) {
+  if(!isLoggedIn){
+    res.redirect(303, '/');
+  }
+  orderId = req.params.id;
+  let order = [];
+  client.query(sqlFormatter('select pr.name, sum(pi.quantity) as quantity, pr.price, pr.id from purchase_items as pi join purchases as pur on pi.purchaseId = pur.id join products as pr on pr.id = pi.prodid where pur.id = %L group by pr.name, pr.price, pr.id order by pr.name asc', orderId))
+  .then((data)=>{
+    let totalPrice = 0;
+    let count = 1;
+    data.rows.forEach((row)=>{
+      totalPrice += (Number(row.price) * Number(row.quantity));
+      row.number = count++;
+      row.price = addTrailingZeros(row.price);
+      order.push(row);
+    });
+    totalPrice = addTrailingZeros(totalPrice);
+    res.render('itemsInOrder', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'order': order, 'total': totalPrice}});
+  });
+});
+
 /* GET check:id page. */
 router.get('/check/:id', function(req, res, next) {
   if(!isAdmin){
     res.redirect(303, '/');
   }
   let purchId = req.params.id;
-  
   let currentCart = [];
 
   client.query(sqlFormatter('select pr.name, sum(pi.quantity) as quantity, pr.price, pr.id from purchase_items as pi join purchases as pur on pi.purchaseId = pur.id join products as pr on pr.id = pi.prodid where pur.id = %L group by pr.name, pr.price, pr.id order by pr.name asc', purchId))
@@ -173,8 +212,10 @@ router.get('/check/:id', function(req, res, next) {
     data.rows.forEach((row)=>{
       totalPrice += (Number(row.price) * Number(row.quantity)); 
       row.number = count++;
+      row.price = addTrailingZeros(row.price);
       currentCart.push(row);
     });
+    totalPrice = addTrailingZeros(totalPrice);
     res.render('purchases', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'cart': currentCart, 'total': totalPrice}});
   });
 });
@@ -206,7 +247,7 @@ router.post('/add', function(req, res) {
 
 /* GET cart page. */
 router.get('/cart', function(req, res, next) {
-  if(!isLoggedIn){
+  if(!isLoggedIn || isAdmin){
     res.redirect(303, '/');
   }
   let currentCart = [];
@@ -218,11 +259,11 @@ router.get('/cart', function(req, res, next) {
     data.rows.forEach((row)=>{
       totalPrice += (Number(row.price) * Number(row.quantity)); 
       row.number = count++;
-      row.price = parseFloat(Math.round(row.quantity * row.price * 100) / 100).toFixed(2);;
+      row.price = addTrailingZeros(row.price);
       currentCart.push(row);
     });
-    let fixedPrice = parseFloat(Math.round(totalPrice * 100) / 100).toFixed(2);
-    res.render('cart', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'cart': currentCart, 'total': fixedPrice}});
+    totalPrice = addTrailingZeros(totalPrice);
+    res.render('cart', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'cart': currentCart, 'total': totalPrice}});
   });
 });
 
@@ -340,6 +381,9 @@ router.post('/cart', function(req, res) {
     }
   });
 });
+function addTrailingZeros(number){
+  return parseFloat(Math.round(number * 100) / 100).toFixed(2);
+}
 
 function generateId() {
   var S4 = function() {

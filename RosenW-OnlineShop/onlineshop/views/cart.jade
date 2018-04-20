@@ -24,16 +24,19 @@ table(style='width:45%')
             button(onclick="location.href = 'remove/cart/#{item.id}';") remove
   tr 
     td Total: 
-    td#total $#{data.total}
     td
     td
+    td(align="right", id="total", style="font-weight:bold") $#{data.total}
     td
       form.form(method='post')
         input#buy(type='submit', name='buybtn', value='Buy')
 
 script.
+  //make link with black bg
+  $('#nav-sc').addClass('page');
     function remove(id, total){
         $.post('/remove', {id: id});
         $('#row-' + id).remove();
         $('#total').text('$'+(Number($('#total').text().substr(1)) - total));
     }
+    

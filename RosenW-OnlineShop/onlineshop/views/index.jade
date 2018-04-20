@@ -20,9 +20,9 @@ table(style='width:45%')
         td #{item.name}
         td(align="right") $#{item.price}
         td(align="right") #{item.quantity}
-        if data.isLoggedIn
+        if data.isLoggedIn && !data.isAdmin
           td(style='width: 10px')
-            input(id="input-#{item.id}" type='text', placeholder='quant.', style='width: 50px', maxlength="3" ) 
+            input(id="input-#{item.id}" type='text', placeholder='quant.', style='width: 50px', onkeyup="changeQuantity('#{item.id}', '#{item.quantity}')" ) 
           td
             button(onclick="add('#{item.id}')") add
         if data.isAdmin
@@ -31,6 +31,17 @@ table(style='width:45%')
           td
             button(onclick="location.href = 'delete/#{item.id}';") delete
 script.
+  //make link with black bg
+  $('#nav-home').addClass('page');
+  //changes quantity to max allowed
+  function changeQuantity(id, max){
+    let quantityBox = $('#input-' + id);
+    let value = quantityBox.val();
+    if(Number(value)>max){
+      quantityBox.val(max);
+    }
+  }
+
   function add(id){
     let box = $('#input-' + id);
     let textBoxValue = box.val();

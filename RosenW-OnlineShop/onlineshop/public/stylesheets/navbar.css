@@ -22,3 +22,8 @@ li a {
 li a:hover {
     background-color: #111;
 }
+
+/* Change the link color to #111 (black) if on page */
+li a.page{
+    background-color: #111;
+}

@@ -1,30 +1,29 @@
-
 if !data.isLoggedIn
   ul
         li
-           a(href='/') Home
+           a(href='/' id='nav-home') Home
         li
-           a(href='/login') Log in
+           a(href='/login' id='nav-login') Log in
         li
-           a(href='/register') Register
+           a(href='/register' id='nav-register') Register
 else
   if data.isAdmin
     ul
           li
-            a(href='/') Home
+            a(href='/' id='nav-home') Home
           li
-            a(href='/add') Add Product
+            a(href='/add' id='nav-addpr') Add Product
           li
-            a(href='/check') Purchases
-          li
-            a(href='/cart') Shopping Cart
+            a(href='/check' id='nav-pur') Purchases
           li
             a(href='/logout') Log out
   else
     ul
             li
-              a(href='/') Home
+              a(href='/' id='nav-home') Home
             li
-              a(href='/cart') Shopping Cart
+              a(href='/cart' id='nav-sc') Shopping Cart
+            li
+              a(href='/orders' id='nav-orders') My Orders
             li
               a(href='/logout') Log out

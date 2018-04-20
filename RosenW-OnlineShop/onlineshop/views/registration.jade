@@ -4,6 +4,8 @@ html
     title= title
     link(rel='stylesheet', href='/stylesheets/form.css')
     link(rel='stylesheet', href='/stylesheets/navbar.css')
+    script(type='text/javascript' src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js")
+
   body
     block content
       include ./navbar.jade
@@ -18,3 +20,7 @@ html
           label Confirm Password :
           input#cpassword(type='password', name='cpassword')
           input#register(type='submit', name='regBtn', value='Register')
+
+script.
+  //make link with black bg
+  $('#nav-register').addClass('page');

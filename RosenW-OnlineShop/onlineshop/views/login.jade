@@ -4,6 +4,8 @@ html
     title= title
     link(rel='stylesheet', href='/stylesheets/form.css')
     link(rel='stylesheet', href='/stylesheets/navbar.css')
+    script(type='text/javascript' src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js")
+
   body
     block content
       include ./navbar.jade
@@ -14,3 +16,7 @@ html
           label Password :
           input#password(type='password', name='password')
           input#login(type='submit', name='loginiBtn', value='Log In')
+
+script.
+  //make link with black bg
+  $('#nav-login').addClass('page');
