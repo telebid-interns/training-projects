@@ -1,0 +1,23 @@
+doctype html
+html
+  head
+    title= title
+    link(rel='stylesheet', href='/stylesheets/navbar.css')
+    script(type='text/javascript' src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js")
+
+  body
+    block content
+  include ./navbar.jade
+table(style='width:35%')
+  tr
+    th(align="left") №
+    th(align="left") Name
+  each item in data.cat
+      tr
+        td #{item.number}
+        td 
+            a(href="/category/#{item.id}") #{item.name}
+
+script.
+    //make link with black bg
+    $('#nav-home').addClass('page');

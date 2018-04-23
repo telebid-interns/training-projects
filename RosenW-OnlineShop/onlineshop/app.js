@@ -4,6 +4,7 @@ var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 var flash = require('connect-flash');
+let bodyParser = require('body-parser');
 
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
@@ -39,5 +40,8 @@ app.use(function(err, req, res, next) {
   res.status(err.status || 500);
   res.render('error');
 });
+//captcha
+// app.use(bodyParser.json());
+// app.use(bodyParser.urlencoded({ extended: true }));
 
 module.exports = app;

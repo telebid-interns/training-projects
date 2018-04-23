@@ -1,18 +1,28 @@
-var express = require('express');
-var router = express.Router();
-const pg = require('pg');
-var passwordHash = require('password-hash');
-var sqlFormatter = require('pg-format');
+let express = require('express');
+let nodemailer = require('nodemailer');
+let passwordHash = require('password-hash');
+let sqlFormatter = require('pg-format');
+let pg = require('pg');
+let router = express.Router();
+let Recaptcha = require('express-recaptcha').Recaptcha;
+let $ = require('jquery');
+let request = require('request');
+// set up email
+let transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+         user: 'mailsender6000@gmail.com',
+         pass: 'edno!dve@tri#'
+     }
+ });
 
 //login, data
-
-var isAdmin = false;
-var isLoggedIn = false;
-var loggedInUserId = '';
-var username = 'Guest';
+let isAdmin = false;
+let isLoggedIn = false;
+let loggedInUserId = '';
+let username = 'Guest';
 
 // Database connection
-
 const client = new pg.Client({
   user: 'postgres',
   host: 'localhost',
@@ -22,10 +32,25 @@ const client = new pg.Client({
 });
 client.connect();
 
-/* GET home page. */
+/* GET home/categories page. */
 router.get('/', function(req, res, next) {
+  let categories = [];
+  client.query("select * from categories as c order by c.name").then((cats)=>{
+    let number = 0;
+    cats.rows.forEach((cat)=>{
+      cat.number = ++number;
+      categories.push(cat);
+    });
+    res.render('categories', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'cat': categories}});
+  })
+});
+
+/* GET category page. */
+router.get('/category/:id', function(req, res, next) {
   let products = [];
-  client.query("select * from products as p order by p.name").then((prods)=>{
+  let catId = req.params.id;
+  client.query(sqlFormatter("select * from products as p where p.category = %L order by p.name", catId))
+  .then((prods)=>{
     let number = 0;
     prods.rows.forEach((prod)=>{
       prod.number = ++number;
@@ -60,43 +85,89 @@ router.get('/logout', function(req, res, next) {
   res.redirect(303, '/');
 });
 
+/* GET verify. */
+router.get('/verify/:id', function(req, res, next) {
+  //if id exists active = true, delete from email_codes
+  let verificationId = req.params.id;
+  client.query(sqlFormatter('select * from email_codes as ec where ec.id = %L', verificationId))
+  .then((data)=>{
+    if(data.rows.length !== 0){
+      let row = data.rows[0];
+      let id = row.id;
+      let userid = row.account;
+      client.query(sqlFormatter('update accounts set active = true where id = %L', userid));
+      client.query(sqlFormatter('delete from email_codes where id = %L', id));
+    }
+  });
+  res.redirect(303, '/login');
+});
+
 /* POST registration page */
 router.post('/register', function(req, res) {
+  let recaptchaResp = req.body['g-recaptcha-response'];
   let email = req.body.demail;
   let name = req.body.dname;
   let pass = req.body.password;
   let cpass = req.body.cpassword;
+  let link;
   let stop = false;
 
-  //check if username/email exist
-  client.query("select * from accounts").then((accs)=>{
-    accs.rows.forEach((acc)=>{
-      if(acc.name.toLowerCase() == name.toLowerCase() || acc.email.toLowerCase() == email.toLowerCase()){
-        //todo show error message ?
-        console.log('err');
-        res.redirect(303, '/register');
-        stop = true;
-      }
-    });
-  }).then(()=>{
-    if(!stop){
-      let hashedPass = passwordHash.generate(pass);
-      if(validateEmail(email) && validateName(name) && validatePass(pass) && pass === cpass){
-        let newUserId = generateId();
-        client.query(sqlFormatter("insert into accounts (id, email, name, pass, role) values(%L, %L, %L, %L, '1');", newUserId, email, name, hashedPass))
-        .then(()=>{
-          client.query(sqlFormatter("insert into shopping_carts (id, userId) values(%L, %L)", generateId(), newUserId))
+  let verifyURL = 'https://www.google.com/recaptcha/api/siteverify?secret=6LdF9FQUAAAAAJrUDQ7a-KxAtzKslyxhA7KZ-Bwt&response=' + recaptchaResp;
+  request(verifyURL, (err, response, body)=>{
+    body = JSON.parse(body);
+
+    if(body.success !== undefined && !body.success){ //failed captcha
+      res.redirect(303, '/register');
+    }else{ //passed captcha
+        //check if username/email exist
+    client.query("select * from accounts").then((accs)=>{
+      accs.rows.forEach((acc)=>{
+        if(acc.name.toLowerCase() == name.toLowerCase() || acc.email.toLowerCase() == email.toLowerCase()){
+          //todo show error message ?
+          console.log('err');
+          res.redirect(303, '/register');
+          stop = true;
+        }
+      });
+    }).then(()=>{
+      if(!stop){
+        let hashedPass = passwordHash.generate(pass);
+        if(validateEmail(email) && validateName(name) && validatePass(pass) && pass === cpass){
+          let newUserId = generateId();
+          client.query(sqlFormatter("insert into accounts values(%L, %L, %L, %L, '1', 'false');", newUserId, email, name, hashedPass))
           .then(()=>{
-            res.redirect(303, '/login');
-          });
-        })
-        .catch(e => console.error(e.stack));
-      }else{
-        res.redirect(303, '/register');
+            client.query(sqlFormatter("insert into shopping_carts (id, userId) values(%L, %L)", generateId(), newUserId))
+            .then(()=>{
+              let code = generateId();
+              client.query(sqlFormatter("insert into email_codes values(%L, %L)", code, newUserId))
+              .then(()=>{
+                let link = 'http://localhost:3000/verify/' + code;
+                // nodemailer.sendmail;
+                const mailOptions = {
+                  from: 'mailsender6000@gmail.com', // sender address
+                  to: email, // list of receivers
+                  subject: 'Account Verification at Localhost:3k', // Subject line
+                  html: '<p>Hello, to verify your account '+ name +' click the following link: '+link+'</p>'// plain text body
+                };
+                transporter.sendMail(mailOptions, function(error, info){
+                  if(error){
+                      return console.log(error);
+                  }
+                  console.log('Message sent: ' + info.response);
+              });
+              res.redirect(303, '/login');
+              });
+            });
+          })
+          .catch(e => console.error(e.stack));
+        }else{
+          res.redirect(303, '/register');
+        }
       }
+    })
+    .catch(e => console.error(e.stack));
     }
-  })
-  .catch(e => console.error(e.stack));
+  });
 });
 
 /* POST login page */
@@ -111,7 +182,7 @@ router.post('/login', function(req, res) {
       accounts.rows.forEach((account)=>{
         if(account.name === name){
           foundUser = true;
-          if(passwordHash.verify(pass, account.pass)){
+          if(passwordHash.verify(pass, account.pass) && account.active){
             isLoggedIn = true;
             username = account.name;
             loggedInUserId = account.id;
