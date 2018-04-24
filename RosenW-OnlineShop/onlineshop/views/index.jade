@@ -11,13 +11,17 @@ html
 table(style='width:45%')
   tr
     th(align="left") №
-    th Name
-    th(align="right") Price
-    th(align="right") Quantity in stock
+    th(align="left") 
+      a(id="name-row" href="?s=1") Product
+    th(align="right") 
+      a(id="price-row" href="?s=2") Price
+    th(align="right")
+      a(id="quantity-row" href="?s=3") Quantity in stock
   each item in data.prods
       tr
         td #{item.number}
-        td #{item.name}
+        td
+          a(onclick="showDescr('#{item.description}')", href='#') #{item.name}
         td(align="right") $#{item.price}
         td(align="right") #{item.quantity}
         if data.isLoggedIn && !data.isAdmin
@@ -27,12 +31,19 @@ table(style='width:45%')
             button(onclick="add('#{item.id}')") add
         if data.isAdmin
           td
-            button(onclick="location.href = 'edit/#{item.id}';") edit
+            button(onclick="location.href = '/edit/#{item.id}';") edit
           td
-            button(onclick="location.href = 'delete/#{item.id}';") delete
+            button(onclick="location.href = '/delete/#{item.id}';") delete
 script.
   //make link with black bg
   $('#nav-home').addClass('page');
+  $('#nav-home').text('Back');
+
+  //sorting
+  function sortByQuantity(){
+    console.log(data.prods);
+  }
+
   //changes quantity to max allowed
   function changeQuantity(id, max){
     let quantityBox = $('#input-' + id);
@@ -50,6 +61,9 @@ script.
       $.post('/addtocart', {id: id, quant: textBoxValue});
       alert('Product added to cart');
     }
+  }
+  function showDescr(descr){
+    alert(descr);
   }
   function isNumber(n) {
     return !isNaN(parseFloat(n)) && isFinite(n);

@@ -209,7 +209,12 @@ router.get('/add', function(req, res, next) {
   if(!isAdmin){
     res.redirect(303, '/');
   }
-  res.render('add', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin}});
+  let ctg = [];
+  client.query(sqlFormatter("select * from categories as c"))
+  .then((data)=>{
+    data.rows.forEach((row) => ctg.push(row.name));
+    res.render('add', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'ctg': ctg}});
+  });
 });
 
 /* GET check page. */
@@ -309,8 +314,10 @@ router.post('/add', function(req, res) {
   let name = req.body.name;
   let price = req.body.price;
   let quant = req.body.quant;
+  let descr = req.body.descr;
+  let ctg = Number(req.body.ctg) + 1; // offset +1
 
-  client.query(sqlFormatter("insert into products values(%L, %L, %L, %L);", generateId(), name, price, quant))
+  client.query(sqlFormatter("insert into products values(%L, %L, %L, %L, %L, %L);", generateId(), name, price, quant, ctg, descr))
         .catch(e => console.error(e.stack));
 
   res.redirect(303, '/');
@@ -344,14 +351,19 @@ router.get('/edit/:id', function(req, res, next) {
     res.redirect(303, '/');
   }
   let productId = req.params.id;
-  client.query(sqlFormatter("select p.name, p.price, p.quantity from products as p where p.id = %L", productId))
+  client.query(sqlFormatter("select p.name, p.price, p.quantity, p.description from products as p where p.id = %L", productId))
   .then((data)=>{
+    let ctg = [];
     let row = data.rows[0];
     let name = row.name;
     let price = row.price;
     let quantity = row.quantity;
-
-    res.render('edit', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'name': name, 'price': price, 'quantity': quantity}});
+    let descr = row.description;
+    client.query(sqlFormatter("select * from categories as c"))
+    .then((data)=>{
+      data.rows.forEach((row) => ctg.push(row.name));
+      res.render('edit', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'name': name, 'price': price, 'quantity': quantity, 'descr': descr, 'ctg': ctg}});
+    }); 
   });
 });
 
@@ -385,8 +397,10 @@ router.post('/edit/:id', function(req, res, next) {
   let name = req.body.name;
   let price = req.body.price;
   let quant = req.body.quant;
+  let descr = req.body.descr;
+  let ctg = Number(req.body.ctg) + 1; // offset +1
 
-  client.query(sqlFormatter("update products set name = %L, price = %L, quantity = %L where id = %L;", name, price, quant, productId))
+  client.query(sqlFormatter("update products set name = %L, price = %L, quantity = %L, category = %L, description = %L where id = %L;", name, price, quant, ctg, descr, productId))
   .then(res.redirect(303, '/'));
 });
 
