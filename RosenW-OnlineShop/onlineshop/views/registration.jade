@@ -12,10 +12,14 @@ html
       include ./navbar.jade
       div
         form.form(method='post')
-          label Name :
-          input#name(type='text', name='dname')
+          label First Name :
+          input#fname(type='text', name='fname')
+          label Last Name :
+          input#lname(type='text', name='lname')
+          label Address (optional) :
+          input#address(type='text', name='address')
           label Email :
-          input#email(type='text', name='demail')
+          input#email(type='text', name='email')
           label Password :
           input#password(type='password', name='password')
           label Confirm Password :

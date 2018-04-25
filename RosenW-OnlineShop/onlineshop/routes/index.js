@@ -45,6 +45,26 @@ router.get('/', function(req, res, next) {
   })
 });
 
+/* POST home(search) page. */
+router.post('/', function(req, res, next) {
+  let word = req.body.name;
+  let products = [];
+  let count = 1;
+  if(/^[a-zA-Z]+$/.test(word)){
+    client.query(sqlFormatter("select * from products as p where upper(p.name) like upper(\'%"+word+"%\')"))
+    .then((data)=>{
+      data.rows.forEach((row)=>{
+        row.number = count++;
+        products.push(row);
+      });
+      res.render('index', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'prods': products}});
+    });
+  }else{
+    res.redirect(303, '/');
+  }
+});
+
+
 /* GET category page. */
 router.get('/category/:id', function(req, res, next) {
   let products = [];
@@ -105,8 +125,10 @@ router.get('/verify/:id', function(req, res, next) {
 /* POST registration page */
 router.post('/register', function(req, res) {
   let recaptchaResp = req.body['g-recaptcha-response'];
-  let email = req.body.demail;
-  let name = req.body.dname;
+  let email = req.body.email;
+  let fName = req.body.fname;
+  let lName = req.body.lname;
+  let address = req.body.address;
   let pass = req.body.password;
   let cpass = req.body.cpassword;
   let link;
@@ -119,10 +141,10 @@ router.post('/register', function(req, res) {
     if(body.success !== undefined && !body.success){ //failed captcha
       res.redirect(303, '/register');
     }else{ //passed captcha
-        //check if username/email exist
+        //check if email exist
     client.query("select * from accounts").then((accs)=>{
       accs.rows.forEach((acc)=>{
-        if(acc.name.toLowerCase() == name.toLowerCase() || acc.email.toLowerCase() == email.toLowerCase()){
+        if(acc.email.toLowerCase() == email.toLowerCase()){
           //todo show error message ?
           console.log('err');
           res.redirect(303, '/register');
@@ -132,9 +154,9 @@ router.post('/register', function(req, res) {
     }).then(()=>{
       if(!stop){
         let hashedPass = passwordHash.generate(pass);
-        if(validateEmail(email) && validateName(name) && validatePass(pass) && pass === cpass){
+        if(validateEmail(email) && validateName(fName) && validateName(lName) && validatePass(pass) && pass === cpass){
           let newUserId = generateId();
-          client.query(sqlFormatter("insert into accounts values(%L, %L, %L, %L, '1', 'false');", newUserId, email, name, hashedPass))
+          client.query(sqlFormatter("insert into accounts (id, email, first_name, last_name, address, pass, role, active) values(%L, %L, %L, %L, %L, %L, '1', 'false');", newUserId, email, fName, lName, address, hashedPass))
           .then(()=>{
             client.query(sqlFormatter("insert into shopping_carts (id, userId) values(%L, %L)", generateId(), newUserId))
             .then(()=>{
@@ -147,7 +169,7 @@ router.post('/register', function(req, res) {
                   from: 'mailsender6000@gmail.com', // sender address
                   to: email, // list of receivers
                   subject: 'Account Verification at Localhost:3k', // Subject line
-                  html: '<p>Hello, to verify your account '+ name +' click the following link: '+link+'</p>'// plain text body
+                  html: '<p>Hello ' + fName + ',\n to verify your account click the following link: '+link+'</p>'// plain text body
                 };
                 transporter.sendMail(mailOptions, function(error, info){
                   if(error){
@@ -172,7 +194,7 @@ router.post('/register', function(req, res) {
 
 /* POST login page */
 router.post('/login', function(req, res) {
-  let name = req.body.dname;
+  let email = req.body.email;
   let pass = req.body.password;
   let foundUser = false;
 
@@ -180,11 +202,11 @@ router.post('/login', function(req, res) {
     .query("select * from accounts")
     .then((accounts)=>{
       accounts.rows.forEach((account)=>{
-        if(account.name === name){
+        if(account.email === email){
           foundUser = true;
           if(passwordHash.verify(pass, account.pass) && account.active){
             isLoggedIn = true;
-            username = account.name;
+            username = account.firstName;
             loggedInUserId = account.id;
             if(account.role == 2){
               isAdmin = true;
@@ -198,7 +220,7 @@ router.post('/login', function(req, res) {
       });
       if(!foundUser){
         //req.flash("error", "No such user"); TODO
-            return res.render('login', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin}});
+        return res.render('login', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin}});
       }
     })
     .catch(e => console.error(e.stack));
@@ -224,7 +246,7 @@ router.get('/check', function(req, res, next) {
   }
   let purchases = [];
   let count = 1;
-  client.query(sqlFormatter("select p.date, p.id, a.name, st.name as state from accounts as a join purchases as p on a.id = p.userid join states as st on st.id = p.state order by state asc, p.date asc"))
+  client.query(sqlFormatter("select p.date, p.id, a.first_name, st.name as state from accounts as a join purchases as p on a.id = p.userid join states as st on st.id = p.state order by state asc, p.date asc"))
   .then((data)=>{
     data.rows.forEach((row)=>{
       row.number = count++;
@@ -294,6 +316,32 @@ router.get('/check/:id', function(req, res, next) {
     totalPrice = addTrailingZeros(totalPrice);
     res.render('purchases', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'cart': currentCart, 'total': totalPrice}});
   });
+});
+
+/* GET profile page */
+router.get('/profile', function(req, res, next) {
+  if(isAdmin || !isLoggedIn){
+    res.redirect(303, '/');
+  }
+  let profData = [];
+  client.query(sqlFormatter('select a.first_name as fn, a.last_name as ln, a.address from accounts as a where a.id = %L', loggedInUserId))
+  .then((data)=>{
+    data.rows.forEach((row)=>profData.push(row));
+    res.render('profile', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'p': profData}});
+  });
+});
+
+/* POST profile page. */
+router.post('/profile', function(req, res, next) {
+  if(isAdmin || !isLoggedIn){
+    res.redirect(303, '/');
+  }
+  let fName = req.body.fname;
+  let lName = req.body.lname;
+  let address = req.body.address;
+
+  client.query(sqlFormatter("update accounts set first_name = %L, last_name = %L, address = %L where id = %L", fName, lName, address, loggedInUserId))
+  .then(res.redirect(303, '/'));
 });
 
 /* POST check page. */
@@ -483,7 +531,7 @@ function validateEmail(email) {
 }
 
 function validateName(name){
-  var reg = /^(\w{6,})$/;
+  var reg = /^(\w{3,})$/;
   return reg.test(String(name).toLowerCase());
 }
 

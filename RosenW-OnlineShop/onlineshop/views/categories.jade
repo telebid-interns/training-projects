@@ -8,15 +8,18 @@ html
   body
     block content
   include ./navbar.jade
-table(style='width:35%')
-  tr
-    th(align="left") №
-    th(align="left") Categories
-  each item in data.cat
-      tr
-        td #{item.number}
-        td 
-            a(href="/category/#{item.id}") #{item.name}
+  form(method='post')
+    input(type='textbox', placeholder='Search product by name', name='name')
+    input(type='submit', value='Search')
+  table(style='width:35%')
+    tr
+      th(align="left") №
+      th(align="left") Categories
+    each item in data.cat
+        tr
+          td #{item.number}
+          td 
+              a(href="/category/#{item.id}") #{item.name}
 
 script.
     //make link with black bg

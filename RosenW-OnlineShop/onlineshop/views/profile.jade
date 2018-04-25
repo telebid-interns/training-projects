@@ -1,0 +1,25 @@
+doctype html
+html
+  head
+    title= title
+    link(rel='stylesheet', href='/stylesheets/form.css')
+    link(rel='stylesheet', href='/stylesheets/navbar.css')
+    script(type='text/javascript' src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js")
+
+  body
+    block content
+      include ./navbar.jade
+      div
+        form.form(method='post')
+          label First Name :
+          input#fname(type='text', name='fname' value='#{data.p[0].fn}')
+          label Last Name :
+          input#lname(type='text', name='lname' value='#{data.p[0].ln}')
+          label Address :
+          input#address(type='text', name='address' value='#{data.p[0].address}')
+          -console.log(data.p)
+          input#save(type='submit', name='saveBtn', value='Save')
+
+script.
+  //make link with black bg
+  $('#nav-prof').addClass('page');
