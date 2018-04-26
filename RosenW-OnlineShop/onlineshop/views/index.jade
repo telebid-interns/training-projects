@@ -3,7 +3,8 @@ html
   head
     title= title
     link(rel='stylesheet', href='/stylesheets/navbar.css')
-    script(type='text/javascript' src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js")
+    script(type='text/javascript' src="/js/jquery.min.js")
+    script(type='text/javascript' src="/js/notify.min.js")
 
   body
     block content
@@ -35,6 +36,35 @@ table(style='width:45%')
           td
             button(onclick="location.href = '/delete/#{item.id}';") delete
 script.
+  //notify options
+  let options = {
+  // whether to hide the notification on click
+  clickToHide: true,
+  // whether to auto-hide the notification
+  autoHide: true,
+  // if autoHide, hide after milliseconds
+  autoHideDelay: 5000,
+  // show the arrow pointing at the element
+  arrowShow: true,
+  // arrow size in pixels
+  arrowSize: 5,
+  // position defines the notification position though uses the defaults below
+  position: 'bottom right',
+  // default style
+  style: 'bootstrap',
+  // default class (string or [string])
+  className: 'success',
+  // show animation
+  showAnimation: 'slideDown',
+  // show animation duration
+  showDuration: 400,
+  // hide animation
+  hideAnimation: 'slideUp',
+  // hide animation duration
+  hideDuration: 200,
+  // padding between element and notification
+  gap: 2
+  }
   //make link with black bg
   $('#nav-home').addClass('page');
   $('#nav-home').text('Back');
@@ -59,7 +89,7 @@ script.
     box.val("");
     if(isNumber(textBoxValue) && isWholeNumber(textBoxValue) && Number(textBoxValue)>0 && Number(textBoxValue)<1000){
       $.post('/addtocart', {id: id, quant: textBoxValue});
-      alert('Product added to cart');
+      $('#navbar').notify('Product added to cart', options);
     }
   }
   function showDescr(descr){

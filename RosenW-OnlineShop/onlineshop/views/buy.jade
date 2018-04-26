@@ -1,0 +1,22 @@
+doctype html
+html
+  head
+    title= title
+    link(rel='stylesheet', href='/stylesheets/form.css')
+    link(rel='stylesheet', href='/stylesheets/navbar.css')
+    script(type='text/javascript' src="/js/jquery.min.js")
+
+  body
+    block content
+  include ./navbar.jade
+  div
+    form.form(method='post')
+            label Mastercard Number :
+            input(type='text', name='cn' align='right')
+            label Security Code :
+            input(type='text', name='sc')
+            label Expiry Date:
+            input(type='text', name='edate')
+            label Cardholder's Name :
+            input(type='text', name='edate')
+            input(type='submit', name='confirm', value='Confirm and Pay')

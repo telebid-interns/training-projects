@@ -51,11 +51,13 @@ router.post('/', function(req, res, next) {
   let products = [];
   let count = 1;
   if(/^[a-zA-Z]+$/.test(word)){
-    client.query(sqlFormatter("select * from products as p where upper(p.name) like upper(\'%"+word+"%\')"))
+    client.query(sqlFormatter("select * from products as p"))
     .then((data)=>{
       data.rows.forEach((row)=>{
         row.number = count++;
-        products.push(row);
+        if(row.name.toLowerCase().includes(word.toLowerCase())){
+          products.push(row);
+        }
       });
       res.render('index', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'prods': products}});
     });
@@ -263,7 +265,7 @@ router.get('/orders', function(req, res, next) {
   }
   let purchases = [];
   let count = 1;
-  client.query(sqlFormatter('select p.id, p.date, s.name as state from purchases as p join states as s on s.id = p.state where p.userid = %L order by state asc, p.date asc;', loggedInUserId))
+  client.query(sqlFormatter('select p.id, p.date, s.name as state from purchases as p join states as s on s.id = p.state where p.userid = %L order by state asc, p.date desc;', loggedInUserId))
   .then((data)=>{
     data.rows.forEach((row)=>{
       row.number = count++;
@@ -471,8 +473,21 @@ router.post('/remove', function(req, res) {
   client.query(sqlFormatter("delete from cart_items as ci using shopping_carts as sc where ci.cartid = sc.id and ci.prodId = %L and sc.userid = %L",  itemId, loggedInUserId));
 });
 
-/* POST cart (buy). */
+/* POST cart. */
 router.post('/cart', function(req, res) {
+  res.redirect(303, '/buy');
+});
+
+/* GET buy page */
+router.get('/buy', function(req, res){
+  if(isAdmin || !isLoggedIn){
+    res.redirect('/');
+  }
+  res.render('buy', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin}});
+});
+
+/* POST buy page */
+router.post('/buy', function(req, res){
   let pass = true;
   //get user prods
   client
@@ -510,10 +525,11 @@ router.post('/cart', function(req, res) {
       client.query(sqlFormatter("delete from cart_items as ci using shopping_carts as sc where ci.cartid = sc.id and sc.userid = %L", loggedInUserId))
       .then(res.redirect(303, '/'));  
     }else{
-      res.redirect(303, '/cart');
+      res.redirect(303, '/orders');
     }
   });
 });
+
 function addTrailingZeros(number){
   return parseFloat(Math.round(number * 100) / 100).toFixed(2);
 }
@@ -531,7 +547,7 @@ function validateEmail(email) {
 }
 
 function validateName(name){
-  var reg = /^(\w{3,})$/;
+  var reg = /^([a-z]{3,20})$/;
   return reg.test(String(name).toLowerCase());
 }
 

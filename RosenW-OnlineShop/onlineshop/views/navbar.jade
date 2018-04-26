@@ -1,5 +1,5 @@
 if !data.isLoggedIn
-  ul
+  ul#navbar
         li
            a(href='/' id='nav-home') Home
         li
@@ -8,7 +8,7 @@ if !data.isLoggedIn
            a(href='/register' id='nav-register') Register
 else
   if data.isAdmin
-    ul
+    ul#navbar
           li
             a(href='/' id='nav-home') Home
           li
@@ -18,7 +18,7 @@ else
           li
             a(href='/logout') Log out
   else
-    ul
+    ul#navbar
             li
               a(href='/' id='nav-home') Home
             li

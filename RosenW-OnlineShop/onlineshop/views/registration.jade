@@ -4,7 +4,8 @@ html
     title= title
     link(rel='stylesheet', href='/stylesheets/form.css')
     link(rel='stylesheet', href='/stylesheets/navbar.css')
-    script(type='text/javascript' src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js")
+    script(type='text/javascript' src="/js/jquery.min.js")
+    script(type='text/javascript' src="/js/notify.min.js")
     script(type='text/javascript' src='https://www.google.com/recaptcha/api.js')
 
   body
@@ -13,20 +14,61 @@ html
       div
         form.form(method='post')
           label First Name :
-          input#fname(type='text', name='fname')
+          input#fname(type='text' name='fname' onkeyup='checkFName()' placeholder='Length must be between 3 and 20, only letters')
           label Last Name :
-          input#lname(type='text', name='lname')
+          input#lname(type='text', name='lname' onkeyup='checkLName()' placeholder='Length must be between 3 and 20, only letters')
           label Address (optional) :
-          input#address(type='text', name='address')
+          input#address(type='text', name='address' placeholder='Your address')
           label Email :
-          input#email(type='text', name='email')
+          input#email(type='text', name='email' placeholder='Valid Email')
           label Password :
-          input#password(type='password', name='password')
+          input#password(type='password', name='password' onkeyup='checkPasswords()' placeholder='Length must be more than 6 symbols')
           label Confirm Password :
-          input#cpassword(type='password', name='cpassword')
+          input#cpassword(type='password', name='cpassword'  onkeyup='checkRPassword()' placeholder='Passwords must match')
           div(class="g-recaptcha" data-sitekey="6LdF9FQUAAAAAO7KK6yzeKXmWB9vfvJUPhSg4YoT")
           input#register(type='submit', name='regBtn', value='Register')
 
 script.
   //make link with black bg
   $('#nav-register').addClass('page');
+  function checkFName(){
+    let box = $('#fname')
+    let curStr = box.val();
+    let reg = /^([a-z]{3,20})$/;
+    if(curStr.length < 3 || curStr.length > 20 || !reg.test(String(curStr).toLowerCase())){
+      box.css('box-shadow', '0 0 10px #FF0000');
+    }else{
+      box.css('box-shadow', '0 0 5px #000000');
+    }
+  }
+  function checkLName(){
+    let box = $('#lname')
+    let curStr = box.val();
+    let reg = /^([a-z]{3,20})$/;
+    if(curStr.length < 3 || curStr.length > 20 || !reg.test(String(curStr).toLowerCase())){
+      box.css('box-shadow', '0 0 10px #FF0000');
+    }else{
+      box.css('box-shadow', '0 0 5px #000000');
+    }
+  }
+  function checkPasswords(){
+    let box = $('#password')
+    let curStr = box.val();
+    let reg = /^(\w{6,})$/;
+    if(curStr.length < 6 || !reg.test(String(curStr).toLowerCase())){
+      box.css('box-shadow', '0 0 10px #FF0000');
+    }else{
+      box.css('box-shadow', '0 0 5px #000000');
+    }
+    checkRPassword();
+  }
+  function checkRPassword(){
+    let box = $('#cpassword')
+    let curStr = box.val();
+    let reg = /^(\w{6,})$/;
+    if(curStr.length < 6 || !reg.test(String(curStr).toLowerCase()) || curStr != $('#password').val()){
+      box.css('box-shadow', '0 0 10px #FF0000');
+    }else{
+      box.css('box-shadow', '0 0 5px #000000');
+    }
+  }
