@@ -2,21 +2,39 @@ doctype html
 html
   head
     title= title
-    link(rel='stylesheet', href='/stylesheets/form.css')
     link(rel='stylesheet', href='/stylesheets/navbar.css')
     script(type='text/javascript' src="/js/jquery.min.js")
+    script(src='https://js.braintreegateway.com/web/dropin/1.10.0/js/dropin.min.js')
 
   body
-    block content
-  include ./navbar.jade
-  div
-    form.form(method='post')
-            label Mastercard Number :
-            input(type='text', name='cn' align='right')
-            label Security Code :
-            input(type='text', name='sc')
-            label Expiry Date:
-            input(type='text', name='edate')
-            label Cardholder's Name :
-            input(type='text', name='edate')
-            input(type='submit', name='confirm', value='Confirm and Pay')
+    block(id='content')
+    include ./navbar.jade
+    div    
+        #dropin-container
+        button#submit-button Request payment method
+        div(id='ctoken' hidden='true') #{data.ct}
+        script.
+            let token = $('#ctoken').text();
+            let button = document.querySelector('#submit-button');
+                braintree.dropin.create({
+                authorization: token,
+                container: '#dropin-container'
+                }, 
+                function (createErr, instance) {
+                    button.addEventListener('click', function () {
+                        instance.requestPaymentMethod(function (err, payload) {
+                            console.log('Submit payload.nonce to your server');
+                            $.post("/buy", {nonce: payload.nonce}, function(result){
+                                console.log('done');
+                                window.location.href = "/";
+                            });
+                        });
+                    });
+                });
+
+script.
+  function checkInfo(validInfo){
+    if(validInfo == 1){
+    alert('Invalid Card Information');
+    }
+  }

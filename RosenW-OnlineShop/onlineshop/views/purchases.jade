@@ -7,7 +7,7 @@ html
   body
     block content
   include ./navbar.jade
-table(style='width:45%')
+table(style='width:45%' id='section-to-print')
   tr
     th(align="left") №
     th Name
@@ -33,6 +33,12 @@ form.form(method='post')
         option(value='2') Delivered
     input#change(type='submit', name='buybtn', value='Change')
 
+button(id='print') Print
+
 script.
   //make link with black bg
   $('#nav-pur').addClass('page');
+  $('#print').click(()=>{
+    window.print();
+    window.location.href = "/check";
+  });
