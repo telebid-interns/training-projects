@@ -10,6 +10,28 @@ let request = require('request');
 let braintree = require('braintree');
 let Printer = require('node-printer');
 let bixolon = new Printer('BIXOLON-SRP-350II');
+let fs = require('fs');
+let PDFDocument = require('pdfkit');
+
+//set up printer
+// let text = 'Lorem ipsum dolor sit amet, consectetur adipiscing '+
+// 'elit. Quisque sagittis euismod quam vitae porta. In porta luctus '+
+// 'augue id auctor. Nunc tincidunt, leo at ultricies auctor, lacus est '+
+// 'gravida ante, eget porttitor lectus nisl eget felis. In quis turpis tempus,'+
+// ' iaculis eros id, mattis elit. Suspendisse et rhoncus libero, a dapibus neque. '+
+// 'Fusce dolor est, viverra semper risus dictum, condimentum tincidunt metus.'+
+// ' Curabitur sed malesuada leo. Nunc tempor nec metus eget euismod.';
+// let textJob = bixolon.printText(text);
+// console.log(textJob);
+// let doc = new PDFDocument();
+// doc.pipe(fs.createWriteStream('/home/rosen/Desktop/repo/RosenW-OnlineShop/onlineshop/public/PDFs/mypdf.pdf')); 
+// doc.fontSize(25)
+//    .text('Some text with an embedded font!', 100, 100);
+
+// doc.end();
+// console.log('done');
+// let fileBuffer = fs.readFileSync('/home/rosen/Desktop/repo/RosenW-OnlineShop/onlineshop/public/PDFs/mypdf.pdf');
+// let jobFromBuffer = bixolon.printBuffer(fileBuffer);
 
 //credit card payment keys
 let merchId = '9mjmz4gm33rrmbd2';
@@ -78,7 +100,10 @@ let transporter = nodemailer.createTransport({
      }
  });
 
-//login, data
+//login counter fix?
+let failedLoginCounter = 0;
+
+//login, data fix?
 let isAdmin = false;
 let isLoggedIn = false;
 let loggedInUserId = '';
@@ -158,7 +183,11 @@ router.get('/login', function(req, res, next) {
   if(isLoggedIn){
     res.redirect(303, '/');
   }
-  res.render('login', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin}});
+  if(failedLoginCounter>2){
+    res.render('login', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'r': true}});
+  }
+  console.log('true');
+  res.render('login', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'r': false}});
 });
 
 /* GET logout. */
@@ -258,37 +287,61 @@ router.post('/register', function(req, res) {
 
 /* POST login page */
 router.post('/login', function(req, res) {
-  let email = req.body.email;
+  let recaptchaResp = req.body['g-recaptcha-response'];
+  let verifyURL = 'https://www.google.com/recaptcha/api/siteverify?secret=6LdF9FQUAAAAAJrUDQ7a-KxAtzKslyxhA7KZ-Bwt&response=' + recaptchaResp;
+  
+  if(failedLoginCounter>2){
+    request(verifyURL, (err, response, body)=>{
+      body = JSON.parse(body);
+  
+      if(body.success !== undefined && !body.success){ //failed captcha
+        return failLogin(res);
+      }else{
+        return checkLoginInfo(res,req);
+      }
+    });
+  }else{
+    return checkLoginInfo(res,req);
+  }
+});
+
+function checkLoginInfo(res,req){let email = req.body.email;
   let pass = req.body.password;
   let foundUser = false;
-
   client
-    .query("select * from accounts")
-    .then((accounts)=>{
-      accounts.rows.forEach((account)=>{
-        if(account.email === email){
-          foundUser = true;
-          if(passwordHash.verify(pass, account.pass) && account.active){
-            isLoggedIn = true;
-            username = account.firstName;
-            loggedInUserId = account.id;
-            if(account.role == 2){
-              isAdmin = true;
-            }
-            res.redirect(303, '/');
-          }else{
-            //req.flash("error", "Wrong Password"); TODO 
-            return res.render('login', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin}});
+  .query("select * from accounts")
+  .then((accounts)=>{
+    accounts.rows.forEach((account)=>{
+      if(account.email === email){
+        foundUser = true;
+        if(passwordHash.verify(pass, account.pass) && account.active){
+          isLoggedIn = true;
+          username = account.firstName;
+          loggedInUserId = account.id;
+          if(account.role == 2){
+            isAdmin = true;
           }
+          res.redirect(303, '/');
+        }else{
+          return failLogin(res);
         }
-      });
-      if(!foundUser){
-        //req.flash("error", "No such user"); TODO
-        return res.render('login', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin}});
       }
-    })
-    .catch(e => console.error(e.stack));
-});
+    });
+    if(!foundUser){
+      return failLogin(res);
+    }
+  })
+  .catch(e => console.error(e.stack));
+}
+
+function failLogin(res){
+        //req.flash("error", "No such user"); TODO
+        failedLoginCounter++;
+        if(failedLoginCounter>2){
+          return res.render('login', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'r': true}});
+        }
+        return res.render('login', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'r': false}});   
+}
 
 /* GET add prod page. */
 router.get('/add', function(req, res, next) {
@@ -406,6 +459,42 @@ router.post('/profile', function(req, res, next) {
 
   client.query(sqlFormatter("update accounts set first_name = %L, last_name = %L, address = %L where id = %L", fName, lName, address, loggedInUserId))
   .then(res.redirect(303, '/'));
+});
+
+/* GET chpass page */
+router.get('/chpass', function(req, res, next) {
+  if(isAdmin || !isLoggedIn){
+    res.redirect(303, '/');
+  }
+  res.render('chpass', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin}});
+});
+
+/* POST chpass page. TODO*/
+router.post('/chpass', function(req, res, next) {
+  if(isAdmin || !isLoggedIn){
+    res.redirect(303, '/');
+  }
+  let pass = req.body.pass;
+  let newPass = req.body.newPass;
+  let repeatPass = req.body.repNewPass;
+  let found = false;
+
+  client
+  .query("select * from accounts")
+  .then((accounts)=>{
+    accounts.rows.forEach((account)=>{
+      if(account.id === loggedInUserId){
+        let hashedPass = passwordHash.generate(newPass);
+        if(validatePass(newPass) && newPass === repeatPass && passwordHash.verify(pass, account.pass)){
+          client.query(sqlFormatter("update accounts set pass = %L where id = %L", hashedPass, loggedInUserId))
+          .then(res.redirect(303, '/'));
+        }else{
+          res.redirect(303, '/chpass')
+        }
+      }
+    });
+    res.redirect(303, '/chpass')
+  })
 });
 
 /* POST check page. */

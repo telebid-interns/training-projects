@@ -16,8 +16,9 @@ html
           input#lname(type='text', name='lname' value='#{data.p[0].ln}')
           label Address :
           input#address(type='text', name='address' value='#{data.p[0].address}')
-          -console.log(data.p)
           input#save(type='submit', name='saveBtn', value='Save')
+
+        input#chPass(type='submit', name='chpassBtn', value='Change Password' onclick="location.href = '/chpass'")
 
 script.
   //make link with black bg

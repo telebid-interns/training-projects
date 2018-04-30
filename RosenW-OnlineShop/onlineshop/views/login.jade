@@ -5,6 +5,7 @@ html
     link(rel='stylesheet', href='/stylesheets/form.css')
     link(rel='stylesheet', href='/stylesheets/navbar.css')
     script(type='text/javascript' src="/js/jquery.min.js")
+    script(type='text/javascript' src='https://www.google.com/recaptcha/api.js')
   body
     block content
       include ./navbar.jade
@@ -14,6 +15,8 @@ html
           input#name(type='text', name='email')
           label Password :
           input#password(type='password', name='password')
+          if data.r
+            div(class="g-recaptcha" data-sitekey="6LdF9FQUAAAAAO7KK6yzeKXmWB9vfvJUPhSg4YoT")
           input#login(type='submit', name='loginiBtn', value='Log In')
 
 script.

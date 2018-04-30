@@ -87,7 +87,7 @@ script.
     let box = $('#input-' + id);
     let textBoxValue = box.val();
     box.val("");
-    if(isNumber(textBoxValue) && isWholeNumber(textBoxValue) && Number(textBoxValue)>0 && Number(textBoxValue)<1000){
+    if(isNumber(textBoxValue) && isWholeNumber(textBoxValue) && Number(textBoxValue)>0){
       $.post('/addtocart', {id: id, quant: textBoxValue});
       $('#navbar').notify('Product added to cart', options);
     }

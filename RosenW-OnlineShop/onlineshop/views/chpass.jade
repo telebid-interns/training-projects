@@ -1,0 +1,23 @@
+doctype html
+html
+  head
+    title= title
+    link(rel='stylesheet', href='/stylesheets/form.css')
+    link(rel='stylesheet', href='/stylesheets/navbar.css')
+    script(type='text/javascript' src="/js/jquery.min.js")
+  body
+    block content
+      include ./navbar.jade
+      div
+        form.form(method='post')
+          label Current Password
+          input#pass(type='text', name='pass')
+          label New Password
+          input#newPass(type='text', name='newPass')
+          label Repeat New Password
+          input#repNewPass(type='text', name='repNewPass')
+          input#changeBtn(type='submit', name='changeBtn', value='Change')
+
+script.
+  //make link with black bg
+  $('#nav-prof').addClass('page');

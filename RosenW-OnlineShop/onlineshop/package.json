@@ -13,7 +13,9 @@
     "debug": "~2.6.9",
     "express": "~4.16.0",
     "express-recaptcha": "^4.0.2",
+    "fs": "0.0.1-security",
     "http-errors": "~1.6.2",
+    "ipp": "^2.0.1",
     "jade": "~1.11.0",
     "jquery": "^3.3.1",
     "morgan": "~1.9.0",
@@ -22,6 +24,7 @@
     "nodemailer": "^4.6.4",
     "password-hash": "^1.2.2",
     "payment": "^2.3.0",
+    "pdfkit": "^0.8.3",
     "pg": "^7.4.1",
     "pg-format": "^1.0.4",
     "request": "^2.85.0"

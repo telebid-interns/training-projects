@@ -13,17 +13,17 @@ html
       include ./navbar.jade
       div
         form.form(method='post')
-          label First Name :
+          label First Name*
           input#fname(type='text' name='fname' onkeyup='checkFName()' placeholder='Length must be between 3 and 20, only letters')
-          label Last Name :
+          label Last Name*
           input#lname(type='text', name='lname' onkeyup='checkLName()' placeholder='Length must be between 3 and 20, only letters')
-          label Address (optional) :
+          label Address
           input#address(type='text', name='address' placeholder='Your address')
-          label Email :
+          label Email*
           input#email(type='text', name='email' placeholder='Valid Email')
-          label Password :
+          label Password*
           input#password(type='password', name='password' onkeyup='checkPasswords()' placeholder='Length must be more than 6 symbols')
-          label Confirm Password :
+          label Confirm Password*
           input#cpassword(type='password', name='cpassword'  onkeyup='checkRPassword()' placeholder='Passwords must match')
           div(class="g-recaptcha" data-sitekey="6LdF9FQUAAAAAO7KK6yzeKXmWB9vfvJUPhSg4YoT")
           input#register(type='submit', name='regBtn', value='Register')
