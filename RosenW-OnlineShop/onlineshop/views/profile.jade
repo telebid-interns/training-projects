@@ -16,6 +16,8 @@ html
           input#lname(type='text', name='lname' value='#{data.p[0].ln}')
           label Address :
           input#address(type='text', name='address' value='#{data.p[0].address}')
+          label Phone :
+          input#phone(type='text', name='phone' value='#{data.p[0].ph}')
           input#save(type='submit', name='saveBtn', value='Save')
 
         input#chPass(type='submit', name='chpassBtn', value='Change Password' onclick="location.href = '/chpass'")

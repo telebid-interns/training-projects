@@ -3,23 +3,40 @@ html
   head
     title= title
     link(rel='stylesheet', href='/stylesheets/navbar.css')
+    link(rel='stylesheet', href='/stylesheets/table.css')
     script(type='text/javascript' src="/js/jquery.min.js")
   body
     block content
   include ./navbar.jade
-table(style='width:45%')
-  tr
-    th(align="left") №
-    th(align="left") State
-    th(align="right") Date
-  each item in data.purchases
-      tr
-        td #{item.number}
-        td(align="left") #{item.state}
-        td(align="right") #{item.date}
-        td
-            button(onclick="location.href = '/order/#{item.id}';") see
-
+div
+  table(style='width:60%' id='maint')
+    tr
+      th №
+      th Products
+      th State
+      th Date
+    each item in data.purchases
+        tr
+          td(vertical-align="top") #{item.number}
+          td
+            table(style='width:100%' id='offt')
+              tr
+                th Product
+                th Quantity
+                th(align="right") Price
+              each order in item.orderList
+                tr
+                  td #{order.name}
+                  td #{order.quantity}
+                  td(align="right") #{order.price}
+              tr
+                  td
+                    strong Total
+                  td
+                  td(align="right")
+                    strong #{item.total}
+          td(align="left") #{item.state}
+          td(align="right") #{item.date}
 script.
   //make link with black bg
   $('#nav-orders').addClass('page');

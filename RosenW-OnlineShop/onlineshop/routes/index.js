@@ -221,6 +221,7 @@ router.post('/register', function(req, res) {
   let email = req.body.email;
   let fName = req.body.fname;
   let lName = req.body.lname;
+  let phone = req.body.phone;
   let address = req.body.address;
   let pass = req.body.password;
   let cpass = req.body.cpassword;
@@ -249,7 +250,7 @@ router.post('/register', function(req, res) {
         let hashedPass = passwordHash.generate(pass);
         if(validateEmail(email) && validateName(fName) && validateName(lName) && validatePass(pass) && pass === cpass){
           let newUserId = generateId();
-          client.query(sqlFormatter("insert into accounts (id, email, first_name, last_name, address, pass, role, active) values(%L, %L, %L, %L, %L, %L, '1', 'false');", newUserId, email, fName, lName, address, hashedPass))
+          client.query(sqlFormatter("insert into accounts (id, email, first_name, last_name, phone, address, pass, role, active) values(%L, %L, %L, %L, %L, %L, %L, '1', 'false');", newUserId, email, fName, lName, phone, address, hashedPass))
           .then(()=>{
             client.query(sqlFormatter("insert into shopping_carts (id, userId) values(%L, %L)", generateId(), newUserId))
             .then(()=>{
@@ -378,37 +379,42 @@ router.get('/orders', function(req, res, next) {
   if(!isLoggedIn){
     res.redirect(303, '/');
   }
+  let orders = [];
   let purchases = [];
   let count = 1;
-  client.query(sqlFormatter('select p.id, p.date, s.name as state from purchases as p join states as s on s.id = p.state where p.userid = %L order by state asc, p.date desc;', loggedInUserId))
+  client.query(sqlFormatter('select p.id, p.date, s.name as state'+
+                            ' from purchases as p join states as s on s.id = p.state'+
+                            ' where p.userid = %L order by state asc, p.date desc;', loggedInUserId))
   .then((data)=>{
     data.rows.forEach((row)=>{
       row.number = count++;
       purchases.push(row);
     });
-    res.render('orders', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'purchases': purchases}});
-  });
-});
+      client.query(sqlFormatter('select pr.name, pi.quantity'+
+                              ', pr.price, pr.id, pur.id as pid from purchase_items as pi join'+
+                              ' purchases as pur on pi.purchaseId = pur.id join '+
+                              'products as pr on pr.id = pi.prodid '+
+                              ' where pur.userid = %L'+
+                              ' order by pr.name asc', loggedInUserId))
+    .then((oData)=>{
+      oData.rows.forEach((row)=>{
+        row.price = addTrailingZeros(row.price * row.quantity);
+        orders.push(row);
+      });
 
-/* GET order:id page. */
-router.get('/order/:id', function(req, res, next) {
-  if(!isLoggedIn){
-    res.redirect(303, '/');
-  }
-  orderId = req.params.id;
-  let order = [];
-  client.query(sqlFormatter('select pr.name, sum(pi.quantity) as quantity, pr.price, pr.id from purchase_items as pi join purchases as pur on pi.purchaseId = pur.id join products as pr on pr.id = pi.prodid where pur.id = %L group by pr.name, pr.price, pr.id order by pr.name asc', orderId))
-  .then((data)=>{
-    let totalPrice = 0;
-    let count = 1;
-    data.rows.forEach((row)=>{
-      totalPrice += (Number(row.price) * Number(row.quantity));
-      row.number = count++;
-      row.price = addTrailingZeros(row.price);
-      order.push(row);
+      purchases.forEach((p)=>{
+          let total = 0;
+          p.orderList = []
+          orders.forEach((o)=>{
+            if(p.id == o.pid){
+              total += Number(o.price);
+              p.orderList.push(o);
+            }
+          });
+          p.total = addTrailingZeros(total);
+      });
+      res.render('orders', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'purchases': purchases}});
     });
-    totalPrice = addTrailingZeros(totalPrice);
-    res.render('itemsInOrder', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'order': order, 'total': totalPrice}});
   });
 });
 
@@ -441,7 +447,7 @@ router.get('/profile', function(req, res, next) {
     res.redirect(303, '/');
   }
   let profData = [];
-  client.query(sqlFormatter('select a.first_name as fn, a.last_name as ln, a.address from accounts as a where a.id = %L', loggedInUserId))
+  client.query(sqlFormatter('select a.first_name as fn, a.last_name as ln, a.phone as ph, a.address from accounts as a where a.id = %L', loggedInUserId))
   .then((data)=>{
     data.rows.forEach((row)=>profData.push(row));
     res.render('profile', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'p': profData}});
@@ -455,9 +461,10 @@ router.post('/profile', function(req, res, next) {
   }
   let fName = req.body.fname;
   let lName = req.body.lname;
+  let phone = req.body.phone;
   let address = req.body.address;
 
-  client.query(sqlFormatter("update accounts set first_name = %L, last_name = %L, address = %L where id = %L", fName, lName, address, loggedInUserId))
+  client.query(sqlFormatter("update accounts set first_name = %L, last_name = %L, address = %L, phone = %L where id = %L", fName, lName, address, phone, loggedInUserId))
   .then(res.redirect(303, '/'));
 });
 
@@ -586,6 +593,23 @@ router.get('/remove/cart/:id', function(req,res){
   let id = req.params.id;
   client.query(sqlFormatter("delete from cart_items as ci using shopping_carts as sc where ci.cartid = sc.id and ci.prodid = %L and sc.userid = %L", id, loggedInUserId))
   .then(res.redirect(303, '/cart'));
+});
+
+//get accounts page
+router.get('/accs', function(req,res){
+  if(!isAdmin){
+    res.redirect(303, '/');
+  }
+  let users = [];
+
+  client
+  .query(sqlFormatter("select * from accounts"))
+  .then((data)=>{
+    data.rows.forEach((row)=>{
+      users.push(row);
+    });
+    res.render('accs', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'users': users}});
+  });
 });
 
 

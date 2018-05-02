@@ -1,0 +1,33 @@
+doctype html
+html
+  head
+    title= title
+    link(rel='stylesheet', href='/stylesheets/navbar.css')
+    script(type='text/javascript' src="/js/jquery.min.js")
+  body
+    block content
+  include ./navbar.jade
+table(style='width:60%')
+  tr
+    th(align="left") ID
+    th(align="left") Email
+    th(align="left") First Name
+    th(align="left") Second Name
+    th(align="right") Address
+    th(align="right") Role
+    th(align="right") Active
+  each u in data.users
+      tr
+        td #{u.id}
+        td #{u.email}
+        td #{u.first_name}
+        td #{u.last_name}
+        td #{u.address}
+        td #{u.role}
+        td #{u.active}
+        td
+            button ban
+
+script.
+  //make link with black bg
+  $('#nav-us').addClass('page');
