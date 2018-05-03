@@ -3,26 +3,29 @@ html
   head
     title= title
     link(rel='stylesheet', href='/stylesheets/navbar.css')
+    link(rel='stylesheet', href='/stylesheets/table.css')
     script(type='text/javascript' src="/js/jquery.min.js")
   body
     block content
   include ./navbar.jade
-table(style='width:45%')
-  tr
-    th(align="left") №
-    th(align="left") User
-    th(align="left") Address
-    th(align="left") State
-    th(align="right") Date
-  each item in data.purchases
-      tr
-        td #{item.number}
-        td #{item.first_name}
-        td #{item.address}
-        td(align="left") #{item.state}
-        td(align="right") #{item.date}
-        td
-            button(onclick="location.href = 'check/#{item.id}';") see
+div
+  table(style='width:60%' id="maint")
+    tr
+      th(width="5%" style="text-align:center")  №
+      th(width="15%" style="text-align:center")  User
+      th(width="15%" style="text-align:center")  Address
+      th(width="15%" style="text-align:center")  State
+      th(width="10%" style="text-align:center")  Date
+      th(width="7%")
+    each item in data.purchases
+        tr
+          td(style="text-align:center")  #{item.number}
+          td(style="text-align:center")  #{item.first_name}
+          td(style="text-align:center")  #{item.address}
+          td(style="text-align:center")  #{item.state}
+          td(style="text-align:center")  #{item.date}
+          td(style="text-align:center") 
+              button(onclick="location.href = 'check/#{item.id}';") see
 
 script.
   //make link with black bg

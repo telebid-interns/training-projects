@@ -11,23 +11,23 @@ html
 div
   table(style='width:60%' id='maint')
     tr
-      th №
-      th Products
-      th State
-      th Date
+      th(width="5%") №
+      th(width="40%") Products
+      th(width="20%") State
+      th(width="20%") Date
     each item in data.purchases
         tr
-          td(vertical-align="top") #{item.number}
+          td(style="text-align:center") #{item.number}
           td
             table(style='width:100%' id='offt')
               tr
-                th Product
-                th Quantity
-                th(align="right") Price
+                th(style="text-align:center") Product
+                th(style="text-align:center") Quantity
+                th(style="text-align:center") Price
               each order in item.orderList
                 tr
                   td #{order.name}
-                  td #{order.quantity}
+                  td(style="text-align:center") #{order.quantity}
                   td(align="right") #{order.price}
               tr
                   td
@@ -35,8 +35,8 @@ div
                   td
                   td(align="right")
                     strong #{item.total}
-          td(align="left") #{item.state}
-          td(align="right") #{item.date}
+          td(style="text-align:center") #{item.state}
+          td(style="text-align:center") #{item.date}
 script.
   //make link with black bg
   $('#nav-orders').addClass('page');

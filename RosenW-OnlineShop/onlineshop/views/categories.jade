@@ -2,24 +2,24 @@ doctype html
 html
   head
     title= title
+    link(rel='stylesheet', href='/stylesheets/table.css')
+    link(rel='stylesheet', href='/stylesheets/search.css')
     link(rel='stylesheet', href='/stylesheets/navbar.css')
     script(type='text/javascript' src="/js/jquery.min.js")
     
   body
     block content
   include ./navbar.jade
-  form(method='post')
-    input(type='textbox', placeholder='Search product by name', name='name')
-    input(type='submit', value='Search')
-  table(style='width:35%')
-    tr
-      th(align="left") №
-      th(align="left") Categories
-    each item in data.cat
-        tr
-          td #{item.number}
-          td 
-              a(href="/category/#{item.id}") #{item.name}
+  div
+    table(id='maint' style='width:50%')
+      tr
+        th(width="10%" style="text-align:center") №
+        th(width="90%" style="text-align:center") Categories
+      each item in data.cat
+          tr
+            td(style="text-align:center") #{item.number}
+            td 
+                a(href="/category/#{item.id}") #{item.name}
 
 script.
     //make link with black bg

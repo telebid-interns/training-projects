@@ -3,30 +3,33 @@ html
   head
     title= title
     link(rel='stylesheet', href='/stylesheets/navbar.css')
+    link(rel='stylesheet', href='/stylesheets/table.css')
     script(type='text/javascript' src="/js/jquery.min.js")
   body
     block content
   include ./navbar.jade
-table(style='width:60%')
-  tr
-    th(align="left") ID
-    th(align="left") Email
-    th(align="left") First Name
-    th(align="left") Second Name
-    th(align="right") Address
-    th(align="right") Role
-    th(align="right") Active
-  each u in data.users
-      tr
-        td #{u.id}
-        td #{u.email}
-        td #{u.first_name}
-        td #{u.last_name}
-        td #{u.address}
-        td #{u.role}
-        td #{u.active}
-        td
-            button ban
+div
+  table(style='width:70%' id='maint')
+    tr
+      th(width="20%" align="left") ID
+      th(width="20%" align="left") Email
+      th(width="15%" align="left") First Name
+      th(width="15%" align="left") Second Name
+      th(width="10%" align="right") Address
+      th(width="5%" align="right") Role
+      th(width="5%" align="right") Active
+      th(width="7%")
+    each u in data.users
+        tr
+          td #{u.id}
+          td #{u.email}
+          td #{u.first_name}
+          td #{u.last_name}
+          td #{u.address}
+          td #{u.role}
+          td #{u.active}
+          td
+              button ban
 
 script.
   //make link with black bg

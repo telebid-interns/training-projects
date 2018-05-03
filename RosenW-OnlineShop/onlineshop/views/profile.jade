@@ -20,7 +20,7 @@ html
           input#phone(type='text', name='phone' value='#{data.p[0].ph}')
           input#save(type='submit', name='saveBtn', value='Save')
 
-        input#chPass(type='submit', name='chpassBtn', value='Change Password' onclick="location.href = '/chpass'")
+        input(id="chPass" type='submit', name='chpassBtn', value='Change Password' onclick="location.href = '/chpass'")
 
 script.
   //make link with black bg

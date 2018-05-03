@@ -3,32 +3,35 @@ html
   head
     title= title
     link(rel='stylesheet', href='/stylesheets/navbar.css')
+    link(rel='stylesheet', href='/stylesheets/table.css')
     script(type='text/javascript' src="/js/jquery.min.js")
   body
     block content
   include ./navbar.jade
-table(style='width:45%')
-  tr
-    th(align="left") №
-    th Name
-    th(align="right") Quantity
-    th(align="right") Total
-  each item in data.cart
-      tr(id="row-#{item.id}")
-        td #{item.number}
-        td #{item.name}
-        td(align="right") #{item.quantity}
-        td(align="right") $#{item.price}
-        td
-            button(onclick="location.href = 'remove/cart/#{item.id}';") remove
-  tr 
-    td Total: 
-    td
-    td
-    td(align="right", id="total", style="font-weight:bold") $#{data.total}
-    td
-      form.form(method='post')
-        input#buy(type='submit', name='buybtn', value='Buy')
+div
+  table(style='width:45%' id='maint')
+    tr
+      th(width="20%" align="left") №
+      th(width="20%") Name
+      th(width="20%" align="right") Quantity
+      th(width="20%" align="right") Total
+      th(width="20") Remove
+    each item in data.cart
+        tr(id="row-#{item.id}")
+          td(style="text-align:center") #{item.number}
+          td(style="text-align:center") #{item.name}
+          td(style="text-align:center") #{item.quantity}
+          td(align="right") $#{item.price}
+          td(style="text-align:center")
+              button(onclick="location.href = 'remove/cart/#{item.id}';") remove
+    tr 
+      td Total: 
+      td
+      td
+      td(style="text-align:center", id="total") $#{data.total}
+      td(style="text-align:center")
+        form.form(method='post')
+          input#buy(type='submit', name='buybtn', value='Buy')
 
 script.
   //make link with black bg

@@ -1,11 +1,16 @@
 if !data.isLoggedIn
-  ul#navbar
+  ul(id="navbar")
         li
            a(href='/' id='nav-home') Home
         li
            a(href='/login' id='nav-login') Log in
         li
            a(href='/register' id='nav-register') Register
+        li(class="search-container")
+          form(method='post' action="/")
+            input(type='textbox', placeholder='Search product by name', name='name')
+            input(type='submit', value='Search')
+        
 else
   if data.isAdmin
     ul#navbar
@@ -31,3 +36,7 @@ else
               a(href='/profile' id='nav-prof') Edit Profile
             li
               a(href='/logout') Log out
+            li(class="search-container")
+              form(method='post' action="/")
+                input(type='textbox', placeholder='Search product by name', name='name')
+                input(type='submit', value='Search')

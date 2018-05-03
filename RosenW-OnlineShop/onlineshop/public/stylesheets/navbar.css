@@ -48,3 +48,25 @@ li a.page{
     size: auto;   /* auto is the initial value */
     margin: 0;  /* this affects the margin in the printer settings */
 }
+
+.link-right {
+    float: 'right'
+}
+
+.search-container {
+    float: right;
+}
+  
+input[type=textbox] {
+    padding: 6px;
+    margin-top: 8px;
+    font-size: 17px;
+    border: none;
+}
+input[type=submit] {
+    padding-top: 7px;
+    padding-bottom: 6px;
+  }
+#navbar{
+    padding-right: 10px;
+}

@@ -12,6 +12,23 @@ let Printer = require('node-printer');
 let bixolon = new Printer('BIXOLON-SRP-350II');
 let fs = require('fs');
 let PDFDocument = require('pdfkit');
+let bcrypt = require('bcrypt');
+
+let hashed;
+let cSalt;
+
+// bcrypt.genSalt(5, function(err, salt) {
+//   cSalt = salt;
+// bcrypt.hash('123456', salt, function(err, hash) {
+//   console.log(hash);
+//   hashed = hash;
+// });
+// });
+// bcrypt.verify()
+
+bcrypt.compare('123456', '$2b$05$OKpEE6S535wljPP7m2pq2Og0iCx5U5o8nCbbi3dqKEnJPKiHdxp7i', function(err, res) {
+  console.log(res);
+});
 
 //set up printer
 // let text = 'Lorem ipsum dolor sit amet, consectetur adipiscing '+
@@ -158,12 +175,16 @@ router.post('/', function(req, res, next) {
 router.get('/category/:id', function(req, res, next) {
   let products = [];
   let catId = req.params.id;
-  client.query(sqlFormatter("select * from products as p where p.category = %L order by p.name", catId))
+  client.query(sqlFormatter("select * from products as p "+
+                            "join products_categories as pc on pc.product = p.id "+
+                            "where pc.category = %L order by p.name", catId))
+                            // "join categories as c on c.id = pc.category "+
   .then((prods)=>{
     let number = 0;
     prods.rows.forEach((prod)=>{
       prod.number = ++number;
       prod.price = addTrailingZeros(prod.price);
+      console.log(prod.description);
       products.push(prod);
     });
     res.render('index', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'prods': products}});
@@ -247,10 +268,12 @@ router.post('/register', function(req, res) {
       });
     }).then(()=>{
       if(!stop){
-        let hashedPass = passwordHash.generate(pass);
+        let salt = generateId();
+        let saltedPass = salt + pass;
         if(validateEmail(email) && validateName(fName) && validateName(lName) && validatePass(pass) && pass === cpass){
           let newUserId = generateId();
-          client.query(sqlFormatter("insert into accounts (id, email, first_name, last_name, phone, address, pass, role, active) values(%L, %L, %L, %L, %L, %L, %L, '1', 'false');", newUserId, email, fName, lName, phone, address, hashedPass))
+          bcrypt.hash(saltedPass, 5, function(err, hash) {
+          client.query(sqlFormatter("insert into accounts (id, email, first_name, last_name, phone, address, pass, salt, role, active) values(%L, %L, %L, %L, %L, %L, %L, %L, '1', 'false');", newUserId, email, fName, lName, phone, address, hash, salt))
           .then(()=>{
             client.query(sqlFormatter("insert into shopping_carts (id, userId) values(%L, %L)", generateId(), newUserId))
             .then(()=>{
@@ -276,6 +299,7 @@ router.post('/register', function(req, res) {
             });
           })
           .catch(e => console.error(e.stack));
+        });
         }else{
           res.redirect(303, '/register');
         }
@@ -315,7 +339,12 @@ function checkLoginInfo(res,req){let email = req.body.email;
     accounts.rows.forEach((account)=>{
       if(account.email === email){
         foundUser = true;
-        if(passwordHash.verify(pass, account.pass) && account.active){
+        console.log(pass);
+        console.log(account.salt);
+        console.log(account.pass);
+        bcrypt.compare(account.salt + pass, account.pass, function(err, bcryptResp) {
+          console.log(bcryptResp);
+        if(bcryptResp==true && account.active){
           isLoggedIn = true;
           username = account.firstName;
           loggedInUserId = account.id;
@@ -326,6 +355,7 @@ function checkLoginInfo(res,req){let email = req.body.email;
         }else{
           return failLogin(res);
         }
+      });
       }
     });
     if(!foundUser){
@@ -524,11 +554,18 @@ router.post('/add', function(req, res) {
   let quant = req.body.quant;
   let descr = req.body.descr;
   let ctg = Number(req.body.ctg) + 1; // offset +1
-
-  client.query(sqlFormatter("insert into products values(%L, %L, %L, %L, %L, %L);", generateId(), name, price, quant, ctg, descr))
-        .catch(e => console.error(e.stack));
-
-  res.redirect(303, '/');
+  let productId = generateId();
+  client.query(sqlFormatter("insert into products values(%L, %L, %L, %L, %L);", productId, name, price, quant, descr))
+  .then(()=>{
+    for(let i in req.body){
+      if(isNumber(i)){
+        client.query(sqlFormatter("insert into products_categories values(%L, %L)", productId, i))
+        .catch(e=>console.error(e.stack))
+      }
+    }
+    res.redirect(303, '/')
+  })
+  .catch(e => console.error(e.stack));
 });
 
 /* GET cart page. */
@@ -606,6 +643,7 @@ router.get('/accs', function(req,res){
   .query(sqlFormatter("select * from accounts"))
   .then((data)=>{
     data.rows.forEach((row)=>{
+      row.id;
       users.push(row);
     });
     res.render('accs', {data:{'isLoggedIn': isLoggedIn,'user': username, 'isAdmin': isAdmin, 'users': users}});
@@ -625,7 +663,8 @@ router.post('/edit/:id', function(req, res, next) {
   let descr = req.body.descr;
   let ctg = Number(req.body.ctg) + 1; // offset +1
 
-  client.query(sqlFormatter("update products set name = %L, price = %L, quantity = %L, category = %L, description = %L where id = %L;", name, price, quant, ctg, descr, productId))
+  client.query(sqlFormatter("insert into products_categories values(%L, %L)", productId, ctg));
+  client.query(sqlFormatter("update products set name = %L, price = %L, quantity = %L, description = %L where id = %L;", name, price, quant, descr, productId))
   .then(res.redirect(303, '/'));
 });
 
@@ -764,6 +803,32 @@ function getDate(){
 
   today = dd + '-' + mm + '-' + yyyy;
   return today;
+}
+
+function fixText(text){
+  if(text==null){
+    return '';
+  }
+  let splitText = text.split(/[\s,-]+/);
+  let newText = "";
+  let counter = 0;
+  splitText.forEach((word)=>{
+    console.log(word);
+    if(counter==splitText.length){
+      console.log('return');
+      return newText;
+    }
+    counter++;
+    if(!word.length>25){
+      newText += word.substring(20) + '... ';
+    }else{
+      newText += word + ' ';
+    }
+  });
+}
+
+function isNumber(n) {
+  return !isNaN(parseFloat(n)) && isFinite(n);
 }
 
 module.exports = router;
