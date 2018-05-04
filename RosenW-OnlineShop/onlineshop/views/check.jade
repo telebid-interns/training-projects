@@ -20,7 +20,7 @@ div
     each item in data.purchases
         tr
           td(style="text-align:center")  #{item.number}
-          td(style="text-align:center")  #{item.first_name}
+          td(style="text-align:center")  #{item.first_name + " " + item.last_name}
           td(style="text-align:center")  #{item.address}
           td(style="text-align:center")  #{item.state}
           td(style="text-align:center")  #{item.date}

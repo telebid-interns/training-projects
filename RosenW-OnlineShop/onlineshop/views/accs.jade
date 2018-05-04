@@ -13,8 +13,7 @@ div
     tr
       th(width="20%" align="left") ID
       th(width="20%" align="left") Email
-      th(width="15%" align="left") First Name
-      th(width="15%" align="left") Second Name
+      th(width="15%" align="left") Name
       th(width="10%" align="right") Address
       th(width="5%" align="right") Role
       th(width="5%" align="right") Active
@@ -23,8 +22,7 @@ div
         tr
           td #{u.id}
           td #{u.email}
-          td #{u.first_name}
-          td #{u.last_name}
+          td #{u.first_name + " " + u.last_name}
           td #{u.address}
           td #{u.role}
           td #{u.active}

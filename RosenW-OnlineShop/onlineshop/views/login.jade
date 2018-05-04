@@ -5,6 +5,7 @@ html
     link(rel='stylesheet', href='/stylesheets/form.css')
     link(rel='stylesheet', href='/stylesheets/navbar.css')
     script(type='text/javascript' src="/js/jquery.min.js")
+    script(type='text/javascript' src="/js/notify.min.js")
     script(type='text/javascript' src='https://www.google.com/recaptcha/api.js')
   body
     block content
@@ -12,12 +13,18 @@ html
       div
         form.form(method='post')
           label Email :
-          input#name(type='text', name='email')
+          input(type='text', name='email')
           label Password :
-          input#password(type='password', name='password')
+          input(type='password', name='password')
           if data.r
             div(class="g-recaptcha" data-sitekey="6LdF9FQUAAAAAO7KK6yzeKXmWB9vfvJUPhSg4YoT")
-          input#login(type='submit', name='loginiBtn', value='Log In')
+          if data.f == 1
+            label(style='color:red') Incorrect Password
+          if data.f == 2
+            label(style='color:red') Invalid Email
+          if data.f == 3
+            label(style='color:red') Please complete the captcha
+          input(type='submit', name='loginiBtn', value='Log In')
 
 script.
   //make link with black bg

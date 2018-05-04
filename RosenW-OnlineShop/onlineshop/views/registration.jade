@@ -28,6 +28,18 @@ html
           label Confirm Password*
           input#cpassword(type='password', name='cpassword'  onkeyup='checkRPassword()' placeholder='Passwords must match')
           div(class="g-recaptcha" data-sitekey="6LdF9FQUAAAAAO7KK6yzeKXmWB9vfvJUPhSg4YoT")
+          if data.f == 1
+            label(style='color:red') Password must be longer than 6 symbols
+          if data.f == 2
+            label(style='color:red') First and Last name must be between 3 to 20 letters
+          if data.f == 3
+            label(style='color:red') Please complete the captcha
+          if data.f == 4
+            label(style='color:red') Passwords don't match
+          if data.f == 5
+            label(style='color:red') Invalid Email
+          if data.f == 6
+            label(style='color:red') A user with this Email exists
           input#register(type='submit', name='regBtn', value='Register')
 
 script.

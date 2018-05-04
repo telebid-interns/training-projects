@@ -15,10 +15,11 @@ html
           input#price(type='text', name='price', value='#{data.price}')
           label Quantity :
           input#quantity(type='text', name='quant', value='#{data.quantity}')
-          label Category :
-          select(id="ctgries", name="ctg")
-            -for(var i = 0;i<data.ctg.length;i++){
-            option(value="#{i}") #{data.ctg[i]}
-            -}
+          label Categories :
+              -for(var i = 0;i<data.ctg.length;i++){
+                br
+                input(type='checkbox' name='#{i+1}' value='#{data.ctg[i]}' id='#{data.ctg[i]}')
+                label(for='#{data.ctg[i]}') #{data.ctg[i]}
+              -}
           textarea#descr(name='descr', placeholder='Enter item description here...') #{data.descr}
           input#edit(type='submit', name='loginiBtn', value='Edit')

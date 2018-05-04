@@ -18,8 +18,9 @@ html
           input#address(type='text', name='address' value='#{data.p[0].address}')
           label Phone :
           input#phone(type='text', name='phone' value='#{data.p[0].ph}')
+          if data.f == 1
+            label(style='color:red') First and Last name must be between 3 and 20 letters
           input#save(type='submit', name='saveBtn', value='Save')
-
         input(id="chPass" type='submit', name='chpassBtn', value='Change Password' onclick="location.href = '/chpass'")
 
 script.
