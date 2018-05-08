@@ -3,7 +3,6 @@ html
   head
     title= title
     link(rel='stylesheet', href='/stylesheets/table.css')
-    link(rel='stylesheet', href='/stylesheets/search.css')
     link(rel='stylesheet', href='/stylesheets/navbar.css')
     script(type='text/javascript' src="/js/jquery.min.js")
     script(type='text/javascript' src="/js/notify.min.js")
@@ -12,51 +11,51 @@ html
     block content
   include ./navbar.jade
   div
-    if data.pc
-      script.
-        window.onload=function(){
-          //notify options
-          let options = {
-          // whether to hide the notification on click
-          clickToHide: true,
-          // whether to auto-hide the notification
-          autoHide: true,
-          // if autoHide, hide after milliseconds
-          autoHideDelay: 5000,
-          // show the arrow pointing at the element
-          arrowShow: true,
-          // arrow size in pixels
-          arrowSize: 5,
-          // position defines the notification position though uses the defaults below
-          position: 'bottom right',
-          // default style
-          style: 'bootstrap',
-          // default class (string or [string])
-          className: 'success',
-          // show animation
-          showAnimation: 'slideDown',
-          // show animation duration
-          showDuration: 400,
-          // hide animation
-          hideAnimation: 'slideUp',
-          // hide animation duration
-          hideDuration: 200,
-          // padding between element and notification
-          gap: 0
-          }
-          $('#navbar').notify('Successfuly changed password', options);
-        }
-        
-    table(id='maint' style='width:50%')
-      tr
-        th(width="10%" style="text-align:center") №
-        th(width="90%" style="text-align:center") Categories
-      each item in data.cat
+    table(id='maintsc' style='width:65%')
+        -let i=0;
+        each item in data.cat
           tr
-            td(style="text-align:center") #{item.number}
-            td 
-                a(href="/category/#{item.id}") #{item.name}
+            td(width='50%' height='300px')
+              a(href="/category/#{item[0].id}") #{item[0].name}
+                br
+                img(width='100%' height='100%' href="/category/#{item[0].id}" src="/images/#{item[0].img}")
+            if item[1] != undefined
+              td(width='50%' height='300px')
+                a(href="/category/#{item[1].id}") #{item[1].name}
+                  br
+                  img(width='100%' height='100%' href="/category/#{item[1].id}" src="/images/#{item[1].img}")
 
 script.
-    //make link with black bg
-    $('#nav-home').addClass('page');
+  let options = {
+    clickToHide: true,
+    autoHide: false,
+    autoHideDelay: 5000,
+    arrowShow: true,
+    arrowSize: 5,
+    position: 'bottom right',
+    style: 'bootstrap',
+    className: 'success',
+    showAnimation: 'slideDown',
+    showDuration: 400,
+    hideAnimation: 'slideUp',
+    hideDuration: 200,
+    gap: 0
+  }
+
+if data.pc
+  script.
+    $(document).ready(function(){ 
+        $('#navbar').notify('Password changed successfully', options);  
+    });
+
+if data.pi
+  script.
+    $(document).ready(function(){ 
+        $('#navbar').notify('Profile information changed successfully', options);  
+    });
+
+if data.reg
+  script.
+    $(document).ready(function(){ 
+        $('#navbar').notify('A verification link has been sent to your email', options);  
+    });

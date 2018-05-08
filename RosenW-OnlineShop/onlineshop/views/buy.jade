@@ -23,10 +23,9 @@ html
                 function (createErr, instance) {
                     button.addEventListener('click', function () {
                         instance.requestPaymentMethod(function (err, payload) {
-                            console.log('Submit payload.nonce to your server');
                             $.post("/buy", {nonce: payload.nonce}, function(result){
                                 console.log('done');
-                                window.location.href = "/";
+                                window.location.href = "/orders/?sp=1"; //successful purchase
                             });
                         });
                     });

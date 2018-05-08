@@ -13,7 +13,7 @@ if !data.isLoggedIn
         
 else
   if data.isAdmin
-    ul#navbar
+    ul(id="navbar")
           li
             a(href='/' id='nav-home') Home
           li
@@ -23,9 +23,11 @@ else
           li
             a(href='/accs' id='nav-us') Users
           li
+            a(href='/all' id='nav-all') All Products
+          li
             a(href='/logout') Log out
   else
-    ul#navbar
+    ul(id="navbar")
             li
               a(href='/' id='nav-home') Home
             li

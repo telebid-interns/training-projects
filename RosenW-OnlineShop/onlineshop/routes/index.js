@@ -11,26 +11,15 @@ let braintree = require('braintree');
 let Printer = require('node-printer');
 let bixolon = new Printer('BIXOLON-SRP-350II');
 let fs = require('fs');
-let PDFDocument = require('pdfkit');
 let bcrypt = require('bcrypt');
+let printer = require('node-thermal-printer')
 
-let hashed;
-let cSalt;
+printer.init({type: 'bixolon'})
+printer.raw(new Buffer("Hello world"), function(err){ } ); 
 
-// bcrypt.genSalt(5, function(err, salt) {
-//   cSalt = salt;
-// bcrypt.hash('123456', salt, function(err, hash) {
-//   console.log(hash);
-//   hashed = hash;
-// });
-// });
-// bcrypt.verify()
+console.log('Server up and running...');
 
-bcrypt.compare('123456', '$2b$05$OKpEE6S535wljPP7m2pq2Og0iCx5U5o8nCbbi3dqKEnJPKiHdxp7i', function(err, res) {
-    console.log(res);
-});
-
-//set up printer
+// set up printer
 // let text = 'Lorem ipsum dolor sit amet, consectetur adipiscing '+
 // 'elit. Quisque sagittis euismod quam vitae porta. In porta luctus '+
 // 'augue id auctor. Nunc tincidunt, leo at ultricies auctor, lacus est '+
@@ -38,17 +27,13 @@ bcrypt.compare('123456', '$2b$05$OKpEE6S535wljPP7m2pq2Og0iCx5U5o8nCbbi3dqKEnJPKi
 // ' iaculis eros id, mattis elit. Suspendisse et rhoncus libero, a dapibus neque. '+
 // 'Fusce dolor est, viverra semper risus dictum, condimentum tincidunt metus.'+
 // ' Curabitur sed malesuada leo. Nunc tempor nec metus eget euismod.';
-// let textJob = bixolon.printText(text);
-// console.log(textJob);
-// let doc = new PDFDocument();
-// doc.pipe(fs.createWriteStream('/home/rosen/Desktop/repo/RosenW-OnlineShop/onlineshop/public/PDFs/mypdf.pdf')); 
-// doc.fontSize(25)
-//    .text('Some text with an embedded font!', 100, 100);
 
-// doc.end();
 // console.log('done');
 // let fileBuffer = fs.readFileSync('/home/rosen/Desktop/repo/RosenW-OnlineShop/onlineshop/public/PDFs/mypdf.pdf');
-// let jobFromBuffer = bixolon.printBuffer(fileBuffer);
+// console.log(fileBuffer);
+// let jobFromBuffer = bixolon.printBuffer('68656c6c6f20636f6d7075746572');
+// console.log(jobFromBuffer);
+// console.log(bixolon);
 
 //credit card payment keys
 let merchId = '9mjmz4gm33rrmbd2';
@@ -138,38 +123,46 @@ client.connect();
 /* GET home/categories page. */
 router.get('/', function(req, res, next) {
     let passNotfic = false;
+    let profileInfoNotific = false;
+    let linkSentToMail = false;
     if(req.query.pc==1){
-      passNotfic = true;
+        passNotfic = true;
+      }
+    if(req.query.pi==1){
+        profileInfoNotific = true;
     }
-    // console.log('REQ');
-    // console.log(req);
-    // console.log('RES');
-    // console.log(res);
-    // console.log('NEXT');
-    // console.log(next);
-    if (req.params.pc == 1){
-      passNotfic = true;
+    if(req.query.reg==1){
+        linkSentToMail = true;
     }
     let categories = [];
     client.query("select * from categories as c order by c.name").then((cats) => {
         let number = 0;
-        cats.rows.forEach((cat) => {
-            cat.number = ++number;
-            categories.push(cat);
-        });
+        for(i=0; i<cats.rows.length; i++){
+            let newGroup = [];
+            newGroup.push(cats.rows[i]);
+            try{
+                newGroup.push(cats.rows[i+1]); 
+            }finally{
+                console.log(newGroup);
+                categories.push(newGroup);
+                i++;
+            }
+        }
         res.render('categories', {
             data: {
                 'isLoggedIn': isLoggedIn,
                 'user': username,
                 'isAdmin': isAdmin,
                 'cat': categories,
-                'pc': passNotfic
+                'pc': passNotfic,
+                'pi': profileInfoNotific,
+                'reg': linkSentToMail
             }
         });
     })
 });
 
-/* POST home(search) page. */
+/* POST home page. */
 router.post('/', function(req, res, next) {
     let word = req.body.name;
     let products = [];
@@ -324,8 +317,11 @@ router.post('/register', function(req, res) {
     let address = req.body.address;
     let pass = req.body.password;
     let cpass = req.body.cpassword;
+    let cc = req.body.countryCode;
     let link;
     let stop = false;
+    let wholeNumber = cc + phone.replace(/[^0-9]/g,'');
+    console.log(wholeNumber);
 
     let verifyURL = 'https://www.google.com/recaptcha/api/siteverify?secret=6LdF9FQUAAAAAJrUDQ7a-KxAtzKslyxhA7KZ-Bwt&response=' + recaptchaResp;
     request(verifyURL, (err, response, body) => {
@@ -351,7 +347,7 @@ router.post('/register', function(req, res) {
                                     if (validateName(fName) && validateName(lName)) {
                                         let newUserId = generateId();
                                         bcrypt.hash(saltedPass, 5, function(err, hash) {
-                                            client.query(sqlFormatter("insert into accounts (id, email, first_name, last_name, phone, address, pass, salt, role, active) values(%L, %L, %L, %L, %L, %L, %L, %L, '1', 'false');", newUserId, email, fName, lName, phone, address, hash, salt))
+                                            client.query(sqlFormatter("insert into accounts (id, email, first_name, last_name, phone, address, pass, salt, role, active) values(%L, %L, %L, %L, %L, %L, %L, %L, '1', 'false');", newUserId, email, fName, lName, wholeNumber, address, hash, salt))
                                                 .then(() => {
                                                     client.query(sqlFormatter("insert into shopping_carts (id, userId) values(%L, %L)", generateId(), newUserId))
                                                         .then(() => {
@@ -372,7 +368,7 @@ router.post('/register', function(req, res) {
                                                                         }
                                                                         console.log('Message sent: ' + info.response);
                                                                     });
-                                                                    res.redirect(303, '/login');
+                                                                    res.redirect(303, '/?reg=1');
                                                                 });
                                                         });
                                                 })
@@ -526,6 +522,10 @@ router.get('/orders', function(req, res, next) {
     if (!isLoggedIn) {
         res.redirect(303, '/');
     }
+    let successfulPurchase = false;
+    if(req.query.sp==1){
+        successfulPurchase = true;
+      }
     let orders = [];
     let purchases = [];
     let count = 1;
@@ -565,7 +565,8 @@ router.get('/orders', function(req, res, next) {
                             'isLoggedIn': isLoggedIn,
                             'user': username,
                             'isAdmin': isAdmin,
-                            'purchases': purchases
+                            'purchases': purchases,
+                            'sp': successfulPurchase
                         }
                     });
                 });
@@ -635,7 +636,7 @@ router.post('/profile', function(req, res, next) {
 
     if(validateName(fName) && validateName(lName)){
       client.query(sqlFormatter("update accounts set first_name = %L, last_name = %L, address = %L, phone = %L where id = %L", fName, lName, address, phone, loggedInUserId))
-          .then(res.redirect(303, '/'));
+          .then(res.redirect(303, '/?pi=1')); //password info
     }else{
       let profData = [];
       client.query(sqlFormatter('select a.first_name as fn, a.last_name as ln, a.phone as ph, a.address from accounts as a where a.id = %L', loggedInUserId))
@@ -736,8 +737,10 @@ router.post('/add', function(req, res) {
     let price = req.body.price;
     let quant = req.body.quant;
     let descr = req.body.descr;
+    let img = req.body.img;
+
     let productId = generateId();
-    client.query(sqlFormatter("insert into products values(%L, %L, %L, %L, %L);", productId, name, price, quant, descr))
+    client.query(sqlFormatter("insert into products values(%L, %L, %L, %L, %L, %L);", productId, name, price, quant, descr, img))
         .then(() => {
             for (let i in req.body) {
                 if (isNumber(i)) {
@@ -786,7 +789,7 @@ router.get('/edit/:id', function(req, res, next) {
         res.redirect(303, '/');
     }
     let productId = req.params.id;
-    client.query(sqlFormatter("select p.name, p.price, p.quantity, p.description from products as p where p.id = %L", productId))
+    client.query(sqlFormatter("select p.name, p.price, p.quantity, p.description, p.img from products as p where p.id = %L", productId))
         .then((data) => {
             let ctg = [];
             let row = data.rows[0];
@@ -794,6 +797,7 @@ router.get('/edit/:id', function(req, res, next) {
             let price = row.price;
             let quantity = row.quantity;
             let descr = row.description;
+            let img = row.img;
             client.query(sqlFormatter("select * from categories as c"))
                 .then((data) => {
                     data.rows.forEach((row) => ctg.push(row.name));
@@ -806,7 +810,8 @@ router.get('/edit/:id', function(req, res, next) {
                             'price': price,
                             'quantity': quantity,
                             'descr': descr,
-                            'ctg': ctg
+                            'ctg': ctg,
+                            'img': img
                         }
                     });
                 });
@@ -875,6 +880,7 @@ router.post('/edit/:id', function(req, res, next) {
     let price = req.body.price;
     let quant = req.body.quant;
     let descr = req.body.descr;
+    let img = req.body.img;
     client.query(sqlFormatter("delete from products_categories where product = %L", productId))
         .then(() => {
             for (let i in req.body) {
@@ -884,7 +890,7 @@ router.post('/edit/:id', function(req, res, next) {
                         .catch(e => console.error(e.stack))
                 }
             }
-            client.query(sqlFormatter("update products set name = %L, price = %L, quantity = %L, description = %L where id = %L;", name, price, quant, descr, productId))
+            client.query(sqlFormatter("update products set name = %L, price = %L, quantity = %L, description = %L, img = %L where id = %L;", name, price, quant, descr, img, productId))
                 .then(res.redirect(303, '/'));
         });
 
@@ -982,7 +988,7 @@ router.post('/buy', function(req, res) {
 
                         //cart clean up
                         client.query(sqlFormatter("delete from cart_items as ci using shopping_carts as sc where ci.cartid = sc.id and sc.userid = %L", loggedInUserId))
-                            .then(res.redirect(303, '/orders'));
+                        .then(res.redirect(303, '/orders'));
                     } else {
                         res.redirect(303, '/buy?wd=1');
                     }

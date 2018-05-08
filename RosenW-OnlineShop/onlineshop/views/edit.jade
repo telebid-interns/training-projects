@@ -15,6 +15,8 @@ html
           input#price(type='text', name='price', value='#{data.price}')
           label Quantity :
           input#quantity(type='text', name='quant', value='#{data.quantity}')
+          label Image path :
+          input(id='image' type='text', name='img', value='#{data.img}')
           label Categories :
               -for(var i = 0;i<data.ctg.length;i++){
                 br
