@@ -1,17 +1,40 @@
-var createError = require('http-errors');
-var express = require('express');
-var path = require('path');
-var cookieParser = require('cookie-parser');
-var logger = require('morgan');
-var flash = require('connect-flash');
+let createError = require('http-errors');
+let express = require('express');
+let path = require('path');
+let cookieParser = require('cookie-parser');
+let flash = require('connect-flash');
+let logger = require('morgan');
 let bodyParser = require('body-parser');
+let session = require('express-session');
+let fileUpload = require('express-fileupload')
+let indexRouter = require('./routes/index');
+let usersRouter = require('./routes/users');
 
-var indexRouter = require('./routes/index');
-var usersRouter = require('./routes/users');
+let app = express();
 
-var app = express();
+// Use the session middleware
+app.use(session({ secret: 'secret123123', cookie: { maxAge: 3600000 }}));
+ 
+// default options
+app.use(fileUpload());
+ 
+app.post('/upload', function(req, res) {
+  if (!req.files)
+    return res.status(400).send('No files were uploaded.');
+ 
+  // The name of the input field (i.e. "sampleFile") is used to retrieve the uploaded file
+  let sampleFile = req.files.img;
+ 
+  // Use the mv() method to place the file somewhere on your server
+  sampleFile.mv('/public/images/test.jpg', function(err) {
+    if (err)
+      return res.status(500).send(err);
+ 
+    res.send('File uploaded!');
+  });
+});
 
-
+app.use(bodyParser.json());
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'jade');
