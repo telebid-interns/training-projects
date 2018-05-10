@@ -14,6 +14,7 @@ let fs = require('fs');
 let bcrypt = require('bcrypt');
 let printer = require('node-thermal-printer');
 let bodyparser = require('body-parser');
+let lpcomplete = require('node-printer-lp-complete');
 
 console.log('Server up and running...');
 
@@ -21,18 +22,29 @@ console.log('Server up and running...');
 let clientId = '664610033466-oalrqbi17s6fgtvb99cmahvtmv2iuv0r.apps.googleusercontent.com';
 let clientSecret = 'RDEJ-rpeEd328f4IdVV5OilX';
 
-
-
+var options = {
+    media: 'Custom.200x600mm', // Custom paper size
+    destination: "BIXOLON-SRP-350II", // The printer name
+    n: 1 // Number of copies
+};
+ 
+var text = "some text some text some text some text some text ";
+ 
+String.prototype.toBytes = function() {
+    var arr = []
+    for (var i=0; i < this.length; i++) {
+      arr.push(this[i].charCodeAt(0))
+    }
+    return arr.join('');
+   }
+let data = "hello world".toBytes().concat([0x01B, 0x64, 10])
+let jobText = lpcomplete.printText(data, options, "text_demo");
 // set up printer
+// let data = "hello world".toBytes().concat([0x01B, 0x64, 10])
 // let text = 'Lorem ipsum dolor sit amet, consectetur adipiscing '+
-// 'elit. Quisque sagittis euismod quam vitae porta. In porta luctus '+
-// 'augue id auctor. Nunc tincidunt, leo at ultricies auctor, lacus est '+
-// 'gravida ante, eget porttitor lectus nisl eget felis. In quis turpis tempus,'+
-// ' iaculis eros id, mattis elit. Suspendisse et rhoncus libero, a dapibus neque. '+
-// 'Fusce dolor est, viverra semper risus dictum, condimentum tincidunt metus.'+
-// ' Curabitur sed malesuada leo. Nunc tempor nec metus eget euismod.';
-
-// console.log('done');
+// 'elit. Quisque sagittis euismod quam vitae porta. In porta luctus';
+// bixolon.printText(text);
+// bixolon.printText('T26,81,2,0,0,0,0,N,N,"Font - 10 pt"');
 // let fileBuffer = fs.readFileSync('/home/rosen/Desktop/repo/RosenW-OnlineShop/onlineshop/public/PDFs/mypdf.pdf');
 // console.log(fileBuffer);
 // let jobFromBuffer = bixolon.printBuffer('68656c6c6f20636f6d7075746572');
@@ -735,6 +747,7 @@ router.post('/add', function(req, res) {
     let price = req.body.price;
     let quant = req.body.quant;
     let descr = req.body.descr;
+    console.log(req.files);
     let img = req.files.img;
 
     console.log(img.name);
@@ -888,8 +901,16 @@ router.post('/edit/:id', function(req, res, next) {
     let price = req.body.price;
     let quant = req.body.quant;
     let descr = req.body.descr;
-    let img = req.body.img;
-    client.query(sqlFormatter("delete from products_categories where product = %L", productId))
+    let img = req.files.img;
+
+    if(img != undefined && img.name.slice(-4) == '.jpg'){
+    let newName = generateId() + '.jpg';
+    img.mv('/home/rosen/Desktop/repo/RosenW-OnlineShop/onlineshop/public/images/'+newName, function(err) {
+        if (err)
+          return res.status(500).send(err);
+
+            
+        client.query(sqlFormatter("delete from products_categories where product = %L", productId))
         .then(() => {
             for (let i in req.body) {
                 console.log(i);
@@ -898,10 +919,15 @@ router.post('/edit/:id', function(req, res, next) {
                         .catch(e => console.error(e.stack))
                 }
             }
-            client.query(sqlFormatter("update products set name = %L, price = %L, quantity = %L, description = %L, img = %L where id = %L;", name, price, quant, descr, img, productId))
-                .then(res.redirect(303, '/'));
-        });
 
+            client.query(sqlFormatter("update products set name = %L, price = %L, quantity = %L, description = %L, img = %L where id = %L;", name, price, quant, descr, newName, productId))
+            .then(res.redirect(303, '/'));
+        });
+        res.redirect(303, '/');
+      });
+    }else{
+        res.redirect(303, '/edit/' + productId);
+    }
 });
 
 /* POST add to cart. */
@@ -916,14 +942,11 @@ router.post('/addtocart', function(req, res) {
     });
 });
 
-/* POST save image. */
-router.post('/saveimg', function(req, res) {
-    let img = req.fi.data;
-
-    console.log(img);
-    console.log(img.name);
+/* POST add to cart. */
+router.post('/printpdf', function(req, res) {
+    let pdf = req.body.pdf;
+    console.log(pdf);
 });
-
 
 /* POST remove from cart. */
 router.post('/remove', function(req, res) {

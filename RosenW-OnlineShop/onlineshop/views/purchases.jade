@@ -5,10 +5,11 @@ html
     link(rel='stylesheet', href='/stylesheets/navbar.css')
     link(rel='stylesheet', href='/stylesheets/table.css')
     script(type='text/javascript' src="/js/jquery.min.js")
+    script(type='text/javascript' src='/js/jspdf.min.js')
   body
-    block content
+    block(id='content') content
   include ./navbar.jade
-div
+div(id='editor')
   table(style='width:45%' id='maint')
     tr
       th(align="left") №
@@ -36,17 +37,29 @@ div
               option(value='2') Delivered
         td
           input(id='change' type='submit', name='buybtn', value='Change')
+          
         td
-          button(id='print') Print
-
-
-
+          button(id='print' name='differentbuttton' type='button') Print
 
 
 script.
   //make link with black bg
   $('#nav-pur').addClass('page');
   $('#print').click(()=>{
-    window.print();
-    window.location.href = "/check";
+    var doc = new jsPDF();
+    var specialElementHandlers = {
+        '#editor': function (element, renderer) {
+            return true;
+      }
+    };
+    doc.fromHTML(
+      $('#maint').html(), 
+      15, 
+      15, 
+      {
+          'width': 170,
+          'elementHandlers': specialElementHandlers
+      });
+      // $.post('/addtocart', {id: id, quant: textBoxValue});
+      //- $.post('/printpdf', {pdf:doc});
   });

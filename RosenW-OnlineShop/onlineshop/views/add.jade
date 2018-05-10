@@ -10,7 +10,7 @@ html
     block content
       include ./navbar.jade
       div
-        form.form(method='post' enctype="multipart/form-data" )
+        form.form(method='post' enctype="multipart/form-data")
           label Name :
           input#name(type='text', name='name')
           label Price (in $) :
@@ -36,10 +36,3 @@ html
 script.
   //make link with black bg
   $('#nav-addpr').addClass('page');
-
-  //- $('#image').change(function(){
-  //-   let test = $('#image')[0].files[0];
-  //-   console.log(test);
-  //-   let files = 5
-  //-   $.post('/saveimg', {data: files});
-  //- });

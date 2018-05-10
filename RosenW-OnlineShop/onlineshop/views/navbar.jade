@@ -26,6 +26,10 @@ else
             a(href='/all' id='nav-all') All Products
           li
             a(href='/logout') Log out
+          li(class="search-container")
+            form(method='post' action="/")
+              input(type='textbox', placeholder='Search product by name', name='name')
+              input(type='submit', value='Search')
   else
     ul(id="navbar")
             li
