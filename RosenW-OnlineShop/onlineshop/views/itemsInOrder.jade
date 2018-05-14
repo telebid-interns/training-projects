@@ -9,13 +9,11 @@ html
   include ./navbar.jade
 table(style='width:35%')
   tr
-    th(align="left") №
     th Name
     th(align="right") Quantity
     th(align="right") Total
   each item in data.order
       tr(id="row-#{item.id}")
-        td #{item.number}
         td #{item.name}
         td(align="right") #{item.quantity}
         td(align="right") $#{parseFloat(Math.round((item.price * item.quantity) * 100) / 100).toFixed(2)}

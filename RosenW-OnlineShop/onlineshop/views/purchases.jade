@@ -12,13 +12,13 @@ html
 div(id='editor')
   table(style='width:45%' id='maint')
     tr
-      th(align="left") №
+      th(align="left")
       th Name
       th(align="right") Quantity
       th(align="right") Total
     each item in data.cart
         tr(id="row-#{item.id}")
-          td #{item.number}
+          td
           td #{item.name}
           td(align="right") #{item.quantity}
           td(align="right") $#{parseFloat(Math.round((item.price * item.quantity) * 100) / 100).toFixed(2)}
@@ -39,27 +39,13 @@ div(id='editor')
           input(id='change' type='submit', name='buybtn', value='Change')
           
         td
-          button(id='print' name='differentbuttton' type='button') Print
+          button(id='print' name='printbtn' type='button') Print
 
 
 script.
   //make link with black bg
   $('#nav-pur').addClass('page');
   $('#print').click(()=>{
-    var doc = new jsPDF();
-    var specialElementHandlers = {
-        '#editor': function (element, renderer) {
-            return true;
-      }
-    };
-    doc.fromHTML(
-      $('#maint').html(), 
-      15, 
-      15, 
-      {
-          'width': 170,
-          'elementHandlers': specialElementHandlers
-      });
-      // $.post('/addtocart', {id: id, quant: textBoxValue});
-      //- $.post('/printpdf', {pdf:doc});
+    let tot = $('#total').text();
+    $.post('/print', {printdata: tot});
   });

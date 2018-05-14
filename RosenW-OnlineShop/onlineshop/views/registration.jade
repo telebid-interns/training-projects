@@ -448,7 +448,7 @@ html
                 | &#x9;&#x9;
                 option(data-countrycode='ZW', value='263') Zimbabwe (+263)
           label Phone Number
-          input#phone(type='text', name='phone' placeholder='Your phone number')
+          input#phone(type='text', name='phone' placeholder='Your phone number' onkeypress="return isNumberKey(event)")
           label Email*
           input#email(type='text', name='email' placeholder='Valid Email')
           label Password*
@@ -513,4 +513,12 @@ script.
     }else{
       box.css('box-shadow', '0 0 5px #000000');
     }
+  }
+
+  function isNumberKey(evt){
+      var charCode = (evt.which) ? evt.which : event.keyCode
+      if (charCode > 31 && (charCode < 48 || charCode > 57))
+        return false;
+
+      return true;
   }

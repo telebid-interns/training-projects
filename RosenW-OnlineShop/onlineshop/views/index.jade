@@ -13,7 +13,6 @@ html
 div
   table(style='width:60%' id="maint")
     tr
-      th(width="5%") №
       th(width="20%") Product
       th(width="20%") Description
       th(width="20%") Quantity in stock
@@ -26,10 +25,9 @@ div
         th(width="10%") Delete
     each item in data.prods
         tr
-          td(style="text-align:center") #{item.number}
           td(style="text-align:center") #{item.name}
             img(height='120px' width='100%' src="/images/#{item.img}")
-          td(style="text-align:center") #{item.description}
+          td(style="text-align:left; vertical-align:top") #{item.description}
           td(style="text-align:center") #{item.quantity}
           td(align="right") $#{item.price}
           if data.isLoggedIn && !data.isAdmin
@@ -100,9 +98,6 @@ script.
     }
   }
   
-  function showDescr(descr){
-    alert(descr);
-  }
   function isNumber(n) {
     return !isNaN(parseFloat(n)) && isFinite(n);
   }

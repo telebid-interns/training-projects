@@ -28,17 +28,17 @@ var options = {
     n: 1 // Number of copies
 };
  
-var text = "some text some text some text some text some text ";
+// var text = "some text some text some text some text some text ";
  
-String.prototype.toBytes = function() {
-    var arr = []
-    for (var i=0; i < this.length; i++) {
-      arr.push(this[i].charCodeAt(0))
-    }
-    return arr.join('');
-   }
-let data = "hello world".toBytes().concat([0x01B, 0x64, 10])
-let jobText = lpcomplete.printText(data, options, "text_demo");
+// String.prototype.toBytes = function() {
+//     var arr = []
+//     for (var i=0; i < this.length; i++) {
+//       arr.push(this[i].charCodeAt(0))
+//     }
+//     return arr.join('');
+//    }
+// let data = "hello world".toBytes().concat([0x01B, 0x64, 10])
+// let jobText = lpcomplete.printText(data, options, "text_demo");
 // set up printer
 // let data = "hello world".toBytes().concat([0x01B, 0x64, 10])
 // let text = 'Lorem ipsum dolor sit amet, consectetur adipiscing '+
@@ -117,9 +117,6 @@ let transporter = nodemailer.createTransport({
     }
 });
 
-//login counter fix?
-let failedLoginCounter = 0;
-
 // Database connection
 const client = new pg.Client({
     user: 'postgres',
@@ -178,7 +175,7 @@ router.post('/', function(req, res, next) {
     let products = [];
     let count = 1;
     if (/^[a-zA-Z]+$/.test(word)) {
-        client.query(sqlFormatter("select * from products as p"))
+        client.query(sqlFormatter("select * from products as p order by name"))
             .then((data) => {
                 data.rows.forEach((row) => {
                     row.number = count++;
@@ -232,7 +229,7 @@ router.get('/category/:id', function(req, res, next) {
 router.get('/all', function(req, res, next) {
     let products = [];
     let catId = req.params.id;
-    client.query(sqlFormatter("select * from products as p "))
+    client.query(sqlFormatter("select * from products as p order by name"))
         .then((prods) => {
             let number = 0;
             prods.rows.forEach((prod) => {
@@ -271,7 +268,11 @@ router.get('/login', function(req, res, next) {
         res.redirect(303, '/');
     }
 
-    if (failedLoginCounter > 2) {
+    if(req.session.logincount == undefined){
+        req.session.logincount = 0;
+    }
+
+    if (req.session.logincount > 2) {
         res.render('login', {
             data: {
                 'isLoggedIn': req.session.loggedIn,
@@ -304,7 +305,7 @@ router.get('/logout', function(req, res, next) {
 router.get('/verify/:id', function(req, res, next) {
     //if id exists active = true, delete from email_codes
     let verificationId = req.params.id;
-    client.query(sqlFormatter('select * from email_codes as ec where ec.id = %L', verificationId))
+    client.query(sqlFormatter('select * from email_codes as ec where ec.code = %L order by id', verificationId))
         .then((data) => {
             if (data.rows.length !== 0) {
                 let row = data.rows[0];
@@ -330,17 +331,16 @@ router.post('/register', function(req, res) {
     let cc = req.body.countryCode;
     let link;
     let stop = false;
-    let wholeNumber = cc + phone.replace(/[^0-9]/g,'');
-    console.log(wholeNumber);
+    let wholeNumber = cc + parseInt(phone.replace(/[^0-9]/g,''),10); // parse int removes leading zeros, replace makes sure its only numbers
+    console.log('PHONE:' + wholeNumber);
 
     let verifyURL = 'https://www.google.com/recaptcha/api/siteverify?secret=6LdF9FQUAAAAAJrUDQ7a-KxAtzKslyxhA7KZ-Bwt&response=' + recaptchaResp;
     request(verifyURL, (err, response, body) => {
         body = JSON.parse(body);
-
         if (body.success !== undefined && !body.success) { //failed captcha
             failRegister(req, res, 3);
         } else { //passed captcha
-            client.query("select * from accounts").then((accs) => {
+            client.query("select * from accounts").then((accs) => { //FIX
                     accs.rows.forEach((acc) => {
                         if (acc.email.toLowerCase() == email.toLowerCase()) {
                             failRegister(req, res, 6);
@@ -355,14 +355,23 @@ router.post('/register', function(req, res) {
                             if (validatePass(pass)) {
                                 if (pass === cpass) {
                                     if (validateName(fName) && validateName(lName)) {
-                                        let newUserId = generateId();
                                         bcrypt.hash(saltedPass, 5, function(err, hash) {
-                                            client.query(sqlFormatter("insert into accounts (id, email, first_name, last_name, phone, address, pass, salt, role, active) values(%L, %L, %L, %L, %L, %L, %L, %L, '1', 'false');", newUserId, email, fName, lName, wholeNumber, address, hash, salt))
+                                            console.log('insert into accs');
+                                            console.log('salt ' + salt);
+                                            
+                                            client.query(sqlFormatter(  "insert into accounts (email, first_name, last_name, phone, address, pass, salt, role, active) "+
+                                                                        "values(%L, %L, %L, %L, %L, %L, %L, '1', 'false');", email, fName, lName, wholeNumber, address, hash, salt))
                                                 .then(() => {
-                                                    client.query(sqlFormatter("insert into shopping_carts (id, userId) values(%L, %L)", generateId(), newUserId))
+                                                    client.query(sqlFormatter("select id from accounts where email=%L", email))
+                                                    .then((currentAcc)=>{
+                                                        console.log('insert into carts');
+                                                        console.log(currentAcc.rows[0]);
+                                                        let userid = currentAcc.rows[0].id;
+                                                    client.query(sqlFormatter("insert into shopping_carts (userid) values(%L)", userid))
                                                         .then(() => {
                                                             let code = generateId();
-                                                            client.query(sqlFormatter("insert into email_codes values(%L, %L)", code, newUserId))
+                                                            console.log('insert into email_codes');
+                                                            client.query(sqlFormatter("insert into email_codes (account, code) values(%L, %L)", userid, code))
                                                                 .then(() => {
                                                                     let link = 'http://localhost:3000/verify/' + code;
                                                                     // nodemailer.sendmail;
@@ -381,6 +390,7 @@ router.post('/register', function(req, res) {
                                                                     res.redirect(303, '/?reg=1');
                                                                 });
                                                         });
+                                                    });
                                                 })
                                                 .catch(e => console.error(e.stack));
                                         });
@@ -419,7 +429,7 @@ router.post('/login', function(req, res) {
     let recaptchaResp = req.body['g-recaptcha-response'];
     let verifyURL = 'https://www.google.com/recaptcha/api/siteverify?secret=6LdF9FQUAAAAAJrUDQ7a-KxAtzKslyxhA7KZ-Bwt&response=' + recaptchaResp;
 
-    if (failedLoginCounter > 2) {
+    if (req.session.logincount > 2) {
         request(verifyURL, (err, response, body) => {
             body = JSON.parse(body);
             if (body.success !== undefined && !body.success) { //failed captcha
@@ -449,6 +459,7 @@ function checkLoginInfo(res, req) {
                             req.session.loggedIn = true;
                             req.session.admin = false;
                             req.session.username = account.first_name;
+                            req.session.logincount = 0;
                             if (account.role == 2) {
                                 req.session.admin = true;
                             }
@@ -468,8 +479,8 @@ function checkLoginInfo(res, req) {
 
 function failLogin(req, res, code) {
     let captchaBool = false;
-    failedLoginCounter++;
-    if (failedLoginCounter > 2) {
+    req.session.logincount++;
+    if (req.session.logincount > 2) {
         captchaBool = true;
     }
     return res.render('login', {
@@ -489,7 +500,7 @@ router.get('/add', function(req, res, next) {
         res.redirect(303, '/');
     }
     let ctg = [];
-    client.query(sqlFormatter("select * from categories"))
+    client.query(sqlFormatter("select * from categories order by name"))
         .then((data) => {
             data.rows.forEach((row) => ctg.push(row.name));
             res.render('add', {
@@ -509,11 +520,19 @@ router.get('/check', function(req, res, next) {
         res.redirect(303, '/');
     }
     let purchases = [];
-    let count = 1;
-    client.query(sqlFormatter("select p.date, p.id, a.first_name, a.last_name, a.address, st.name as state from accounts as a join purchases as p on a.id = p.userid join states as st on st.id = p.state order by state asc, p.date asc"))
+    client
+        .query(sqlFormatter(
+            "select p.id, a.first_name, a.last_name, p.date, "+
+            "st.name as state, p.date, sum(pi.prodprice * pi.quantity) as tot "+
+            "from accounts as a join purchases as p on a.id = p.userid "+
+            "join states as st on st.id = p.state "+
+            "join purchase_items as pi on pi.purchaseid = p.id "+
+            "group by a.first_name, a.last_name, st.name, p.date, p.id "+
+            "order by p.date"
+        ))
         .then((data) => {
             data.rows.forEach((row) => {
-                row.number = count++;
+                row.tot = addTrailingZeros(row.tot);
                 purchases.push(row);
             });
             res.render('check', {
@@ -535,24 +554,25 @@ router.get('/orders', function(req, res, next) {
     let successfulPurchase = false;
     if(req.query.sp==1){
         successfulPurchase = true;
-      }
+    }
     let orders = [];
     let purchases = [];
     let count = 1;
-    client.query(sqlFormatter('select p.id, p.date, s.name as state' +
-            ' from purchases as p join states as s on s.id = p.state' +
-            ' where p.userid = %L order by state asc, p.date desc;', req.session.userId))
+    client.query(sqlFormatter(  
+            'select p.id, p.date, s.name as state ' +
+            'from purchases as p join states as s on s.id = p.state ' +
+            'where p.userid = %L order by state asc, p.date desc', req.session.userId))
         .then((data) => {
             data.rows.forEach((row) => {
                 row.number = count++;
                 purchases.push(row);
             });
-            client.query(sqlFormatter('select pr.name, pi.quantity' +
-                    ', pr.price, pr.id, pur.id as pid from purchase_items as pi join' +
-                    ' purchases as pur on pi.purchaseId = pur.id join ' +
-                    'products as pr on pr.id = pi.prodid ' +
-                    ' where pur.userid = %L' +
-                    ' order by pr.name asc', req.session.userId))
+            client.query(sqlFormatter(  'select pi.prodname as name, pi.quantity, ' +
+                                        'pi.prodprice as price, pur.id as pid '+
+                                        'from purchase_items as pi '+
+                                        'join purchases as pur on pi.purchaseId = pur.id ' +
+                                        'where pur.userid = %L ' +
+                                        'order by pi.prodname', req.session.userId))
                 .then((oData) => {
                     oData.rows.forEach((row) => {
                         row.price = addTrailingZeros(row.price * row.quantity);
@@ -591,7 +611,14 @@ router.get('/check/:id', function(req, res, next) {
     let purchId = req.params.id;
     let currentCart = [];
 
-    client.query(sqlFormatter('select pr.name, sum(pi.quantity) as quantity, pr.price, pr.id from purchase_items as pi join purchases as pur on pi.purchaseId = pur.id join products as pr on pr.id = pi.prodid where pur.id = %L group by pr.name, pr.price, pr.id order by pr.name asc', purchId))
+    client.query(sqlFormatter(  'select pi.prodname as name, sum(pi.quantity) as quantity, '+
+                                'pi.prodprice as price '+
+                                'from purchase_items as pi '+
+                                'join purchases as pur '+
+                                'on pi.purchaseId = pur.id '+
+                                'where pur.id = %L '+
+                                'group by pi.prodname, pi.prodprice '+
+                                'order by pi.prodname asc', purchId))
         .then((data) => {
             let totalPrice = 0;
             let count = 1;
@@ -620,7 +647,10 @@ router.get('/profile', function(req, res, next) {
         res.redirect(303, '/');
     }
     let profData = [];
-    client.query(sqlFormatter('select a.first_name as fn, a.last_name as ln, a.phone as ph, a.address from accounts as a where a.id = %L', req.session.userId))
+    client.query(sqlFormatter(  'select a.first_name as fn, a.last_name as ln, '+
+                                'a.phone as ph, a.address '+
+                                'from accounts as a '+
+                                'where a.id = %L', req.session.userId))
         .then((data) => {
             data.rows.forEach((row) => profData.push(row));
             res.render('profile', {
@@ -649,7 +679,9 @@ router.post('/profile', function(req, res, next) {
           .then(res.redirect(303, '/?pi=1')); //password info
     }else{
       let profData = [];
-      client.query(sqlFormatter('select a.first_name as fn, a.last_name as ln, a.phone as ph, a.address from accounts as a where a.id = %L', req.session.userId))
+      client.query(sqlFormatter('select a.first_name as fn, a.last_name as ln, '+
+                                'a.phone as ph, a.address '+
+                                'from accounts as a where a.id = %L', req.session.userId))
         .then((data) => {
             data.rows.forEach((row) => profData.push(row));
             res.render('profile', {
@@ -690,7 +722,7 @@ router.post('/chpass', function(req, res, next) {
     let found = false;
 
     client
-        .query("select * from accounts")
+        .query("select * from accounts") //MAKE DB FILTER DATA
         .then((accounts) => {
             accounts.rows.forEach((account) => {
                 if (account.id === req.session.userId) {
@@ -756,13 +788,12 @@ router.post('/add', function(req, res) {
         if (err)
           return res.status(500).send(err);
 
-        let productId = generateId();
         if(img.name.slice(-4) == '.jpg'){
-            client.query(sqlFormatter("insert into products values(%L, %L, %L, %L, %L, %L);", productId, name, price, quant, descr, newName))
+            client.query(sqlFormatter("insert into products values(%L, %L, %L, %L, %L);", name, price, quant, descr, newName))
                 .then(() => {
                     for (let i in req.body) {
                         if (isNumber(i)) {
-                            client.query(sqlFormatter("insert into products_categories values(%L, %L)", productId, i))
+                            client.query(sqlFormatter("insert into products_categories values(%L)", i))
                                 .catch(e => console.error(e.stack))
                         }
                     }
@@ -781,7 +812,15 @@ router.get('/cart', function(req, res, next) {
     }
     let currentCart = [];
 
-    client.query(sqlFormatter('select pr.name, sum(ci.quantity) as quantity, pr.price, pr.id from cart_items as ci join shopping_carts as sc on ci.cartId = sc.id join accounts as a on a.id = sc.userId join products as pr on pr.id = ci.prodId where a.id = %L group by pr.name, pr.price, pr.id order by pr.name asc', req.session.userId))
+    client.query(sqlFormatter(  'select pr.name, sum(ci.quantity) as quantity, pr.price, pr.id '+
+                                'from cart_items as ci '+
+                                'join shopping_carts as sc '+
+                                'on ci.cartId = sc.id '+
+                                'join accounts as a on a.id = sc.userId '+
+                                'join products as pr on pr.id = ci.prodId '+
+                                'where a.id = %L '+
+                                'group by pr.name, pr.price, pr.id '+
+                                'order by pr.name asc', req.session.userId))
         .then((data) => {
             let totalPrice = 0;
             let count = 1;
@@ -810,7 +849,9 @@ router.get('/edit/:id', function(req, res, next) {
         res.redirect(303, '/');
     }
     let productId = req.params.id;
-    client.query(sqlFormatter("select p.name, p.price, p.quantity, p.description, p.img from products as p where p.id = %L", productId))
+    client.query(sqlFormatter(  "select p.name, p.price, p.quantity, p.description, p.img "+
+                                "from products as p "+
+                                "where p.id = %L", productId))
         .then((data) => {
             let ctg = [];
             let row = data.rows[0];
@@ -845,13 +886,10 @@ router.get('/delete/:id', function(req, res) {
         res.redirect(303, '/');
     }
     let id = req.params.id;
-    client.query(sqlFormatter("delete from purchase_items where prodid = %L", id))
+    client.query(sqlFormatter("delete from products_categories where product = %L", id))
         .then(() => {
-            client.query(sqlFormatter("delete from products_categories where product = %L", id))
-                .then(() => {
-                    client.query(sqlFormatter("delete from products where id = %L", id))
-                        .then(res.redirect(303, '/'));
-                });
+            client.query(sqlFormatter("delete from products where id = %L", id))
+                .then(res.redirect(303, '/'));
         });
 });
 
@@ -861,7 +899,9 @@ router.get('/remove/cart/:id', function(req, res) {
         res.redirect(303, '/');
     }
     let id = req.params.id;
-    client.query(sqlFormatter("delete from cart_items as ci using shopping_carts as sc where ci.cartid = sc.id and ci.prodid = %L and sc.userid = %L", id, req.session.userId))
+    client.query(sqlFormatter(  "delete from cart_items as ci using shopping_carts as sc "+
+                                "where ci.cartid = sc.id and ci.prodid = %L "+
+                                "and sc.userid = %L", id, req.session.userId))
         .then(res.redirect(303, '/cart'));
 });
 
@@ -873,7 +913,7 @@ router.get('/accs', function(req, res) {
     let users = [];
 
     client
-        .query(sqlFormatter("select * from accounts"))
+        .query(sqlFormatter("select * from accounts order by role, first_name"))
         .then((data) => {
             data.rows.forEach((row) => {
                 row.id;
@@ -935,17 +975,18 @@ router.post('/addtocart', function(req, res) {
     let id = req.body.id;
     let quant = req.body.quant;
 
-    client.query(sqlFormatter("select id from shopping_carts where userid = %L;", req.session.userId)).then((data) => {
+    client.query(sqlFormatter("select id from shopping_carts where userid = %L;", req.session.userId))
+    .then((data) => {
         let cartId = data.rows[0].id;
-        client.query(sqlFormatter("insert into cart_items values(%L, %L, %L, %L);", generateId(), id, quant, cartId))
+        client.query(sqlFormatter("insert into cart_items values(%L, %L, %L);", id, quant, cartId))
             .catch(e => console.error(e.stack));
     });
 });
 
 /* POST add to cart. */
-router.post('/printpdf', function(req, res) {
-    let pdf = req.body.pdf;
-    console.log(pdf);
+router.post('/print', function(req, res) {
+    let total = req.body.printdata;
+    console.log(total);
 });
 
 /* POST remove from cart. */
@@ -987,11 +1028,12 @@ router.post('/buy', function(req, res) {
     let nonce = req.body.nonce;
     //get user prods
     client
-        .query(sqlFormatter("select pr.id, sum(ci.quantity) as quantity, pr.quantity as max "+
-                            "from cart_items as ci join products as pr on ci.prodid = pr.id "+
-                            "join shopping_carts as sc on ci.cartid = sc.id "+
-                            "where sc.userid = %L "+
-                            "group by pr.id, max ;", req.session.userId))
+        .query(sqlFormatter(
+                "select pr.id, pr.price, pr.name, sum(ci.quantity) as quantity, pr.quantity as max "+
+                "from cart_items as ci join products as pr on ci.prodid = pr.id "+
+                "join shopping_carts as sc on ci.cartid = sc.id "+
+                "where sc.userid = %L "+
+                "group by pr.id, max;", req.session.userId))
         .then((data) => {
             //check if cart empty todo
             if (data.rows.length === 0) {
@@ -1021,13 +1063,23 @@ router.post('/buy', function(req, res) {
                         });
 
                         //make a purchase
-                        let currentPurchaseId = generateId();
-                        client.query(sqlFormatter("insert into purchases values(%L, %L, 0, %L)", currentPurchaseId, req.session.userId, getDate()));
-
-                        data.rows.forEach((row) => {
-                            //add products to purchase
-                            client.query(sqlFormatter("insert into purchase_items values(%L, %L, %L, %L)", generateId(), row.id, currentPurchaseId, row.quantity));
-                        });
+                        console.log('1111111111111111');
+                        client.query(sqlFormatter("insert into purchases (userid, state, date) values(%L, 0, %L)", req.session.userId, getDate()))
+                            .then(()=>{
+                                console.log('222222222222222222');
+                                client.query(sqlFormatter("select id from purchases where userid = %L order by date desc", req.session.userId))
+                                .then((curPurchase)=>{
+                                    let curPurchid = curPurchase.rows[0].id;
+                                    console.log('ID: ' + curPurchid);
+                                    data.rows.forEach((row) => {
+                                        //add products to purchase
+                                        console.log('33333333333333');
+                                        client.query(sqlFormatter(  
+                                            "insert into purchase_items (purchaseid, quantity, prodname, prodprice) "+
+                                            "values(%L, %L, %L, %L)", curPurchid, row.quantity, row.name, row.price));
+                                    });
+                                });
+                            });
 
                         //cart clean up
                         client.query(sqlFormatter("delete from cart_items as ci using shopping_carts as sc where ci.cartid = sc.id and sc.userid = %L", req.session.userId))

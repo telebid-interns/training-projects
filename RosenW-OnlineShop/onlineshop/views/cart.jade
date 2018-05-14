@@ -11,24 +11,24 @@ html
 div
   table(style='width:45%' id='maint')
     tr
-      th(width="20%" align="left") №
+      th(width="20%" align="left")
       th(width="20%") Name
       th(width="20%" align="right") Quantity
       th(width="20%" align="right") Total
-      th(width="20") Remove
+      th(width="20")
     each item in data.cart
         tr(id="row-#{item.id}")
-          td(style="text-align:center") #{item.number}
-          td(style="text-align:center") #{item.name}
+          td(style="text-align:center")
+          td(style="text-align:left; vertical-align:top") #{item.name}
           td(style="text-align:center") #{item.quantity}
           td(align="right") $#{item.price}
           td(style="text-align:center")
               button(onclick="location.href = 'remove/cart/#{item.id}';") remove
     tr 
-      td Total: 
+      td(style="font-weight:bold") Total: 
       td
       td
-      td(style="text-align:right", id="total") $#{data.total}
+      td(align="right" style="font-weight:bold", id="total") $#{data.total}
       td(style="text-align:center")
         form.form(method='post')
           input#buy(type='submit', name='buybtn', value='Buy')
