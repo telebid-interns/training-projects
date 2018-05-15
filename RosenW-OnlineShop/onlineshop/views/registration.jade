@@ -476,7 +476,7 @@ script.
   function checkFName(){
     let box = $('#fname')
     let curStr = box.val();
-    let reg = /^([a-z]{3,20})$/;
+    let reg = /^([a-zа-я]{3,20})$/;
     if(curStr.length < 3 || curStr.length > 20 || !reg.test(String(curStr).toLowerCase())){
       box.css('box-shadow', '0 0 10px #FF0000');
     }else{
@@ -486,7 +486,7 @@ script.
   function checkLName(){
     let box = $('#lname')
     let curStr = box.val();
-    let reg = /^([a-z]{3,20})$/;
+    let reg = /^([a-zа-я]{3,20})$/;
     if(curStr.length < 3 || curStr.length > 20 || !reg.test(String(curStr).toLowerCase())){
       box.css('box-shadow', '0 0 10px #FF0000');
     }else{

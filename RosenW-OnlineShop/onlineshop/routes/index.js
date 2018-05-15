@@ -8,48 +8,31 @@ let Recaptcha = require('express-recaptcha').Recaptcha;
 let $ = require('jquery');
 let request = require('request');
 let braintree = require('braintree');
-let Printer = require('node-printer');
-let bixolon = new Printer('BIXOLON-SRP-350II');
 let fs = require('fs');
 let bcrypt = require('bcrypt');
-let printer = require('node-thermal-printer');
 let bodyparser = require('body-parser');
-let lpcomplete = require('node-printer-lp-complete');
+let net = require('net');
+
+let HOST = '10.20.1.104';
+let PORT = 9100;
+
+let lineFeedCommand = new Buffer([0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A]);
+let cutCommand = new Buffer([0x1B, 0x69]);
+let setBoldCommand = new Buffer([0x1B, 0x21, 0x128]);
+let setNormalCommand = new Buffer([0x1B, 0x21, 0x00]);
+let newLineCommand = new Buffer([0x0A]);
+
+// establish connection to bixolon 
+let bixolon = new net.Socket();
+bixolon.connect(PORT, HOST, function() {
+    console.log('CONNECTED TO: ' + HOST + ':' + PORT);
+});
 
 console.log('Server up and running...');
 
 //google OAuth todo
-let clientId = '664610033466-oalrqbi17s6fgtvb99cmahvtmv2iuv0r.apps.googleusercontent.com';
-let clientSecret = 'RDEJ-rpeEd328f4IdVV5OilX';
-
-var options = {
-    media: 'Custom.200x600mm', // Custom paper size
-    destination: "BIXOLON-SRP-350II", // The printer name
-    n: 1 // Number of copies
-};
- 
-// var text = "some text some text some text some text some text ";
- 
-// String.prototype.toBytes = function() {
-//     var arr = []
-//     for (var i=0; i < this.length; i++) {
-//       arr.push(this[i].charCodeAt(0))
-//     }
-//     return arr.join('');
-//    }
-// let data = "hello world".toBytes().concat([0x01B, 0x64, 10])
-// let jobText = lpcomplete.printText(data, options, "text_demo");
-// set up printer
-// let data = "hello world".toBytes().concat([0x01B, 0x64, 10])
-// let text = 'Lorem ipsum dolor sit amet, consectetur adipiscing '+
-// 'elit. Quisque sagittis euismod quam vitae porta. In porta luctus';
-// bixolon.printText(text);
-// bixolon.printText('T26,81,2,0,0,0,0,N,N,"Font - 10 pt"');
-// let fileBuffer = fs.readFileSync('/home/rosen/Desktop/repo/RosenW-OnlineShop/onlineshop/public/PDFs/mypdf.pdf');
-// console.log(fileBuffer);
-// let jobFromBuffer = bixolon.printBuffer('68656c6c6f20636f6d7075746572');
-// console.log(jobFromBuffer);
-// console.log(bixolon);
+// let clientId = '664610033466-oalrqbi17s6fgtvb99cmahvtmv2iuv0r.apps.googleusercontent.com';
+// let clientSecret = 'RDEJ-rpeEd328f4IdVV5OilX';
 
 //credit card payment keys
 let merchId = '9mjmz4gm33rrmbd2';
@@ -358,9 +341,8 @@ router.post('/register', function(req, res) {
                                         bcrypt.hash(saltedPass, 5, function(err, hash) {
                                             console.log('insert into accs');
                                             console.log('salt ' + salt);
-                                            
-                                            client.query(sqlFormatter(  "insert into accounts (email, first_name, last_name, phone, address, pass, salt, role, active) "+
-                                                                        "values(%L, %L, %L, %L, %L, %L, %L, '1', 'false');", email, fName, lName, wholeNumber, address, hash, salt))
+                                            client.query(sqlFormatter(  "insert into accounts (email, first_name, last_name, phone, address, pass, salt, role, active, suspended) "+
+                                                                        "values(%L, %L, %L, %L, %L, %L, %L, '1', 'false', 'false');", email, fName, lName, wholeNumber, address, hash, salt))
                                                 .then(() => {
                                                     client.query(sqlFormatter("select id from accounts where email=%L", email))
                                                     .then((currentAcc)=>{
@@ -564,6 +546,7 @@ router.get('/orders', function(req, res, next) {
             'where p.userid = %L order by state asc, p.date desc', req.session.userId))
         .then((data) => {
             data.rows.forEach((row) => {
+                console.log(row.date);
                 row.number = count++;
                 purchases.push(row);
             });
@@ -711,6 +694,70 @@ router.get('/chpass', function(req, res, next) {
     });
 });
 
+/* GET print format page */
+router.get('/printf', function(req, res, next) {
+    if (!req.session.admin) {
+        res.redirect(303, '/');
+    }
+    client.query(sqlFormatter('select * from printformats where id = 1'))
+    .then((data)=>{
+        let format = data.rows[0].format;
+        res.render('print', {
+            data: {
+                'isLoggedIn': req.session.loggedIn,
+                'user': req.session.username,
+                'isAdmin': req.session.admin,
+                'format': format
+            }
+        });
+    });
+});
+
+/* POST print format page. */
+router.post('/printf', function(req, res, next) {
+    if (!req.session.admin) {
+        res.redirect(303, '/');
+    }
+
+    let newFormat = req.body.format;
+    client.query(sqlFormatter("update printformats set format = %L where id = 1", newFormat))
+        .then(res.redirect(303, '/check'));
+});
+
+/* POST pprint. */
+router.post('/print', function(req, res) {
+    let total = req.body.printdata;
+    client.query(sqlFormatter('select * from printformats where id = 1'))
+    .then((data)=>{
+        let format = data.rows[0].format;
+        format.split(/\s+/).forEach((word)=>{
+            switch(word.trim()){
+                case '!B':
+                bixolon.write(setBoldCommand);
+                break;
+                case '!R':
+                bixolon.write(setNormalCommand);
+                break;
+                case '!NL':
+                bixolon.write(newLineCommand);
+                break;
+                case '!F':
+                bixolon.write(lineFeedCommand);
+                break;
+                case '!C':
+                bixolon.write(cutCommand);
+                break;
+                case '!T':
+                bixolon.write(total + " ");
+                break;
+                default:
+                bixolon.write(word + " ");
+                break;
+            }
+        });
+    });
+});
+
 /* POST chpass page.*/
 router.post('/chpass', function(req, res, next) {
     if (req.session.admin || !req.session.loggedIn) {
@@ -812,14 +859,14 @@ router.get('/cart', function(req, res, next) {
     }
     let currentCart = [];
 
-    client.query(sqlFormatter(  'select pr.name, sum(ci.quantity) as quantity, pr.price, pr.id '+
+    client.query(sqlFormatter(  'select pr.name, sum(ci.quantity) as quantity, pr.price, pr.id, ci.id as itemsid, ci.modified '+
                                 'from cart_items as ci '+
                                 'join shopping_carts as sc '+
                                 'on ci.cartId = sc.id '+
                                 'join accounts as a on a.id = sc.userId '+
                                 'join products as pr on pr.id = ci.prodId '+
                                 'where a.id = %L '+
-                                'group by pr.name, pr.price, pr.id '+
+                                'group by pr.name, pr.price, pr.id, ci.modified, ci.id '+
                                 'order by pr.name asc', req.session.userId))
         .then((data) => {
             let totalPrice = 0;
@@ -961,7 +1008,10 @@ router.post('/edit/:id', function(req, res, next) {
             }
 
             client.query(sqlFormatter("update products set name = %L, price = %L, quantity = %L, description = %L, img = %L where id = %L;", name, price, quant, descr, newName, productId))
-            .then(res.redirect(303, '/'));
+            .then(()=>{
+                client.query(sqlFormatter("update cart_items set modified = true where prodid = %L", productId))
+                .then(res.redirect(303, '/'));
+            });
         });
         res.redirect(303, '/');
       });
@@ -983,10 +1033,12 @@ router.post('/addtocart', function(req, res) {
     });
 });
 
-/* POST add to cart. */
-router.post('/print', function(req, res) {
-    let total = req.body.printdata;
-    console.log(total);
+/* POST changeQuant. */
+router.post('/changeQuant', function(req, res) {
+    let num = req.body.num;
+    let pid = req.body.pid;
+    let iid = req.body.iid;
+    client.query(sqlFormatter("update cart_items set quantity = %L where id = %L ", num, iid));
 });
 
 /* POST remove from cart. */
@@ -1040,12 +1092,13 @@ router.post('/buy', function(req, res) {
                 pass = false;
             }
             data.rows.forEach((row) => {
-                if (row.quantity > row.max) {
+                if (Number(row.quantity) > Number(row.max)) {
                     pass = false;
                 }
             });
-
+            console.log(pass);
             if (pass) {
+                console.log('pass');
                 //make test credit card transaction
                 gateway.transaction.sale({
                     amount: "10.00",
@@ -1055,6 +1108,8 @@ router.post('/buy', function(req, res) {
                     }
                 }, function(err, result) {
                     pass = result.success;
+
+                    console.log('pass2');
                     if (result.success) {
                         data.rows.forEach((row) => {
                             //row.max = row.max - row.quant
@@ -1063,17 +1118,28 @@ router.post('/buy', function(req, res) {
                         });
 
                         //make a purchase
-                        console.log('1111111111111111');
-                        client.query(sqlFormatter("insert into purchases (userid, state, date) values(%L, 0, %L)", req.session.userId, getDate()))
+                        let today = new Date();
+                        let dd = today.getDate();
+                        let mm = today.getMonth()+1; //January is 0!
+                        let yyyy = today.getFullYear();
+
+                        if(dd<10) {
+                            dd="0"+dd
+                        } 
+
+                        if(mm<10) {
+                            mm="0"+mm
+                        } 
+
+                        today = yyyy+mm+dd + " " +today.getHours() + ":" + today.getMinutes()+":" + today.getSeconds();
+                        client.query(sqlFormatter("insert into purchases (userid, state, date) values(%L, 0, %L)", req.session.userId, today))
                             .then(()=>{
-                                console.log('222222222222222222');
-                                client.query(sqlFormatter("select id from purchases where userid = %L order by date desc", req.session.userId))
+                                client.query(sqlFormatter("select max(id) as id from purchases where userid = %L", req.session.userId))
                                 .then((curPurchase)=>{
                                     let curPurchid = curPurchase.rows[0].id;
                                     console.log('ID: ' + curPurchid);
                                     data.rows.forEach((row) => {
                                         //add products to purchase
-                                        console.log('33333333333333');
                                         client.query(sqlFormatter(  
                                             "insert into purchase_items (purchaseid, quantity, prodname, prodprice) "+
                                             "values(%L, %L, %L, %L)", curPurchid, row.quantity, row.name, row.price));
@@ -1109,7 +1175,7 @@ function validateEmail(email) {
 }
 
 function validateName(name) {
-    var reg = /^([a-z]{3,20})$/;
+    var reg = /^([a-zа-я]{3,20})$/;
     return reg.test(String(name).toLowerCase());
 }
 

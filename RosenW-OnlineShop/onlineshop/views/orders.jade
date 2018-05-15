@@ -24,9 +24,9 @@ div(onload='showNotific()')
             table(style='width:100%' id='maint')
               each order in item.orderList
                 tr
-                  td #{order.name}
-                  td(style="text-align:center") #{order.quantity}
-                  td(align="right") #{order.price}
+                  td(style='width:33%') #{order.name}
+                  td(style="text-align:center; width:33%") #{order.quantity}
+                  td(style='width:33%' align="right") #{order.price}
               tr
                   td
                     strong Total

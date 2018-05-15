@@ -17,6 +17,7 @@ div
       th(width="10%" align="right") Address
       th(width="5%" align="right") Role
       th(width="5%" align="right") Active
+      th(width="5%" align="right") Suspended
       th(width="7%")
     each u in data.users
         tr
@@ -26,6 +27,7 @@ div
           td #{u.address}
           td #{u.role}
           td #{u.active}
+          td #{u.suspended}
           td
               button ban
 

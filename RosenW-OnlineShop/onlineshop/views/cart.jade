@@ -11,21 +11,22 @@ html
 div
   table(style='width:45%' id='maint')
     tr
-      th(width="20%" align="left")
-      th(width="20%") Name
-      th(width="20%" align="right") Quantity
-      th(width="20%" align="right") Total
-      th(width="20")
+      th(width="35%") Name
+      th(width="25%" align="right") Quantity
+      th(width="25%" align="right") Total
+      th(width="15%")
     each item in data.cart
         tr(id="row-#{item.id}")
-          td(style="text-align:center")
-          td(style="text-align:left; vertical-align:top") #{item.name}
-          td(style="text-align:center") #{item.quantity}
+          if item.modified
+            td(style="text-align:left; vertical-align:top; color:red") #{item.name} (product modified)
+          else
+            td(style="text-align:left; vertical-align:top;") #{item.name}
+          td(style="text-align:center") 
+            input(type='textbox' value='#{item.quantity}' id="change-#{item.id}" onchange="changeQuantity(#{item.id}, #{item.itemsid})" style='text-align:center')
           td(align="right") $#{item.price}
           td(style="text-align:center")
               button(onclick="location.href = 'remove/cart/#{item.id}';") remove
     tr 
-      td(style="font-weight:bold") Total: 
       td
       td
       td(align="right" style="font-weight:bold", id="total") $#{data.total}
@@ -41,4 +42,23 @@ script.
         $('#row-' + id).remove();
         $('#total').text('$'+(Number($('#total').text().substr(1)) - total));
     }
+
+  function changeQuantity(prodid, itemsid){
+    console.log('asddsa');
+    let num = $('#change-' + prodid).val();
+    console.log(num);
+    if(isNumber(num) && isWholeNumber(num)){
+      $.post('/changeQuant', {pid: prodid, iid: itemsid, num: num});
+    }
+  }
+  function isNumber(n) {
+      return !isNaN(parseFloat(n)) && isFinite(n);
+  }
     
+  function isWholeNumber(n){
+    var result = (n - Math.floor(n)) !== 0; 
+    if (result)
+    return false;
+    else
+    return true;
+  }

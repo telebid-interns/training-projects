@@ -1,0 +1,20 @@
+doctype html
+html
+  head
+    title= title
+    link(rel='stylesheet', href='/stylesheets/navbar.css')
+    script(type='text/javascript' src="/js/jquery.min.js")
+  body
+    block content
+  include ./navbar.jade
+  form(method='post')
+    textarea(name='format' rows="15" cols="200" style="width:50%; resize:none") #{data.format}
+    textarea(id="legend" name="legend" rows="15" cols="200" style="width:49%; resize:none" disabled="disabled") 
+    button(type="submit") Save Format 
+
+script.
+  //make link with black bg
+  $('#nav-print').addClass('page');
+  let text =    'Legend: \n\n!NL - New Line \n!B - Set Bold Mode '+
+                '\n!R - Set Regular Mode \n!T - Print Total \n!F - Feed Paper \n!C - Cut Paper' 
+  $('#legend').text(text);
