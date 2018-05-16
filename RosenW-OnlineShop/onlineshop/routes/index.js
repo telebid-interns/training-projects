@@ -12,21 +12,24 @@ let fs = require('fs');
 let bcrypt = require('bcrypt');
 let bodyparser = require('body-parser');
 let net = require('net');
+let lp = require('node-lp');
+// let {spawn} = require('child-process');
+let cmd = require('node-cmd');
 
 let HOST = '10.20.1.104';
 let PORT = 9100;
 
-let lineFeedCommand = new Buffer([0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A]);
+let lineFeedCommand = new Buffer([0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A]);
 let cutCommand = new Buffer([0x1B, 0x69]);
 let setBoldCommand = new Buffer([0x1B, 0x21, 0x128]);
 let setNormalCommand = new Buffer([0x1B, 0x21, 0x00]);
 let newLineCommand = new Buffer([0x0A]);
 
 // establish connection to bixolon 
-let bixolon = new net.Socket();
-bixolon.connect(PORT, HOST, function() {
-    console.log('CONNECTED TO: ' + HOST + ':' + PORT);
-});
+// let bixolon = new net.Socket();
+// bixolon.connect(PORT, HOST, function() {
+//     console.log('CONNECTED TO: ' + HOST + ':' + PORT);
+// });
 
 console.log('Server up and running...');
 
@@ -730,33 +733,45 @@ router.post('/print', function(req, res) {
     client.query(sqlFormatter('select * from printformats where id = 1'))
     .then((data)=>{
         let format = data.rows[0].format;
-        format.split(/\s+/).forEach((word)=>{
-            switch(word.trim()){
-                case '!B':
-                bixolon.write(setBoldCommand);
-                break;
-                case '!R':
-                bixolon.write(setNormalCommand);
-                break;
-                case '!NL':
-                bixolon.write(newLineCommand);
-                break;
-                case '!F':
-                bixolon.write(lineFeedCommand);
-                break;
-                case '!C':
-                bixolon.write(cutCommand);
-                break;
-                case '!T':
-                bixolon.write(total + " ");
-                break;
-                default:
-                bixolon.write(word + " ");
-                break;
-            }
+        format = format.replace(/!T/g, total);
+        format = format.replace(/ESC/g, '\x1b');
+        format = format.replace(/GS/g, '\x1d');
+        cmd.get('echo "'+format+'" | lp', function(err, data, stderr){
+            console.log(data);
         });
+        //deprecated printing
+        // format.split(/\n/).forEach((line)=>{
+        //     if(line.trim().startsWith('ESC')){ //////////////Handling ESC commands
+        //         givePrinterCommand(27, line);
+        //     }else if(line.trim().startsWith('GS')){ /////////Handling GS commands
+        //         givePrinterCommand(29, line);
+        //     }else{
+        //         bixolon.write(line);
+        //         bixolon.write(newLineCommand);
+        //     }
+        // });
+        // bixolon.write(lineFeedCommand);
+        // bixolon.write(cutCommand);
     });
 });
+
+// function givePrinterCommand(cmd, line){
+//     let tokens = line.split(/\s+/);
+//     tokens.shift();
+//     let bufferArr = [];
+//     bufferArr.push(cmd);
+    
+//     for(let i = 0; i<tokens.length-1; i++){
+//         if(typeof tokens[i]=='string' && !isNumber(tokens[i])){
+//             bufferArr.push(tokens[i].charCodeAt(0));
+//         }else{
+//             bufferArr.push(Number(tokens[i]));
+//         }
+//     }
+    
+//     let command = new Buffer(bufferArr);
+//     bixolon.write(command);
+// }
 
 /* POST chpass page.*/
 router.post('/chpass', function(req, res, next) {
