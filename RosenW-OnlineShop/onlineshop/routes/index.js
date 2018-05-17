@@ -13,7 +13,6 @@ let bcrypt = require('bcrypt');
 let bodyparser = require('body-parser');
 let net = require('net');
 let lp = require('node-lp');
-// let {spawn} = require('child-process');
 let cmd = require('node-cmd');
 
 let HOST = '10.20.1.104';
@@ -129,30 +128,42 @@ router.get('/', function(req, res, next) {
         linkSentToMail = true;
     }
     let categories = [];
-    client.query("select * from categories as c order by c.name").then((cats) => {
-        let number = 0;
-        for(i=0; i<cats.rows.length; i++){
-            let newGroup = [];
-            newGroup.push(cats.rows[i]);
-            try{
-                newGroup.push(cats.rows[i+1]); 
-            }finally{
-                categories.push(newGroup);
-                i++;
+    let eightNewProds = [];
+    let threeNewProds = [];
+    client.query("select * from categories")
+    .then((cats) => {
+        client.query("select * from products as p order by p.name limit 11")
+        .then((newproducts) => {
+
+            for(let i = 0; i<8;i++){
+                eightNewProds.push(newproducts.rows[i]);
             }
-        }
-        res.render('categories', {
-            data: {
-                'isLoggedIn': req.session.loggedIn,
-                'user': req.session.username,
-                'isAdmin': req.session.admin,
-                'cat': categories,
-                'pc': passNotfic,
-                'pi': profileInfoNotific,
-                'reg': linkSentToMail
+
+            for(let i = 8; i<11;i++){
+                threeNewProds.push(newproducts.rows[i]);
             }
+
+            cats.rows.forEach((cat)=>{
+                categories.push(cat);
+            });
+
+            console.log(eightNewProds);
+            console.log(threeNewProds);
+            res.render('categories', {
+                data: {
+                    'isLoggedIn': req.session.loggedIn,
+                    'user': req.session.username,
+                    'isAdmin': req.session.admin,
+                    'cats': categories,
+                    'eight': eightNewProds,
+                    'three': threeNewProds,
+                    'pc': passNotfic,
+                    'pi': profileInfoNotific,
+                    'reg': linkSentToMail
+                }
+            });
         });
-    })
+    });
 });
 
 /* POST home page. */
@@ -236,20 +247,66 @@ router.get('/all', function(req, res, next) {
 
 /* GET registration page. */
 router.get('/register', function(req, res, next) {
-    if (req.session.loggedIn) {
-        res.redirect(303, '/');
-    }
-    res.render('registration', {
-        data: {
-            'isLoggedIn': req.session.loggedIn,
-            'user': req.session.username,
-            'isAdmin': req.session.admin
+    let categories = [];
+    client.query(sqlFormatter('select * from categories'))
+    .then((data)=>{
+                categories = data.rows;
+        if (req.session.loggedIn) {
+            res.redirect(303, '/');
         }
+        res.render('registration', {
+            data: {
+                'isLoggedIn': req.session.loggedIn,
+                'user': req.session.username,
+                'isAdmin': req.session.admin,
+                'cats': categories
+            }
+        });
     });
 });
 
 /* GET login page. */
 router.get('/login', function(req, res, next) {
+    let categories = [];
+    client.query(sqlFormatter('select * from categories'))
+        .then((data)=>{
+            categories = data.rows;
+        if (req.session.loggedIn) {
+            res.redirect(303, '/');
+        }
+    
+        if(req.session.logincount == undefined){
+            req.session.logincount = 0;
+        }
+    
+        if (req.session.logincount > 2) {
+            res.render('login', {
+                data: {
+                    'isLoggedIn': req.session.loggedIn,
+                    'user': req.session.username,
+                    'isAdmin': req.session.admin,
+                    'r': true,
+                    'cats': categories
+                }
+            });
+        }
+    
+    
+        console.log('true');
+        res.render('login', {
+            data: {
+                'isLoggedIn': req.session.loggedIn,
+                'user': req.session.username,
+                'isAdmin': req.session.admin,
+                'r': false,
+                'cats': categories
+            }
+        });
+    });
+});
+
+/* GET admin page. */
+router.get('/admin', function(req, res, next) {
     if (req.session.loggedIn) {
         res.redirect(303, '/');
     }
@@ -259,7 +316,7 @@ router.get('/login', function(req, res, next) {
     }
 
     if (req.session.logincount > 2) {
-        res.render('login', {
+        res.render('admin', {
             data: {
                 'isLoggedIn': req.session.loggedIn,
                 'user': req.session.username,
@@ -268,8 +325,7 @@ router.get('/login', function(req, res, next) {
             }
         });
     }
-    console.log('true');
-    res.render('login', {
+    res.render('admin', {
         data: {
             'isLoggedIn': req.session.loggedIn,
             'user': req.session.username,
@@ -303,6 +359,19 @@ router.get('/verify/:id', function(req, res, next) {
         });
     res.redirect(303, '/login');
 });
+
+// /* GET regadm. */
+// router.get('/regadm', function(req, res, next) {
+//     let salt = generateId();
+//     let saltedPass = salt + '123123';
+
+//     bcrypt.hash(saltedPass, 5, function(err, hash) {
+//         client.query(sqlFormatter(  "insert into admins (username, pass, salt) " +
+//                                     "values(%L, %L, %L);", 'admin', hash, salt))
+//             .then(res.redirect(303, '/admin'))
+//             .catch(e => console.error(e.stack));
+//     });
+// });
 
 /* POST registration page */
 router.post('/register', function(req, res) {
@@ -399,18 +468,23 @@ router.post('/register', function(req, res) {
 });
 
 function failRegister(req, res, code) {
-    return res.render('registration', {
-        data: {
-            'isLoggedIn': req.session.loggedIn,
-            'user': req.session.username,
-            'isAdmin': req.session.admin,
-            'f': code
-        }
+    client.query(sqlFormatter("select * from categories")).then((cats)=>{
+        let categories = cats.rows;
+        return res.render('registration', {
+            data: {
+                'isLoggedIn': req.session.loggedIn,
+                'user': req.session.username,
+                'isAdmin': req.session.admin,
+                'f': code,
+                'cats': categories
+            }
+        });
     });
 }
 
 /* POST login page */
 router.post('/login', function(req, res) {
+    console.log('asd');
     let recaptchaResp = req.body['g-recaptcha-response'];
     let verifyURL = 'https://www.google.com/recaptcha/api/siteverify?secret=6LdF9FQUAAAAAJrUDQ7a-KxAtzKslyxhA7KZ-Bwt&response=' + recaptchaResp;
 
@@ -445,9 +519,6 @@ function checkLoginInfo(res, req) {
                             req.session.admin = false;
                             req.session.username = account.first_name;
                             req.session.logincount = 0;
-                            if (account.role == 2) {
-                                req.session.admin = true;
-                            }
                             res.redirect(303, '/');
                         } else {
                             return failLogin(req, res, 1);
@@ -462,13 +533,85 @@ function checkLoginInfo(res, req) {
         .catch(e => console.error(e.stack));
 }
 
+
 function failLogin(req, res, code) {
+    client.query(sqlFormatter("select * from categories"))
+        .then((cats)=>{
+            let categories = cats.rows;
+            let captchaBool = false;
+            req.session.logincount++;
+            if (req.session.logincount > 2) {
+                captchaBool = true;
+            }
+            return res.render('login', {
+                data: {
+                    'isLoggedIn': req.session.loggedIn,
+                    'user': req.session.username,
+                    'isAdmin': req.session.admin,
+                    'r': captchaBool,
+                    'f': code,
+                    'cats': categories
+                }
+            });
+        });
+}
+
+/* POST admin page */
+router.post('/admin', function(req, res) {
+    let recaptchaResp = req.body['g-recaptcha-response'];
+    let verifyURL = 'https://www.google.com/recaptcha/api/siteverify?secret=6LdF9FQUAAAAAJrUDQ7a-KxAtzKslyxhA7KZ-Bwt&response=' + recaptchaResp;
+
+    if (req.session.logincount > 2) {
+        request(verifyURL, (err, response, body) => {
+            body = JSON.parse(body);
+            if (body.success !== undefined && !body.success) { //failed captcha
+                return failAdminLogin(req, res, 3);
+            } else {
+                return checkAdminInfo(res, req);
+            }
+        });
+    } else {
+        return checkAdminInfo(res, req);
+    }
+});
+
+function checkAdminInfo(res, req) {
+    let username = req.body.username;
+    let pass = req.body.password;
+    let foundUser = false;
+    client
+        .query("select * from admins")
+        .then((accounts) => {
+            accounts.rows.forEach((account) => {
+                if (account.username === username) {
+                    foundUser = true;
+                    bcrypt.compare(account.salt + pass, account.pass, function(err, bcryptResp) {
+                        if (bcryptResp == true) {
+                            req.session.loggedIn = true;
+                            req.session.admin = true;
+                            req.session.username = account.username;
+                            req.session.logincount = 0;
+                            res.redirect(303, '/');
+                        } else {
+                            return failAdminLogin(req, res, 1);
+                        }
+                    });
+                }
+            });
+            if (!foundUser) {
+                return failAdminLogin(req, res, 2);
+            }
+        })
+        .catch(e => console.error(e.stack));
+}
+
+function failAdminLogin(req, res, code) {
     let captchaBool = false;
     req.session.logincount++;
     if (req.session.logincount > 2) {
         captchaBool = true;
     }
-    return res.render('login', {
+    return res.render('admin', {
         data: {
             'isLoggedIn': req.session.loggedIn,
             'user': req.session.username,
@@ -479,13 +622,14 @@ function failLogin(req, res, code) {
     });
 }
 
+
 /* GET add prod page. */
 router.get('/add', function(req, res, next) {
     if (!req.session.admin) {
         res.redirect(303, '/');
     }
     let ctg = [];
-    client.query(sqlFormatter("select * from categories order by name"))
+    client.query(sqlFormatter("select * from categories"))
         .then((data) => {
             data.rows.forEach((row) => ctg.push(row.name));
             res.render('add', {
@@ -598,12 +742,12 @@ router.get('/check/:id', function(req, res, next) {
     let currentCart = [];
 
     client.query(sqlFormatter(  'select pi.prodname as name, sum(pi.quantity) as quantity, '+
-                                'pi.prodprice as price '+
+                                'pi.prodprice as price, pur.userid '+
                                 'from purchase_items as pi '+
                                 'join purchases as pur '+
                                 'on pi.purchaseId = pur.id '+
                                 'where pur.id = %L '+
-                                'group by pi.prodname, pi.prodprice '+
+                                'group by pi.prodname, pi.prodprice, pur.userid '+
                                 'order by pi.prodname asc', purchId))
         .then((data) => {
             let totalPrice = 0;
@@ -729,29 +873,45 @@ router.post('/printf', function(req, res, next) {
 
 /* POST pprint. */
 router.post('/print', function(req, res) {
-    let total = req.body.printdata;
+    let total = req.body.total.substr(1,);
+    let user = req.body.user;
+    let names = req.body['names[]'];
+    let qs = req.body['qs[]'];
+    let prices = req.body['prices[]'];
     client.query(sqlFormatter('select * from printformats where id = 1'))
     .then((data)=>{
-        let format = data.rows[0].format;
-        format = format.replace(/!T/g, total);
-        format = format.replace(/ESC/g, '\x1b');
-        format = format.replace(/GS/g, '\x1d');
-        cmd.get('echo "'+format+'" | lp', function(err, data, stderr){
-            console.log(data);
+        client.query(sqlFormatter('select first_name from accounts where id = %L', user))
+        .then((userRow)=>{
+            let curUser = userRow.rows[0].first_name;
+            let format = data.rows[0].format;
+            let info = '';
+            for(let i = 0; i<names.length;i++){
+                info += names[i] + ' - ' + qs[i] + ' - ' + prices[i].substr(1,) + '\n';
+            }
+            format = format.replace(/!I/g, info);
+            format = format.replace(/!T/g, total);
+            format = format.replace(/!U/g, curUser);
+            format = format.replace(/ESC/g, '\x1b');
+            format = format.replace(/GS/g, '\x1d');
+
+            cmd.get('echo "'+format+'" | lp', function(err, data, stderr){
+                console.log(data);
+            });
+
+            // deprecated printing
+            // format.split(/\n/).forEach((line)=>{
+            //     if(line.trim().startsWith('ESC')){ //////////////Handling ESC commands
+            //         givePrinterCommand(27, line);
+            //     }else if(line.trim().startsWith('GS')){ /////////Handling GS commands
+            //         givePrinterCommand(29, line);
+            //     }else{
+            //         bixolon.write(line);
+            //         bixolon.write(newLineCommand);
+            //     }
+            // });
+            // bixolon.write(lineFeedCommand);
+            // bixolon.write(cutCommand);
         });
-        //deprecated printing
-        // format.split(/\n/).forEach((line)=>{
-        //     if(line.trim().startsWith('ESC')){ //////////////Handling ESC commands
-        //         givePrinterCommand(27, line);
-        //     }else if(line.trim().startsWith('GS')){ /////////Handling GS commands
-        //         givePrinterCommand(29, line);
-        //     }else{
-        //         bixolon.write(line);
-        //         bixolon.write(newLineCommand);
-        //     }
-        // });
-        // bixolon.write(lineFeedCommand);
-        // bixolon.write(cutCommand);
     });
 });
 
@@ -874,14 +1034,14 @@ router.get('/cart', function(req, res, next) {
     }
     let currentCart = [];
 
-    client.query(sqlFormatter(  'select pr.name, sum(ci.quantity) as quantity, pr.price, pr.id, ci.id as itemsid, ci.modified '+
+    client.query(sqlFormatter(  'select pr.description, pr.img, pr.name, sum(ci.quantity) as quantity, pr.price, pr.id, ci.id as itemsid, ci.modified '+
                                 'from cart_items as ci '+
                                 'join shopping_carts as sc '+
                                 'on ci.cartId = sc.id '+
                                 'join accounts as a on a.id = sc.userId '+
                                 'join products as pr on pr.id = ci.prodId '+
                                 'where a.id = %L '+
-                                'group by pr.name, pr.price, pr.id, ci.modified, ci.id '+
+                                'group by pr.name, pr.price, pr.id, ci.modified, ci.id, pr.img, pr.description '+
                                 'order by pr.name asc', req.session.userId))
         .then((data) => {
             let totalPrice = 0;

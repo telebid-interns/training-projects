@@ -8,7 +8,7 @@ html
     script(type='text/javascript' src='/js/jspdf.min.js')
   body
     block(id='content') content
-  include ./navbar.jade
+  include ./backofficenav.jade
 div(id='editor')
   table(style='width:45%' id='maint')
     tr
@@ -19,9 +19,9 @@ div(id='editor')
     each item in data.cart
         tr(id="row-#{item.id}")
           td
-          td #{item.name}
-          td(align="right") #{item.quantity}
-          td(align="right") $#{parseFloat(Math.round((item.price * item.quantity) * 100) / 100).toFixed(2)}
+          td(class='gatherinfoname') #{item.name}
+          td(align="right" class='gatherinfoquantity') #{item.quantity}
+          td(align="right" class='gatherinfoprice') $#{parseFloat(Math.round((item.price * item.quantity) * 100) / 100).toFixed(2)}
     tr 
       td Total: 
       td
@@ -39,13 +39,33 @@ div(id='editor')
           input(id='change' type='submit', name='buybtn', value='Change')
           
         td
-          button(id='print' name='printbtn' type='button') Print
-
-
+          button(id='print' name='printbtn' type='button' onclick="printFormat('#{data.cart[0].userid}')") Print
+              //- button(onclick="add('#{item.id}')") add
 script.
   //make link with black bg
   $('#nav-pur').addClass('page');
-  $('#print').click(()=>{
+  function printFormat(user){
     let tot = $('#total').text();
-    $.post('/print', {printdata: tot});
-  });
+    let names = [];
+    let quantities = [];
+    let prices = [];
+
+    $('.gatherinfoname').each(function() {
+        var cellText = $(this).html(); 
+        names.push(cellText);
+    });
+    $('.gatherinfoquantity').each(function() {
+        var cellText = $(this).html(); 
+        quantities.push(cellText);
+    });
+    $('.gatherinfoprice').each(function() {
+        var cellText = $(this).html(); 
+        prices.push(cellText);
+    });
+
+    console.log(names);
+    console.log(quantities);
+    console.log(prices);
+
+    $.post('/print', {total: tot, user: user, names: names, qs: quantities, prices: prices});
+  }

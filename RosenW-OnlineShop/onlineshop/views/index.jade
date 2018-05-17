@@ -9,7 +9,7 @@ html
 
   body
     block content
-  include ./navbar.jade
+  include ./backofficenav.jade
 div
   table(style='width:60%' id="maint")
     tr
@@ -40,6 +40,7 @@ div
               button(onclick="location.href = '/edit/#{item.id}';") edit
             td(style="text-align:center")
               button(onclick="location.href = '/delete/#{item.id}';") delete
+              
 script.
   //notify options
   let options = {
@@ -101,6 +102,7 @@ script.
   function isNumber(n) {
     return !isNaN(parseFloat(n)) && isFinite(n);
   }
+
   function isWholeNumber(n){
     var result = (n - Math.floor(n)) !== 0; 
     if (result)

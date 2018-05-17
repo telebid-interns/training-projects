@@ -1,50 +1,34 @@
-if !data.isLoggedIn
-  ul(id="navbar")
-        li
-           a(href='/' id='nav-home') Home
-        li
+.navbar
+  .navbar-inner
+    .container
+      a.btn.btn-navbar(data-target='.nav-collapse', data-toggle='collapse')
+        span.icon-bar
+        span.icon-bar
+        span.icon-bar
+      .nav-collapse
+      if !data.isLoggedIn
+        ul.nav
+          li
+            a(href='/' id='nav-home') Home	
+          li
            a(href='/login' id='nav-login') Log in
-        li
+          li
            a(href='/register' id='nav-register') Register
-        li(class="search-container")
-          form(method='post' action="/")
-            input(type='textbox', placeholder='Search product by name', name='name')
-            input(type='submit', value='Search')
-        
-else
-  if data.isAdmin
-    ul(id="navbar")
+        ul.nav.pull-right
+          form.navbar-search.pull-left(action='/' method='post')
+            input.search-query.span2(type='text', placeholder='Search' name='name')
+      else if data.isLoggedIn && !data.isAdmin
+        ul.nav
           li
             a(href='/' id='nav-home') Home
           li
-            a(href='/add' id='nav-addpr') Add Product
+            a(href='/cart' id='nav-sc') Shopping Cart
           li
-            a(href='/check' id='nav-pur') Purchases
+            a(href='/orders' id='nav-orders') My Orders
           li
-            a(href='/accs' id='nav-us') Users
-          li
-            a(href='/all' id='nav-all') All Products
-          li
-            a(href='/printf' id='nav-print') Set Print Format
+            a(href='/profile' id='nav-prof') Edit Profile
           li
             a(href='/logout') Log out
-          li(class="search-container")
-            form(method='post' action="/")
-              input(type='textbox', placeholder='Search product by name', name='name')
-              input(type='submit', value='Search')
-  else
-    ul(id="navbar")
-            li
-              a(href='/' id='nav-home') Home
-            li
-              a(href='/cart' id='nav-sc') Shopping Cart
-            li
-              a(href='/orders' id='nav-orders') My Orders
-            li
-              a(href='/profile' id='nav-prof') Edit Profile
-            li
-              a(href='/logout') Log out
-            li(class="search-container")
-              form(method='post' action="/")
-                input(type='textbox', placeholder='Search product by name', name='name')
-                input(type='submit', value='Search')
+        ul.nav.pull-right
+          form.navbar-search.pull-left(action='/' method='post')
+            input.search-query.span2(type='text', placeholder='Search' name='name')
