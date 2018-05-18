@@ -8,8 +8,24 @@ html
   body
     block content
   include ./backofficenav.jade
+ul(id='submenu')
+  li
+    a(id='submenu-all' href='#' onclick="changeDisplayedData('submenu-all')") Show All Purchases
+  li
+    a(id='submenu-daytot' href='#' onclick="changeDisplayedData('submenu-daytot')") Everyday Total
+  li
+    a(id='submenu-await' href='#' onclick="changeDisplayedData('submenu-await')") Show All Awaiting Delivery
+  li
+    a(id='submenu-being' href='#' onclick="changeDisplayedData('submenu-being')") Show All Being Delivered
+  li
+    a(id='submenu-del' href='#' onclick="changeDisplayedData('submenu-del')") Show All Delivered
+  li(class="search-container")
+    form(method='post' action="/check")
+      input(type='textbox', placeholder='Search purchases by name', name='name')
+      input(type='submit', value='Search')
+  
 div
-  table(style='width:60%' id="maint")
+  table(style='width:60%; display:block' id="maint" class='allpurch')
     tr
       th(width="10%" style="text-align:center")  Date
       th(width="15%" style="text-align:center")  User
@@ -23,10 +39,121 @@ div
           td(style="text-align:left")  #{item.first_name + " " + item.last_name}
           td(style="text-align:left")  #{item.address}
           td(style="text-align:center")  #{item.state}
-          td(style="text-align:center")  #{item.tot}
+          td(style="text-align:right")  $#{item.tot}
           td(style="text-align:center") 
               button(onclick="location.href = 'check/#{item.id}';") see
 
+  table(style='width:60%; display:none' id="maint" class='evrdtot')
+    tr
+      th(width="10%" style="text-align:center")  Date
+      th(width="15%" style="text-align:center")  
+      th(width="15%" style="text-align:center")  
+      th(width="15%" style="text-align:center")  Total
+    each total in data.totals
+        tr
+          td(style="text-align:center")  #{total.date}
+          td(style="text-align:left")
+          td(style="text-align:left")
+          td(style="text-align:right")  $#{total.totalfortheday}
+
+  table(style='width:60%; display:none' id="maint" class='await')
+    tr
+      th(width="10%" style="text-align:center")  Date
+      th(width="15%" style="text-align:center")  User
+      th(width="15%" style="text-align:center")  Address
+      th(width="15%" style="text-align:center")  State
+      th(width="15%" style="text-align:center")  Total
+      th(width="7%")
+    each item in data.await
+        tr
+          td(style="text-align:center")  #{item.date}
+          td(style="text-align:left")  #{item.first_name + " " + item.last_name}
+          td(style="text-align:left")  #{item.address}
+          td(style="text-align:center")  #{item.state}
+          td(style="text-align:right")  $#{item.tot}
+          td(style="text-align:center") 
+              button(onclick="location.href = 'check/#{item.id}';") see
+
+  table(style='width:60%; display:none' id="maint" class='being')
+    tr
+      th(width="10%" style="text-align:center")  Date
+      th(width="15%" style="text-align:center")  User
+      th(width="15%" style="text-align:center")  Address
+      th(width="15%" style="text-align:center")  State
+      th(width="15%" style="text-align:center")  Total
+      th(width="7%")
+    each item in data.being
+        tr
+          td(style="text-align:center")  #{item.date}
+          td(style="text-align:left")  #{item.first_name + " " + item.last_name}
+          td(style="text-align:left")  #{item.address}
+          td(style="text-align:center")  #{item.state}
+          td(style="text-align:right")  $#{item.tot}
+          td(style="text-align:center") 
+              button(onclick="location.href = 'check/#{item.id}';") see
+
+  table(style='width:60%; display:none' id="maint" class='del')
+    tr
+      th(width="10%" style="text-align:center")  Date
+      th(width="15%" style="text-align:center")  User
+      th(width="15%" style="text-align:center")  Address
+      th(width="15%" style="text-align:center")  State
+      th(width="15%" style="text-align:center")  Total
+      th(width="7%")
+    each item in data.del
+        tr
+          td(style="text-align:center")  #{item.date}
+          td(style="text-align:left")  #{item.first_name + " " + item.last_name}
+          td(style="text-align:left")  #{item.address}
+          td(style="text-align:center")  #{item.state}
+          td(style="text-align:right")  $#{item.tot}
+          td(style="text-align:center") 
+              button(onclick="location.href = 'check/#{item.id}';") see
+  
 script.
   //make link with black bg
   $('#nav-pur').addClass('page');
+  $('#submenu-all').addClass('page');
+
+  function changeDisplayedData(option){
+    all=false;
+    $("#submenu a").removeClass("page");
+    $('#' + option).addClass("page");
+    switch(option){
+      case 'submenu-all':
+        $('.allpurch').show();
+        $('.evrdtot').hide();
+        $('.await').hide();
+        $('.being').hide();
+        $('.del').hide();
+        break;
+      case 'submenu-daytot':
+        $('.allpurch').hide();
+        $('.evrdtot').show();
+        $('.await').hide();
+        $('.being').hide();
+        $('.del').hide();
+        break;
+      case 'submenu-await':
+        $('.allpurch').hide();
+        $('.evrdtot').hide();
+        $('.await').show();
+        $('.being').hide();
+        $('.del').hide();
+        break;
+      case 'submenu-being':
+        $('.allpurch').hide();
+        $('.evrdtot').hide();
+        $('.await').hide();
+        $('.being').show();
+        $('.del').hide();
+        break;
+      case 'submenu-del':
+        $('.allpurch').hide();
+        $('.evrdtot').hide();
+        $('.await').hide();
+        $('.being').hide();
+        $('.del').show();
+        break;
+    }
+  }

@@ -114,7 +114,6 @@ client.connect();
 
 /* GET home/categories page. */
 router.get('/', function(req, res, next) {
-    console.log(req.session);
     let passNotfic = false;
     let profileInfoNotific = false;
     let linkSentToMail = false;
@@ -147,21 +146,44 @@ router.get('/', function(req, res, next) {
                 categories.push(cat);
             });
 
-            console.log(eightNewProds);
-            console.log(threeNewProds);
-            res.render('categories', {
-                data: {
-                    'isLoggedIn': req.session.loggedIn,
-                    'user': req.session.username,
-                    'isAdmin': req.session.admin,
-                    'cats': categories,
-                    'eight': eightNewProds,
-                    'three': threeNewProds,
-                    'pc': passNotfic,
-                    'pi': profileInfoNotific,
-                    'reg': linkSentToMail
+            if(!req.session.admin){
+                res.render('categories', {
+                    data: {
+                        'isLoggedIn': req.session.loggedIn,
+                        'user': req.session.username,
+                        'isAdmin': req.session.admin,
+                        'cats': categories,
+                        'eight': eightNewProds,
+                        'three': threeNewProds,
+                        'pc': passNotfic,
+                        'pi': profileInfoNotific,
+                        'reg': linkSentToMail
+                    }
+                });
+            }else{
+                let groupedCategories = [];
+                for(let i=0;i<categories.length;i++){
+                    let newGroup = [];
+                    newGroup.push(categories[i]);
+                    newGroup.push(categories[++i]);
+                    groupedCategories.push(newGroup);
                 }
-            });
+                console.log(groupedCategories);
+                res.render('oldCategories', {
+                    data: {
+                        'isLoggedIn': req.session.loggedIn,
+                        'user': req.session.username,
+                        'isAdmin': req.session.admin,
+                        'cat': groupedCategories,
+                        'eight': eightNewProds,
+                        'three': threeNewProds,
+                        'pc': passNotfic,
+                        'pi': profileInfoNotific,
+                        'reg': linkSentToMail
+                    }
+                });
+            }
+            
         });
     });
 });
@@ -204,19 +226,38 @@ router.get('/category/:id', function(req, res, next) {
             "where pc.category = %L order by p.name", catId))
         // "join categories as c on c.id = pc.category "+
         .then((prods) => {
-            let number = 0;
-            prods.rows.forEach((prod) => {
-                prod.number = ++number;
-                prod.price = addTrailingZeros(prod.price);
-                console.log(prod.description);
-                products.push(prod);
-            });
-            res.render('index', {
-                data: {
-                    'isLoggedIn': req.session.loggedIn,
-                    'user': req.session.username,
-                    'isAdmin': req.session.admin,
-                    'prods': products
+            client.query(
+                sqlFormatter(
+                    "select c.name as cname from categories as c "+
+                    "where c.id = %L limit 1", catId))
+            .then((catData) => {
+                console.log(catId);
+                console.log(catData.rows);
+                let number = 0;
+                prods.rows.forEach((prod) => {
+                    prod.number = ++number;
+                    prod.price = addTrailingZeros(prod.price);
+                    products.push(prod);
+                });
+                if(!req.session.admin){
+                    res.render('newIndex', {
+                        data: {
+                            'isLoggedIn': req.session.loggedIn,
+                            'user': req.session.username,
+                            'isAdmin': req.session.admin,
+                            'prods': products,
+                            'cname': catData.rows[0].cname
+                        }
+                    });
+                }else{
+                    res.render('index', {
+                        data: {
+                            'isLoggedIn': req.session.loggedIn,
+                            'user': req.session.username,
+                            'isAdmin': req.session.admin,
+                            'prods': products
+                        }
+                    });
                 }
             });
         });
@@ -224,6 +265,9 @@ router.get('/category/:id', function(req, res, next) {
 
 /* GET ALL products page. */
 router.get('/all', function(req, res, next) {
+    if (!req.session.admin) {
+        res.redirect(303, '/');
+    }
     let products = [];
     let catId = req.params.id;
     client.query(sqlFormatter("select * from products as p order by name"))
@@ -291,8 +335,6 @@ router.get('/login', function(req, res, next) {
             });
         }
     
-    
-        console.log('true');
         res.render('login', {
             data: {
                 'isLoggedIn': req.session.loggedIn,
@@ -387,7 +429,6 @@ router.post('/register', function(req, res) {
     let link;
     let stop = false;
     let wholeNumber = cc + parseInt(phone.replace(/[^0-9]/g,''),10); // parse int removes leading zeros, replace makes sure its only numbers
-    console.log('PHONE:' + wholeNumber);
 
     let verifyURL = 'https://www.google.com/recaptcha/api/siteverify?secret=6LdF9FQUAAAAAJrUDQ7a-KxAtzKslyxhA7KZ-Bwt&response=' + recaptchaResp;
     request(verifyURL, (err, response, body) => {
@@ -411,20 +452,15 @@ router.post('/register', function(req, res) {
                                 if (pass === cpass) {
                                     if (validateName(fName) && validateName(lName)) {
                                         bcrypt.hash(saltedPass, 5, function(err, hash) {
-                                            console.log('insert into accs');
-                                            console.log('salt ' + salt);
                                             client.query(sqlFormatter(  "insert into accounts (email, first_name, last_name, phone, address, pass, salt, role, active, suspended) "+
                                                                         "values(%L, %L, %L, %L, %L, %L, %L, '1', 'false', 'false');", email, fName, lName, wholeNumber, address, hash, salt))
                                                 .then(() => {
                                                     client.query(sqlFormatter("select id from accounts where email=%L", email))
                                                     .then((currentAcc)=>{
-                                                        console.log('insert into carts');
-                                                        console.log(currentAcc.rows[0]);
                                                         let userid = currentAcc.rows[0].id;
                                                     client.query(sqlFormatter("insert into shopping_carts (userid) values(%L)", userid))
                                                         .then(() => {
                                                             let code = generateId();
-                                                            console.log('insert into email_codes');
                                                             client.query(sqlFormatter("insert into email_codes (account, code) values(%L, %L)", userid, code))
                                                                 .then(() => {
                                                                     let link = 'http://localhost:3000/verify/' + code;
@@ -484,7 +520,6 @@ function failRegister(req, res, code) {
 
 /* POST login page */
 router.post('/login', function(req, res) {
-    console.log('asd');
     let recaptchaResp = req.body['g-recaptcha-response'];
     let verifyURL = 'https://www.google.com/recaptcha/api/siteverify?secret=6LdF9FQUAAAAAJrUDQ7a-KxAtzKslyxhA7KZ-Bwt&response=' + recaptchaResp;
 
@@ -643,12 +678,16 @@ router.get('/add', function(req, res, next) {
         });
 });
 
-/* GET check page. */
-router.get('/check', function(req, res, next) {
+/* POST scheck page. */
+router.post('/check', function(req, res, next) {
+    let word = req.body.name;
     if (!req.session.admin) {
         res.redirect(303, '/');
     }
     let purchases = [];
+    let awaiting = [];
+    let being = [];
+    let del = [];
     client
         .query(sqlFormatter(
             "select p.id, a.first_name, a.last_name, p.date, "+
@@ -660,18 +699,108 @@ router.get('/check', function(req, res, next) {
             "order by p.date"
         ))
         .then((data) => {
-            data.rows.forEach((row) => {
-                row.tot = addTrailingZeros(row.tot);
-                purchases.push(row);
-            });
-            res.render('check', {
-                data: {
-                    'isLoggedIn': req.session.loggedIn,
-                    'user': req.session.username,
-                    'isAdmin': req.session.admin,
-                    'purchases': purchases
-                }
-            });
+            client.query(sqlFormatter(  //getting total for every day
+                "select sum(ord.tot) as totalForTheDay, ord.date, ord.first_name as name "+
+                "from (select p.id, a.first_name, a.last_name, p.date, "+
+                "st.name as state, sum(pi.prodprice * pi.quantity) as tot "+
+                "from accounts as a join purchases as p on a.id = p.userid "+
+                "join states as st on st.id = p.state "+
+                "join purchase_items as pi on pi.purchaseid = p.id "+
+                "group by a.first_name, a.last_name, st.name, p.date, p.id "+
+                "order by p.date) as ord group by ord.date, ord.first_name"))
+                .then((totals)=>{
+                    let totalValues = [];
+                    totals.rows.forEach((total)=>{
+                        if(total.name.toLowerCase().includes(word.toLowerCase())){
+                            totalValues.push(total);
+                        }
+                    });
+                    data.rows.forEach((row) => {
+                        row.tot = addTrailingZeros(row.tot);
+                        if (row.first_name.toLowerCase().includes(word.toLowerCase())) {
+                            purchases.push(row);
+
+                            if(row.state == 'Awaiting Delivery'){
+                                awaiting.push(row)
+                            }else if(row.state == 'Being Delivered'){
+                                being.push(row);
+                            }else{
+                                del.push(row);
+                            }
+                        }
+                    });
+                    res.render('check', {
+                        data: {
+                            'isLoggedIn': req.session.loggedIn,
+                            'user': req.session.username,
+                            'isAdmin': req.session.admin,
+                            'purchases': purchases,
+                            'totals': totalValues,
+                            'await': awaiting,
+                            'being': being,
+                            'del': del
+                        }
+                    });
+                });
+        });
+});
+
+
+/* GET check page. */
+router.get('/check', function(req, res, next) {
+    if (!req.session.admin) {
+        res.redirect(303, '/');
+    }
+    let purchases = [];
+    let awaiting = [];
+    let being = [];
+    let del = [];
+    client
+        .query(sqlFormatter(
+            "select p.id, a.first_name, a.last_name, p.date, "+
+            "st.name as state, p.date, sum(pi.prodprice * pi.quantity) as tot "+
+            "from accounts as a join purchases as p on a.id = p.userid "+
+            "join states as st on st.id = p.state "+
+            "join purchase_items as pi on pi.purchaseid = p.id "+
+            "group by a.first_name, a.last_name, st.name, p.date, p.id "+
+            "order by p.date"
+        ))
+        .then((data) => {
+            client.query(sqlFormatter(  //getting total for every day
+                "select sum(ord.tot) as totalForTheDay, ord.date "+
+                "from (select p.id, a.first_name, a.last_name, p.date, "+
+                "st.name as state, sum(pi.prodprice * pi.quantity) as tot "+
+                "from accounts as a join purchases as p on a.id = p.userid "+
+                "join states as st on st.id = p.state "+
+                "join purchase_items as pi on pi.purchaseid = p.id "+
+                "group by a.first_name, a.last_name, st.name, p.date, p.id "+
+                "order by p.date) as ord group by ord.date"))
+                .then((totals)=>{
+                    let totalValues = totals.rows;
+                    data.rows.forEach((row) => {
+                        row.tot = addTrailingZeros(row.tot);
+                        purchases.push(row);
+                        if(row.state == 'Awaiting Delivery'){
+                            awaiting.push(row)
+                        }else if(row.state == 'Being Delivered'){
+                            being.push(row);
+                        }else{
+                            del.push(row);
+                        }
+                    });
+                    res.render('check', {
+                        data: {
+                            'isLoggedIn': req.session.loggedIn,
+                            'user': req.session.username,
+                            'isAdmin': req.session.admin,
+                            'purchases': purchases,
+                            'totals': totalValues,
+                            'await': awaiting,
+                            'being': being,
+                            'del': del
+                        }
+                    });
+                });
         });
 });
 
@@ -693,7 +822,6 @@ router.get('/orders', function(req, res, next) {
             'where p.userid = %L order by state asc, p.date desc', req.session.userId))
         .then((data) => {
             data.rows.forEach((row) => {
-                console.log(row.date);
                 row.number = count++;
                 purchases.push(row);
             });
@@ -776,22 +904,28 @@ router.get('/profile', function(req, res, next) {
     if (req.session.admin || !req.session.loggedIn) {
         res.redirect(303, '/');
     }
+    let categories = [];
     let profData = [];
     client.query(sqlFormatter(  'select a.first_name as fn, a.last_name as ln, '+
                                 'a.phone as ph, a.address '+
                                 'from accounts as a '+
                                 'where a.id = %L', req.session.userId))
-        .then((data) => {
+    .then((data) => {
+        client.query(sqlFormatter('select * from categories'))
+        .then((cats)=>{
+            cats.rows.forEach((cat)=> categories.push(cat));
             data.rows.forEach((row) => profData.push(row));
             res.render('profile', {
                 data: {
                     'isLoggedIn': req.session.loggedIn,
                     'user': req.session.username,
                     'isAdmin': req.session.admin,
-                    'p': profData
+                    'p': profData,
+                    'cats': categories
                 }
             });
         });
+    });
 });
 
 /* POST profile page. */
@@ -813,15 +947,20 @@ router.post('/profile', function(req, res, next) {
                                 'a.phone as ph, a.address '+
                                 'from accounts as a where a.id = %L', req.session.userId))
         .then((data) => {
-            data.rows.forEach((row) => profData.push(row));
-            res.render('profile', {
-                data: {
-                    'isLoggedIn': req.session.loggedIn,
-                    'user': req.session.username,
-                    'isAdmin': req.session.admin,
-                    'p': profData,
-                    'f': 1
-                }
+            client.query(sqlFormatter('select * from categories'))
+            .then((cats) => {
+                let categores = cats.rows;
+                data.rows.forEach((row) => profData.push(row));
+                res.render('profile', {
+                    data: {
+                        'isLoggedIn': req.session.loggedIn,
+                        'user': req.session.username,
+                        'isAdmin': req.session.admin,
+                        'p': profData,
+                        'f': 1,
+                        'cats': categores
+                    }
+                });
             });
         });
     }
@@ -832,12 +971,17 @@ router.get('/chpass', function(req, res, next) {
     if (req.session.admin || !req.session.loggedIn) {
         res.redirect(303, '/');
     }
-    res.render('chpass', {
-        data: {
-            'isLoggedIn': req.session.loggedIn,
-            'user': req.session.username,
-            'isAdmin': req.session.admin
-        }
+    client.query(sqlFormatter('select * from categories'))
+    .then((cats)=>{
+        let categories = cats.rows;
+        res.render('chpass', {
+            data: {
+                'isLoggedIn': req.session.loggedIn,
+                'user': req.session.username,
+                'isAdmin': req.session.admin,
+                'cats': categories
+            }
+        });
     });
 });
 
@@ -895,7 +1039,6 @@ router.post('/print', function(req, res) {
             format = format.replace(/GS/g, '\x1d');
 
             cmd.get('echo "'+format+'" | lp', function(err, data, stderr){
-                console.log(data);
             });
 
             // deprecated printing
@@ -972,14 +1115,19 @@ router.post('/chpass', function(req, res, next) {
 });
 
 function failChangePass(req, res, code){
-  return res.render('chpass', {
-    data: {
-        'isLoggedIn': req.session.loggedIn,
-        'user': req.session.username,
-        'isAdmin': req.session.admin,
-        'f': code
-    }
-  });
+    client.query(sqlFormatter('select * from categories'))
+    .then((cats)=>{
+        let categories = cats.rows;
+        return res.render('chpass', {
+            data: {
+                'isLoggedIn': req.session.loggedIn,
+                'user': req.session.username,
+                'isAdmin': req.session.admin,
+                'f': code,
+                'cats': categories
+            }
+        });
+    });
 }
 
 /* POST check page. */
@@ -1001,10 +1149,8 @@ router.post('/add', function(req, res) {
     let price = req.body.price;
     let quant = req.body.quant;
     let descr = req.body.descr;
-    console.log(req.files);
     let img = req.files.img;
 
-    console.log(img.name);
     let newName = generateId() + '.jpg';
     img.mv('/home/rosen/Desktop/repo/RosenW-OnlineShop/onlineshop/public/images/'+newName, function(err) {
         if (err)
@@ -1175,7 +1321,6 @@ router.post('/edit/:id', function(req, res, next) {
         client.query(sqlFormatter("delete from products_categories where product = %L", productId))
         .then(() => {
             for (let i in req.body) {
-                console.log(i);
                 if (isNumber(i)) {
                     client.query(sqlFormatter("insert into products_categories values(%L, %L)", productId, i))
                         .catch(e => console.error(e.stack))
@@ -1203,8 +1348,16 @@ router.post('/addtocart', function(req, res) {
     client.query(sqlFormatter("select id from shopping_carts where userid = %L;", req.session.userId))
     .then((data) => {
         let cartId = data.rows[0].id;
-        client.query(sqlFormatter("insert into cart_items values(%L, %L, %L);", id, quant, cartId))
-            .catch(e => console.error(e.stack));
+        client.query(sqlFormatter("select * from cart_items where cartid = %L and prodid = %L;", cartId, id))
+        .then((ciData) => {
+            if(ciData.rows.length == 0){
+                client.query(sqlFormatter("insert into cart_items (prodid, quantity, cartid, modified) values(%L, %L, %L, false);", id, quant, cartId))
+                    .catch(e => console.error(e.stack));
+            }else{
+                client.query(sqlFormatter("update cart_items set quantity = quantity + %L where cartid = %L and prodid = %L", quant, cartId, id))
+                    .catch(e => console.error(e.stack));
+            }
+        })
     });
 });
 
@@ -1271,9 +1424,7 @@ router.post('/buy', function(req, res) {
                     pass = false;
                 }
             });
-            console.log(pass);
             if (pass) {
-                console.log('pass');
                 //make test credit card transaction
                 gateway.transaction.sale({
                     amount: "10.00",
@@ -1284,7 +1435,6 @@ router.post('/buy', function(req, res) {
                 }, function(err, result) {
                     pass = result.success;
 
-                    console.log('pass2');
                     if (result.success) {
                         data.rows.forEach((row) => {
                             //row.max = row.max - row.quant
@@ -1312,7 +1462,6 @@ router.post('/buy', function(req, res) {
                                 client.query(sqlFormatter("select max(id) as id from purchases where userid = %L", req.session.userId))
                                 .then((curPurchase)=>{
                                     let curPurchid = curPurchase.rows[0].id;
-                                    console.log('ID: ' + curPurchid);
                                     data.rows.forEach((row) => {
                                         //add products to purchase
                                         client.query(sqlFormatter(  
@@ -1385,9 +1534,7 @@ function fixText(text) {
     let newText = "";
     let counter = 0;
     splitText.forEach((word) => {
-        console.log(word);
         if (counter == splitText.length) {
-            console.log('return');
             return newText;
         }
         counter++;

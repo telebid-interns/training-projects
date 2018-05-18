@@ -1,0 +1,60 @@
+doctype html
+html
+  head
+    title= title
+    link(rel='stylesheet', href='/stylesheets/table.css')
+    link(rel='stylesheet', href='/stylesheets/navbar.css')
+    script(type='text/javascript' src="/js/jquery.min.js")
+    script(type='text/javascript' src="/js/notify.min.js")
+    
+  body
+    block content
+  include ./backofficenav.jade
+  div
+    table(id='maintsc' style='width:65%')
+        each item in data.cat
+          tr
+            td(width='50%' height='300px')
+              a(href="/category/#{item[0].id}") #{item[0].name}
+                br
+                img(width='100%' height='100%' href="/category/#{item[0].id}" src="/images/#{item[0].img}")
+            if item[1] != undefined
+              td(width='50%' height='300px')
+                a(href="/category/#{item[1].id}") #{item[1].name}
+                  br
+                  img(width='100%' height='100%' href="/category/#{item[1].id}" src="/images/#{item[1].img}")
+
+script.
+  let options = {
+    clickToHide: true,
+    autoHide: false,
+    autoHideDelay: 5000,
+    arrowShow: true,
+    arrowSize: 5,
+    position: 'bottom right',
+    style: 'bootstrap',
+    className: 'success',
+    showAnimation: 'slideDown',
+    showDuration: 400,
+    hideAnimation: 'slideUp',
+    hideDuration: 200,
+    gap: 0
+  }
+
+if data.pc
+  script.
+    $(document).ready(function(){ 
+        $('#navbar').notify('Password changed successfully', options);  
+    });
+
+if data.pi
+  script.
+    $(document).ready(function(){ 
+        $('#navbar').notify('Profile information changed successfully', options);  
+    });
+
+if data.reg
+  script.
+    $(document).ready(function(){ 
+        $('#navbar').notify('A verification link has been sent to your email', options);  
+    });
