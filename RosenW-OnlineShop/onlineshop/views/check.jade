@@ -5,6 +5,10 @@ html
     link(rel='stylesheet', href='/stylesheets/navbar.css')
     link(rel='stylesheet', href='/stylesheets/table.css')
     script(type='text/javascript' src="/js/jquery.min.js")
+    style.
+      a {
+        color: white;
+      }
   body
     block content
   include ./backofficenav.jade
@@ -27,11 +31,16 @@ ul(id='submenu')
 div
   table(style='width:60%; display:block' id="maint" class='allpurch')
     tr
-      th(width="10%" style="text-align:center")  Date
-      th(width="15%" style="text-align:center")  User
-      th(width="15%" style="text-align:center")  Address
-      th(width="15%" style="text-align:center")  State
-      th(width="15%" style="text-align:center")  Total
+      th(width="10%" style="text-align:center")
+        a(href="/check/s/1")  Date
+      th(width="15%" style="text-align:center")  
+        a(href="/check/s/2")  User
+      th(width="15%" style="text-align:center")  
+        a(href="/check/s/3")  Address
+      th(width="15%" style="text-align:center")  
+        a(href="/check/s/4")  State
+      th(width="15%" style="text-align:center")  
+        a(href="/check/s/5")  Total
       th(width="7%")
     each item in data.purchases
         tr

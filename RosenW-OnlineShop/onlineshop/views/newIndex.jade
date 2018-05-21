@@ -61,7 +61,7 @@ html(lang='en')
                             td(style="text-align:center")
                                 input(id="input-#{item.id}" type='text', placeholder='quant.', style='width: 50px', onkeyup="changeQuantity('#{item.id}', '#{item.quantity}')" ) 
                             td(style="text-align:center")
-                                button(onclick="add('#{item.id}')") add
+                                button.shopBtn.btn-large(onclick="add('#{item.id}')") add
                         if data.isAdmin
                             td(style="text-align:center")
                                 button(onclick="location.href = '/edit/#{item.id}';") edit
