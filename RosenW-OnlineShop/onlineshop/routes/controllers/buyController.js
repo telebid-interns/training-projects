@@ -82,83 +82,82 @@ module.exports = {
             });
         });
     },
-    postBuy: function(req, res) {
+    postBuy: async function(req, res) {
         let pass = true;
         //get nonce
         let nonce = req.body.nonce;
         //get user prods
-        client
-            .query(sqlFormatter(
-                    "select pr.id, pr.price, pr.name, sum(ci.quantity) as quantity, pr.quantity as max "+
-                    "from cart_items as ci join products as pr on ci.prodid = pr.id "+
-                    "join shopping_carts as sc on ci.cartid = sc.id "+
-                    "where sc.userid = %L "+
-                    "group by pr.id, max;", req.session.userId))
-            .then((data) => {
-                //check if cart empty todo
-                if (data.rows.length === 0) {
-                    pass = false;
-                }
-                data.rows.forEach((row) => {
-                    if (Number(row.quantity) > Number(row.max)) {
-                        pass = false;
-                    }
+        let data = await client.query(sqlFormatter(
+          "select pr.id, pr.price, pr.name, sum(ci.quantity) as quantity, pr.quantity as max "+
+          "from cart_items as ci join products as pr on ci.prodid = pr.id "+
+          "join shopping_carts as sc on ci.cartid = sc.id "+
+          "where sc.userid = %L "+
+          "group by pr.id, max;", req.session.userId))
+        //check if cart empty todo
+        if (data.rows.length === 0) {
+            pass = false;
+        }
+        await data.rows.forEach((row) => {
+            if (Number(row.quantity) > Number(row.max)) {
+                pass = false;
+            }
+        });
+        if (pass) {
+          //make test credit card transaction
+          gateway.transaction.sale({
+              amount: "10.00",
+              paymentMethodNonce: nonce,
+              options: {
+                  submitForSettlement: true
+              }
+          },
+          async function(err, result) {
+            pass = result.success;
+            if (result.success) {
+                await data.rows.forEach(async (row) => {
+                    //row.max = row.max - row.quant
+                    let newQuantity = row.max - row.quantity;
+                    await client.query(sqlFormatter(
+                      "update products set quantity = %L where id = %L", newQuantity, row.id));
                 });
-                if (pass) {
-                    //make test credit card transaction
-                    gateway.transaction.sale({
-                        amount: "10.00",
-                        paymentMethodNonce: nonce,
-                        options: {
-                            submitForSettlement: true
-                        }
-                    }, function(err, result) {
-                        pass = result.success;
-    
-                        if (result.success) {
-                            data.rows.forEach((row) => {
-                                //row.max = row.max - row.quant
-                                let newQuantity = row.max - row.quantity;
-                                client.query(sqlFormatter("update products set quantity = %L where id = %L", newQuantity, row.id));
-                            });
-    
-                            //make a purchase
-                            let today = new Date();
-                            let dd = today.getDate();
-                            let mm = today.getMonth()+1; //January is 0!
-                            let yyyy = today.getFullYear();
-    
-                            if(dd<10) {
-                                dd="0"+dd
-                            } 
-    
-                            if(mm<10) {
-                                mm="0"+mm
-                            } 
-    
-                            today = yyyy+mm+dd + " " +today.getHours() + ":" + today.getMinutes()+":" + today.getSeconds();
-                            client.query(sqlFormatter("insert into purchases (userid, state, date) values(%L, 0, %L)", req.session.userId, today))
-                                .then(()=>{
-                                    client.query(sqlFormatter("select max(id) as id from purchases where userid = %L", req.session.userId))
-                                    .then((curPurchase)=>{
-                                        let curPurchid = curPurchase.rows[0].id;
-                                        data.rows.forEach((row) => {
-                                            //add products to purchase
-                                            client.query(sqlFormatter(  
-                                                "insert into purchase_items (purchaseid, quantity, prodname, prodprice) "+
-                                                "values(%L, %L, %L, %L)", curPurchid, row.quantity, row.name, row.price));
-                                        });
-                                    });
-                                });
-    
-                            //cart clean up
-                            client.query(sqlFormatter("delete from cart_items as ci using shopping_carts as sc where ci.cartid = sc.id and sc.userid = %L", req.session.userId))
-                            .then(res.redirect(303, '/orders'));
-                        } else {
-                            res.redirect(303, '/buy?wd=1');
-                        }
-                    });
+
+                //make a purchase
+                let today = new Date();
+                let dd = today.getDate();
+                let mm = today.getMonth()+1; //January is 0!
+                let yyyy = today.getFullYear();
+
+                if(dd<10) {
+                    dd="0"+dd
                 }
-            });
+
+                if(mm<10) {
+                    mm="0"+mm
+                }
+
+                today = yyyy+mm+dd + " " +today.getHours() + ":" + today.getMinutes()+":" + today.getSeconds();
+                await client.query(sqlFormatter(
+                  "insert into purchases (userid, state, date) "+
+                  "values(%L, 0, %L)", req.session.userId, today));
+                let curPurchase = await client.query(sqlFormatter(
+                  "select max(id) as id from purchases where userid = %L", req.session.userId));
+                let curPurchid = curPurchase.rows[0].id;
+                await data.rows.forEach(async (row) => {
+                    //add products to purchase
+                    await client.query(sqlFormatter(
+                      "insert into purchase_items (purchaseid, quantity, prodname, prodprice) "+
+                      "values(%L, %L, %L, %L)", curPurchid, row.quantity, row.name, row.price));
+                });
+
+                //cart clean up
+                await client.query(sqlFormatter(
+                  "delete from cart_items as ci using shopping_carts as sc "+
+                  "where ci.cartid = sc.id and sc.userid = %L", req.session.userId));
+                res.redirect(303, '/orders');
+            } else {
+                res.redirect(303, '/buy?wd=1');
+            }
+          });
+        }
     }
 }

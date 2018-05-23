@@ -28,8 +28,6 @@ router.get('/', homeController.getHome);
 router.post('/', homeController.postHome);
 /* GET category page. */
 router.get('/category/:id', homeController.getCategory);
-/* GET ALL products page. */
-router.get('/all', homeController.getAll);
 
 //USER CONTROLLER////////////////////////////////////////////////////////////////
 
@@ -80,6 +78,8 @@ router.post('/add', backofficeController.postAddProd);
 router.get('/accs', backofficeController.getAccs);
 /* POST edit page. */
 router.post('/edit/:id', backofficeController.postEdit);
+/* GET ALL products page. */
+router.get('/all', backofficeController.getAll);
 
 // PRODUCTS CONTROLLER////////////////////////////////////////////////////////////////
 
@@ -142,7 +142,7 @@ module.exports = router;
 //     tokens.shift();
 //     let bufferArr = [];
 //     bufferArr.push(cmd);
-    
+
 //     for(let i = 0; i<tokens.length-1; i++){
 //         if(typeof tokens[i]=='string' && !isNumber(tokens[i])){
 //             bufferArr.push(tokens[i].charCodeAt(0));
@@ -150,7 +150,7 @@ module.exports = router;
 //             bufferArr.push(Number(tokens[i]));
 //         }
 //     }
-    
+
 //     let command = new Buffer(bufferArr);
 //     bixolon.write(command);
 // }
