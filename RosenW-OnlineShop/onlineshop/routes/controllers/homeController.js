@@ -76,7 +76,8 @@ module.exports = {
         let products = [];
         let count = 1;
         if (/^[a-zA-Z]+$/.test(word)) {
-        let data = await client.query(sqlFormatter("select * from products as p order by name"))
+        let data = await client.query(sqlFormatter(
+          "select * from products as p order by name")) //todo use like (change formatter?)
         await data.rows.forEach((row) => {
             row.number = count++;
             if (row.name.toLowerCase().includes(word.toLowerCase())) {

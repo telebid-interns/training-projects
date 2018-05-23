@@ -110,14 +110,14 @@ module.exports = {
             stop = true;
             await failRegister(req, res, 3);
         }else{ //passed captcha
-            let accs = await client.query("select * from accounts"); //FIX
-            await accs.rows.forEach(async (acc) => {
-              if (acc.email.toLowerCase() == email.toLowerCase()) {
-                  stop = true;
-                  await failRegister(req, res, 6);
-              }
-            });
-            console.log(stop);
+            let accs = await client.query(sqlFormatter(
+              "select * from accounts where lower(email) = %L", email.toLowerCase()));
+
+            if (accs.rows.length != 0) {
+              stop = true;
+              await failRegister(req, res, 6);
+            }
+
             if (!stop) {
               let salt = u.generateId();
               let saltedPass = salt + pass;
@@ -145,12 +145,11 @@ module.exports = {
                           "values(%L, %L, %L, %L, %L, %L, %L, '1', 'false', 'false');",
                           email, fName, lName, wholeNumber, address, hash, salt))
                       .then(async ()=>{
-                        let queryString = sqlFormatter("select id from accounts where email=%L;", email);
-                        let currentAcc = await client.query(sqlFormatter("select id from accounts where email=%L;", email)); //??????
-                        console.log(email);
-                        console.log(currentAcc);
+                        let queryString = sqlFormatter(
+                          "select id from accounts where email=%L;", email);
+                        let currentAcc = await client.query(sqlFormatter(
+                          "select id from accounts where email=%L;", email)); //??????
                         let userid = currentAcc.rows[0].id;
-                        console.log(userid);
                         await client.query(sqlFormatter("insert into shopping_carts (userid) values(%L)", userid));
                         let code = u.generateId();
                         await client.query(sqlFormatter("insert into email_codes (account, code) values(%L, %L)", userid, code));
@@ -275,27 +274,27 @@ module.exports = {
       let repeatPass = req.body.repNewPass;
       let found = false;
 
-      let accounts = await client.query("select * from accounts"); //MAKE DB FILTER DATA
-      await accounts.rows.forEach(async (account) => {
-        if (account.id === req.session.userId) {
-          await bcrypt.compare(account.salt + pass, account.pass, async function(err, bcryptResp) {
-            if(!bcryptResp){
-              await failChangePass(req, res, 1) //f password
-            }
-            if(u.validatePass(!newPass)){
-              await failChangePass(req, res, 2); //f validate
-            }
-            if(newPass !== repeatPass){
-              await failChangePass(req, res, 3); //f repeat
-            }
-            await bcrypt.hash(account.salt + newPass, 5, async function(err, hash) {
-              await client.query(sqlFormatter(
-                "update accounts set pass = %L where id = %L", hash, req.session.userId));
-            });
-            res.redirect(303, '/?pc=1');
+      let accountData = await client.query(sqlFormatter(
+        "select * from accounts where id = %L", req.session.userId));
+      if (accountData.rows.length != 0) {
+        let account = accountData.rows[0];
+        await bcrypt.compare(account.salt + pass, account.pass, async function(err, bcryptResp) {
+          if(!bcryptResp){
+            await failChangePass(req, res, 1) //f password
+          }
+          if(u.validatePass(!newPass)){
+            await failChangePass(req, res, 2); //f validate
+          }
+          if(newPass !== repeatPass){
+            await failChangePass(req, res, 3); //f repeat
+          }
+          await bcrypt.hash(account.salt + newPass, 5, async function(err, hash) {
+            await client.query(sqlFormatter(
+              "update accounts set pass = %L where id = %L", hash, req.session.userId));
           });
-        }
-      });
+          res.redirect(303, '/?pc=1');
+        });
+      }
     }
 }
 
@@ -352,24 +351,23 @@ async function checkLoginInfo(res, req) {
     let email = req.body.email;
     let pass = req.body.password;
     let foundUser = false;
-    let accounts = await client.query("select * from accounts");
-    await accounts.rows.forEach(async (account) => {
-      if (account.email === email) {
-          foundUser = true;
-          await bcrypt.compare(account.salt + pass, account.pass, function(err, bcryptResp) {
-              if (bcryptResp == true && account.active) {
-                  req.session.userId = account.id;
-                  req.session.loggedIn = true;
-                  req.session.admin = false;
-                  req.session.username = account.first_name;
-                  req.session.logincount = 0;
-                  res.redirect(303, '/');
-              } else {
-                  return failLogin(req, res, 1);
-              }
-          });
-      }
-    });
+    let accountData = await client.query(sqlFormatter("select * from accounts where email = %L", email));
+    let account = accountData.rows[0];
+    if (accountData.rows.length != 0) {
+        foundUser = true;
+        await bcrypt.compare(account.salt + pass, account.pass, function(err, bcryptResp) {
+            if (bcryptResp == true && account.active) {
+                req.session.userId = account.id;
+                req.session.loggedIn = true;
+                req.session.admin = false;
+                req.session.username = account.first_name;
+                req.session.logincount = 0;
+                res.redirect(303, '/');
+            } else {
+                return failLogin(req, res, 1);
+            }
+        });
+    }
     if (!foundUser) {
         return failLogin(req, res, 2);
     }

@@ -364,13 +364,11 @@ module.exports = {
         if (!req.session.admin) {
             res.redirect(303, '/');
         }
-        let users = [];
+
 
         let data = await client.query(sqlFormatter("select * from accounts order by role, first_name"));
-        await data.rows.forEach((row) => {
-            row.id;
-            users.push(row);
-        });
+        let users = data.rows;
+
         res.render('accs', {
             data: {
                 'isLoggedIn': req.session.loggedIn,
@@ -449,25 +447,22 @@ async function checkAdminInfo(res, req) {
     let username = req.body.username;
     let pass = req.body.password;
     let foundUser = false;
-    let accounts = await client.query("select * from admins");
-    await accounts.rows.forEach((account) => {
-        if (account.username === username) {
-            foundUser = true;
-            bcrypt.compare(account.salt + pass, account.pass, function(err, bcryptResp) {
-                if (bcryptResp == true) {
-                    req.session.loggedIn = true;
-                    req.session.admin = true;
-                    req.session.username = account.username;
-                    req.session.logincount = 0;
-                    res.redirect(303, '/');
-                } else {
-                    return failAdminLogin(req, res, 1);
-                }
-            });
-        }
-    });
-    if (!foundUser) {
-        return failAdminLogin(req, res, 2);
+    let accounts = await client.query(sqlFormatter(
+      "select * from admins where username = %L", username));
+    if(accounts.rows.length != 0){
+      bcrypt.compare(account.salt + pass, account.pass, function(err, bcryptResp) {
+          if (bcryptResp == true) {
+              req.session.loggedIn = true;
+              req.session.admin = true;
+              req.session.username = account.username;
+              req.session.logincount = 0;
+              res.redirect(303, '/');
+          } else {
+              return failAdminLogin(req, res, 1);
+          }
+      });
+    }else{
+      return failAdminLogin(req, res, 2);
     }
 }
 

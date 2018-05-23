@@ -17,7 +17,7 @@ module.exports = {
         let data = await client.query(sqlFormatter(
           'select p.id, p.date, s.name as state ' +
           'from purchases as p join states as s on s.id = p.state ' +
-          'where p.userid = %L order by state asc, p.date desc', req.session.userId))
+          'where p.userid = %L order by state asc, p.date desc', req.session.userId));
         await data.rows.forEach((row) => {
             let tokens = String(row.date).substr(0,15).split(" ");
             row.date = tokens[2] + ' ' + tokens[1] + ' ' + tokens[3];
@@ -30,7 +30,7 @@ module.exports = {
           'from purchase_items as pi '+
           'join purchases as pur on pi.purchaseId = pur.id ' +
           'where pur.userid = %L ' +
-          'order by pi.prodname', req.session.userId))
+          'order by pi.prodname', req.session.userId));
         await oData.rows.forEach((row) => {
             row.price = u.addTrailingZeros(row.price * row.quantity);
             orders.push(row);
