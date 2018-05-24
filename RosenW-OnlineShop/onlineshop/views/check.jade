@@ -67,11 +67,16 @@ div
 
   table(style='width:60%; display:none' id="maint" class='await')
     tr
-      th(width="10%" style="text-align:center")  Date
-      th(width="15%" style="text-align:center")  User
-      th(width="15%" style="text-align:center")  Address
-      th(width="15%" style="text-align:center")  State
-      th(width="15%" style="text-align:center")  Total
+      th(width="10%" style="text-align:center") 
+        a(href="/check/s/1")  Date
+      th(width="15%" style="text-align:center")  
+        a(href="/check/s/2")  User
+      th(width="15%" style="text-align:center")  
+        a(href="/check/s/3")  Address
+      th(width="15%" style="text-align:center")  
+        a(href="/check/s/4")  State
+      th(width="15%" style="text-align:center")  
+        a(href="/check/s/5")  Total
       th(width="7%")
     each item in data.await
         tr
@@ -85,11 +90,16 @@ div
 
   table(style='width:60%; display:none' id="maint" class='being')
     tr
-      th(width="10%" style="text-align:center")  Date
-      th(width="15%" style="text-align:center")  User
-      th(width="15%" style="text-align:center")  Address
-      th(width="15%" style="text-align:center")  State
-      th(width="15%" style="text-align:center")  Total
+      th(width="10%" style="text-align:center") 
+        a(href="/check/s/1")  Date
+      th(width="15%" style="text-align:center")  
+        a(href="/check/s/2")  User
+      th(width="15%" style="text-align:center")  
+        a(href="/check/s/3")  Address
+      th(width="15%" style="text-align:center")  
+        a(href="/check/s/4")  State
+      th(width="15%" style="text-align:center")  
+        a(href="/check/s/5")  Total
       th(width="7%")
     each item in data.being
         tr
@@ -103,11 +113,16 @@ div
 
   table(style='width:60%; display:none' id="maint" class='del')
     tr
-      th(width="10%" style="text-align:center")  Date
-      th(width="15%" style="text-align:center")  User
-      th(width="15%" style="text-align:center")  Address
-      th(width="15%" style="text-align:center")  State
-      th(width="15%" style="text-align:center")  Total
+      th(width="10%" style="text-align:center") 
+        a(href="/check/s/1")  Date
+      th(width="15%" style="text-align:center")  
+        a(href="/check/s/2")  User
+      th(width="15%" style="text-align:center")  
+        a(href="/check/s/3")  Address
+      th(width="15%" style="text-align:center")  
+        a(href="/check/s/4")  State
+      th(width="15%" style="text-align:center")  
+        a(href="/check/s/5")  Total
       th(width="7%")
     each item in data.del
         tr
@@ -128,7 +143,7 @@ script.
     all=false;
     $("#submenu a").removeClass("page");
     $('#' + option).addClass("page");
-    switch(option){
+    switch(option){ //TODO reuse code
       case 'submenu-all':
         $('.allpurch').show();
         $('.evrdtot').hide();

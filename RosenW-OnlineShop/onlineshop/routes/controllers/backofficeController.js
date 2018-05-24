@@ -1,5 +1,4 @@
 let client = require('../../database/db');
-let sqlFormatter = require('pg-format');
 let u = require('../../utils/utils');
 let bcrypt = require('bcrypt');
 let request = require('request');
@@ -50,52 +49,98 @@ module.exports = {
             return checkAdminInfo(res, req);
         }
     },
+    getCheck: async function(req, res, next) {
+        if (!req.session.admin) {
+            res.redirect(303, '/');
+        }
+
+        let dataCheckQuery = getCheckQuery("", "order by p.date desc");
+        let totalCheckQuery = getTotalCheckQuery("", "order by ord.date desc");
+
+        let data = await client.query(dataCheckQuery);
+        let totals = await client.query(totalCheckQuery); //getting total for every day
+
+        let purchases = data.rows;
+        let awaiting = [];
+        let being = [];
+        let del = []
+        let totalValues = totals.rows;
+
+        await totalValues.forEach((row)=>{
+            let tokens = String(row.date).substr(0,15).split(" ");
+            row.date = tokens[2] + ' ' + tokens[1] + ' ' + tokens[3];
+            row.totalfortheday = u.addTrailingZeros(row.totalfortheday);
+        });
+
+        await purchases.forEach((row)=>{
+            let tokens = String(row.date).substr(0,15).split(" ");
+            row.date = tokens[2] + ' ' + tokens[1] + ' ' + tokens[3];
+            row.tot = u.addTrailingZeros(row.tot);
+
+            if(row.state == 'Awaiting Delivery'){
+                awaiting.push(row)
+            }else if(row.state == 'Being Delivered'){
+                being.push(row);
+            }else{
+                del.push(row);
+            }
+        });
+
+        res.render('check', {
+            data: {
+                'isLoggedIn': req.session.loggedIn,
+                'user': req.session.username,
+                'isAdmin': req.session.admin,
+                'purchases': purchases,
+                'totals': totalValues,
+                'await': awaiting,
+                'being': being,
+                'del': del
+            }
+        });
+    },
     postSearchCheck: async function(req, res, next) {
         let word = req.body.name;
         if (!req.session.admin) {
             res.redirect(303, '/');
         }
-        let purchases = [];
+        //TODO REUSE QUERY
+        let dataCheckQuery = getCheckQuery(
+          "where lower(a.first_name) like concat('%', $1::text, '%') ",
+          "order by p.date desc");
+        let totalCheckQuery = getTotalCheckQuery(
+          "where lower(a.first_name) like concat('%', $1::text, '%') ",
+          "order by ord.date desc");
+
+        let data = await client.query(dataCheckQuery , [word.toLowerCase()]);
+        let totals = await client.query(totalCheckQuery, [word.toLowerCase()]);
+
+        let purchases = data.rows;
         let awaiting = [];
         let being = [];
         let del = [];
-        let data = await client.query(sqlFormatter(
-          "select p.id, a.first_name, a.last_name, p.date, "+
-          "st.name as state, p.date, sum(pi.prodprice * pi.quantity) as tot, a.address "+
-          "from accounts as a join purchases as p on a.id = p.userid "+
-          "join states as st on st.id = p.state "+
-          "join purchase_items as pi on pi.purchaseid = p.id "+
-          "group by a.first_name, a.last_name, st.name, p.date, p.id, a.address "+
-          "order by p.date"));
-        let totals = await client.query(sqlFormatter(  //getting total for every day
-            "select sum(ord.tot) as totalForTheDay, ord.date, ord.first_name as name "+
-            "from (select p.id, a.first_name, a.last_name, p.date, "+
-            "st.name as state, sum(pi.prodprice * pi.quantity) as tot "+
-            "from accounts as a join purchases as p on a.id = p.userid "+
-            "join states as st on st.id = p.state "+
-            "join purchase_items as pi on pi.purchaseid = p.id "+
-            "group by a.first_name, a.last_name, st.name, p.date, p.id "+
-            "order by p.date) as ord group by ord.date, ord.first_name"));
-        let totalValues = [];
-        await totals.rows.forEach((total)=>{
-            if(total.name.toLowerCase().includes(word.toLowerCase())){
-                totalValues.push(total);
-            }
-        });
-        await data.rows.forEach((row) => {
-            row.tot = u.addTrailingZeros(row.tot);
-            if (row.first_name.toLowerCase().includes(word.toLowerCase())) {
-                purchases.push(row);
+        let totalValues = totals.rows;
 
-                if(row.state == 'Awaiting Delivery'){
-                    awaiting.push(row)
-                }else if(row.state == 'Being Delivered'){
-                    being.push(row);
-                }else{
-                    del.push(row);
-                }
+        await totalValues.forEach((row)=>{
+            let tokens = String(row.date).substr(0,15).split(" ");
+            row.date = tokens[2] + ' ' + tokens[1] + ' ' + tokens[3];
+            row.totalfortheday = u.addTrailingZeros(row.totalfortheday);
+        });
+
+        await purchases.forEach((row)=>{
+            let tokens = String(row.date).substr(0,15).split(" ");
+            row.date = tokens[2] + ' ' + tokens[1] + ' ' + tokens[3];
+            row.tot = u.addTrailingZeros(row.tot);
+
+            if(row.state == 'Awaiting Delivery'){
+                awaiting.push(row)
+            }else if(row.state == 'Being Delivered'){
+                being.push(row);
+            }else{
+                del.push(row);
             }
         });
+
         res.render('check', {
             data: {
                 'isLoggedIn': req.session.loggedIn,
@@ -110,118 +155,41 @@ module.exports = {
         });
     },
     postSortCheck: async function(req, res, next) {
-        let sortIndex = req.params.sort;
+        let sortIndex = Number(req.params.sort);
         if (!req.session.admin) {
             res.redirect(303, '/');
         }
 
-        let sortString;
-        let purchases = [];
-        let awaiting = [];
-        let being = [];
-        let del = [];
-
-        switch(sortIndex){
-            case 1:
-                sortString = 'p.date';
-                break;
-            case 2:
-            sortString = 'a.first_name';
-                break;
-            case 3:
-            sortString = 'a.address';
-                break;
-            case 4:
-            sortString = 'st.name';
-                break;
-            case 5:
-            sortString = 'tot';
-                break;
-        }
+        let sortString = await getSortStringById(sortIndex);
+        console.log("ASDASDASDASDASDSDASD");
+        console.log(sortIndex);
         console.log(sortString);
-        let data = await client.query(sqlFormatter(
-          "select p.id, a.first_name, a.last_name, p.date, "+
-          "st.name as state, p.date, sum(pi.prodprice * pi.quantity) as tot, a.address "+
-          "from accounts as a join purchases as p on a.id = p.userid "+
-          "join states as st on st.id = p.state "+
-          "join purchase_items as pi on pi.purchaseid = p.id "+
-          "group by a.first_name, a.last_name, st.name, p.date, p.id, a.address "+
-          "order by %L", sortString));
-        let totals = await client.query(sqlFormatter(  //getting total for every day
-          "select sum(ord.tot) as totalForTheDay, ord.date, ord.first_name as name "+
-          "from (select p.id, a.first_name, a.last_name, p.date, "+
-          "st.name as state, sum(pi.prodprice * pi.quantity) as tot "+
-          "from accounts as a join purchases as p on a.id = p.userid "+
-          "join states as st on st.id = p.state "+
-          "join purchase_items as pi on pi.purchaseid = p.id "+
-          "group by a.first_name, a.last_name, st.name, p.date, p.id "+
-          "order by %L) as ord group by ord.date, ord.first_name", sortString));
-        let totalValues = [];
-        await totals.rows.forEach((total)=>{
-            totalValues.push(total);
-        });
-        await data.rows.forEach((row) => {
-            row.tot = u.addTrailingZeros(row.tot);
-            purchases.push(row);
 
-            if(row.state == 'Awaiting Delivery'){
-                awaiting.push(row)
-            }else if(row.state == 'Being Delivered'){
-                being.push(row);
-            }else{
-                del.push(row);
-            }
-        });
-        res.render('check', {
-            data: {
-                'isLoggedIn': req.session.loggedIn,
-                'user': req.session.username,
-                'isAdmin': req.session.admin,
-                'purchases': purchases,
-                'totals': totalValues,
-                'await': awaiting,
-                'being': being,
-                'del': del
-            }
-        });
-    },
-    getCheck: async function(req, res, next) {
-        if (!req.session.admin) {
-            res.redirect(303, '/');
-        }
-        let purchases = [];
+        let CheckQuery = getCheckQuery("", "order by "+sortString+" desc");
+        let totalCheckQuery = getTotalCheckQuery("", "order by date desc");
+
+        console.log(CheckQuery);
+
+        let data = await client.query(CheckQuery);
+        let totals = await client.query(totalCheckQuery);
+
+        let purchases = data.rows;
         let awaiting = [];
         let being = [];
         let del = [];
+        let totalValues = totals.rows;
 
-        let data = await client.query(sqlFormatter(
-          "select p.id, a.first_name, a.last_name, p.date, a.address, "+
-          "st.name as state, p.date, sum(pi.prodprice * pi.quantity) as tot "+
-          "from accounts as a join purchases as p on a.id = p.userid "+
-          "join states as st on st.id = p.state "+
-          "join purchase_items as pi on pi.purchaseid = p.id "+
-          "group by a.first_name, a.last_name, st.name, p.date, p.id, a.address "+
-          "order by p.date"));
-        let totals = await client.query(sqlFormatter(  //getting total for every day
-          "select sum(ord.tot) as totalForTheDay, ord.date "+
-          "from (select p.id, a.first_name, a.last_name, p.date, "+
-          "st.name as state, sum(pi.prodprice * pi.quantity) as tot "+
-          "from accounts as a join purchases as p on a.id = p.userid "+
-          "join states as st on st.id = p.state "+
-          "join purchase_items as pi on pi.purchaseid = p.id "+
-          "group by a.first_name, a.last_name, st.name, p.date, p.id "+
-          "order by p.date) as ord group by ord.date"));
-        await totals.rows.forEach((row)=>{
+        await totalValues.forEach((row)=>{
             let tokens = String(row.date).substr(0,15).split(" ");
             row.date = tokens[2] + ' ' + tokens[1] + ' ' + tokens[3];
+            row.totalfortheday = u.addTrailingZeros(row.totalfortheday);
         });
 
-        let totalValues = totals.rows;
-        await data.rows.forEach((row) => {
+        await purchases.forEach((row)=>{
             let tokens = String(row.date).substr(0,15).split(" ");
             row.date = tokens[2] + ' ' + tokens[1] + ' ' + tokens[3];
             row.tot = u.addTrailingZeros(row.tot);
-            purchases.push(row);
+
             if(row.state == 'Awaiting Delivery'){
                 awaiting.push(row)
             }else if(row.state == 'Being Delivered'){
@@ -230,6 +198,7 @@ module.exports = {
                 del.push(row);
             }
         });
+
         res.render('check', {
             data: {
                 'isLoggedIn': req.session.loggedIn,
@@ -250,15 +219,15 @@ module.exports = {
       let purchId = req.params.id;
       let currentCart = [];
 
-      let data = await client.query(sqlFormatter(
+      let data = await client.query(
         'select pi.prodname as name, sum(pi.quantity) as quantity, '+
         'pi.prodprice as price, pur.userid '+
         'from purchase_items as pi '+
         'join purchases as pur '+
         'on pi.purchaseId = pur.id '+
-        'where pur.id = %L '+
+        'where pur.id = $1 '+
         'group by pi.prodname, pi.prodprice, pur.userid '+
-        'order by pi.prodname asc', purchId));
+        'order by pi.prodname asc', [purchId]);
       let totalPrice = 0;
       let count = 1;
       await data.rows.forEach((row) => {
@@ -286,8 +255,8 @@ module.exports = {
         let purchID = req.params.id;
         let newState = req.body.state;
 
-        await client.query(sqlFormatter(
-          "update purchases set state = %L where id = %L", newState, purchID));
+        await client.query(
+          "update purchases set state = $1 where id = $2", [newState, purchID]);
         res.redirect(303, '/check');
     },
     postAddProd: async function(req, res) {
@@ -304,15 +273,15 @@ module.exports = {
               if (err)
                 return res.status(500).send(err);
               });
-          await client.query(sqlFormatter(
-            "insert into products values(%L, %L, %L, %L, %L);", name, price, quant, descr, newName));
-          let product = await client.query(sqlFormatter(
-            "select id from products where name = %L and img = %L", name, newName));
+          await client.query(
+            "insert into products values($1, $2, $3, $4, $5);", [name, price, quant, descr, newName]);
+          let product = await client.query(
+            "select id from products where name = $1 and img = $2", [name, newName]);
           let pid = product.rows[0].id;
           for (let i in req.body) {
             if (u.isNumber(i)) {
-                client.query(sqlFormatter(
-                  "insert into products_categories values(%L, %L)", pid, i));
+                client.query(
+                  "insert into products_categories values($1, $2)", [pid, i]);
             }
           }
           res.redirect(303, '/');
@@ -324,10 +293,10 @@ module.exports = {
             res.redirect(303, '/');
         }
         let productId = req.params.id;
-        let data = await client.query(sqlFormatter(
+        let data = await client.query(
           "select p.name, p.price, p.quantity, p.description, p.img "+
           "from products as p "+
-          "where p.id = %L", productId));
+          "where p.id = $1", [productId]);
         let ctg = [];
         let row = data.rows[0];
         let name = row.name;
@@ -335,7 +304,7 @@ module.exports = {
         let quantity = row.quantity;
         let descr = row.description;
         let img = row.img;
-        let cats = await client.query(sqlFormatter("select * from categories"));
+        let cats = await client.query("select * from categories");
         await cats.rows.forEach((row) => ctg.push(row.name));
         res.render('edit', {
             data: {
@@ -356,27 +325,27 @@ module.exports = {
             res.redirect(303, '/');
         }
         let id = req.params.id;
-        await client.query(sqlFormatter("delete from products_categories where product = %L", id));
-        await client.query(sqlFormatter("delete from products where id = %L", id));
+        await client.query("delete from products_categories where product = $1", [id]);
+        await client.query("delete from products where id = $1", [id]);
         res.redirect(303, '/');
     },
     getAccs: async function(req, res) {
-        if (!req.session.admin) {
-            res.redirect(303, '/');
-        }
+      if (!req.session.admin) {
+          res.redirect(303, '/');
+      }
 
 
-        let data = await client.query(sqlFormatter("select * from accounts order by role, first_name"));
-        let users = data.rows;
+      let data = await client.query("select * from accounts order by id");
+      let users = data.rows;
 
-        res.render('accs', {
-            data: {
-                'isLoggedIn': req.session.loggedIn,
-                'user': req.session.username,
-                'isAdmin': req.session.admin,
-                'users': users
-            }
-        });
+      res.render('accs', {
+          data: {
+              'isLoggedIn': req.session.loggedIn,
+              'user': req.session.username,
+              'isAdmin': req.session.admin,
+              'users': users
+          }
+      });
     },
     postEdit: async function(req, res, next) {
         if (!req.session.admin) {
@@ -397,22 +366,22 @@ module.exports = {
                   return res.status(500).send(err);
               });
 
-          await client.query(sqlFormatter(
-            "delete from products_categories where product = %L", productId));
+          await client.query(
+            "delete from products_categories where product = $1", [productId]);
           for (let i in req.body) {
               if (u.isNumber(i)) {
-                  client.query(sqlFormatter(
-                    "insert into products_categories values(%L, %L)", productId, i))
+                  client.query(
+                    "insert into products_categories values($1, $2)", [productId, i])
                       .catch(e => console.error(e.stack))
               }
           }
 
-          await client.query(sqlFormatter(
-            "update products set name = %L, price = %L, quantity = %L, "+
-            "description = %L, img = %L where id = %L;",
-            name, price, quant, descr, newName, productId));
-          await client.query(sqlFormatter(
-            "update cart_items set modified = true where prodid = %L", productId));
+          await client.query(
+            "update products set name = $1, price = $2, quantity = $3, "+
+            "description = $4, img = $5 where id = $6;",
+            [name, price, quant, descr, newName, productId]);
+          await client.query(
+            "update cart_items set modified = true where prodid = $1", [productId]);
           res.redirect(303, '/');
         }else{
             res.redirect(303, '/edit/' + productId);
@@ -424,8 +393,8 @@ module.exports = {
         }
         let products = [];
         let catId = req.params.id;
-        let prods = await client.query(sqlFormatter(
-          "select * from products as p order by name"))
+        let prods = await client.query(
+          "select * from products as p order by name");
         let number = 0;
         prods.rows.forEach((prod) => {
           prod.number = ++number;
@@ -447,10 +416,12 @@ async function checkAdminInfo(res, req) {
     let username = req.body.username;
     let pass = req.body.password;
     let foundUser = false;
-    let accounts = await client.query(sqlFormatter(
-      "select * from admins where username = %L", username));
+    let accounts = await client.query(
+      "select * from admins where username = $1", [username]);
+    let account = accounts.rows[0];
     if(accounts.rows.length != 0){
-      bcrypt.compare(account.salt + pass, account.pass, function(err, bcryptResp) {
+      bcrypt.compare(account.salt + pass, account.pass,
+        function(err, bcryptResp) {
           if (bcryptResp == true) {
               req.session.loggedIn = true;
               req.session.admin = true;
@@ -481,4 +452,43 @@ function failAdminLogin(req, res, code) {
             'f': code
         }
     });
+}
+
+function getSortStringById(sortIndex){
+  switch(sortIndex){
+    case 1:
+      return 'p.date';
+    case 2:
+      return 'a.first_name';
+    case 3:
+      return 'a.address';
+    case 4:
+      return 'st.name';
+    case 5:
+      return 'tot';
+  }
+}
+
+function getCheckQuery(condition, order){
+  return "select p.id, a.first_name, a.last_name, p.date, "+
+  "st.name as state, p.date, sum(pi.prodprice * pi.quantity) as tot, a.address "+
+  "from accounts as a join purchases as p on a.id = p.userid "+
+  "join states as st on st.id = p.state "+
+  "join purchase_items as pi on pi.purchaseid = p.id "+
+  condition+
+  "group by a.first_name, a.last_name, st.name, p.date, p.id, a.address "+
+  order;
+}
+
+function getTotalCheckQuery(condition, order){
+  return "select sum(ord.tot) as totalForTheDay, ord.date "+
+  "from (select p.id, a.first_name, a.last_name, p.date, "+
+  "st.name as state, sum(pi.prodprice * pi.quantity) as tot "+
+  "from accounts as a join purchases as p on a.id = p.userid "+
+  "join states as st on st.id = p.state "+
+  "join purchase_items as pi on pi.purchaseid = p.id "+
+  condition+
+  "group by a.first_name, a.last_name, st.name, p.date, p.id "+
+  ") as ord group by ord.date "+
+  order;
 }

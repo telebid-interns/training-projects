@@ -1,5 +1,4 @@
 let client = require('../../database/db');
-let sqlFormatter = require('pg-format');
 let u = require('../../utils/utils');
 
 module.exports = {
@@ -73,25 +72,32 @@ module.exports = {
     },
     postHome: async function(req, res, next) {
         let word = req.body.name;
-        let products = [];
         let count = 1;
-        if (/^[a-zA-Z]+$/.test(word)) {
-        let data = await client.query(sqlFormatter(
-          "select * from products as p order by name")) //todo use like (change formatter?)
-        await data.rows.forEach((row) => {
-            row.number = count++;
-            if (row.name.toLowerCase().includes(word.toLowerCase())) {
-                products.push(row);
-            }
-        });
-        res.render('newIndex', {
-            data: {
-                'isLoggedIn': req.session.loggedIn,
-                'user': req.session.username,
-                'isAdmin': req.session.admin,
-                'prods': products
-            }
-        });
+        if (/^[a-zA-Z\s+]+$/.test(word)) {
+        console.log('%' + word.toLowerCase() + '%');
+        let data = await client.query(
+          "select * from products where lower(name) like concat('%', $1::text, '%') order by name",
+          [word.toLowerCase()]);
+        let products = data.rows;
+        if(req.session.admin){
+          res.render('index', {
+              data: {
+                  'isLoggedIn': req.session.loggedIn,
+                  'user': req.session.username,
+                  'isAdmin': req.session.admin,
+                  'prods': products
+              }
+          });
+        }else{
+          res.render('newIndex', {
+              data: {
+                  'isLoggedIn': req.session.loggedIn,
+                  'user': req.session.username,
+                  'isAdmin': req.session.admin,
+                  'prods': products
+              }
+          });
+        }
       } else {
           res.redirect(303, '/');
       }
@@ -99,14 +105,14 @@ module.exports = {
     getCategory: async function(req, res, next) {
         let products = [];
         let catId = req.params.id;
-        let prods = await client.query(sqlFormatter(
+        let prods = await client.query(
           "select * from products as p " +
           "join products_categories as pc on pc.product = p.id " +
-          "where pc.category = %L order by p.name", catId));
+          "where pc.category = $1 order by p.name", [catId]);
             // "join categories as c on c.id = pc.category "+
-        let catData = await client.query(sqlFormatter(
+        let catData = await client.query(
           "select c.name as cname from categories as c "+
-          "where c.id = %L limit 1", catId));
+          "where c.id = $1 limit 1", [catId]);
         let number = 0;
         await prods.rows.forEach((prod) => {
             prod.number = ++number;

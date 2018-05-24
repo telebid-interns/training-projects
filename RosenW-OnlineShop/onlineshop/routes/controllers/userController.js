@@ -1,5 +1,4 @@
 let client = require('../../database/db');
-let sqlFormatter = require('pg-format');
 let u = require('../../utils/utils');
 let bcrypt = require('bcrypt');
 let nodemailer = require('nodemailer');
@@ -17,7 +16,7 @@ let transporter = nodemailer.createTransport({
 
 module.exports = {
     getRegister: async function(req, res, next) {
-        let data = await client.query(sqlFormatter('select * from categories'));
+        let data = await client.query('select * from categories');
         let categories = data.rows;
 
         if (req.session.loggedIn) {
@@ -33,7 +32,7 @@ module.exports = {
         });
     },
     getLogin: async function(req, res, next) {
-        let data = await client.query(sqlFormatter('select * from categories'));
+        let data = await client.query('select * from categories');
         let categories = data.rows;
 
         if (req.session.loggedIn) {
@@ -78,14 +77,15 @@ module.exports = {
         let rows;
         let id;
         let userid;
-        let data = await client.query(sqlFormatter('select * from email_codes as ec where ec.code = %L order by id', verificationId));
+        let data = await client.query(
+          'select * from email_codes as ec where ec.code = $1 order by id', [verificationId]);
         if (data.rows.length !== 0) {
             row = data.rows[0];
             id = row.id;
             userid = row.account;
         }
-        await client.query(sqlFormatter('update accounts set active = true where id = %L', userid));
-        await client.query(sqlFormatter('delete from email_codes where id = %L', id));
+        await client.query('update accounts set active = true where id = $1', [userid]);
+        await client.query('delete from email_codes where id = $1', [id]);
         res.redirect(303, '/login');
     },
     postRegister: async function(req, res) {
@@ -110,8 +110,8 @@ module.exports = {
             stop = true;
             await failRegister(req, res, 3);
         }else{ //passed captcha
-            let accs = await client.query(sqlFormatter(
-              "select * from accounts where lower(email) = %L", email.toLowerCase()));
+            let accs = await client.query(
+              "select * from accounts where lower(email) = $1", [email.toLowerCase()]);
 
             if (accs.rows.length != 0) {
               stop = true;
@@ -139,20 +139,20 @@ module.exports = {
               }
               if(!stop){
                   await bcrypt.hash(saltedPass, 5, async function(err, hash) {
-                      await client.query(sqlFormatter(
+                      await client.query(
                           "insert into accounts (email, first_name, last_name, "+
                           "phone, address, pass, salt, role, active, suspended) "+
-                          "values(%L, %L, %L, %L, %L, %L, %L, '1', 'false', 'false');",
-                          email, fName, lName, wholeNumber, address, hash, salt))
+                          "values($1, $2, $3, $4, $5, $6, $7, '1', 'false', 'false');",
+                          [email, fName, lName, wholeNumber, address, hash, salt])
                       .then(async ()=>{
-                        let queryString = sqlFormatter(
-                          "select id from accounts where email=%L;", email);
-                        let currentAcc = await client.query(sqlFormatter(
-                          "select id from accounts where email=%L;", email)); //??????
+                        let currentAcc = await client.query(
+                          "select id from accounts where email=$1;", [email]); //??????
                         let userid = currentAcc.rows[0].id;
-                        await client.query(sqlFormatter("insert into shopping_carts (userid) values(%L)", userid));
+                        await client.query(
+                          "insert into shopping_carts (userid) values($1)", [userid]);
                         let code = u.generateId();
-                        await client.query(sqlFormatter("insert into email_codes (account, code) values(%L, %L)", userid, code));
+                        await client.query(
+                          "insert into email_codes (account, code) values($1, $2)", [userid, code]);
                         let link = 'http://localhost:3000/verify/' + code;
                         // nodemailer.sendmail;
                         const mailOptions = {
@@ -198,12 +198,12 @@ module.exports = {
         }
         let categories = [];
         let profData = [];
-        let data = await client.query(sqlFormatter(
+        let data = await client.query(
           'select a.first_name as fn, a.last_name as ln, '+
           'a.phone as ph, a.address '+
           'from accounts as a '+
-          'where a.id = %L', req.session.userId));
-        let cats = await client.query(sqlFormatter('select * from categories'));
+          'where a.id = $1::integer', [req.session.userId]);
+        let cats = await client.query('select * from categories');
         await cats.rows.forEach((cat)=> categories.push(cat));
         await data.rows.forEach((row) => profData.push(row));
         res.render('profile', {
@@ -226,16 +226,18 @@ module.exports = {
         let address = req.body.address;
 
         if(u.validateName(fName) && u.validateName(lName)){
-          await client.query(sqlFormatter(
-            "update accounts set first_name = %L, last_name = %L, address = %L, phone = %L where id = %L", fName, lName, address, phone, req.session.userId));
+          await client.query(
+            "update accounts set first_name = $1::text, last_name = $2::text, "+
+            "address = $3::text, phone = $4::text where id = $5::integer",
+             [fName, lName, address, phone, req.session.userId]);
           res.redirect(303, '/?pi=1'); //password info
         }else{
           let profData = [];
-          let data = await client.query(sqlFormatter(
+          let data = await client.query(
             'select a.first_name as fn, a.last_name as ln, '+
             'a.phone as ph, a.address '+
-            'from accounts as a where a.id = %L', req.session.userId));
-          let cats = await client.query(sqlFormatter('select * from categories'));
+            'from accounts as a where a.id = $1::integer', [req.session.userId]);
+          let cats = await client.query('select * from categories');
           let categores = cats.rows;
           await data.rows.forEach((row) => profData.push(row));
           res.render('profile', {
@@ -254,7 +256,7 @@ module.exports = {
         if (req.session.admin || !req.session.loggedIn) {
             res.redirect(303, '/');
         }
-        let cats = await client.query(sqlFormatter('select * from categories'))
+        let cats = await client.query('select * from categories')
         let categories = cats.rows;
         res.render('chpass', {
             data: {
@@ -274,8 +276,8 @@ module.exports = {
       let repeatPass = req.body.repNewPass;
       let found = false;
 
-      let accountData = await client.query(sqlFormatter(
-        "select * from accounts where id = %L", req.session.userId));
+      let accountData = await client.query(
+        "select * from accounts where id = $1::integer", [req.session.userId]);
       if (accountData.rows.length != 0) {
         let account = accountData.rows[0];
         await bcrypt.compare(account.salt + pass, account.pass, async function(err, bcryptResp) {
@@ -289,8 +291,8 @@ module.exports = {
             await failChangePass(req, res, 3); //f repeat
           }
           await bcrypt.hash(account.salt + newPass, 5, async function(err, hash) {
-            await client.query(sqlFormatter(
-              "update accounts set pass = %L where id = %L", hash, req.session.userId));
+            await client.query(
+              "update accounts set pass = $1::text where id = $2::integer", [hash, req.session.userId]);
           });
           res.redirect(303, '/?pc=1');
         });
@@ -299,7 +301,7 @@ module.exports = {
 }
 
 async function failChangePass(req, res, code){
-    let cats = await client.query(sqlFormatter('select * from categories'));
+    let cats = await client.query('select * from categories');
     let categories = cats.rows;
     return res.render('chpass', {
         data: {
@@ -313,8 +315,7 @@ async function failChangePass(req, res, code){
 }
 
 async function failRegister(req, res, code) {
-    let cats = await client.query(sqlFormatter(
-      "select * from categories"));
+    let cats = await client.query("select * from categories");
     let categories = cats.rows;
     return res.render('registration', {
         data: {
@@ -328,7 +329,7 @@ async function failRegister(req, res, code) {
 }
 
 async function failLogin(req, res, code) {
-    let cats = await client.query(sqlFormatter("select * from categories"));
+    let cats = await client.query("select * from categories");
     let categories = cats.rows;
     let captchaBool = false;
     req.session.logincount++;
@@ -351,7 +352,7 @@ async function checkLoginInfo(res, req) {
     let email = req.body.email;
     let pass = req.body.password;
     let foundUser = false;
-    let accountData = await client.query(sqlFormatter("select * from accounts where email = %L", email));
+    let accountData = await client.query("select * from accounts where email = $1", [email]);
     let account = accountData.rows[0];
     if (accountData.rows.length != 0) {
         foundUser = true;

@@ -1,5 +1,4 @@
 let client = require('../../database/db');
-let sqlFormatter = require('pg-format');
 let u = require('../../utils/utils');
 let net = require('net');
 let lp = require('node-lp');
@@ -19,7 +18,7 @@ module.exports = {
         if (!req.session.admin) {
             res.redirect(303, '/');
         }
-        let data = await client.query(sqlFormatter('select * from printformats where id = 1'));
+        let data = await client.query('select * from printformats where id = 1');
         let format = data.rows[0].format;
         res.render('print', {
             data: {
@@ -36,7 +35,7 @@ module.exports = {
         }
 
         let newFormat = req.body.format;
-        await client.query(sqlFormatter("update printformats set format = %L where id = 1", newFormat));
+        await client.query("update printformats set format = $1 where id = 1", [newFormat]);
         res.redirect(303, '/check');
     },
     postPrint: async function(req, res) {
@@ -45,10 +44,10 @@ module.exports = {
         let names = req.body['names[]'];
         let qs = req.body['qs[]'];
         let prices = req.body['prices[]'];
-        let data = await client.query(sqlFormatter(
-          'select * from printformats where id = 1'));
-        let userRow = await client.query(sqlFormatter(
-          'select first_name from accounts where id = %L', user))
+        let data = await client.query(
+          'select * from printformats where id = 1');
+        let userRow = await client.query(
+          'select first_name from accounts where id = $1', [user]);
         let curUser = userRow.rows[0].first_name;
         let format = data.rows[0].format;
         let info = '';

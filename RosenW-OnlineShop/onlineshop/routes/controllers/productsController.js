@@ -1,5 +1,4 @@
 let client = require('../../database/db');
-let sqlFormatter = require('pg-format');
 let u = require('../../utils/utils');
 
 module.exports = {
@@ -8,7 +7,7 @@ module.exports = {
             res.redirect(303, '/');
         }
         let ctg = [];
-        let data = await client.query(sqlFormatter("select * from categories"));
+        let data = await client.query("select * from categories");
         await data.rows.forEach((row) => ctg.push(row.name));
         res.render('add', {
             data: {

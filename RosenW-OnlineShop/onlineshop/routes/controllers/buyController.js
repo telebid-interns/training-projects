@@ -1,5 +1,4 @@
 let client = require('../../database/db');
-let sqlFormatter = require('pg-format');
 let u = require('../../utils/utils');
 let request = require('request');
 let braintree = require('braintree');
@@ -87,12 +86,12 @@ module.exports = {
         //get nonce
         let nonce = req.body.nonce;
         //get user prods
-        let data = await client.query(sqlFormatter(
+        let data = await client.query(
           "select pr.id, pr.price, pr.name, sum(ci.quantity) as quantity, pr.quantity as max "+
           "from cart_items as ci join products as pr on ci.prodid = pr.id "+
           "join shopping_carts as sc on ci.cartid = sc.id "+
-          "where sc.userid = %L "+
-          "group by pr.id, max;", req.session.userId))
+          "where sc.userid = $1 "+
+          "group by pr.id, max;", [req.session.userId])
         //check if cart empty todo
         if (data.rows.length === 0) {
             pass = false;
@@ -117,8 +116,8 @@ module.exports = {
                 await data.rows.forEach(async (row) => {
                     //row.max = row.max - row.quant
                     let newQuantity = row.max - row.quantity;
-                    await client.query(sqlFormatter(
-                      "update products set quantity = %L where id = %L", newQuantity, row.id));
+                    await client.query(
+                      "update products set quantity = $1 where id = $2", [newQuantity, row.id]);
                 });
 
                 //make a purchase
@@ -136,23 +135,23 @@ module.exports = {
                 }
 
                 today = yyyy+mm+dd + " " +today.getHours() + ":" + today.getMinutes()+":" + today.getSeconds();
-                await client.query(sqlFormatter(
+                await client.query(
                   "insert into purchases (userid, state, date) "+
-                  "values(%L, 0, %L)", req.session.userId, today));
-                let curPurchase = await client.query(sqlFormatter(
-                  "select max(id) as id from purchases where userid = %L", req.session.userId));
+                  "values($1, 0, $2)", [req.session.userId, today]);
+                let curPurchase = await client.query(
+                  "select max(id) as id from purchases where userid = $1", [req.session.userId]);
                 let curPurchid = curPurchase.rows[0].id;
                 await data.rows.forEach(async (row) => {
                     //add products to purchase
-                    await client.query(sqlFormatter(
+                    await client.query(
                       "insert into purchase_items (purchaseid, quantity, prodname, prodprice) "+
-                      "values(%L, %L, %L, %L)", curPurchid, row.quantity, row.name, row.price));
+                      "values($1, $2, $3, $4)", [curPurchid, row.quantity, row.name, row.price]);
                 });
 
                 //cart clean up
-                await client.query(sqlFormatter(
+                await client.query(
                   "delete from cart_items as ci using shopping_carts as sc "+
-                  "where ci.cartid = sc.id and sc.userid = %L", req.session.userId));
+                  "where ci.cartid = sc.id and sc.userid = $1", [req.session.userId]);
                 res.redirect(303, '/orders');
             } else {
                 res.redirect(303, '/buy?wd=1');
