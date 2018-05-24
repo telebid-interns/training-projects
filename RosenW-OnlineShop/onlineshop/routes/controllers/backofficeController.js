@@ -49,56 +49,6 @@ module.exports = {
             return checkAdminInfo(res, req);
         }
     },
-    getCheck: async function(req, res, next) {
-        if (!req.session.admin) {
-            res.redirect(303, '/');
-        }
-
-        let dataCheckQuery = getCheckQuery("", "order by p.date desc");
-        let totalCheckQuery = getTotalCheckQuery("", "order by ord.date desc");
-
-        let data = await client.query(dataCheckQuery);
-        let totals = await client.query(totalCheckQuery); //getting total for every day
-
-        let purchases = data.rows;
-        let awaiting = [];
-        let being = [];
-        let del = []
-        let totalValues = totals.rows;
-
-        await totalValues.forEach((row)=>{
-            let tokens = String(row.date).substr(0,15).split(" ");
-            row.date = tokens[2] + ' ' + tokens[1] + ' ' + tokens[3];
-            row.totalfortheday = u.addTrailingZeros(row.totalfortheday);
-        });
-
-        await purchases.forEach((row)=>{
-            let tokens = String(row.date).substr(0,15).split(" ");
-            row.date = tokens[2] + ' ' + tokens[1] + ' ' + tokens[3];
-            row.tot = u.addTrailingZeros(row.tot);
-
-            if(row.state == 'Awaiting Delivery'){
-                awaiting.push(row)
-            }else if(row.state == 'Being Delivered'){
-                being.push(row);
-            }else{
-                del.push(row);
-            }
-        });
-
-        res.render('check', {
-            data: {
-                'isLoggedIn': req.session.loggedIn,
-                'user': req.session.username,
-                'isAdmin': req.session.admin,
-                'purchases': purchases,
-                'totals': totalValues,
-                'await': awaiting,
-                'being': being,
-                'del': del
-            }
-        });
-    },
     postSearchCheck: async function(req, res, next) {
         let word = req.body.name;
         if (!req.session.admin) {
@@ -154,21 +104,17 @@ module.exports = {
             }
         });
     },
-    postSortCheck: async function(req, res, next) {
+    getSortCheck: async function(req, res, next) {
+      if (!req.session.admin) {
+        res.redirect(303, '/');
+      }
         let sortIndex = Number(req.params.sort);
-        if (!req.session.admin) {
-            res.redirect(303, '/');
-        }
+        let opt = Number(req.params.opt);
 
         let sortString = await getSortStringById(sortIndex);
-        console.log("ASDASDASDASDASDSDASD");
-        console.log(sortIndex);
-        console.log(sortString);
 
         let CheckQuery = getCheckQuery("", "order by "+sortString+" desc");
         let totalCheckQuery = getTotalCheckQuery("", "order by date desc");
-
-        console.log(CheckQuery);
 
         let data = await client.query(CheckQuery);
         let totals = await client.query(totalCheckQuery);
@@ -208,7 +154,8 @@ module.exports = {
                 'totals': totalValues,
                 'await': awaiting,
                 'being': being,
-                'del': del
+                'del': del,
+                'opt': opt
             }
         });
     },

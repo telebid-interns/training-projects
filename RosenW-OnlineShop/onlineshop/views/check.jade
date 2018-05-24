@@ -14,15 +14,15 @@ html
   include ./backofficenav.jade
 ul(id='submenu')
   li
-    a(id='submenu-all' href='#' onclick="changeDisplayedData('submenu-all')") Show All Purchases
+    a(id='submenu-all' href='#' onclick="changeDisplayedData(1)") Show All Purchases
   li
-    a(id='submenu-daytot' href='#' onclick="changeDisplayedData('submenu-daytot')") Everyday Total
+    a(id='submenu-daytot' href='#' onclick="changeDisplayedData(2)") Everyday Total
   li
-    a(id='submenu-await' href='#' onclick="changeDisplayedData('submenu-await')") Show All Awaiting Delivery
+    a(id='submenu-await' href='#' onclick="changeDisplayedData(3)") Show All Awaiting Delivery
   li
-    a(id='submenu-being' href='#' onclick="changeDisplayedData('submenu-being')") Show All Being Delivered
+    a(id='submenu-being' href='#' onclick="changeDisplayedData(4)") Show All Being Delivered
   li
-    a(id='submenu-del' href='#' onclick="changeDisplayedData('submenu-del')") Show All Delivered
+    a(id='submenu-del' href='#' onclick="changeDisplayedData(5)") Show All Delivered
   li(class="search-container")
     form(method='post' action="/check")
       input(type='textbox', placeholder='Search purchases by name', name='name')
@@ -32,15 +32,15 @@ div
   table(style='width:60%; display:block' id="maint" class='allpurch')
     tr
       th(width="10%" style="text-align:center")
-        a(href="/check/s/1")  Date
+        a(href="/check/s/1/1")  Date
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/2")  User
+        a(href="/check/s/2/1")  User
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/3")  Address
+        a(href="/check/s/3/1")  Address
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/4")  State
+        a(href="/check/s/4/1")  State
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/5")  Total
+        a(href="/check/s/5/1")  Total
       th(width="7%")
     each item in data.purchases
         tr
@@ -68,15 +68,15 @@ div
   table(style='width:60%; display:none' id="maint" class='await')
     tr
       th(width="10%" style="text-align:center") 
-        a(href="/check/s/1")  Date
+        a(href="/check/s/1/3")  Date
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/2")  User
+        a(href="/check/s/2/3")  User
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/3")  Address
+        a(href="/check/s/3/3")  Address
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/4")  State
+        a(href="/check/s/4/3")  State
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/5")  Total
+        a(href="/check/s/5/3")  Total
       th(width="7%")
     each item in data.await
         tr
@@ -91,15 +91,15 @@ div
   table(style='width:60%; display:none' id="maint" class='being')
     tr
       th(width="10%" style="text-align:center") 
-        a(href="/check/s/1")  Date
+        a(href="/check/s/1/4")  Date
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/2")  User
+        a(href="/check/s/2/4")  User
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/3")  Address
+        a(href="/check/s/3/4")  Address
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/4")  State
+        a(href="/check/s/4/4")  State
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/5")  Total
+        a(href="/check/s/5/4")  Total
       th(width="7%")
     each item in data.being
         tr
@@ -114,15 +114,15 @@ div
   table(style='width:60%; display:none' id="maint" class='del')
     tr
       th(width="10%" style="text-align:center") 
-        a(href="/check/s/1")  Date
+        a(href="/check/s/1/5")  Date
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/2")  User
+        a(href="/check/s/2/5")  User
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/3")  Address
+        a(href="/check/s/3/5")  Address
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/4")  State
+        a(href="/check/s/4/5")  State
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/5")  Total
+        a(href="/check/s/5/5")  Total
       th(width="7%")
     each item in data.del
         tr
@@ -140,39 +140,42 @@ script.
   $('#submenu-all').addClass('page');
 
   function changeDisplayedData(option){
-    all=false;
     $("#submenu a").removeClass("page");
-    $('#' + option).addClass("page");
     switch(option){ //TODO reuse code
-      case 'submenu-all':
+      case 1:
+        $('#submenu-all').addClass("page");
         $('.allpurch').show();
         $('.evrdtot').hide();
         $('.await').hide();
         $('.being').hide();
         $('.del').hide();
         break;
-      case 'submenu-daytot':
+      case 2:
+        $('#submenu-daytot').addClass("page");
         $('.allpurch').hide();
         $('.evrdtot').show();
         $('.await').hide();
         $('.being').hide();
         $('.del').hide();
         break;
-      case 'submenu-await':
+      case 3:
+        $('#submenu-await').addClass("page");
         $('.allpurch').hide();
         $('.evrdtot').hide();
         $('.await').show();
         $('.being').hide();
         $('.del').hide();
         break;
-      case 'submenu-being':
+      case 4:
+        $('#submenu-being').addClass("page");
         $('.allpurch').hide();
         $('.evrdtot').hide();
         $('.await').hide();
         $('.being').show();
         $('.del').hide();
         break;
-      case 'submenu-del':
+      case 5:
+        $('#submenu-del').addClass("page");
         $('.allpurch').hide();
         $('.evrdtot').hide();
         $('.await').hide();
@@ -181,3 +184,5 @@ script.
         break;
     }
   }
+  
+  changeDisplayedData(#{data.opt});
