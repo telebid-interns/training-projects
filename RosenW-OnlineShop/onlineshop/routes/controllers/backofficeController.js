@@ -66,11 +66,11 @@ module.exports = {
         }
     },
     postSearchCheck: async function(req, res, next) {
-        let word = req.body.name;
         if (!req.session.admin) {
             res.redirect(303, '/');
         }
-        //TODO REUSE QUERY
+        let word = req.body.name;
+
         let dataCheckQuery = getCheckQuery(
           "where lower(a.first_name) like concat('%', $1::text, '%') ",
           "order by p.date desc");
@@ -116,7 +116,9 @@ module.exports = {
                 'totals': totalValues,
                 'await': awaiting,
                 'being': being,
-                'del': del
+                'del': del,
+                'opt': 1,
+                'word': word
             }
         });
     },
@@ -124,56 +126,66 @@ module.exports = {
       if (!req.session.admin) {
         res.redirect(303, '/');
       }
-        let sortIndex = Number(req.params.sort);
-        let opt = Number(req.params.opt);
+      let sortIndex = Number(req.params.sort);
+      let word = req.params.word;
+      let opt = Number(req.params.opt);
 
-        let sortString = await getSortStringById(sortIndex);
+      let sortString = await getSortStringById(sortIndex);
 
-        let CheckQuery = getCheckQuery("", "order by "+sortString+" desc");
-        let totalCheckQuery = getTotalCheckQuery("", "order by date desc");
+      if(word == '*'){
+          word = '';
+      }
 
-        let data = await client.query(CheckQuery);
-        let totals = await client.query(totalCheckQuery);
+      let CheckQuery = getCheckQuery(
+      "where lower(a.first_name) like concat('%', $1::text, '%') ",
+      "order by "+sortString+" desc");
+      let totalCheckQuery = getTotalCheckQuery(
+      "where lower(a.first_name) like concat('%', $1::text, '%') ",
+      "order by date desc");
 
-        let purchases = data.rows;
-        let awaiting = [];
-        let being = [];
-        let del = [];
-        let totalValues = totals.rows;
+      let data = await client.query(CheckQuery, [word.toLowerCase()]);
+      let totals = await client.query(totalCheckQuery, [word.toLowerCase()]);
 
-        await totalValues.forEach((row)=>{
-            let tokens = String(row.date).substr(0,15).split(" ");
-            row.date = tokens[2] + ' ' + tokens[1] + ' ' + tokens[3];
-            row.totalfortheday = u.addTrailingZeros(row.totalfortheday);
-        });
+      let purchases = data.rows;
+      let awaiting = [];
+      let being = [];
+      let del = [];
+      let totalValues = totals.rows;
 
-        await purchases.forEach((row)=>{
-            let tokens = String(row.date).substr(0,15).split(" ");
-            row.date = tokens[2] + ' ' + tokens[1] + ' ' + tokens[3];
-            row.tot = u.addTrailingZeros(row.tot);
+      await totalValues.forEach((row)=>{
+          let tokens = String(row.date).substr(0,15).split(" ");
+          row.date = tokens[2] + ' ' + tokens[1] + ' ' + tokens[3];
+          row.totalfortheday = u.addTrailingZeros(row.totalfortheday);
+      });
 
-            if(row.state == 'Awaiting Delivery'){
-                awaiting.push(row)
-            }else if(row.state == 'Being Delivered'){
-                being.push(row);
-            }else{
-                del.push(row);
-            }
-        });
+      await purchases.forEach((row)=>{
+          let tokens = String(row.date).substr(0,15).split(" ");
+          row.date = tokens[2] + ' ' + tokens[1] + ' ' + tokens[3];
+          row.tot = u.addTrailingZeros(row.tot);
 
-        res.render('check', {
-            data: {
-                'isLoggedIn': req.session.loggedIn,
-                'user': req.session.username,
-                'isAdmin': req.session.admin,
-                'purchases': purchases,
-                'totals': totalValues,
-                'await': awaiting,
-                'being': being,
-                'del': del,
-                'opt': opt
-            }
-        });
+          if(row.state == 'Awaiting Delivery'){
+              awaiting.push(row)
+          }else if(row.state == 'Being Delivered'){
+              being.push(row);
+          }else{
+              del.push(row);
+          }
+      });
+
+      res.render('check', {
+          data: {
+              'isLoggedIn': req.session.loggedIn,
+              'user': req.session.username,
+              'isAdmin': req.session.admin,
+              'purchases': purchases,
+              'totals': totalValues,
+              'await': awaiting,
+              'being': being,
+              'del': del,
+              'opt': opt,
+              'word': word
+          }
+      });
     },
     getCheckId: async function(req, res, next) {
       if (!req.session.admin) {
@@ -214,13 +226,12 @@ module.exports = {
         if (!req.session.admin) {
             res.redirect(303, '/');
         }
-
         let purchID = req.params.id;
         let newState = req.body.state;
 
         await client.query(
           "update purchases set state = $1 where id = $2", [newState, purchID]);
-        res.redirect(303, '/check');
+        res.redirect(303, '/check/s/1/1/*');
     },
     postAddProd: async function(req, res) {
         let name = req.body.name;

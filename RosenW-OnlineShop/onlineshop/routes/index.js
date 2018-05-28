@@ -59,9 +59,9 @@ router.get('/admin', backofficeController.getAdmin);
 /* POST admin page */
 router.post('/admin', backofficeController.postAdmin);
 /* POST scheck page. */
-router.post('/check', backofficeController.postSearchCheck);
+router.post('/check/s/:sort/:opt/:word', backofficeController.postSearchCheck);
 /* GET sort page. */
-router.get('/check/s/:sort/:opt', backofficeController.getSortCheck);
+router.get('/check/s/:sort/:opt/:word', backofficeController.getSortCheck);
 // /* GET check page. */ DEPRECATED
 // router.get('/check', backofficeController.getCheck);
 /* GET check:id page. */

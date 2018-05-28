@@ -24,7 +24,7 @@ ul(id='submenu')
   li
     a(id='submenu-del' href='#' onclick="changeDisplayedData(5)") Show All Delivered
   li(class="search-container")
-    form(method='post' action="/check")
+    form(method='post')
       input(type='textbox', placeholder='Search purchases by name', name='name')
       input(type='submit', value='Search')
   
@@ -32,15 +32,15 @@ div
   table(style='width:60%; display:block' id="maint" class='allpurch')
     tr
       th(width="10%" style="text-align:center")
-        a(href="/check/s/1/1")  Date
+        a(href="/check/s/1/1/#{data.word}")  Date
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/2/1")  User
+        a(href="/check/s/2/1/#{data.word}")  User
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/3/1")  Address
+        a(href="/check/s/3/1/#{data.word}")  Address
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/4/1")  State
+        a(href="/check/s/4/1/#{data.word}")  State
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/5/1")  Total
+        a(href="/check/s/5/1/#{data.word}")  Total
       th(width="7%")
     each item in data.purchases
         tr
@@ -50,7 +50,7 @@ div
           td(style="text-align:center")  #{item.state}
           td(style="text-align:right")  $#{item.tot}
           td(style="text-align:center") 
-              button(onclick="location.href = 'check/#{item.id}';") see
+              button(onclick="location.href = '/check/#{item.id}';") see
 
   table(style='width:60%; display:none' id="maint" class='evrdtot')
     tr
@@ -68,15 +68,15 @@ div
   table(style='width:60%; display:none' id="maint" class='await')
     tr
       th(width="10%" style="text-align:center") 
-        a(href="/check/s/1/3")  Date
+        a(href="/check/s/1/3/#{data.word}")  Date
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/2/3")  User
+        a(href="/check/s/2/3/#{data.word}")  User
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/3/3")  Address
+        a(href="/check/s/3/3/#{data.word}")  Address
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/4/3")  State
+        a(href="/check/s/4/3/#{data.word}")  State
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/5/3")  Total
+        a(href="/check/s/5/3/#{data.word}")  Total
       th(width="7%")
     each item in data.await
         tr
@@ -86,20 +86,20 @@ div
           td(style="text-align:center")  #{item.state}
           td(style="text-align:right")  $#{item.tot}
           td(style="text-align:center") 
-              button(onclick="location.href = 'check/#{item.id}';") see
+              button(onclick="location.href = '/check/#{item.id}';") see
 
   table(style='width:60%; display:none' id="maint" class='being')
     tr
       th(width="10%" style="text-align:center") 
-        a(href="/check/s/1/4")  Date
+        a(href="/check/s/1/4/#{data.word}")  Date
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/2/4")  User
+        a(href="/check/s/2/4/#{data.word}")  User
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/3/4")  Address
+        a(href="/check/s/3/4/#{data.word}")  Address
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/4/4")  State
+        a(href="/check/s/4/4/#{data.word}")  State
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/5/4")  Total
+        a(href="/check/s/5/4/#{data.word}")  Total
       th(width="7%")
     each item in data.being
         tr
@@ -109,20 +109,20 @@ div
           td(style="text-align:center")  #{item.state}
           td(style="text-align:right")  $#{item.tot}
           td(style="text-align:center") 
-              button(onclick="location.href = 'check/#{item.id}';") see
+              button(onclick="location.href = '/check/#{item.id}';") see
 
   table(style='width:60%; display:none' id="maint" class='del')
     tr
       th(width="10%" style="text-align:center") 
-        a(href="/check/s/1/5")  Date
+        a(href="/check/s/1/5/#{data.word}")  Date
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/2/5")  User
+        a(href="/check/s/2/5/#{data.word}")  User
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/3/5")  Address
+        a(href="/check/s/3/5/#{data.word}")  Address
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/4/5")  State
+        a(href="/check/s/4/5/#{data.word}")  State
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/5/5")  Total
+        a(href="/check/s/5/5/#{data.word}")  Total
       th(width="7%")
     each item in data.del
         tr
@@ -132,7 +132,7 @@ div
           td(style="text-align:center")  #{item.state}
           td(style="text-align:right")  $#{item.tot}
           td(style="text-align:center") 
-              button(onclick="location.href = 'check/#{item.id}';") see
+              button(onclick="location.href = '/check/#{item.id}';") see
   
 script.
   //make link with black bg
