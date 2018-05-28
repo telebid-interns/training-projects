@@ -27,7 +27,9 @@ router.get('/', homeController.getHome);
 /* POST home page. */
 router.post('/', homeController.postHome);
 /* GET category page. */
-router.get('/category/:id', homeController.getCategory);
+router.get('/category/:id/:sort/:word', homeController.getCategory);
+/* POST category page. */
+router.post('/category/:id/:sort/:word', homeController.postCategory);
 
 //USER CONTROLLER////////////////////////////////////////////////////////////////
 

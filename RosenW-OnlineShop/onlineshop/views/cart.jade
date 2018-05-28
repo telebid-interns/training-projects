@@ -59,16 +59,16 @@ html(lang='en')
                       if item.modified
                         p(style="color:red") Product Has Been Modified
                     td 
-                      p.pull-right $#{parseFloat(Math.round(item.price * 100) / 100).toFixed(2)}
+                      p(class='pull-right', id='price-#{item.id}') $#{parseFloat(Math.round(item.price * 100) / 100).toFixed(2)}
                     td
                       input.span1(id="change-#{item.id}" style='max-width:34px', placeholder='Qty', size='16', type='text', value='#{item.quantity}' onchange="changeQuantity(#{item.id}, #{item.itemsid})")
-                    td 
-                      p.pull-right $#{parseFloat(Math.round(item.price * item.quantity * 100) / 100).toFixed(2)}                      
+                    td(class='total-holder') 
+                      p(class='pull-right', id='total-#{item.id}') $#{parseFloat(Math.round(item.price * item.quantity * 100) / 100).toFixed(2)}                      
                     td(style="text-align:center")
                         button(class="shopBtn btn-large pull-right" onclick="location.href = 'remove/cart/#{item.id}';") remove
                 tr
                   td.alignR(colspan='4') Total:
-                  td.label.label-primary.pull-right  $#{parseFloat(Math.round(data.total * 100) / 100).toFixed(2)}
+                  td(class="label; label-primary; pull-right" id='total-total')  $#{parseFloat(Math.round(data.total * 100) / 100).toFixed(2)}
             br
            
             a.shopBtn.btn-large(href='/')
@@ -89,18 +89,34 @@ script.
   //make link with black bg
   $('#nav-sc').parent().addClass('active');
     function remove(id, total){
-        $.post('/remove', {id: id});
-        $('#row-' + id).remove();
-        $('#total').text('$'+(Number($('#total').text().substr(1)) - total));
+      $.post('/remove', {id: id});
+      $('#row-' + id).remove();
+      $('#total').text('$'+(Number($('#total').text().substr(1)) - total));
     }
 
-  function changeQuantity(prodid, itemsid){
+  async function changeQuantity(prodid, itemsid){
+    
+    
     let num = $('#change-' + prodid).val();
-    console.log(num);
-    if(isNumber(num) && isWholeNumber(num)){
+    if(isNumber(num) && isWholeNumber(num) && Number(num)>0){
+      
+      let priceField = $('#price-' + prodid);
+      let price = Number(priceField.text().substr(1,));
+      
+      let totalField = $('#total-' + prodid);
+      totalField.text('$' + addTrailingZeros(price * Number(num)));
+      
+      let totaltotal = $('#total-total');
+      let sum = 0;
+      await $('.total-holder p').each((i, obj)=>{
+        sum += Number($(obj).text().substr(1,));
+      });
+      totaltotal.text('$' + addTrailingZeros(sum));
+      
       $.post('/changeQuant', {pid: prodid, iid: itemsid, num: num});
     }
   }
+  
   function isNumber(n) {
       return !isNaN(parseFloat(n)) && isFinite(n);
   }
