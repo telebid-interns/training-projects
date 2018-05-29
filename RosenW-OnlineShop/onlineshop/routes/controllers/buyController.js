@@ -152,7 +152,7 @@ module.exports = {
                 await client.query(
                   "delete from cart_items as ci using shopping_carts as sc "+
                   "where ci.cartid = sc.id and sc.userid = $1", [req.session.userId]);
-                res.redirect(303, '/orders');
+                res.redirect(303, '/orders?sp=1');
             } else {
                 res.redirect(303, '/buy?wd=1');
             }

@@ -30,6 +30,8 @@ router.post('/', homeController.postHome);
 router.get('/category/:id/:sort/:word', homeController.getCategory);
 /* POST category page. */
 router.post('/category/:id/:sort/:word', homeController.postCategory);
+/*GET steal content */
+router.get('/steal', homeController.getSteal)
 
 //USER CONTROLLER////////////////////////////////////////////////////////////////
 
@@ -125,6 +127,7 @@ router.get('/buy', buyController.getBuy);
 router.post('/buy', buyController.postBuy);
 
 module.exports = router;
+
 
 // /* GET regadm. */
 // router.get('/regadm', function(req, res, next) {

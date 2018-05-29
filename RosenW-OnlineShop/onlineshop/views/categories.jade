@@ -10,6 +10,14 @@ html(lang='en')
     link(href='assets/css/bootstrap.css', rel='stylesheet')
     // Customize styles
     link(href='style.css', rel='stylesheet')
+    style(type='text/css').
+      .my-alert {
+          overflow: hidden;
+          position: fixed; /* Set to fixed position */
+          top: 0; /* set position at the top of the page */
+          right: auto; /* does nothing useful... */
+      }
+
     // font awesome styles
     link(href='assets/font-awesome/css/font-awesome.css', rel='stylesheet')
     //if IE 7
@@ -21,11 +29,7 @@ html(lang='en')
   body
     //Lower Header Section
     .container
-      #gototop  
-      header(id='header')
-        .row
-          .span4
-
+      #gototop
       include ./navbar.jade
       //
         Body Section
@@ -69,14 +73,14 @@ html(lang='en')
                         if index < 4
                           li.span3
                             .thumbnail
-                              img(style="height:150px" src='/images/#{prod.img}')
+                              img(style="height:150px" src='#{prod.img}')
                   .item
                     ul.thumbnails
                       each prod, index in data.eight
                         if index >= 4
                           li.span3
                             .thumbnail
-                              img(style="height:150px" src='/images/#{prod.img}')
+                              img(style="height:150px" src='#{prod.img}')
                 a.left.carousel-control(href='#newProductCar', data-slide='prev') ‹
                 a.right.carousel-control(href='#newProductCar', data-slide='next') ›
             .row-fluid
@@ -84,13 +88,19 @@ html(lang='en')
                 each prod in data.three
                   li.span4
                     .thumbnail
-                      img(style="height:250px" src='/images/#{prod.img}')
+                      img(style="height:250px" src='#{prod.img}')
                       .caption.cntr
                         p #{prod.name}
                         p
-                          strong  $#{prod.price}.00
+                          strong  $#{prod.price} 
                         .actionList
                         br.clr
+      div.alert.alert-success.pull-right.my-alert(id='ver-alert' style='width:40%; height:24px; display:none; padding: 5px;')
+        strong A Verification message has been sent to your email
+      div.alert.alert-success.pull-right.my-alert(id='info-alert' style='width:40%; height:24px; display:none; padding: 5px;')
+        strong Your profile information has been successfuly changed
+      div.alert.alert-success.pull-right.my-alert(id='pass-alert' style='width:40%; height:24px; display:none; padding: 5px;')
+        strong Your password has been successfuly changed
 
     // Placed at the end of the document so the pages load faster
     script(src='assets/js/jquery.js')
@@ -102,3 +112,36 @@ html(lang='en')
 script.
   //make link with black bg
   $('#nav-home').parent().addClass('active');
+  function showAlert(id){
+    console.log('asdalert');
+    $(id).show();
+    //- $('.my-alert').hide();
+  }
+  
+  function addTrailingZeros(number) { // todo use this func
+    return parseFloat(Math.round(number * 100) / 100).toFixed(2);
+  },
+  
+if data.pc
+  script.
+    $(document).ready(function(){ 
+      let alert = $('#pass-alert'); 
+      alert.show();
+      setTimeout(() => {alert.hide();}, 2000);
+    });
+
+if data.pi
+  script.
+    $(document).ready(function(){ 
+      let alert = $('#info-alert'); 
+      alert.show();
+      setTimeout(() => {alert.hide();}, 2000);
+    });
+
+if data.reg
+  script.
+    $(document).ready(function(){ 
+      let alert = $('#ver-alert'); 
+      alert.show();
+      setTimeout(() => {alert.hide();}, 2000);
+    });

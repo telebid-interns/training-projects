@@ -15,14 +15,14 @@ html
         each item in data.cat
           tr
             td(width='50%' height='300px')
-              a(href="/category/#{item[0].id}") #{item[0].name}
+              a(href="/category/#{item[0].id}/1/*") #{item[0].name}
                 br
-                img(width='100%' height='100%' href="/category/#{item[0].id}" src="/images/#{item[0].img}")
+                img(width='100%' height='100%' href="/category/#{item[0].id}/1/*" src="/images/#{item[0].img}")
             if item[1] != undefined
               td(width='50%' height='300px')
-                a(href="/category/#{item[1].id}") #{item[1].name}
+                a(href="/category/#{item[1].id}/1/*") #{item[1].name}
                   br
-                  img(width='100%' height='100%' href="/category/#{item[1].id}" src="/images/#{item[1].img}")
+                  img(width='100%' height='100%' href="/category/#{item[1].id}/1/*" src="/images/#{item[1].img}")
 
 script.
   let options = {

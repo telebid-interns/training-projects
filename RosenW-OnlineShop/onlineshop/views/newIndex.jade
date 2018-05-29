@@ -29,7 +29,7 @@ html(lang='en')
         Body Section
       .row
         .span12
-          div.alert.alert-success.pull-right.fixed-top(id="addalert" style='width:20%; height:24px; display:none; padding: 5px;')
+          div.alert.alert-success.pull-right.my-alert(id="addalert" style='width:20%; height:24px; display:none; padding: 5px;')
             strong Product added to cart
           ul.breadcrumb
             li
@@ -67,7 +67,7 @@ html(lang='en')
                     each item in data.prods
                         tr
                         td(style="text-align:center") #{item.name}
-                            img(style="height: 200px; width: 100%" src="/images/#{item.img}")
+                            img(style="height: 200px; width: 100%" src="#{item.img}")
                         td(style="text-align:left; vertical-align:top") #{item.description}
                         td(style="text-align:center") #{item.quantity}
                         td(align="right") $#{item.price}
@@ -152,7 +152,9 @@ script.
     if(isNumber(textBoxValue) && isWholeNumber(textBoxValue) && Number(textBoxValue)>0){
       $.post('/addtocart', {id: id, quant: textBoxValue});
       //make alert flash
-      $('#addalert').show();
+      let alert = $('#addalert'); 
+      alert.show();
+      setTimeout(() => {alert.hide();}, 750);
     }
   }
   

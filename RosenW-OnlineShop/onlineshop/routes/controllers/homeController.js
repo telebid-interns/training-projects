@@ -1,5 +1,6 @@
 let client = require('../../database/db');
 let u = require('../../utils/utils');
+let request = require('request');
 
 module.exports = {
     getHome: async function(req, res, next) {
@@ -262,5 +263,55 @@ module.exports = {
       }else{
         res.redirect(303, '/')
       }
+    },
+    getSteal: async function(req, res, next) {
+      console.log('STEALING !!! is DEPRECATED');
+      // generateProducts();
+      // res.render('index', {
+      //     data: {
+      //         'isLoggedIn': false,
+      //         'user': false,
+      //         'isAdmin': false,
+      //         'prods': []
+      //     }
+      // });
     }
+}
+
+async function generateProducts(){
+  for (var i = 1; i < 58; i++) {
+    await request({
+      uri: "https://www.thegreenoffice.com/search?q=mailing&page=" + i,
+    },async function(error, response, body) {
+      let nameRegex = /<h4>(.*?)<\/h4><\/a>/g;
+      let priceRegex = /<div class="price">(.*?)<\/div>/g;
+      let imgRegex = /<img class="thumb" src="(.*?)"/g
+      let nameMatch;
+      let priceMatch;
+      let imgMatch;
+
+      console.log('adding from page: ' + i);
+      do {
+          let curProd = {};
+          nameMatch = nameRegex.exec(body);
+          priceMatch = priceRegex.exec(body);
+          imgMatch = imgRegex.exec(body);
+          if (nameMatch) {
+              curProd.name = nameMatch[1];
+          }
+          if (priceMatch) {
+              curProd.price = Number(priceMatch[1].substr(1,));
+          }
+          if (imgMatch) {
+              curProd.img = imgMatch[1];
+          }
+          await client.query(
+            "insert into products (name, price, quantity, description, img) values($1, $2, 1000, '', $3)", [curProd.name, curProd.price, curProd.img]);
+          let maxId = await client.query("select max(id) as id from products");
+          let curMaxId = maxId.rows[0].id;
+          await client.query(
+            "insert into products_categories (product, category) values($1, 6)", [curMaxId]);
+      } while (nameMatch);
+    });
+  }
 }

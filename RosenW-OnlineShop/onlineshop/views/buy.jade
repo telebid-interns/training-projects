@@ -60,7 +60,7 @@ html(lang='en')
                                 instance.requestPaymentMethod(function (err, payload) {
                                     $.post("/buy", {nonce: payload.nonce}, function(result){
                                         console.log('done');
-                                        window.location.href = "/orders"; //successful purchase
+                                        window.location.href = "/orders?sp=1"; //successful purchase
                                     });
                                 });
                             });

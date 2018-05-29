@@ -65,6 +65,10 @@ html(lang='en')
             a.shopBtn.btn-large(href='/')
               span.icon-arrow-left
               |  Continue Shopping
+              
+              
+      div.alert.alert-success.pull-right.my-alert(id='buy-alert' style='width:40%; height:24px; display:none; padding: 5px;')
+        strong Purchase is successful
 
     // Placed at the end of the document so the pages load faster
     script(src='assets/js/jquery.js')
@@ -78,40 +82,11 @@ html(lang='en')
 script.
   //make link with black bg
   $('#nav-orders').parent().addClass('active');
-
-//- if data.sp
-//-   script.
-//-     $(document).ready(function(){ 
-//-       console.log('qweqweqwss');
-//-         //notify options
-//-         let options = {
-//-           // whether to hide the notification on click
-//-           clickToHide: true,
-//-           // whether to auto-hide the notification
-//-           autoHide: false,
-//-           // if autoHide, hide after milliseconds
-//-           autoHideDelay: 5000,
-//-           // show the arrow pointing at the element
-//-           arrowShow: true,
-//-           // arrow size in pixels
-//-           arrowSize: 5,
-//-           // position defines the notification position though uses the defaults below
-//-           position: 'bottom right',
-//-           // default style
-//-           style: 'bootstrap',
-//-           // default class (string or [string])
-//-           className: 'success',
-//-           // show animation
-//-           showAnimation: 'slideDown',
-//-           // show animation duration
-//-           showDuration: 400,
-//-           // hide animation
-//-           hideAnimation: 'slideUp',
-//-           // hide animation duration
-//-           hideDuration: 200,
-//-           // padding between element and notification
-//-           gap: 0
-//-         }
-//-         $('#navbar').notify('Purchase is successful', options);  
-//-     }) 
-    
+  
+if data.sp
+  script.
+    $(document).ready(function(){
+      let alert = $('#buy-alert');
+      alert.show();
+      setTimeout(() => {alert.hide();}, 2000);
+    });
