@@ -21,8 +21,12 @@
         ul.nav
           li
             a(href='/' id='nav-home') Home
-          li
-            a(href='/cart' id='nav-sc') Shopping Cart (#{session.itemCount})
+          if session.itemCount > 0 
+            li
+              a(href='/cart' id='nav-sc') Shopping Cart (#{session.itemCount})
+          else
+            li
+              a(href='/cart' id='nav-sc') Shopping Cart (0)  
           li
             a(href='/orders' id='nav-orders') My Orders
           li

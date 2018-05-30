@@ -47,18 +47,18 @@ html(lang='en')
                     if data.catid != undefined
                       if data.sort != 1
                         th(width="20%")
-                          a(href='/category/#{data.catid}/1/#{data.word}') Product
+                          a(href='/category/#{data.catid}/1/#{data.word}?page=#{data.page}') Product
                       else
                         th(width="20%")
-                          a(href='/category/#{data.catid}/3/#{data.word}') Product 
+                          a(href='/category/#{data.catid}/3/#{data.word}?page=#{data.page}') Product 
                       th(width="20%") Description
                       th(width="20%") Quantity in stock
                       if data.sort != 2
                         th(width="15%") 
-                          a(href='/category/#{data.catid}/2/#{data.word}') Price
+                          a(href='/category/#{data.catid}/2/#{data.word}?page=#{data.page}') Price
                       else
                         th(width="15%") 
-                          a(href='/category/#{data.catid}/4/#{data.word}') Price
+                          a(href='/category/#{data.catid}/4/#{data.word}?page=#{data.page}') Price
                     else
                       th(width="20%")
                         a(href='/category/0/1/#{data.word}') Product
@@ -90,13 +90,25 @@ html(lang='en')
                             td(style="text-align:center")
                                 button(onclick="location.href = '/delete/#{item.id}';") delete    
             br
-           
+            
             a.shopBtn.btn-large(href='/')
               span.icon-arrow-left
               |  Continue Shopping
-            a.shopBtn.btn-large.pull-right(href='/buy')
-              | Next 
-              span.icon-arrow-right
+              
+            ul.pagination-centered.pagination
+              a.page-link.paginationBtn.btn-large(href='/category/#{data.catid}/#{data.sort}/#{data.word}?page=1') <<
+              if data.page > 1
+                a.page-link.paginationBtn.btn-large(href='/category/#{data.catid}/#{data.sort}/#{data.word}?page=#{data.page-1}') Previous
+              if data.page > 2
+                a.page-link.paginationBtn.btn-large(href='/category/#{data.catid}/#{data.sort}/#{data.word}?page=#{data.page-2}') #{Number(data.page)-2}
+              if data.page > 1
+                a.page-link.paginationBtn.btn-large(href='/category/#{data.catid}/#{data.sort}/#{data.word}?page=#{data.page-1}') #{data.page-1}
+              a.page-link.paginationBtn.selected.btn-large.active(href='/category/#{data.catid}/#{data.sort}/#{data.word}?page=#{data.page}') #{data.page}
+              a.page-link.paginationBtn.btn-large(href='/category/#{data.catid}/#{data.sort}/#{data.word}?page=#{data.page+1}') #{data.page+1}
+              a.page-link.paginationBtn.btn-large(href='/category/#{data.catid}/#{data.sort}/#{data.word}?page=#{data.page+2}') #{data.page+2}
+              a.page-link.paginationBtn.btn-large(href='/category/#{data.catid}/#{data.sort}/#{data.word}?page=#{data.page+1}') Next
+              a.page-link.paginationBtn.btn-large(href='#') >>
+
 
 // Placed at the end of the document so the pages load faster
 script(src='../../../assets/js/jquery.js')
@@ -169,7 +181,6 @@ script.
     }
   }
 
-  
   function isNumber(n) {
     return !isNaN(parseFloat(n)) && isFinite(n);
   }

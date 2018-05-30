@@ -27,7 +27,10 @@ module.exports = {
                 'isLoggedIn': req.session.loggedIn,
                 'user': req.session.username,
                 'isAdmin': req.session.admin,
-                'cats': categories
+                'cats': categories,
+                'info': {email: "", fName: "",
+                  lName: "", phone: "", address: "",
+                  pass: "", cpass: "", cc: ""}
             }
         });
     },
@@ -98,6 +101,10 @@ module.exports = {
       let pass = req.body.password;
       let cpass = req.body.cpassword;
       let cc = req.body.countryCode;
+      let savedInfo = {
+        email: email, fName: fName,
+        lName: lName, phone: phone, address: address,
+        pass: pass, cpass: cpass, cc: cc};
       let link;
       let stop = false;
       let wholeNumber = cc + parseInt(phone.replace(/[^0-9]/g,''),10); // parse int removes leading zeros, replace makes sure its only numbers
@@ -108,14 +115,14 @@ module.exports = {
         body = JSON.parse(body);
         if (body.success !== undefined && !body.success) { //failed captcha
             stop = true;
-            await failRegister(req, res, 3);
+            await failRegister(req, res, 3, savedInfo);
         }else{ //passed captcha
             let accs = await client.query(
               "select * from accounts where lower(email) = $1", [email.toLowerCase()]);
 
             if (accs.rows.length != 0) {
               stop = true;
-              await failRegister(req, res, 6);
+              await failRegister(req, res, 6, savedInfo);
             }
 
             if (!stop) {
@@ -123,19 +130,19 @@ module.exports = {
               let saltedPass = salt + pass;
               if (await !u.validateEmail(email)) {
                   stop=true;
-                  await failRegister(req, res, 5);
+                  await failRegister(req, res, 5, savedInfo);
               }
               if (await !u.validatePass(pass)) {
                   stop=true;
-                  await failRegister(req, res, 1);
+                  await failRegister(req, res, 1, savedInfo);
               }
               if (pass !== cpass) {
                   stop=true;
-                  await failRegister(req, res, 4);
+                  await failRegister(req, res, 4, savedInfo);
               }
               if (await !u.validateName(fName) || await !u.validateName(lName)) {
                   stop=true;
-                  await failRegister(req, res, 2);
+                  await failRegister(req, res, 2, savedInfo);
               }
               if(!stop){
                   await bcrypt.hash(saltedPass, 5, async function(err, hash) {
@@ -315,7 +322,7 @@ async function failChangePass(req, res, code){
     });
 }
 
-async function failRegister(req, res, code) {
+async function failRegister(req, res, code, info) {
     let cats = await client.query("select * from categories");
     let categories = cats.rows;
     return res.render('registration', {
@@ -324,7 +331,8 @@ async function failRegister(req, res, code) {
             'user': req.session.username,
             'isAdmin': req.session.admin,
             'f': code,
-            'cats': categories
+            'cats': categories,
+            'info': info
         }
     });
 }

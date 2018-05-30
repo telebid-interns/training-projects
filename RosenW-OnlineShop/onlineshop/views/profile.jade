@@ -48,7 +48,7 @@ html(lang='en')
                     if data.f == 1
                       label(style='color:red') First and Last name must be between 3 and 20 letters
                     input#save(type='submit', name='saveBtn', value='Save')
-                  input(id="chPass" type='submit', name='chpassBtn', value='Change Password' onclick="location.href = '/chpass'")
+                  a(href='/chpass') Change Password
 
     // Placed at the end of the document so the pages load faster
     script(src='assets/js/jquery.js')

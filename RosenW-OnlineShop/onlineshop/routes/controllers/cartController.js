@@ -47,6 +47,15 @@ module.exports = {
           "delete from cart_items as ci using shopping_carts as sc "+
           "where ci.cartid = sc.id and ci.prodid = $1 "+
           "and sc.userid = $2", [id, req.session.userId]);
+
+
+        let totalItemsInCart = await client.query(
+          "select sum(quantity) as q from cart_items as ci "+
+          "join shopping_carts as sc on sc.id = ci.cartid "+
+          "join accounts as acc on acc.id = sc.userid where acc.id = $1", [req.session.userId]);
+        let itemNum = totalItemsInCart.rows[0].q;
+        req.session.itemCount = itemNum;
+
         res.redirect(303, '/cart');
     },
     postAddToCart: async function(req, res, next) {

@@ -37,13 +37,13 @@ html(lang='en')
               .well
                 form.form(method='post')
                   label First Name*
-                  input#fname(type='text' name='fname' onkeyup='checkFName()' placeholder='Length must be between 3 and 20, only letters')
+                  input#fname(type='text' name='fname' onkeyup='checkFName()' placeholder='Length must be between 3 and 20, only letters' value='#{data.info.fName}')
                   label Last Name*
-                  input#lname(type='text', name='lname' onkeyup='checkLName()' placeholder='Length must be between 3 and 20, only letters')
+                  input#lname(type='text', name='lname' onkeyup='checkLName()' placeholder='Length must be between 3 and 20, only letters' value='#{data.info.lName}')
                   label Address
-                  input#address(type='text', name='address' placeholder='Your address')
+                  input#address(type='text', name='address' placeholder='Your address'  value='#{data.info.address}')
                   label Country Code
-                  select(class='addcss' name='countryCode' width='5%')
+                  select(class='addcss' name='countryCode' width='5%'  value='#{data.info.cc}')
                       optgroup(label='Other countries')
                         option 
                         | &#x9;&#x9;
@@ -471,13 +471,13 @@ html(lang='en')
                         | &#x9;&#x9;
                         option(data-countrycode='ZW', value='263') Zimbabwe (+263)
                   label Phone Number
-                  input#phone(type='text', name='phone' placeholder='Your phone number' onkeypress="return isNumberKey(event)")
+                  input#phone(type='text', name='phone' placeholder='Your phone number' onkeypress="return isNumberKey(event)"  value='#{data.info.phone}')
                   label Email*
-                  input#email(type='text', name='email' placeholder='Valid Email')
+                  input#email(type='text', name='email' placeholder='Valid Email'  value='#{data.info.email}')
                   label Password*
-                  input#password(type='password', name='password' onkeyup='checkPasswords()' placeholder='Length must be more than 6 symbols')
+                  input#password(type='password', name='password' onkeyup='checkPasswords()' placeholder='Length must be more than 6 symbols' value='#{data.info.pass}')
                   label Confirm Password*
-                  input#cpassword(type='password', name='cpassword'  onkeyup='checkRPassword()' placeholder='Passwords must match')
+                  input#cpassword(type='password', name='cpassword'  onkeyup='checkRPassword()' placeholder='Passwords must match' value='#{data.info.cpass}')
                   div(class="g-recaptcha" data-sitekey="6LdF9FQUAAAAAO7KK6yzeKXmWB9vfvJUPhSg4YoT")
                   if data.f == 1
                     label(style='color:red') Password must be longer than 6 symbols
@@ -505,137 +505,3 @@ html(lang='en')
 script.
   //make link with black bg
   $('#nav-register').parent().addClass('active');
-
-
-//- doctype html
-//- html
-//-   head
-//-     title= title
-//-     link(rel='stylesheet', href='/stylesheets/form.css')
-//-     link(rel='stylesheet', href='/stylesheets/navbar.css')
-//-     script(type='text/javascript' src="/js/jquery.min.js")
-//-     script(type='text/javascript' src="/js/notify.min.js")
-//-     script(type='text/javascript' src='https://www.google.com/recaptcha/api.js')
-//-   body
-//-     block content
-//-       include ./navbar.jade
-//-       div
-//-         form.form(method='post')
-//-           label Email :
-//-           input(type='text', name='email')
-//-           label Password :
-//-           input(type='password', name='password')
-//-           if data.r
-//-             div(class="g-recaptcha" data-sitekey="6LdF9FQUAAAAAO7KK6yzeKXmWB9vfvJUPhSg4YoT")
-//-           if data.f == 1
-//-             label(style='color:red') Incorrect Password
-//-           if data.f == 2
-//-             label(style='color:red') Invalid Email
-//-           if data.f == 3
-//-             label(style='color:red') Please complete the captcha
-//-           input(type='submit', name='loginiBtn', value='Log In')
-
-//- script.
-//-   //make link with black bg
-//-   $('#nav-login').addClass('page');
-
-
-//- doctype html
-//- html
-//-   head
-//-     title= title
-//-     link(rel='stylesheet', href='/stylesheets/form.css')
-//-     link(rel='stylesheet', href='/stylesheets/navbar.css')
-//-     script(type='text/javascript' src="/js/jquery.min.js")
-//-     script(type='text/javascript' src="/js/notify.min.js")
-//-     script(type='text/javascript' src='https://www.google.com/recaptcha/api.js')
-
-//-   body
-//-     block content
-//-       include ./navbar.jade
-//-       div
-//-         form.form(method='post')
-//-           label First Name*
-//-           input#fname(type='text' name='fname' onkeyup='checkFName()' placeholder='Length must be between 3 and 20, only letters')
-//-           label Last Name*
-//-           input#lname(type='text', name='lname' onkeyup='checkLName()' placeholder='Length must be between 3 and 20, only letters')
-//-           label Address
-//-           input#address(type='text', name='address' placeholder='Your address')
-//-           label Country Code
-//-           select(class='addcss' name='countryCode' width='5%')
-//-               optgroup(label='Other countries')
-//-                 option 
-//-           input#phone(type='text', name='phone' placeholder='Your phone number' onkeypress="return isNumberKey(event)")
-//-           label Email*
-//-           input#email(type='text', name='email' placeholder='Valid Email')
-//-           label Password*
-//-           input#password(type='password', name='password' onkeyup='checkPasswords()' placeholder='Length must be more than 6 symbols')
-//-           label Confirm Password*
-//-           input#cpassword(type='password', name='cpassword'  onkeyup='checkRPassword()' placeholder='Passwords must match')
-//-           div(class="g-recaptcha" data-sitekey="6LdF9FQUAAAAAO7KK6yzeKXmWB9vfvJUPhSg4YoT")
-//-           if data.f == 1
-//-             label(style='color:red') Password must be longer than 6 symbols
-//-           if data.f == 2
-//-             label(style='color:red') First and Last name must be between 3 to 20 letters
-//-           if data.f == 3
-//-             label(style='color:red') Please complete the captcha
-//-           if data.f == 4
-//-             label(style='color:red') Passwords don't match
-//-           if data.f == 5
-//-             label(style='color:red') Invalid Email
-//-           if data.f == 6
-//-             label(style='color:red') A user with this Email exists
-//-           input#register(type='submit', name='regBtn', value='Register')
-
-//- script.
-//-   //make link with black bg
-//-   $('#nav-register').addClass('page');
-//-   function checkFName(){
-//-     let box = $('#fname')
-//-     let curStr = box.val();
-//-     let reg = /^([a-zа-я]{3,20})$/;
-//-     if(curStr.length < 3 || curStr.length > 20 || !reg.test(String(curStr).toLowerCase())){
-//-       box.css('box-shadow', '0 0 10px #FF0000');
-//-     }else{
-//-       box.css('box-shadow', '0 0 5px #000000');
-//-     }
-//-   }
-//-   function checkLName(){
-//-     let box = $('#lname')
-//-     let curStr = box.val();
-//-     let reg = /^([a-zа-я]{3,20})$/;
-//-     if(curStr.length < 3 || curStr.length > 20 || !reg.test(String(curStr).toLowerCase())){
-//-       box.css('box-shadow', '0 0 10px #FF0000');
-//-     }else{
-//-       box.css('box-shadow', '0 0 5px #000000');
-//-     }
-//-   }
-//-   function checkPasswords(){
-//-     let box = $('#password')
-//-     let curStr = box.val();
-//-     let reg = /^(\w{6,})$/;
-//-     if(curStr.length < 6 || !reg.test(String(curStr).toLowerCase())){
-//-       box.css('box-shadow', '0 0 10px #FF0000');
-//-     }else{
-//-       box.css('box-shadow', '0 0 5px #000000');
-//-     }
-//-     checkRPassword();
-//-   }
-//-   function checkRPassword(){
-//-     let box = $('#cpassword')
-//-     let curStr = box.val();
-//-     let reg = /^(\w{6,})$/;
-//-     if(curStr.length < 6 || !reg.test(String(curStr).toLowerCase()) || curStr != $('#password').val()){
-//-       box.css('box-shadow', '0 0 10px #FF0000');
-//-     }else{
-//-       box.css('box-shadow', '0 0 5px #000000');
-//-     }
-//-   }
-
-//-   function isNumberKey(evt){
-//-       var charCode = (evt.which) ? evt.which : event.keyCode
-//-       if (charCode > 31 && (charCode < 48 || charCode > 57))
-//-         return false;
-
-//-       return true;
-//-   }

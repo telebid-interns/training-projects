@@ -73,7 +73,6 @@ module.exports = {
     },
     postHome: async function(req, res, next) {
       let word = req.body.name;
-
       let count = 1;
       if (/^[a-zA-Z\s+]+$/.test(word)) {
         let data = await client.query(
@@ -93,16 +92,7 @@ module.exports = {
               }
           });
         }else{
-          res.render('newIndex', {
-              data: {
-                  'isLoggedIn': req.session.loggedIn,
-                  'user': req.session.username,
-                  'isAdmin': req.session.admin,
-                  'prods': products,
-                  'cname': 'Searching Products By Name',
-                  'word': word
-              }
-          });
+          res.redirect(303, '/category/0/1/'+word+'?page='+1);
         }
       } else {
           res.redirect(303, '/');
@@ -111,6 +101,7 @@ module.exports = {
     getCategory: async function(req, res, next) {
       let products = [];
       let word = req.params.word;
+      let page = Number(req.query.page);
       if(word == '*'){
         word = '';
       }
@@ -171,11 +162,12 @@ module.exports = {
                 'isLoggedIn': req.session.loggedIn,
                 'user': req.session.username,
                 'isAdmin': req.session.admin,
-                'prods': products,
+                'prods': products.slice((page-1)*10, page*10),
                 'cname': cname,
                 'catid': catId,
                 'word': word,
-                'sort': sort
+                'sort': sort,
+                'page': page
             }
         });
       }else{
@@ -192,6 +184,7 @@ module.exports = {
     postCategory: async function(req, res, next) {
       let products = [];
       let word = req.params.word;
+      let page = Number(req.query.page);
       if(word == '*'){
         word = '';
       }
@@ -251,10 +244,12 @@ module.exports = {
                   'isLoggedIn': req.session.loggedIn,
                   'user': req.session.username,
                   'isAdmin': req.session.admin,
-                  'prods': products,
+                  'prods': products.slice((page-1)*10,page*10),
                   'cname': cname,
                   'catid': catId,
-                  'word': word
+                  'word': word,
+                  'sort': 1,
+                  'page': 1
               }
           });
         }else{

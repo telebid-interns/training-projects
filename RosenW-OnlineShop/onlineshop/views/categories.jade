@@ -39,7 +39,7 @@ html(lang='en')
             ul.nav.nav-list
               each cat in data.cats
                 li
-                  a(href="/category/#{cat.id}/1/*")
+                  a(href="/category/#{cat.id}/1/*?page=1")
                     span.icon-chevron-right #{cat.name}
                       
         .span9

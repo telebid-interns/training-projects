@@ -35,6 +35,8 @@ html(lang='en')
         Body Section
       .row
         .span12
+          div.alert.alert-danger.pull-right.my-alert(id="wd-alert" style='width:60%; height:24px; display:none; padding: 5px;')
+            strong Purchase unsuccessful check if there are enough products in stock
           ul.breadcrumb
             li
               a(href='/') Home
@@ -59,8 +61,11 @@ html(lang='en')
                             button.addEventListener('click', function () {
                                 instance.requestPaymentMethod(function (err, payload) {
                                     $.post("/buy", {nonce: payload.nonce}, function(result){
-                                        console.log('done');
-                                        window.location.href = "/orders?sp=1"; //successful purchase
+                                        if(result){
+                                          window.location.href = "/orders?sp=1"; //successful purchase
+                                        }else{
+                                          window.location.href = "/buy?wd=1"; //unsuccessful purchase
+                                        }
                                     });
                                 });
                             });
@@ -69,37 +74,11 @@ html(lang='en')
 script.
   //make link with black bg
   $('#nav-sc').parent().addClass('active');
-
-//- old buy
-//- doctype html
-//- html
-//-   head
-//-     title= title
-//-     link(rel='stylesheet', href='/stylesheets/navbar.css')
-//-     script(type='text/javascript' src="/js/jquery.min.js")
-//-     script(src='https://js.braintreegateway.com/web/dropin/1.10.0/js/dropin.min.js')
-
-//-   body
-//-     block(id='content')
-//-     include ./navbar.jade
-//-     div    
-//-         #dropin-container
-//-         button#submit-button Request payment method
-//-         div(id='ctoken' hidden='true') #{data.ct}
-//-         script.
-//-             let token = $('#ctoken').text();
-//-             let button = document.querySelector('#submit-button');
-//-                 braintree.dropin.create({
-//-                 authorization: token,
-//-                 container: '#dropin-container'
-//-                 }, 
-//-                 function (createErr, instance) {
-//-                     button.addEventListener('click', function () {
-//-                         instance.requestPaymentMethod(function (err, payload) {
-//-                             $.post("/buy", {nonce: payload.nonce}, function(result){
-//-                                 console.log('done');
-//-                                 window.location.href = "/orders/?sp=1"; //successful purchase
-//-                             });
-//-                         });
-//-                     });
-//-                 });
+  
+if data.wd
+  script.
+    $(document).ready(function(){ 
+      let alert = $('#wd-alert'); 
+      alert.show();
+      setTimeout(() => {alert.hide();}, 2000);
+    });

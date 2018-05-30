@@ -68,6 +68,9 @@ module.exports = {
             res.redirect('/');
         }
         let wd = req.query.wd;
+        if(wd==1){
+          wd = true;
+        }
         gateway.clientToken.generate({}, function(err, response) {
             let clientToken = response.clientToken
             res.render('buy', {
@@ -152,11 +155,13 @@ module.exports = {
                 await client.query(
                   "delete from cart_items as ci using shopping_carts as sc "+
                   "where ci.cartid = sc.id and sc.userid = $1", [req.session.userId]);
-                res.redirect(303, '/orders?sp=1');
+                res.send(true);
             } else {
-                res.redirect(303, '/buy?wd=1');
+              res.send(false);
             }
           });
+        }else{
+          res.send(false);
         }
     }
 }
