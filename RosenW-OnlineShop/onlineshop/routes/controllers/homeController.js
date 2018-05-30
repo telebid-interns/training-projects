@@ -124,6 +124,12 @@ module.exports = {
         case 2:
           sortString = 'p.price';
           break;
+        case 3:
+          sortString = 'p.name desc';
+          break;
+        case 4:
+          sortString = 'p.price desc';
+          break;
       }
       let prods;
       let catData;
@@ -168,7 +174,8 @@ module.exports = {
                 'prods': products,
                 'cname': cname,
                 'catid': catId,
-                'word': word
+                'word': word,
+                'sort': sort
             }
         });
       }else{

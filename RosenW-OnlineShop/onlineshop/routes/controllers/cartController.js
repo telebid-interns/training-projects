@@ -49,7 +49,7 @@ module.exports = {
           "and sc.userid = $2", [id, req.session.userId]);
         res.redirect(303, '/cart');
     },
-    postAddToCart: async function(req, res) {
+    postAddToCart: async function(req, res, next) {
         let id = req.body.id;
         let quant = req.body.quant;
 
@@ -67,13 +67,29 @@ module.exports = {
               "update cart_items set quantity = quantity + $1 "+
               "where cartid = $2 and prodid = $3", [quant, cartId, id]);
         }
+
+        let totalItemsInCart = await client.query(
+          "select sum(quantity) as q from cart_items as ci "+
+          "join shopping_carts as sc on sc.id = ci.cartid "+
+          "join accounts as acc on acc.id = sc.userid where acc.id = $1", [req.session.userId]);
+        let itemNum = totalItemsInCart.rows[0].q;
+        req.session.itemCount = itemNum;
+        next();
     },
-    postChangeQuant: function(req, res) {
+    postChangeQuant: async function(req, res, next) {
         let num = req.body.num;
         let pid = req.body.pid;
         let iid = req.body.iid;
-        client.query(
+        await client.query(
           "update cart_items set quantity = $1 where id = $2 ", [num, iid]);
+
+        let totalItemsInCart = await client.query(
+          "select sum(quantity) as q from cart_items as ci "+
+          "join shopping_carts as sc on sc.id = ci.cartid "+
+          "join accounts as acc on acc.id = sc.userid where acc.id = $1", [req.session.userId]);
+        let itemNum = totalItemsInCart.rows[0].q;
+        req.session.itemCount = itemNum;
+        next();
     },
     postRemoveFromCart: function(req, res) {
         let itemId = req.body.id;

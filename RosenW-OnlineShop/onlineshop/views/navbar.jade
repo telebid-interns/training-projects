@@ -22,13 +22,15 @@
           li
             a(href='/' id='nav-home') Home
           li
-            a(href='/cart' id='nav-sc') Shopping Cart
+            a(href='/cart' id='nav-sc') Shopping Cart (#{session.itemCount})
           li
             a(href='/orders' id='nav-orders') My Orders
           li
             a(href='/profile' id='nav-prof') Edit Profile
           li
             a(href='/logout') Log out
+          li
+            a(id='nav-greet') Hello, #{session.username} 
         ul.nav.pull-right
           form.navbar-search.pull-left(action='/' method='post')
             input.search-query.span2(type='text', placeholder='Search' name='name')

@@ -30,23 +30,9 @@ html(lang='en')
       //
         Body Section
       .row
-        #sidebar.span3
-          .well.well-small
-            ul.nav.nav-list
-              each cat in data.cats
-                li
-                  a(href="/category/#{cat.id}/1/*")
-                    span.icon-chevron-right #{cat.name}
-        .span9
-          ul.breadcrumb
-            li
-              a(href='/') Home
-              span.divider /
-            li.active Sign up
-          h3  Sign up
-          hr.soft
+        .span12
           .row
-            .span2
+            .span4
             .span5
               .well
                 form.form(method='post')

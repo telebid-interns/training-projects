@@ -176,21 +176,21 @@ module.exports = {
         });
     },
     postLogin: function(req, res) {
-        let recaptchaResp = req.body['g-recaptcha-response'];
-        let verifyURL = 'https://www.google.com/recaptcha/api/siteverify?secret=6LdF9FQUAAAAAJrUDQ7a-KxAtzKslyxhA7KZ-Bwt&response=' + recaptchaResp;
+      let recaptchaResp = req.body['g-recaptcha-response'];
+      let verifyURL = 'https://www.google.com/recaptcha/api/siteverify?secret=6LdF9FQUAAAAAJrUDQ7a-KxAtzKslyxhA7KZ-Bwt&response=' + recaptchaResp;
 
-        if (req.session.logincount > 2) {
-            request(verifyURL, (err, response, body) => {
-                body = JSON.parse(body);
-                if (body.success !== undefined && !body.success) { //failed captcha
-                    return failLogin(req, res, 3);
-                } else {
-                    return checkLoginInfo(res, req);
-                }
-            });
-        } else {
-            return checkLoginInfo(res, req);
-        }
+      if (req.session.logincount > 2) {
+          request(verifyURL, (err, response, body) => {
+              body = JSON.parse(body);
+              if (body.success !== undefined && !body.success) { //failed captcha
+                  return failLogin(req, res, 3);
+              } else {
+                  return checkLoginInfo(res, req);
+              }
+          });
+      } else {
+          return checkLoginInfo(res, req);
+      }
     },
     getProfile: async function(req, res, next) {
         if (req.session.admin || !req.session.loggedIn) {
@@ -230,6 +230,7 @@ module.exports = {
             "update accounts set first_name = $1::text, last_name = $2::text, "+
             "address = $3::text, phone = $4::text where id = $5::integer",
              [fName, lName, address, phone, req.session.userId]);
+          req.session.username = fName;
           res.redirect(303, '/?pi=1'); //password info
         }else{
           let profData = [];
@@ -352,7 +353,13 @@ async function checkLoginInfo(res, req) {
     let email = req.body.email;
     let pass = req.body.password;
     let foundUser = false;
-    let accountData = await client.query("select * from accounts where email = $1", [email]);
+    let accountData = await client.query(
+      "select * from accounts where email = $1", [email]);
+    let totalItemsInCart = await client.query(
+      "select sum(quantity) as q from cart_items as ci "+
+      "join shopping_carts as sc on sc.id = ci.cartid "+
+      "join accounts as acc on acc.id = sc.userid where acc.email = $1", [email]);
+    let itemNum = totalItemsInCart.rows[0].q;
     let account = accountData.rows[0];
     if (accountData.rows.length != 0) {
         foundUser = true;
@@ -363,6 +370,7 @@ async function checkLoginInfo(res, req) {
                 req.session.admin = false;
                 req.session.username = account.first_name;
                 req.session.logincount = 0;
+                req.session.itemCount = itemNum;
                 res.redirect(303, '/');
             } else {
                 return failLogin(req, res, 1);

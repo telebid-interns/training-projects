@@ -45,12 +45,20 @@ html(lang='en')
             table.table.table-bordered.table-condensed
                 tr
                     if data.catid != undefined
-                      th(width="20%")
-                        a(href='/category/#{data.catid}/1/#{data.word}') Product
+                      if data.sort != 1
+                        th(width="20%")
+                          a(href='/category/#{data.catid}/1/#{data.word}') Product
+                      else
+                        th(width="20%")
+                          a(href='/category/#{data.catid}/3/#{data.word}') Product 
                       th(width="20%") Description
                       th(width="20%") Quantity in stock
-                      th(width="15%") 
-                        a(href='/category/#{data.catid}/2/#{data.word}') Price
+                      if data.sort != 2
+                        th(width="15%") 
+                          a(href='/category/#{data.catid}/2/#{data.word}') Price
+                      else
+                        th(width="15%") 
+                          a(href='/category/#{data.catid}/4/#{data.word}') Price
                     else
                       th(width="20%")
                         a(href='/category/0/1/#{data.word}') Product
@@ -128,7 +136,7 @@ script.
   gap: 0
   }
   //make link with black bg
-  $('#nav-home').addClass('page');
+  $('#nav-home').parent().addClass('active');
   $('#nav-home').text('Back');
 
   //sorting
@@ -151,12 +159,16 @@ script.
     box.val("");
     if(isNumber(textBoxValue) && isWholeNumber(textBoxValue) && Number(textBoxValue)>0){
       $.post('/addtocart', {id: id, quant: textBoxValue});
+      let currentCount = Number($('#nav-sc').text().replace(/[^0-9]/g,''));
+      let newCount = currentCount + Number(textBoxValue);
+      $('#nav-sc').text('Shopping Cart (' + newCount + ')');
       //make alert flash
       let alert = $('#addalert'); 
       alert.show();
       setTimeout(() => {alert.hide();}, 750);
     }
   }
+
   
   function isNumber(n) {
     return !isNaN(parseFloat(n)) && isFinite(n);

@@ -14,22 +14,26 @@ let app = express();
 
 // Use the session middleware
 app.use(session({ secret: 'secret123123', cookie: { maxAge: 3600000 }}));
- 
+app.use(function(req,res,next){
+    res.locals.session = req.session;
+    next();
+});
+
 // default options
 app.use(fileUpload());
- 
+
 app.post('/upload', function(req, res) {
   if (!req.files)
     return res.status(400).send('No files were uploaded.');
- 
+
   // The name of the input field (i.e. "sampleFile") is used to retrieve the uploaded file
   let sampleFile = req.files.img;
- 
+
   // Use the mv() method to place the file somewhere on your server
   sampleFile.mv('/public/images/test.jpg', function(err) {
     if (err)
       return res.status(500).send(err);
- 
+
     res.send('File uploaded!');
   });
 });

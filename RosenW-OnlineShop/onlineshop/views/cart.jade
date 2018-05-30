@@ -37,7 +37,7 @@ html(lang='en')
           .well.well-small
             h1
               | Check Out 
-              small.pull-right  #{data.cart.length} Items are in the cart 
+              small#items-calc.pull-right 0 Items are in the cart 
             hr.soften
             table.table.table-bordered.table-condensed
               thead
@@ -93,12 +93,21 @@ script.
       $('#row-' + id).remove();
       $('#total').text('$'+(Number($('#total').text().substr(1)) - total));
     }
+  
+  changeItemNumber();
+    
+  function changeItemNumber(){
+    let sumOfItems = 0;
+    $.each($('[id^="change-"]'),function(){
+      sumOfItems += Number($(this).val());
+    });
+    $('#items-calc').text(sumOfItems + ' items are in the cart');
+    $('#nav-sc').text('Shopping Cart ('+sumOfItems+')');
+  }
 
   async function changeQuantity(prodid, itemsid){
-    
     let num = $('#change-' + prodid).val();
     if(isNumber(num) && isWholeNumber(num) && Number(num)>0){
-      
       let priceField = $('#price-' + prodid);
       let price = Number(priceField.text().substr(1,));
       
@@ -113,8 +122,26 @@ script.
       totaltotal.text('$' + addTrailingZeros(sum));
       
       $.post('/changeQuant', {pid: prodid, iid: itemsid, num: num});
+    }else{
+      let priceField = $('#price-' + prodid);
+      let price = Number(priceField.text().substr(1,));
+      
+      let totalField = $('#total-' + prodid);
+      totalField.text('$' + addTrailingZeros(price));
+      
+      let totaltotal = $('#total-total');
+      let sum = 0;
+      await $('.total-holder p').each((i, obj)=>{
+        sum += Number($(obj).text().substr(1,));
+      });
+      totaltotal.text('$' + addTrailingZeros(sum));
+      $('#change-' + prodid).val(1);
+      $.post('/changeQuant', {pid: prodid, iid: itemsid, num: 1});
     }
+    await changeItemNumber();
   }
+  
+  async function todoreusecode(){}
   
   function isNumber(n) {
       return !isNaN(parseFloat(n)) && isFinite(n);
