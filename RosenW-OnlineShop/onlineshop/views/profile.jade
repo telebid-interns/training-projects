@@ -42,8 +42,10 @@ html(lang='en')
                     input(id='lname' type='text', name='lname' value='#{data.p[0].ln}')
                     label Address :
                     input(id='address' type='text', name='address' value='#{data.p[0].address}')
+                    label Country Code
+                    include ./phones.jade
                     label Phone :
-                    input(id='phone' type='text', name='phone' value='#{data.p[0].ph}')
+                    input(id='phone-num' type='text', name='phone' value='#{data.p[0].ph}')
                     br
                     if data.f == 1
                       label(style='color:red') First and Last name must be between 3 and 20 letters
@@ -62,7 +64,9 @@ html(lang='en')
 script.
   //make link with black bg
   $('#nav-prof').parent().addClass('active');
-
+  $('select').on('change', function() {
+    $('#phone-num').val(this.value);
+  })
 
 //- doctype html
 //- html

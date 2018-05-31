@@ -67,8 +67,9 @@ html(lang='en')
                     td(style="text-align:center")
                         button(class="shopBtn btn-large pull-right" onclick="location.href = 'remove/cart/#{item.id}';") remove
                 tr
-                  td.alignR(colspan='4') Total:
-                  td(class="label; label-primary; pull-right" id='total-total')  $#{parseFloat(Math.round(data.total * 100) / 100).toFixed(2)}
+                  td.alignR(colspan='4')
+                  td(class="label; label-primary; pull-right" id='total-total')
+                    strong $#{parseFloat(Math.round(data.total * 100) / 100).toFixed(2)}
             br
            
             a.shopBtn.btn-large(href='/')
