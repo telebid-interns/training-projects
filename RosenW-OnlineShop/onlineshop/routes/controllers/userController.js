@@ -1,18 +1,9 @@
 let client = require('../../database/db');
 let u = require('../../utils/utils');
 let bcrypt = require('bcrypt');
-let nodemailer = require('nodemailer');
 let Recaptcha = require('express-recaptcha').Recaptcha;
 let request = require('request');
-
-// set up email
-let transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: 'mailsender6000@gmail.com',
-        pass: 'edno!dve@tri#'
-    }
-});
+let transporter = require('../../email/email');
 
 module.exports = {
     getRegister: async function(req, res, next) {

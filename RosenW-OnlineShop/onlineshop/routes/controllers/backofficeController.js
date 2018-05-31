@@ -1,4 +1,5 @@
 let client = require('../../database/db');
+let transporter = require('../../email/email');
 let u = require('../../utils/utils');
 let bcrypt = require('bcrypt');
 let request = require('request');
@@ -238,29 +239,20 @@ module.exports = {
         let price = req.body.price;
         let quant = req.body.quant;
         let descr = req.body.descr;
-        let img = req.files.img;
+        let img = req.body.img;
 
-        if(img.name.slice(-4) == '.jpg'){
-          let newName = u.generateId() + '.jpg';
-          await img.mv('/home/rosen1/Desktop/repo/RosenW-OnlineShop/onlineshop/public/images/'+newName,
-            function(err) {
-              if (err)
-                return res.status(500).send(err);
-              });
-          await client.query(
-            "insert into products values($1, $2, $3, $4, $5);", [name, price, quant, descr, newName]);
-          let product = await client.query(
-            "select id from products where name = $1 and img = $2", [name, newName]);
-          let pid = product.rows[0].id;
-          for (let i in req.body) {
-            if (u.isNumber(i)) {
-                client.query(
-                  "insert into products_categories values($1, $2)", [pid, i]);
-            }
+        await client.query(
+          "insert into products values($1, $2, $3, $4, $5);", [name, price, quant, descr, img]);
+        let product = await client.query(
+          "select id from products where name = $1 and img = $2", [name, img]);
+        let pid = product.rows[0].id;
+        for (let i in req.body) {
+          if (u.isNumber(i)) {
+              client.query(
+                "insert into products_categories values($1, $2)", [pid, i]);
           }
-          res.redirect(303, '/');
         }
-        res.redirect(303, '/');
+          res.redirect(303, '/');
     },
     getEdit: async function(req, res, next) {
         if (!req.session.admin) {
@@ -330,36 +322,50 @@ module.exports = {
         let price = req.body.price;
         let quant = req.body.quant;
         let descr = req.body.descr;
-        let img = req.files.img;
+        let img = req.body.img;
 
-        if(img != undefined && img.name.slice(-4) == '.jpg'){
-          let newName = u.generateId() + '.jpg';
-          await img.mv('/home/rosen1/Desktop/repo/RosenW-OnlineShop/onlineshop/public/images/'+ newName,
-            function(err) {
-                if (err)
-                  return res.status(500).send(err);
-              });
-
-          await client.query(
-            "delete from products_categories where product = $1", [productId]);
-          for (let i in req.body) {
-              if (u.isNumber(i)) {
-                  client.query(
-                    "insert into products_categories values($1, $2)", [productId, i])
-                      .catch(e => console.error(e.stack))
-              }
-          }
-
-          await client.query(
-            "update products set name = $1, price = $2, quantity = $3, "+
-            "description = $4, img = $5 where id = $6;",
-            [name, price, quant, descr, newName, productId]);
-          await client.query(
-            "update cart_items set modified = true where prodid = $1", [productId]);
-          res.redirect(303, '/');
-        }else{
-            res.redirect(303, '/edit/' + productId);
+        await client.query(
+          "delete from products_categories where product = $1", [productId]);
+        for (let i in req.body) {
+            if (u.isNumber(i)) {
+                client.query(
+                  "insert into products_categories values($1, $2)", [productId, i])
+                    .catch(e => console.error(e.stack))
+            }
         }
+
+        await client.query(
+          "update products set name = $1, price = $2, quantity = $3, "+
+          "description = $4, img = $5 where id = $6;",
+          [name, price, quant, descr, img, productId]);
+        await client.query(
+          "update cart_items set modified = true where prodid = $1", [productId]);
+
+        let usersWithProductInCart = await client.query(
+          "select acc.email "+
+          "from accounts as acc "+
+          "join shopping_carts as sc "+
+          "on acc.id = sc.userid "+
+          "join cart_items as ci "+
+          "on ci.cartid = sc.id "+
+          "where ci.modified = true "+
+          "group by acc.email;");
+        await usersWithProductInCart.rows.forEach(async (row)=>{
+          // nodemailer.sendmail;
+          const mailOptions = {
+              from: 'mailsender6000@gmail.com', // sender address
+              to: row.email, // list of receivers
+              subject: 'Product Changed', // Subject line
+              html: '<p>A product in your cart has been changed</p>' // plain text body
+          };
+          await transporter.sendMail(mailOptions, function(error, info) {
+              if (error) {
+                  return console.log(error);
+              }
+              console.log('Message sent: ' + info.response);
+          });
+        });
+        res.redirect(303, '/');
     },
     getAll: async function(req, res, next) {
         if (!req.session.admin) {

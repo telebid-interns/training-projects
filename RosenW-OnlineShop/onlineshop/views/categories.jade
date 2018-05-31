@@ -48,7 +48,6 @@ html(lang='en')
               .carousel-inner
                 each item, index in data.cats
                   if index == 0
-                    -let inum = 0;
                     .item.active
                       img(style='width:100%; height:320px', src='/images/#{item.img}')
                       .carousel-caption
