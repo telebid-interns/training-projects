@@ -64,33 +64,3 @@ html(lang='en')
 script.
   //make link with black bg
   $('#nav-prof').parent().addClass('active');
-
-
-//- html
-//-   head
-//-     title= title
-//-     link(rel='stylesheet', href='/stylesheets/form.css')
-//-     link(rel='stylesheet', href='/stylesheets/navbar.css')
-//-     script(type='text/javascript' src="/js/jquery.min.js")
-//-   body
-//-     block content
-//-       include ./navbar.jade
-//-       div
-//-         form.form(method='post')
-//-           label Current Password
-//-           input#pass(type='password', name='pass')
-//-           label New Password
-//-           input#newPass(type='password', name='newPass')
-//-           label Repeat New Password
-//-           input#repNewPass(type='password', name='repNewPass')
-//-           if data.f == 1
-//-             label(style='color:red') Invalid Password
-//-           if data.f == 2
-//-             label(style='color:red') New password must be at least 6 symbols
-//-           if data.f == 3
-//-             label(style='color:red') Passwords don't match
-//-           input#changeBtn(type='submit', name='changeBtn', value='Change')
-
-//- script.
-//-   //make link with black bg
-//-   $('#nav-prof').addClass('page');

@@ -7,21 +7,6 @@ let request = require('request');
 module.exports = {
     getAdmin: function(req, res, next) {
 
-        // function randomWord(){
-        //   let word = '';
-        //   let alphabet="ZXCVBNMASDFGHJKLQWERTYUIOP";
-        //   for(let i = 0; i<7;i++){
-        //     word += alphabet.charAt(Math.floor(Math.random() * 26));
-        //   }
-        //   return word;
-        // }
-        // for(let i = 0; i<999000;i++){
-        //   client.query(
-        //   'insert into products (name, price, quantity, description, img) '+
-        //   'values($1, $2, $3, $4, $5)',
-        //   [randomWord(), 12.50, Math.floor(Math.random() * 5000), "", "test100k.jpg"]);
-        // }
-
         if (req.session.loggedIn) {
             res.redirect(303, '/');
         }

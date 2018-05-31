@@ -49,59 +49,44 @@ html(lang='en')
             hr.soften
             table.table.table-bordered.table-condensed
                 tr
-                    if data.catid != undefined
-                      if data.sort != 1
-                        th(width="20%")
-                          a(href='/category/#{data.catid}/1/#{data.word}?page=#{data.page}&from=#{data.from}&to=#{data.to}') Product
-                      else
-                        th(width="20%")
-                          a(href='/category/#{data.catid}/3/#{data.word}?page=#{data.page}&from=#{data.from}&to=#{data.to}') Product 
-                      th(width="20%") Description
-                      th(width="20%") Quantity in stock
-                      if data.sort != 2
-                        th(width="15%") 
-                          a(href='/category/#{data.catid}/2/#{data.word}?page=#{data.page}&from=#{data.from}&to=#{data.to}') Price
-                      else
-                        th(width="15%") 
-                          a(href='/category/#{data.catid}/4/#{data.word}?page=#{data.page}&from=#{data.from}&to=#{data.to}') Price
-                    else
-                      if data.sort != 1
-                        th(width="20%")
-                          a(href='/category/0/1/#{data.word}?page=#{data.page}&from=#{data.from}&to=#{data.to}') Product
-                      else
-                        th(width="20%")
-                          a(href='/category/0/3/#{data.word}?page=#{data.page}&from=#{data.from}&to=#{data.to}') Product
-                      th(width="20%") Description
-                      th(width="20%") Quantity in stock
-                      if data.sort != 2
-                        th(width="15%") 
-                          a(href='/category/0/2/#{data.word}?page=#{data.page}&from=#{data.from}&to=#{data.to}') Price
-                      else
-                        th(width="15%") 
-                          a(href='/category/0/4/#{data.word}?page=#{data.page}&from=#{data.from}&to=#{data.to}') Price
-                    if data.isLoggedIn && !data.isAdmin
-                        th(width="10%") Quantity
-                        th(width="10%") Add
-                    if data.isAdmin
-                        th(width="10%") Edit
-                        th(width="10%") Delete
-                    each item in data.prods
-                        tr
-                        td(style="text-align:center") #{item.name}
-                            img(style="height: 200px; width: 100%" src="#{item.img}")
-                        td(style="text-align:left; vertical-align:top") #{item.description}
-                        td(style="text-align:center") #{item.quantity}
-                        td(align="right") $#{item.price}
-                        if data.isLoggedIn && !data.isAdmin
-                            td(style="text-align:center")
-                                input(id="input-#{item.id}" type='text', placeholder='quant.', style='width: 50px', onkeyup="changeQuantity('#{item.id}', '#{item.quantity}')" ) 
-                            td(style="text-align:center")
-                                button.shopBtn.btn-large(onclick="add('#{item.id}')") add
-                        if data.isAdmin
-                            td(style="text-align:center")
-                                button(onclick="location.href = '/edit/#{item.id}';") edit
-                            td(style="text-align:center")
-                                button(onclick="location.href = '/delete/#{item.id}';") delete    
+                  if data.sort != 1
+                    th(width="20%")
+                      a(href='/category/#{data.catid}/1/#{data.word}?page=#{data.page}&from=#{data.from}&to=#{data.to}') Product
+                  else
+                    th(width="20%")
+                      a(href='/category/#{data.catid}/3/#{data.word}?page=#{data.page}&from=#{data.from}&to=#{data.to}') Product 
+                  th(width="20%") Description
+                  th(width="20%") Quantity in stock
+                  if data.sort != 2
+                    th(width="15%") 
+                      a(href='/category/#{data.catid}/2/#{data.word}?page=#{data.page}&from=#{data.from}&to=#{data.to}') Price
+                  else
+                    th(width="15%") 
+                      a(href='/category/#{data.catid}/4/#{data.word}?page=#{data.page}&from=#{data.from}&to=#{data.to}') Price
+                  
+                  if data.isLoggedIn && !data.isAdmin
+                      th(width="10%") Quantity
+                      th(width="10%") Add
+                  if data.isAdmin
+                      th(width="10%") Edit
+                      th(width="10%") Delete
+                  each item in data.prods
+                      tr
+                      td(style="text-align:center") #{item.name}
+                          img(style="height: 200px; width: 100%" src="#{item.img}")
+                      td(style="text-align:left; vertical-align:top") #{item.description}
+                      td(style="text-align:center") #{item.quantity}
+                      td(align="right") $#{item.price}
+                      if data.isLoggedIn && !data.isAdmin
+                          td(style="text-align:center")
+                              input(id="input-#{item.id}" type='text', placeholder='quant.', style='width: 50px', onkeyup="changeQuantity('#{item.id}', '#{item.quantity}')" ) 
+                          td(style="text-align:center")
+                              button.shopBtn.btn-large(onclick="add('#{item.id}')") add
+                      if data.isAdmin
+                          td(style="text-align:center")
+                              button(onclick="location.href = '/edit/#{item.id}';") edit
+                          td(style="text-align:center")
+                              button(onclick="location.href = '/delete/#{item.id}';") delete    
             br
             
             a.shopBtn.btn-large(href='/')
@@ -132,34 +117,6 @@ script(src='../../../assets/js/shop.js')
          
 script.
   //notify options
-  let options = {
-  // whether to hide the notification on click
-  clickToHide: true,
-  // whether to auto-hide the notification
-  autoHide: true,
-  // if autoHide, hide after milliseconds
-  autoHideDelay: 5000,
-  // show the arrow pointing at the element
-  arrowShow: true,
-  // arrow size in pixels
-  arrowSize: 5,
-  // position defines the notification position though uses the defaults below
-  position: 'bottom right',
-  // default style
-  style: 'bootstrap',
-  // default class (string or [string])
-  className: 'success',
-  // show animation
-  showAnimation: 'slideDown',
-  // show animation duration
-  showDuration: 400,
-  // hide animation
-  hideAnimation: 'slideUp',
-  // hide animation duration
-  hideDuration: 200,
-  // padding between element and notification
-  gap: 0
-  }
   //make link with black bg
   $('#nav-home').parent().addClass('active');
   $('#nav-home').text('Back');
