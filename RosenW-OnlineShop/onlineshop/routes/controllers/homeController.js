@@ -108,6 +108,17 @@ module.exports = {
       let catId = req.params.id;
       let sort = Number(req.params.sort);
       let sortString;
+      let from = req.query.from;
+      let to = req.query.to;
+
+      if(!Number(from)){
+        from = 0;
+      }
+      if(!Number(to)){
+        to = 999999;
+      }
+      console.log(from);
+      console.log(to);
       switch(sort){
         case 1:
           sortString = 'p.name';
@@ -128,15 +139,17 @@ module.exports = {
         prods = await client.query(
           "select distinct(p.id), p.name, p.price, p.quantity, p.img from products as p " +
           "join products_categories as pc on pc.product = p.id " +
-          "where lower(name) like concat('%', $1::text, '%') " +
+          "where lower(name) like concat('%', $1::text, '%') "+
+          "and p.price between $2 and $3 " +
           "group by p.id " +
-          "order by " + sortString, [word.toLowerCase()]);
+          "order by " + sortString, [word.toLowerCase(), from, to]);
       }else{
         prods = await client.query(
           "select distinct(p.id), p.name, p.price, p.quantity, p.img from products as p " +
           "join products_categories as pc on pc.product = p.id " +
-          "where pc.category = $1 and lower(name) like concat('%', $2::text, '%') "+
-          "order by " + sortString, [catId, word.toLowerCase()]);
+          "where pc.category = $1 and lower(name) like concat('%', $2::text, '%') " +
+          "and p.price between $3 and $4 " +
+          "order by " + sortString, [catId, word.toLowerCase(), from, to]);
         catData = await client.query(
           "select c.name as cname from categories as c " +
           "where c.id = $1 limit 1", [catId]);
@@ -167,7 +180,9 @@ module.exports = {
                 'catid': catId,
                 'word': word,
                 'sort': sort,
-                'page': page
+                'page': page,
+                'from': from,
+                'to': to
             }
         });
       }else{
@@ -182,89 +197,13 @@ module.exports = {
       }
     },
     postCategory: async function(req, res, next) {
-      let products = [];
       let word = req.params.word;
-      let page = Number(req.query.page);
-      if(word == '*'){
-        word = '';
-      }
+      let from = req.body.from;
+      let to = req.body.to;
       let catId = req.params.id;
       let sort = Number(req.params.sort);
-      let newWord = req.body.name;
 
-      if (/^[a-zA-Z\s+]+$/.test(newWord)) {
-        let sortString;
-        switch(sort){
-          case 1:
-            sortString = 'p.name';
-            break;
-          case 2:
-            sortString = 'p.price';
-            break;
-        }
-        let prods;
-        let catData;
-        if(catId == 0){
-          prods = await client.query(
-            "select distinct(p.id), p.name, p.price, p.quantity, p.img from products as p " +
-            "join products_categories as pc on pc.product = p.id " +
-            "where lower(name) like concat('%', $1::text, '%') "+
-            "and lower(name) like concat('%', $2::text, '%') " +
-            "group by p.id " +
-            "order by " + sortString, [word.toLowerCase(), newWord.toLowerCase()]);
-        }else{
-          prods = await client.query(
-            "select distinct(p.id), p.name, p.price, p.quantity, p.img from products as p " +
-            "join products_categories as pc on pc.product = p.id " +
-            "where pc.category = $1 and lower(name) like concat('%', $2::text, '%') " +
-            "and lower(name) like concat('%', $3::text, '%') " +
-            "order by " + sortString, [catId, word.toLowerCase(), newWord.toLowerCase()]);
-          catData = await client.query(
-            "select c.name as cname from categories as c " +
-            "where c.id = $1 limit 1", [catId]);
-        }
-        let number = 0;
-        await prods.rows.forEach((prod) => {
-            prod.number = ++number;
-            prod.price = u.addTrailingZeros(prod.price);
-            products.push(prod);
-        });
-        if(word==''){
-          word = '*';
-        }
-        let cname;
-        if(catData==undefined){
-          cname = 'Searching Products By Name';
-        }else{
-          cname = catData.rows[0].cname;
-        }
-        if(!req.session.admin){
-          res.render('newIndex', {
-              data: {
-                  'isLoggedIn': req.session.loggedIn,
-                  'user': req.session.username,
-                  'isAdmin': req.session.admin,
-                  'prods': products.slice((page-1)*10,page*10),
-                  'cname': cname,
-                  'catid': catId,
-                  'word': word,
-                  'sort': 1,
-                  'page': 1
-              }
-          });
-        }else{
-          res.render('index', {
-              data: {
-                  'isLoggedIn': req.session.loggedIn,
-                  'user': req.session.username,
-                  'isAdmin': req.session.admin,
-                  'prods': products
-              }
-          });
-        }
-      }else{
-        res.redirect(303, '/')
-      }
+      res.redirect(303, '/category/'+catId+'/'+sort+'/'+word+'?page=1&from='+from+'&to=' + to);
     },
     getSteal: async function(req, res, next) {
       console.log('STEALING !!! is DEPRECATED');

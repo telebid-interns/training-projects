@@ -84,7 +84,7 @@ module.exports = {
             });
         });
     },
-    postBuy: async function(req, res) {
+    postBuy: async function(req, res, next) {
         let pass = true;
         //get nonce
         let nonce = req.body.nonce;
@@ -155,7 +155,10 @@ module.exports = {
                 await client.query(
                   "delete from cart_items as ci using shopping_carts as sc "+
                   "where ci.cartid = sc.id and sc.userid = $1", [req.session.userId]);
+
+                req.session.itemCount = 0;
                 res.send(true);
+                next();
             } else {
               res.send(false);
             }

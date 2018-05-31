@@ -40,32 +40,45 @@ html(lang='en')
             h1
               | #{data.cname}
               form.navbar-search.pull-right(method='post')
-                input.search-query.span2(type='text', placeholder='Search' name='name')
+                label Price Range: 
+                  input.search-query.span1(type='text', placeholder='from' name='from')
+                  input.search-query.span1(type='text', placeholder='to' name='to')
+                  input.span1(type='submit' name='name' value='Filter')
+                //- label : 
+                //-   input.search-query.span2(type='text', placeholder='Search' name='name')
             hr.soften
             table.table.table-bordered.table-condensed
                 tr
                     if data.catid != undefined
                       if data.sort != 1
                         th(width="20%")
-                          a(href='/category/#{data.catid}/1/#{data.word}?page=#{data.page}') Product
+                          a(href='/category/#{data.catid}/1/#{data.word}?page=#{data.page}&from=#{data.from}&to=#{data.to}') Product
                       else
                         th(width="20%")
-                          a(href='/category/#{data.catid}/3/#{data.word}?page=#{data.page}') Product 
+                          a(href='/category/#{data.catid}/3/#{data.word}?page=#{data.page}&from=#{data.from}&to=#{data.to}') Product 
                       th(width="20%") Description
                       th(width="20%") Quantity in stock
                       if data.sort != 2
                         th(width="15%") 
-                          a(href='/category/#{data.catid}/2/#{data.word}?page=#{data.page}') Price
+                          a(href='/category/#{data.catid}/2/#{data.word}?page=#{data.page}&from=#{data.from}&to=#{data.to}') Price
                       else
                         th(width="15%") 
-                          a(href='/category/#{data.catid}/4/#{data.word}?page=#{data.page}') Price
+                          a(href='/category/#{data.catid}/4/#{data.word}?page=#{data.page}&from=#{data.from}&to=#{data.to}') Price
                     else
-                      th(width="20%")
-                        a(href='/category/0/1/#{data.word}') Product
+                      if data.sort != 1
+                        th(width="20%")
+                          a(href='/category/0/1/#{data.word}?page=#{data.page}&from=#{data.from}&to=#{data.to}') Product
+                      else
+                        th(width="20%")
+                          a(href='/category/0/3/#{data.word}?page=#{data.page}&from=#{data.from}&to=#{data.to}') Product
                       th(width="20%") Description
                       th(width="20%") Quantity in stock
-                      th(width="15%") 
-                        a(href='/category/0/2/#{data.word}') Price
+                      if data.sort != 2
+                        th(width="15%") 
+                          a(href='/category/0/2/#{data.word}?page=#{data.page}&from=#{data.from}&to=#{data.to}') Price
+                      else
+                        th(width="15%") 
+                          a(href='/category/0/4/#{data.word}?page=#{data.page}&from=#{data.from}&to=#{data.to}') Price
                     if data.isLoggedIn && !data.isAdmin
                         th(width="10%") Quantity
                         th(width="10%") Add
@@ -96,17 +109,17 @@ html(lang='en')
               |  Continue Shopping
               
             ul.pagination-centered.pagination
-              a.page-link.paginationBtn.btn-large(href='/category/#{data.catid}/#{data.sort}/#{data.word}?page=1') <<
+              a.page-link.paginationBtn.btn-large(href='/category/#{data.catid}/#{data.sort}/#{data.word}?page=1&from=#{data.from}&to=#{data.to}') <<
               if data.page > 1
-                a.page-link.paginationBtn.btn-large(href='/category/#{data.catid}/#{data.sort}/#{data.word}?page=#{data.page-1}') Previous
+                a.page-link.paginationBtn.btn-large(href='/category/#{data.catid}/#{data.sort}/#{data.word}?page=#{data.page-1}&from=#{data.from}&to=#{data.to}') Previous
               if data.page > 2
-                a.page-link.paginationBtn.btn-large(href='/category/#{data.catid}/#{data.sort}/#{data.word}?page=#{data.page-2}') #{Number(data.page)-2}
+                a.page-link.paginationBtn.btn-large(href='/category/#{data.catid}/#{data.sort}/#{data.word}?page=#{data.page-2}&from=#{data.from}&to=#{data.to}') #{Number(data.page)-2}
               if data.page > 1
-                a.page-link.paginationBtn.btn-large(href='/category/#{data.catid}/#{data.sort}/#{data.word}?page=#{data.page-1}') #{data.page-1}
-              a.page-link.paginationBtn.selected.btn-large.active(href='/category/#{data.catid}/#{data.sort}/#{data.word}?page=#{data.page}') #{data.page}
-              a.page-link.paginationBtn.btn-large(href='/category/#{data.catid}/#{data.sort}/#{data.word}?page=#{data.page+1}') #{data.page+1}
-              a.page-link.paginationBtn.btn-large(href='/category/#{data.catid}/#{data.sort}/#{data.word}?page=#{data.page+2}') #{data.page+2}
-              a.page-link.paginationBtn.btn-large(href='/category/#{data.catid}/#{data.sort}/#{data.word}?page=#{data.page+1}') Next
+                a.page-link.paginationBtn.btn-large(href='/category/#{data.catid}/#{data.sort}/#{data.word}?page=#{data.page-1}&from=#{data.from}&to=#{data.to}') #{data.page-1}
+              a.page-link.paginationBtn.selected.btn-large.active(href='/category/#{data.catid}/#{data.sort}/#{data.word}?page=#{data.page}&from=#{data.from}&to=#{data.to}') #{data.page}
+              a.page-link.paginationBtn.btn-large(href='/category/#{data.catid}/#{data.sort}/#{data.word}?page=#{data.page+1}&from=#{data.from}&to=#{data.to}') #{data.page+1}
+              a.page-link.paginationBtn.btn-large(href='/category/#{data.catid}/#{data.sort}/#{data.word}?page=#{data.page+2}&from=#{data.from}&to=#{data.to}') #{data.page+2}
+              a.page-link.paginationBtn.btn-large(href='/category/#{data.catid}/#{data.sort}/#{data.word}?page=#{data.page+1}&from=#{data.from}&to=#{data.to}') Next
               a.page-link.paginationBtn.btn-large(href='#') >>
 
 
