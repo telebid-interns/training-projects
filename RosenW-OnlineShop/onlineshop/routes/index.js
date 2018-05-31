@@ -39,6 +39,14 @@ router.get('/steal', homeController.getSteal)
 router.get('/register', userController.getRegister);
 /* GET login page. */
 router.get('/login', userController.getLogin);
+/* GET forgotten password page. */
+router.get('/fp', userController.getFPass);
+/* GET forgotten password page. */
+router.get('/fp/:code', userController.getFPassCode);
+/* GET forgotten password page. */
+router.post('/fp/:code', userController.postFPassCode);
+/* GET forgotten password page. */
+router.post('/fp', userController.postFPass);
 /* GET logout. */
 router.get('/logout', userController.getLogout);
 /* GET verify. */

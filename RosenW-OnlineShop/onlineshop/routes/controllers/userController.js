@@ -35,9 +35,6 @@ module.exports = {
         });
     },
     getLogin: async function(req, res, next) {
-        let data = await client.query('select * from categories');
-        let categories = data.rows;
-
         if (req.session.loggedIn) {
             res.redirect(303, '/');
         }
@@ -52,8 +49,7 @@ module.exports = {
                     'isLoggedIn': req.session.loggedIn,
                     'user': req.session.username,
                     'isAdmin': req.session.admin,
-                    'r': true,
-                    'cats': categories
+                    'r': true
                 }
             });
         }
@@ -63,8 +59,7 @@ module.exports = {
                 'isLoggedIn': req.session.loggedIn,
                 'user': req.session.username,
                 'isAdmin': req.session.admin,
-                'r': false,
-                'cats': categories
+                'r': false
             }
         });
     },
@@ -160,7 +155,7 @@ module.exports = {
                         let code = u.generateId();
                         await client.query(
                           "insert into email_codes (account, code) values($1, $2)", [userid, code]);
-                        let link = 'http://localhost:3000/verify/' + code;
+                        let link = 'http://127.0.0.1:3000/verify/' + code;
                         // nodemailer.sendmail;
                         const mailOptions = {
                             from: 'mailsender6000@gmail.com', // sender address
@@ -264,7 +259,7 @@ module.exports = {
         if (req.session.admin || !req.session.loggedIn) {
             res.redirect(303, '/');
         }
-        let cats = await client.query('select * from categories')
+        let cats = await client.query('select * from categories');
         let categories = cats.rows;
         res.render('chpass', {
             data: {
@@ -305,33 +300,166 @@ module.exports = {
           res.redirect(303, '/?pc=1');
         });
       }
+    },
+    getFPass: async function(req, res, next){
+      if (req.session.loggedIn) {
+          res.redirect(303, '/');
+      }
+
+      if(req.session.logincount == undefined){
+          req.session.logincount = 0;
+      }
+
+      if (req.session.logincount > 2) {
+          res.render('fp', {
+              data: {
+                  'isLoggedIn': req.session.loggedIn,
+                  'user': req.session.username,
+                  'isAdmin': req.session.admin,
+                  'r': true
+              }
+          });
+      }
+
+      res.render('fp', {
+          data: {
+              'isLoggedIn': req.session.loggedIn,
+              'user': req.session.username,
+              'isAdmin': req.session.admin,
+              'r': false
+          }
+      });
+    },
+    getFPassCode: async function(req, res, next){
+      //if id exists active = true, delete from email_codes
+      let verificationId = req.params.code;
+      let rows;
+      let id;
+      let userid;
+      let data = await client.query(
+        'select * from fp_codes as fpc where fpc.code = $1', [verificationId]);
+      if (data.rows.length !== 0) {
+          row = data.rows[0];
+          id = row.id;
+          userid = row.account;
+          console.log('match');
+          // await client.query('update accounts set active = true where id = $1', [userid]);
+          res.render('newpass', {
+              data: {
+                  'isLoggedIn': req.session.loggedIn,
+                  'user': req.session.username,
+                  'isAdmin': req.session.admin,
+                  'r': false
+              }
+          });
+      }
+      res.redirect(303, '/');
+    },
+    postFPass: async function(req, res, next) {
+      if (req.session.loggedIn) {
+          res.redirect(303, '/');
+      }
+
+      let email = req.body.email;
+
+      let accountData = await client.query(
+        "select * from accounts where email = $1", [email]);
+      if (accountData.rows.length != 0) {
+        let account = accountData.rows[0];
+        let code = u.generateId();
+        await client.query('insert into fp_codes (account, code) values($1, $2)', [account.id, code]);
+        let link = 'http://127.0.0.1:3000/fp/' + code;
+        const mailOptions = {
+            from: 'mailsender6000@gmail.com', // sender address
+            to: email, // list of receivers
+            subject: 'Office Shop Change Password Code', // Subject line
+            html: '<p>Hello ' + account.first_name + ',\n to change your password click the following link: ' + link + '</p>' // plain text body
+        };
+        await transporter.sendMail(mailOptions, function(error, info) {
+            if (error) {
+                return console.log(error);
+            }
+            console.log('Message sent: ' + info.response);
+        });
+        res.redirect(303, '/?fpe=1');
+      }
+    },
+    postFPassCode: async function(req, res, next) {
+      if (req.session.loggedIn) {
+          res.redirect(303, '/');
+      }
+
+      let stop = false;
+      let code = req.params.code;
+      let newPass = req.body.pass;
+      let repeatPass = req.body.rpass;
+
+      let data = await client.query(
+        "select * from fp_codes as fpc join accounts as acc on acc.id = fpc.account where fpc.code = $1", [code]);
+      console.log(data.rows);
+      let accId = data.rows[0].account;
+      if(!u.validatePass(newPass)){
+        stop = true;
+        await failNewPass(req, res, 1); //f validate
+      }
+      if(newPass !== repeatPass){
+        stop = true;
+        await failNewPass(req, res, 2); //f repeat
+      }
+      if(!stop){
+        await bcrypt.hash(data.rows[0].salt + newPass, 5, async function(err, hash) {
+          await client.query(
+            "update accounts set pass = $1::text where id = $2::integer", [hash, accId]);
+
+            await client.query('delete from fp_codes where code = $1', [code]);
+          });
+        res.redirect(303, '/?pc=1');
+      }else{
+        res.redirect(303, '/');
+      }
     }
 }
 
+async function failForgottenEmail(req, res, code){
+    return res.render('fp', {
+        data: {
+            'isLoggedIn': req.session.loggedIn,
+            'user': req.session.username,
+            'isAdmin': req.session.admin,
+            'f': code
+        }
+    });
+}
+
 async function failChangePass(req, res, code){
-    let cats = await client.query('select * from categories');
-    let categories = cats.rows;
     return res.render('chpass', {
         data: {
             'isLoggedIn': req.session.loggedIn,
             'user': req.session.username,
             'isAdmin': req.session.admin,
-            'f': code,
-            'cats': categories
+            'f': code
+        }
+    });
+}
+
+async function failNewPass(req, res, code){
+    return res.render('newpass', {
+        data: {
+            'isLoggedIn': req.session.loggedIn,
+            'user': req.session.username,
+            'isAdmin': req.session.admin,
+            'f': code
         }
     });
 }
 
 async function failRegister(req, res, code, info) {
-    let cats = await client.query("select * from categories");
-    let categories = cats.rows;
     return res.render('registration', {
         data: {
             'isLoggedIn': req.session.loggedIn,
             'user': req.session.username,
             'isAdmin': req.session.admin,
             'f': code,
-            'cats': categories,
             'info': info
         }
     });

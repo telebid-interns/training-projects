@@ -30,35 +30,23 @@ html(lang='en')
       //
         Body Section
       .row
-        //- #sidebar.span3
-        //-   .well.well-small
-        //-     ul.nav.nav-list
-        //-       each cat in data.cats
-        //-         li
-        //-           a(href="/category/#{cat.id}/1/*")
-        //-             span.icon-chevron-right #{cat.name}
         .span12
           .row
             .span4
             .span5
               .well
-                h5 Enter Your Login Details
+                h5 Enter Your Email
                 form.form(method='post')
                   label Email :
                   input(type='text', name='email')
-                  label Password :
-                  input(type='password', name='password')
                   if data.r
                     div(class="g-recaptcha" data-sitekey="6LdF9FQUAAAAAO7KK6yzeKXmWB9vfvJUPhSg4YoT")
                   if data.f == 1
-                    label(style='color:red') Incorrect Password
-                  if data.f == 2
                     label(style='color:red') Invalid Email
-                  if data.f == 3
+                  if data.f == 2
                     label(style='color:red') Please complete the captcha
                   br
-                  input(type='submit', name='loginiBtn', value='Log In')
-                a(href="/fp") Forgot your password ?
+                  input(type='submit', name='continueBtn', value='Continue')
 
     // Placed at the end of the document so the pages load faster
     script(src='assets/js/jquery.js')
