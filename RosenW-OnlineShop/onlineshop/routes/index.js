@@ -70,12 +70,14 @@ router.post('/chpass', userController.postChpass);
 router.get('/admin', backofficeController.getAdmin);
 /* POST admin page */
 router.post('/admin', backofficeController.postAdmin);
-/* GET sort page. */
+/* GET check page. */
 router.get('/check', backofficeController.getCheck);
-/* POST scheck page. */
+/* POST check page. */
 router.post('/check', backofficeController.postCheck);
-// /* GET check page. */ DEPRECATED
-// router.get('/check', backofficeController.getCheck);
+/* GET totals page. */
+router.get('/totals', backofficeController.getTotals);
+/* POST totals page. */
+router.post('/totals', backofficeController.postTotals);
 /* GET check:id page. */
 router.get('/check/:id', backofficeController.getCheckId);
 /* POST check page. */

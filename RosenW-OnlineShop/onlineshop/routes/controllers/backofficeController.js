@@ -85,21 +85,9 @@ module.exports = {
       "and date between $2 and $3 "+
       stateString,
       "order by "+sortString);
-      let totalCheckQuery = getTotalCheckQuery(
-      "where lower(a.first_name) like concat('%', $1::text, '%') ",
-      "order by date desc");
 
       let data = await client.query(CheckQuery, [word.toLowerCase(), from, to]);
       let purchases = data.rows;
-
-      // let totals = await client.query(totalCheckQuery, [word.toLowerCase()]);
-      // let totalValues = totals.rows;
-      //
-      // await totalValues.forEach((row)=>{
-      //     let tokens = String(row.date).substr(0,15).split(" ");
-      //     row.date = tokens[2] + ' ' + tokens[1] + ' ' + tokens[3];
-      //     row.totalfortheday = u.addTrailingZeros(row.totalfortheday);
-      // });
 
       await purchases.forEach((row)=>{
           let tokens = String(row.date).substr(0,15).split(" ");
@@ -143,6 +131,88 @@ module.exports = {
 
         res.redirect(
           303, '/check?state='+state+'&sort='+sort+'&from='+fromNormalFormat+'&to='+toNormalFormat+'&word=' + word);
+    },
+    getTotals: async function(req, res, next) {
+      if (!req.session.admin) {
+        res.redirect(303, '/');
+      }
+
+      //totals?group=1&state=0&sort=3&from=05-05-2018&to=04-06-2018&word=pes
+
+      let group = Number(req.query.group);
+      let sortIndex = Number(req.query.sort);
+      let state = Number(req.query.state);
+      let fromDate = req.query.from;
+      let toDate = req.query.to;
+      let word = req.query.word;
+
+      let fromTokens = fromDate.split('-');
+      let toTokens = toDate.split('-');
+
+      let from = fromTokens[2] + '-' + fromTokens[1] + '-' + fromTokens[0];
+      let to = toTokens[2] + '-' + toTokens[1] + '-' + toTokens[0];
+
+      let sortString = await getTotalSortStringById(sortIndex);
+
+      let stateString;
+
+      if(state==4){
+        stateString = "";
+      }else{
+        stateString = "and state = " + state
+      }
+
+      let totalCheckQuery = getTotalCheckQuery(
+      "where lower(a.first_name) like concat('%', $1::text, '%') "+
+      "and date between $2 and $3 "+
+      stateString,
+      "order by " + sortString);
+
+      let totals = await client.query(totalCheckQuery, [word.toLowerCase(), from, to]);
+      let totalValues = totals.rows;
+
+      await totalValues.forEach((row)=>{
+          let tokens = String(row.date).substr(0,15).split(" ");
+          row.date = tokens[2] + ' ' + tokens[1] + ' ' + tokens[3];
+          row.tot = u.addTrailingZeros(row.tot);
+      });
+
+      res.render('totals', {
+          data: {
+              'isLoggedIn': req.session.loggedIn,
+              'user': req.session.username,
+              'isAdmin': req.session.admin,
+              'totals': totalValues,
+              'state': state,
+              'sort': sortIndex,
+              'from': fromDate,
+              'to': toDate,
+              'word': word
+          }
+      });
+    },
+    postTotals: async function(req, res, next) {
+        if (!req.session.admin) {
+            res.redirect(303, '/');
+        }
+        let state = req.body.state;
+        let sort = req.query.sort;
+
+        let fDay = req.body.fromDay;
+        let fMonth = req.body.fromMonth;
+        let fYear = req.body.fromYear;
+
+        let tDay = req.body.toDay;
+        let tMonth = req.body.toMonth;
+        let tYear = req.body.toYear;
+
+        let word = req.body.word;
+
+        let fromNormalFormat = fDay + '-' + fMonth + '-' + fYear;
+        let toNormalFormat = tDay + '-' + tMonth + '-' + tYear;
+
+        res.redirect(
+          303, '/totals?state='+state+'&sort='+sort+'&from='+fromNormalFormat+'&to='+toNormalFormat+'&word=' + word);
     },
     getCheckId: async function(req, res, next) {
       if (!req.session.admin) {
@@ -415,6 +485,19 @@ function getSortStringById(sortIndex){
   }
 }
 
+function getTotalSortStringById(sortIndex){
+  switch(sortIndex){
+    case 1:
+      return 'p.date asc';
+    case 2:
+      return 'tot asc';
+    case 3:
+      return 'p.date desc';
+    case 4:
+      return 'tot desc';
+  }
+}
+
 function getCheckQuery(condition, order){
   return "select p.id, a.first_name, a.last_name, p.date, "+
   "st.name as state, p.date, sum(pi.prodprice * pi.quantity) as tot, a.address "+
@@ -427,14 +510,11 @@ function getCheckQuery(condition, order){
 }
 
 function getTotalCheckQuery(condition, order){
-  return "select sum(ord.tot) as totalForTheDay, ord.date "+
-  "from (select p.id, a.first_name, a.last_name, p.date, "+
-  "st.name as state, sum(pi.prodprice * pi.quantity) as tot "+
+  return "select sum(pi.prodprice * pi.quantity) as tot, p.date "+
   "from accounts as a join purchases as p on a.id = p.userid "+
   "join states as st on st.id = p.state "+
   "join purchase_items as pi on pi.purchaseid = p.id "+
   condition+
-  "group by a.first_name, a.last_name, st.name, p.date, p.id "+
-  ") as ord group by ord.date "+
+  "group by p.date "+
   order;
 }
