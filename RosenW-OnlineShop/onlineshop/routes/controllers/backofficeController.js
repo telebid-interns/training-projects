@@ -6,7 +6,6 @@ let request = require('request');
 
 module.exports = {
     getAdmin: function(req, res, next) {
-
         if (req.session.loggedIn) {
             res.redirect(303, '/');
         }

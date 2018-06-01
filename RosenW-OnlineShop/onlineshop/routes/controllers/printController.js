@@ -36,9 +36,10 @@ module.exports = {
 
         let newFormat = req.body.format;
         await client.query("update printformats set format = $1 where id = 1", [newFormat]);
-        res.redirect(303, '/check');
+        res.redirect(303, '/check?state=4&sort=1&from=01-01-1999&to=01-01-2050&word=');
     },
     postPrint: async function(req, res) {
+        let maxLength = 0;
         let total = req.body.total.substr(1,);
         let user = req.body.user;
         let names = req.body['names[]'];
@@ -52,8 +53,34 @@ module.exports = {
         let format = data.rows[0].format;
         let info = '';
         for(let i = 0; i<names.length;i++){
-            info += names[i] + ' - ' + qs[i] + ' - ' + prices[i].substr(1,) + '\n';
+            if(names[i].length <= 25){
+              for(let j = names[i].length; j<25;j++){
+                names[i] += '.';
+              }
+            }else{
+              names[i] = names[i].substr(0,22) + '...';
+            }
+            let wholeStr = names[i] + 'x' + qs[i] + ' - ' + prices[i].substr(1,);
+            if(wholeStr.length > maxLength){
+              maxLength = wholeStr.length;
+            }
         }
+        for(let i = 0; i<names.length;i++){
+          let wholeStr = names[i] + 'x' + qs[i] + ' - ' + prices[i].substr(1,);
+          let paddingRequired = maxLength - wholeStr.length;
+          let paddingString = '';
+          for(let j = 0; j<paddingRequired;j++){
+            paddingString+='.';
+          }
+          info += names[i] + 'x' + qs[i] + ' - ' + paddingString + prices[i].substr(1,) + '\n';
+        }
+        let paddingRequired = maxLength - ('Total: ' + total).length;
+        let paddingString = '';
+        for(let j = 0; j<paddingRequired;j++){
+          paddingString+='.';
+        }
+        info += 'Total: ' + paddingString + total;
+
         format = format.replace(/!I/g, info);
         format = format.replace(/!T/g, total);
         format = format.replace(/!U/g, curUser);

@@ -6,44 +6,50 @@ html
     link(rel='stylesheet', href='/stylesheets/table.css')
     script(type='text/javascript' src="/js/jquery.min.js")
     style.
-      form, a {
+      a {
         color: white;
+      }
+      input {
+        box-shadow: 0 0 1px #000000;
       }
   body
     block content
   include ./backofficenav.jade
-ul(id='submenu')
-  li
-    form(method='post')
-      |STATE: 
-      select(name='state' value='#{data.state}')
-        optgroup
-          option(value='4') All
-          | &#x9;&#x9;
-          option(value='0') Awaiting Delivery
-          | &#x9;&#x9;
-          option(value='1') Being Delivered
-          | &#x9;&#x9;
-          option(value='2') Delivered
-          | &#x9;&#x9;
-          
-      | FROM: 
-      input(type='textbox', placeholder='dd', name='fromDay' style='width:5%' value="#{data.from.split('-')[0]}")
-      | -
-      input(type='textbox', placeholder='mm', name='fromMonth' style='width:5%' value="#{data.from.split('-')[1]}")
-      | -
-      input(type='textbox', placeholder='yyyy', name='fromYear' style='width:5%' value="#{data.from.split('-')[2]}")
-      | TO: 
-      input(type='textbox', placeholder='dd', name='toDay' style='width:5%' value="#{data.to.split('-')[0]}")
-      | -
-      input(type='textbox', placeholder='mm', name='toMonth' style='width:5%' value="#{data.to.split('-')[1]}")
-      | -
-      input(type='textbox', placeholder='yyyy', name='toYear' style='width:5%' value="#{data.to.split('-')[2]}")
-      | USER: 
-      input(type='textbox', placeholder='user', name='word' value="#{data.word}")
-      input(type='submit', value='Filter')
   
 div
+  table(style='width:60%; display:block')
+    th
+      form(method='post')
+        |STATE: 
+        select(name='state' value='#{data.state}')
+          optgroup
+            option(value='4') All
+            | &#x9;&#x9;
+            option(value='0') Awaiting Delivery
+            | &#x9;&#x9;
+            option(value='1') Being Delivered
+            | &#x9;&#x9;
+            option(value='2') Delivered
+            | &#x9;&#x9;
+        br
+            
+        | FROM: 
+        input(type='textbox', placeholder='dd', name='fromDay' style='width:5%' value="#{data.from.split('-')[0]}")
+        | -
+        input(type='textbox', placeholder='mm', name='fromMonth' style='width:5%' value="#{data.from.split('-')[1]}")
+        | -
+        input(type='textbox', placeholder='yyyy', name='fromYear' style='width:5%' value="#{data.from.split('-')[2]}")
+        br
+        | TO: 
+        input(type='textbox', placeholder='dd', name='toDay' style='width:5%' value="#{data.to.split('-')[0]}")
+        | -
+        input(type='textbox', placeholder='mm', name='toMonth' style='width:5%' value="#{data.to.split('-')[1]}")
+        | -
+        input(type='textbox', placeholder='yyyy', name='toYear' style='width:5%' value="#{data.to.split('-')[2]}")
+        br
+        | USER: 
+        input(type='textbox', placeholder='user', name='word' value="#{data.word}")
+        input(type='submit', value='Filter')
   table(style='width:60%; display:block' id="maint" class='allpurch')
     tr
       th(width="10%" style="text-align:center")
