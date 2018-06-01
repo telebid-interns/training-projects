@@ -48,20 +48,12 @@ module.exports = {
               }
           });
         }else{
-            let groupedCategories = [];
-            for(let i=0;i<categories.length;i++){
-                let newGroup = [];
-                newGroup.push(categories[i]);
-                newGroup.push(categories[++i]);
-                groupedCategories.push(newGroup);
-            }
-            console.log(groupedCategories);
             res.render('oldCategories', {
                 data: {
                     'isLoggedIn': req.session.loggedIn,
                     'user': req.session.username,
                     'isAdmin': req.session.admin,
-                    'cat': groupedCategories,
+                    'cat': categories,
                     'eight': eightNewProds,
                     'three': threeNewProds,
                     'pc': passNotfic,

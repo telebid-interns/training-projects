@@ -70,16 +70,16 @@ router.post('/chpass', userController.postChpass);
 router.get('/admin', backofficeController.getAdmin);
 /* POST admin page */
 router.post('/admin', backofficeController.postAdmin);
-/* POST scheck page. */
-router.post('/check/s/:sort/:opt/:word', backofficeController.postSearchCheck);
 /* GET sort page. */
-router.get('/check/s/:sort/:opt/:word', backofficeController.getSortCheck);
+router.get('/check', backofficeController.getCheck);
+/* POST scheck page. */
+router.post('/check', backofficeController.postCheck);
 // /* GET check page. */ DEPRECATED
 // router.get('/check', backofficeController.getCheck);
 /* GET check:id page. */
 router.get('/check/:id', backofficeController.getCheckId);
 /* POST check page. */
-router.post('/check/:id', backofficeController.postCheck);
+router.post('/check/:id', backofficeController.postCheckId);
 /* GET edit page. */
 router.get('/edit/:id', backofficeController.getEdit);
 //get delete product
