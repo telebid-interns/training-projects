@@ -6,7 +6,7 @@ html
     link(rel='stylesheet', href='/stylesheets/table.css')
     script(type='text/javascript' src="/js/jquery.min.js")
     style.
-      a {
+      form, a {
         color: white;
       }
   body
@@ -47,15 +47,40 @@ div
   table(style='width:60%; display:block' id="maint" class='allpurch')
     tr
       th(width="10%" style="text-align:center")
-        a(href="/check/s/1/1/#{data.word}")  Date
+        if data.sort != 1
+          a(href=
+            "/check?state=#{data.state}&sort=1&from=#{data.from}&to=#{data.to}&word=#{data.word}")  Date
+        else
+          a(href=
+            "/check?state=#{data.state}&sort=6&from=#{data.from}&to=#{data.to}&word=#{data.word}")  Date
+      th(width="15%" style="text-align:center")
+        if data.sort != 2
+          a(href=
+            "/check?state=#{data.state}&sort=2&from=#{data.from}&to=#{data.to}&word=#{data.word}")  User
+        else
+          a(href=
+            "/check?state=#{data.state}&sort=7&from=#{data.from}&to=#{data.to}&word=#{data.word}")  User
+      th(width="15%" style="text-align:center") 
+        if data.sort != 3
+          a(href=
+            "/check?state=#{data.state}&sort=3&from=#{data.from}&to=#{data.to}&word=#{data.word}")  Address
+        else
+          a(href=
+            "/check?state=#{data.state}&sort=8&from=#{data.from}&to=#{data.to}&word=#{data.word}")  Address
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/2/1/#{data.word}")  User
+        if data.sort != 4
+          a(href=
+            "/check?state=#{data.state}&sort=4&from=#{data.from}&to=#{data.to}&word=#{data.word}")  State
+        else 
+          a(href=
+            "/check?state=#{data.state}&sort=9&from=#{data.from}&to=#{data.to}&word=#{data.word}")  State
       th(width="15%" style="text-align:center")  
-        a(href="/check/s/3/1/#{data.word}")  Address
-      th(width="15%" style="text-align:center")  
-        a(href="/check/s/4/1/#{data.word}")  State
-      th(width="15%" style="text-align:center")  
-        a(href="/check/s/5/1/#{data.word}")  Total
+        if data.sort != 5
+          a(href=
+            "/check?state=#{data.state}&sort=5&from=#{data.from}&to=#{data.to}&word=#{data.word}")  Total
+        else 
+          a(href=
+            "/check?state=#{data.state}&sort=10&from=#{data.from}&to=#{data.to}&word=#{data.word}")  Total
       th(width="7%")
     each item in data.purchases
         tr

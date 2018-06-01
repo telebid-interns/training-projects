@@ -188,7 +188,7 @@ module.exports = {
 
         await client.query(
           "update purchases set state = $1 where id = $2", [newState, purchID]);
-        res.redirect(303, '/check');
+        res.redirect(303, '/check?state=4&sort=1&from=01-01-1999&to=01-01-2050&word=');
     },
     postAddProd: async function(req, res) {
         let name = req.body.name;
