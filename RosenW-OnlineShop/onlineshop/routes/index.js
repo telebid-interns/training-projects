@@ -40,6 +40,10 @@ router.get('/steal', homeController.getSteal)
 router.get('/register', userController.getRegister);
 /* GET login page. */
 router.get('/login', userController.getLogin);
+/* GET googleauth page. */
+router.get('/oauth2callback', userController.googleCallback);
+/* GET details page. */
+router.get('/details', userController.getDetails);
 /* GET forgotten password page. */
 router.get('/fp', userController.getFPass);
 /* GET forgotten password page. */
@@ -149,21 +153,3 @@ module.exports = router;
 //           .catch(e => console.error(e.stack));
 //   });
 // });
-
-// function givePrinterCommand(cmd, line){
-//     let tokens = line.split(/\s+/);
-//     tokens.shift();
-//     let bufferArr = [];
-//     bufferArr.push(cmd);
-
-//     for(let i = 0; i<tokens.length-1; i++){
-//         if(typeof tokens[i]=='string' && !isNumber(tokens[i])){
-//             bufferArr.push(tokens[i].charCodeAt(0));
-//         }else{
-//             bufferArr.push(Number(tokens[i]));
-//         }
-//     }
-
-//     let command = new Buffer(bufferArr);
-//     bixolon.write(command);
-// }

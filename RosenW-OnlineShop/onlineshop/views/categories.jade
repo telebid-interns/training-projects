@@ -100,6 +100,10 @@ html(lang='en')
         strong Your profile information has been successfuly changed
       div.alert.alert-success.pull-right.my-alert(id='pass-alert' style='width:40%; height:24px; display:none; padding: 5px;')
         strong Your password has been successfuly changed
+      div.alert.alert-success.pull-right.my-alert(id='GRM-alert' style='width:40%; height:24px; display:none; padding: 5px;')
+        strong A mail with your password has been sent, please change it as soon as possible
+      div.alert.alert-danger.pull-right.my-alert(id='GARM-alert' style='width:40%; height:24px; display:none; padding: 5px;')
+        strong Already registered with this email
 
     // Placed at the end of the document so the pages load faster
     script(src='assets/js/jquery.js')
@@ -141,6 +145,23 @@ if data.reg
   script.
     $(document).ready(function(){ 
       let alert = $('#ver-alert'); 
+      alert.show();
+      setTimeout(() => {alert.hide();}, 2000);
+    });
+
+
+if data.GRM
+  script.
+    $(document).ready(function(){ 
+      let alert = $('#GRM-alert'); 
+      alert.show();
+      setTimeout(() => {alert.hide();}, 4000);
+    });
+  
+if data.GARM
+  script.
+    $(document).ready(function(){ 
+      let alert = $('#GARM-alert'); 
       alert.show();
       setTimeout(() => {alert.hide();}, 2000);
     });

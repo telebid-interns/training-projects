@@ -9,6 +9,8 @@ let session = require('express-session');
 let fileUpload = require('express-fileupload')
 let indexRouter = require('./routes/index');
 let usersRouter = require('./routes/users');
+let passport = require('passport');
+let auth = require('./authentication/auth');
 
 let app = express();
 

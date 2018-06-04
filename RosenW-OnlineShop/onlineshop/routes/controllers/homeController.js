@@ -7,6 +7,8 @@ module.exports = {
         let passNotfic = false;
         let profileInfoNotific = false;
         let linkSentToMail = false;
+        let googleRegistrationMessage = false;
+        let googleAlreadyRegisteredMessage = false;
         if(req.query.pc==1){
             passNotfic = true;
           }
@@ -15,6 +17,12 @@ module.exports = {
         }
         if(req.query.reg==1){
             linkSentToMail = true;
+        }
+        if(req.query.reg==2){
+            googleRegistrationMessage = true;
+        }
+        if(req.query.fail==1){
+            googleAlreadyRegisteredMessage = true;
         }
         let categories = [];
         let eightNewProds = [];
@@ -44,7 +52,9 @@ module.exports = {
                   'three': threeNewProds,
                   'pc': passNotfic,
                   'pi': profileInfoNotific,
-                  'reg': linkSentToMail
+                  'reg': linkSentToMail,
+                  'GRM': googleRegistrationMessage,
+                  'GARM': googleAlreadyRegisteredMessage
               }
           });
         }else{

@@ -5,25 +5,35 @@ let Recaptcha = require('express-recaptcha').Recaptcha;
 let request = require('request');
 let transporter = require('../../email/email');
 
+let { google } = require('googleapis');
+let OAuth2 = google.auth.OAuth2;
+let people = google.people('v1');
+
+const ClientId = "614520466378-npmfmap2vlkp23r1t4smiejsk10akdof.apps.googleusercontent.com";
+const ClientSecret = "pgDm52AdABjZGpWsK6EDR0E7";
+const RedirectionUrl = "http://127.0.0.1:3000/oauth2callback";
+
 module.exports = {
     getRegister: async function(req, res, next) {
-        let data = await client.query('select * from categories');
-        let categories = data.rows;
+      let url = getAuthUrl();
+      let data = await client.query('select * from categories');
+      let categories = data.rows;
 
-        if (req.session.loggedIn) {
-            res.redirect(303, '/');
-        }
-        res.render('registration', {
-            data: {
-                'isLoggedIn': req.session.loggedIn,
-                'user': req.session.username,
-                'isAdmin': req.session.admin,
-                'cats': categories,
-                'info': {email: "", fName: "",
-                  lName: "", phone: "", address: "",
-                  pass: "", cpass: "", cc: ""}
-            }
-        });
+      if (req.session.loggedIn) {
+          res.redirect(303, '/');
+      }
+      res.render('registration', {
+          data: {
+              'isLoggedIn': req.session.loggedIn,
+              'user': req.session.username,
+              'isAdmin': req.session.admin,
+              'cats': categories,
+              'info': {email: "", fName: "",
+                lName: "", phone: "", address: "",
+                pass: "", cpass: "", cc: ""},
+              'url': url
+          }
+      });
     },
     getLogin: async function(req, res, next) {
         if (req.session.loggedIn) {
@@ -53,6 +63,89 @@ module.exports = {
                 'r': false
             }
         });
+    },
+    googleCallback: function(req, res, next){
+      let oauth2Client = getOAuthClient();
+      let session = req.session;
+      let code = req.query.code; // the query param code
+      oauth2Client.getToken(code, function(err, tokens) {
+       // Now tokens contains an access_token and an optional refresh_token. Save them.
+        if(!err) {
+          oauth2Client.setCredentials(tokens);
+          //saving the token to current session
+          session["tokens"]=tokens;
+          res.redirect(303, '/details');
+        }else{
+          res.redirect(303, '/');
+        }
+      });
+    },
+    getDetails: function(req,res,next){
+      let url = getAuthUrl();
+      let oauth2Client = getOAuthClient();
+      oauth2Client.setCredentials(req.session["tokens"]);
+      request({
+        url: 'https://www.googleapis.com/oauth2/v1/userinfo',
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ` + req.session["tokens"].access_token,
+          'Accept': 'application/json'
+        }
+      },
+      async function(err, response, user) {
+        let userObj = JSON.parse(user);
+        let email = userObj.email;
+        let fName = userObj.given_name;
+        let lName = userObj.family_name;
+        let wholeNumber = "";
+        let address = "";
+        //////////////////////
+        let curPass = u.generateId();
+        let salt = u.generateId();
+        let saltedPass = salt + curPass;
+
+        let accs = await client.query(
+          "select * from accounts where lower(email) = $1", [email.toLowerCase()]);
+
+        if (accs.rows.length != 0) {
+          res.redirect(303, '/?fail=1');
+        }
+
+        await bcrypt.hash(saltedPass, 5, async function(err, hash) {
+            await client.query(
+                "insert into accounts (email, first_name, last_name, "+
+                "phone, address, pass, salt, role, active, suspended) "+
+                "values($1, $2, $3, $4, $5, $6, $7, '1', 'true', 'false');",
+                [email, fName, lName, wholeNumber, address, hash, salt])
+            .then(async ()=>{
+              let currentAcc = await client.query(
+                "select id from accounts where email=$1;", [email]); //??????
+              let userid = currentAcc.rows[0].id;
+              await client.query(
+                "insert into shopping_carts (userid) values($1)", [userid]);
+              // nodemailer.sendmail;
+              const mailOptions = {
+                  from: 'mailsender6000@gmail.com', // sender address
+                  to: email, // list of receivers
+                  subject: 'Account Password', // Subject line
+                  html: '<p>Hello ' + fName + ',\n This is your current password:'+ curPass +' please change it as soon as possible for security reasons</p>' // plain text body
+              };
+              await transporter.sendMail(mailOptions, function(error, info) {
+                  if (error) {
+                      return console.log(error);
+                  }
+                  console.log('Message sent: ' + info.response);
+              });
+              req.session.userId = userid;
+              req.session.loggedIn = true;
+              req.session.admin = false;
+              req.session.username = fName;
+              req.session.logincount = 0;
+              req.session.itemCount = 0;
+              res.redirect(303, '/?reg=2');
+            });
+        });
+      });
     },
     getLogout: function(req, res, next) {
         req.session.loggedIn = false;
@@ -507,4 +600,24 @@ async function checkLoginInfo(res, req) {
     if (!foundUser) {
         return failLogin(req, res, 2);
     }
+}
+
+function getOAuthClient () {
+    return new OAuth2(ClientId ,  ClientSecret, RedirectionUrl);
+}
+
+function getAuthUrl () {
+    var oauth2Client = getOAuthClient();
+    // generate a url that asks permissions for Google+ and Google Calendar scopes
+    var scopes = [
+      'https://www.googleapis.com/auth/userinfo.email',
+      'https://www.googleapis.com/auth/userinfo.profile'
+    ];
+
+    var url = oauth2Client.generateAuthUrl({
+        access_type: 'offline',
+        scope: scopes // If you only need one scope you can pass it as string
+    });
+
+    return url;
 }
