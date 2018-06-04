@@ -59,6 +59,7 @@ module.exports = {
 
       let sortIndex = Number(req.query.sort);
       let state = Number(req.query.state);
+      let gb = Number(req.query.groupby);
       let fromDate = req.query.from;
       let toDate = req.query.to;
       let word = req.query.word;
@@ -76,43 +77,82 @@ module.exports = {
       if(state==4){
         stateString = "";
       }else{
-        stateString = "and state = " + state
+        stateString = "and state = " + state + " ";
       }
 
-      let CheckQuery = getCheckQuery(
-      "where lower(a.first_name) like concat('%', $1::text, '%') "+
-      "and date between $2 and $3 "+
-      stateString,
-      "order by "+sortString);
+      if(gb == 3){
+        let checkQuery = getCheckQuery(
+        "where lower(a.first_name) like concat('%', $1::text, '%') "+
+        "and date between $2 and $3 "+
+        stateString,
+        "order by "+sortString);
 
-      let data = await client.query(CheckQuery, [word.toLowerCase(), from, to]);
-      let purchases = data.rows;
+        let data = await client.query(checkQuery, [word.toLowerCase(), from, to]);
+        let purchases = data.rows;
 
-      await purchases.forEach((row)=>{
-          let tokens = String(row.date).substr(0,15).split(" ");
-          row.date = tokens[2] + ' ' + tokens[1] + ' ' + tokens[3];
-          row.tot = u.addTrailingZeros(row.tot);
-      });
+        await purchases.forEach((row)=>{
+            let tokens = String(row.date).substr(0,15).split(" ");
+            row.date = tokens[2] + ' ' + tokens[1] + ' ' + tokens[3];
+            row.tot = u.addTrailingZeros(row.tot);
+        });
 
-      res.render('check', {
-          data: {
-              'isLoggedIn': req.session.loggedIn,
-              'user': req.session.username,
-              'isAdmin': req.session.admin,
-              'purchases': purchases,
-              'state': state,
-              'sort': sortIndex,
-              'from': fromDate,
-              'to': toDate,
-              'word': word
-          }
-      });
+
+        res.render('check', {
+            data: {
+                'isLoggedIn': req.session.loggedIn,
+                'user': req.session.username,
+                'isAdmin': req.session.admin,
+                'purchases': purchases,
+                'state': state,
+                'sort': sortIndex,
+                'from': fromDate,
+                'to': toDate,
+                'word': word,
+                'groupby': gb
+            }
+        });
+      }else{
+        let gbQuery = getGbStringById(gb, sortIndex);
+
+        let totals = await client.query(gbQuery, [word.toLowerCase(), from, to]);
+        let totalValues = totals.rows;
+        console.log(totalValues);
+
+        if(gb === 0){
+          await totalValues.forEach((row)=>{
+            let tokens = String(row.date).substr(0,15).split(" ");
+            row.date = tokens[2] + ' ' + tokens[1] + ' ' + tokens[3];
+            row.tot = u.addTrailingZeros(row.tot);
+          });
+        }else{
+          await totalValues.forEach((row)=>{
+            row.date = row.date
+            row.tot = u.addTrailingZeros(row.tot);
+          });
+        }
+
+        res.render('check', {
+            data: {
+                'isLoggedIn': req.session.loggedIn,
+                'user': req.session.username,
+                'isAdmin': req.session.admin,
+                'purchases': totalValues,
+                'state': state,
+                'sort': sortIndex,
+                'from': fromDate,
+                'to': toDate,
+                'word': word,
+                'groupby': gb
+            }
+        });
+      }
     },
     postCheck: async function(req, res, next) {
         if (!req.session.admin) {
             res.redirect(303, '/');
         }
         let state = req.body.state;
+        let gb = req.body.groupby;
         let sort = req.query.sort;
 
         let fDay = req.body.fromDay;
@@ -129,7 +169,7 @@ module.exports = {
         let toNormalFormat = tDay + '-' + tMonth + '-' + tYear;
 
         res.redirect(
-          303, '/check?state='+state+'&sort='+sort+'&from='+fromNormalFormat+'&to='+toNormalFormat+'&word=' + word);
+          303, '/check?state='+state+'&groupby=' + gb + '&sort='+sort+'&from='+fromNormalFormat+'&to='+toNormalFormat+'&word=' + word);
     },
     getTotals: async function(req, res, next) {
       if (!req.session.admin) {
@@ -462,38 +502,65 @@ function failAdminLogin(req, res, code) {
 function getSortStringById(sortIndex){
   switch(sortIndex){
     case 1:
-      return 'p.date asc';
+      return 'p.date asc ';
     case 2:
-      return 'a.first_name asc';
+      return 'a.first_name asc ';
     case 3:
-      return 'a.address asc';
+      return 'a.address asc ';
     case 4:
-      return 'st.name asc';
+      return 'st.name asc ';
     case 5:
-      return 'tot asc';
+      return 'tot asc ';
     case 6:
-      return 'p.date desc';
+      return 'p.date desc ';
     case 7:
-      return 'a.first_name desc';
+      return 'a.first_name desc ';
     case 8:
-      return 'a.address desc';
+      return 'a.address desc ';
     case 9:
-      return 'st.name desc';
+      return 'st.name desc ';
     case 10:
-      return 'tot desc';
+      return 'tot desc ';
   }
 }
 
 function getTotalSortStringById(sortIndex){
   switch(sortIndex){
     case 1:
-      return 'p.date asc';
+      return 'p.date asc ';
+    case 5:
+      return 'tot asc ';
+    case 6:
+      return 'p.date desc ';
+    case 10:
+      return 'tot desc ';
+    default:
+      return 'p.date asc ';
+  }
+}
+
+function getGbStringById(gb, sortIndex){
+  let sortString = getTotalSortStringById(sortIndex);
+  switch(gb){
+    case 0:
+      return "select sum(pi.prodprice * pi.quantity) as tot, p.date from accounts as a join purchases as p on a.id = p.userid join states as st on st.id = p.state join purchase_items as pi on pi.purchaseid = p.id where lower(a.first_name) like concat('%', $1::text, '%') and date between $2 and $3 group by p.date order by " + sortString;
+    case 1:
+      if(sortIndex != 5 && sortIndex != 10){
+        sortString = 'extract(month from p.date) asc';
+      }
+      if(sortIndex == 6){
+        sortString = 'extract(month from p.date) desc'
+      }
+      return "select sum(pi.prodprice * pi.quantity) as tot, concat(0, extract(month from p.date), '-', extract(year from p.date)) as date from accounts as a join purchases as p on a.id = p.userid join states as st on st.id = p.state join purchase_items as pi on pi.purchaseid = p.id where lower(a.first_name) like concat('%', $1::text, '%') and date between $2 and $3  group by extract(month from p.date), extract(year from p.date) order by " + sortString;
     case 2:
-      return 'tot asc';
-    case 3:
-      return 'p.date desc';
-    case 4:
-      return 'tot desc';
+      if(sortIndex != 5 && sortIndex != 10){
+        sortString = 'extract(year from p.date) asc';
+      }
+      if(sortIndex == 6){
+        sortString = 'extract(year from p.date) desc'
+      }
+      console.log(sortString);
+      return "select sum(pi.prodprice * pi.quantity) as tot, extract(year from p.date) as date from accounts as a join purchases as p on a.id = p.userid join states as st on st.id = p.state join purchase_items as pi on pi.purchaseid = p.id where lower(a.first_name) like concat('%', $1::text, '%') and date between $2 and $3 group by extract(year from p.date) order by " + sortString;
   }
 }
 
@@ -505,15 +572,5 @@ function getCheckQuery(condition, order){
   "join purchase_items as pi on pi.purchaseid = p.id "+
   condition+
   "group by a.first_name, a.last_name, st.name, p.date, p.id, a.address "+
-  order;
-}
-
-function getTotalCheckQuery(condition, order){
-  return "select sum(pi.prodprice * pi.quantity) as tot, p.date "+
-  "from accounts as a join purchases as p on a.id = p.userid "+
-  "join states as st on st.id = p.state "+
-  "join purchase_items as pi on pi.purchaseid = p.id "+
-  condition+
-  "group by p.date "+
   order;
 }
