@@ -8,6 +8,7 @@ let bodyparser = require('body-parser');
 let net = require('net');
 let lp = require('node-lp');
 let cmd = require('node-cmd');
+let bcrypt = require('bcrypt');
 
 let buyController = require('./controllers/buyController');
 let homeController = require('./controllers/homeController');
@@ -74,10 +75,6 @@ router.post('/admin', backofficeController.postAdmin);
 router.get('/check', backofficeController.getCheck);
 /* POST check page. */
 router.post('/check', backofficeController.postCheck);
-/* GET totals page. */
-router.get('/totals', backofficeController.getTotals);
-/* POST totals page. */
-router.post('/totals', backofficeController.postTotals);
 /* GET check:id page. */
 router.get('/check/:id', backofficeController.getCheckId);
 /* POST check page. */
@@ -141,15 +138,16 @@ module.exports = router;
 
 // /* GET regadm. */
 // router.get('/regadm', function(req, res, next) {
-//     let salt = generateId();
-//     let saltedPass = salt + '123123';
-
-//     bcrypt.hash(saltedPass, 5, function(err, hash) {
-//         client.query(sqlFormatter(  "insert into admins (username, pass, salt) " +
-//                                     "values(%L, %L, %L);", 'admin', hash, salt))
-//             .then(res.redirect(303, '/admin'))
-//             .catch(e => console.error(e.stack));
-//     });
+//   console.log('asd');
+//   let salt = u.generateId();
+//   let saltedPass = salt + '123123';
+//
+//   bcrypt.hash(saltedPass, 5, function(err, hash) {
+//       client.query("insert into admins (username, pass, salt) " +
+//                                   "values(%L, %L, %L);", 'acc', hash, salt)
+//           .then(res.redirect(303, '/admin'))
+//           .catch(e => console.error(e.stack));
+//   });
 // });
 
 // function givePrinterCommand(cmd, line){

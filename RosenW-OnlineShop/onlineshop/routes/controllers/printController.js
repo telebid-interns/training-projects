@@ -15,7 +15,7 @@ let newLineCommand = new Buffer([0x0A]);
 
 module.exports = {
     getPrint: async function(req, res, next) {
-        if (!req.session.admin) {
+        if (!req.session.admin || !u.contains(req.session.roles, 1)) {
             res.redirect(303, '/');
         }
         let data = await client.query('select * from printformats where id = 1');
@@ -30,7 +30,7 @@ module.exports = {
         });
     },
     postPrintFormat: async function(req, res, next) {
-        if (!req.session.admin) {
+        if (!req.session.admin || !u.contains(req.session.roles, 1)) {
             res.redirect(303, '/');
         }
 

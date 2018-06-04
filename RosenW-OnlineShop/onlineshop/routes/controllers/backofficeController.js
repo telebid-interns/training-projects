@@ -171,88 +171,6 @@ module.exports = {
         res.redirect(
           303, '/check?state='+state+'&groupby=' + gb + '&sort='+sort+'&from='+fromNormalFormat+'&to='+toNormalFormat+'&word=' + word);
     },
-    getTotals: async function(req, res, next) {
-      if (!req.session.admin) {
-        res.redirect(303, '/');
-      }
-
-      //totals?group=1&state=0&sort=3&from=05-05-2018&to=04-06-2018&word=pes
-
-      let group = Number(req.query.group);
-      let sortIndex = Number(req.query.sort);
-      let state = Number(req.query.state);
-      let fromDate = req.query.from;
-      let toDate = req.query.to;
-      let word = req.query.word;
-
-      let fromTokens = fromDate.split('-');
-      let toTokens = toDate.split('-');
-
-      let from = fromTokens[2] + '-' + fromTokens[1] + '-' + fromTokens[0];
-      let to = toTokens[2] + '-' + toTokens[1] + '-' + toTokens[0];
-
-      let sortString = await getTotalSortStringById(sortIndex);
-
-      let stateString;
-
-      if(state==4){
-        stateString = "";
-      }else{
-        stateString = "and state = " + state
-      }
-
-      let totalCheckQuery = getTotalCheckQuery(
-      "where lower(a.first_name) like concat('%', $1::text, '%') "+
-      "and date between $2 and $3 "+
-      stateString,
-      "order by " + sortString);
-
-      let totals = await client.query(totalCheckQuery, [word.toLowerCase(), from, to]);
-      let totalValues = totals.rows;
-
-      await totalValues.forEach((row)=>{
-          let tokens = String(row.date).substr(0,15).split(" ");
-          row.date = tokens[2] + ' ' + tokens[1] + ' ' + tokens[3];
-          row.tot = u.addTrailingZeros(row.tot);
-      });
-
-      res.render('totals', {
-          data: {
-              'isLoggedIn': req.session.loggedIn,
-              'user': req.session.username,
-              'isAdmin': req.session.admin,
-              'totals': totalValues,
-              'state': state,
-              'sort': sortIndex,
-              'from': fromDate,
-              'to': toDate,
-              'word': word
-          }
-      });
-    },
-    postTotals: async function(req, res, next) {
-        if (!req.session.admin) {
-            res.redirect(303, '/');
-        }
-        let state = req.body.state;
-        let sort = req.query.sort;
-
-        let fDay = req.body.fromDay;
-        let fMonth = req.body.fromMonth;
-        let fYear = req.body.fromYear;
-
-        let tDay = req.body.toDay;
-        let tMonth = req.body.toMonth;
-        let tYear = req.body.toYear;
-
-        let word = req.body.word;
-
-        let fromNormalFormat = fDay + '-' + fMonth + '-' + fYear;
-        let toNormalFormat = tDay + '-' + tMonth + '-' + tYear;
-
-        res.redirect(
-          303, '/totals?state='+state+'&sort='+sort+'&from='+fromNormalFormat+'&to='+toNormalFormat+'&word=' + word);
-    },
     getCheckId: async function(req, res, next) {
       if (!req.session.admin) {
           res.redirect(303, '/');
@@ -320,7 +238,7 @@ module.exports = {
           res.redirect(303, '/');
     },
     getEdit: async function(req, res, next) {
-        if (!req.session.admin) {
+        if (!req.session.admin || !u.contains(req.session.roles, 1)) {
             res.redirect(303, '/');
         }
         let productId = req.params.id;
@@ -352,7 +270,7 @@ module.exports = {
         });
     },
     getDelete: async function(req, res) {
-        if (!req.session.admin) {
+        if (!req.session.admin || !u.contains(req.session.roles, 1)) {
             res.redirect(303, '/');
         }
         let id = req.params.id;
@@ -361,10 +279,9 @@ module.exports = {
         res.redirect(303, '/');
     },
     getAccs: async function(req, res) {
-      if (!req.session.admin) {
+      if (!req.session.admin || !u.contains(req.session.roles, 1)) {
           res.redirect(303, '/');
       }
-
 
       let data = await client.query("select * from accounts order by id");
       let users = data.rows;
@@ -379,7 +296,7 @@ module.exports = {
       });
     },
     postEdit: async function(req, res, next) {
-        if (!req.session.admin) {
+        if (!req.session.admin || !u.contains(req.session.roles, 1)) {
             res.redirect(303, '/');
         }
         let productId = req.params.id;
@@ -433,7 +350,7 @@ module.exports = {
         res.redirect(303, '/');
     },
     getAll: async function(req, res, next) {
-        if (!req.session.admin) {
+        if (!req.session.admin || !u.contains(req.session.roles, 1)) {
             res.redirect(303, '/');
         }
         let products = [];
@@ -462,8 +379,13 @@ async function checkAdminInfo(res, req) {
     let pass = req.body.password;
     let foundUser = false;
     let accounts = await client.query(
-      "select * from admins where username = $1", [username]);
+      "select a.username, a.pass, a.salt, ar.role from admins as a join admins_roles as ar on a.id = ar.admin where username = $1", [username]);
     let account = accounts.rows[0];
+    req.session.roles = [];
+    await accounts.rows.forEach((row)=>{
+      req.session.roles.push(row.role);
+    });
+    console.log(req.session.roles);
     if(accounts.rows.length != 0){
       bcrypt.compare(account.salt + pass, account.pass,
         function(err, bcryptResp) {

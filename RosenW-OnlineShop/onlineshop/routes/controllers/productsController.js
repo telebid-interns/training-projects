@@ -3,7 +3,7 @@ let u = require('../../utils/utils');
 
 module.exports = {
     getAddProduct: async function(req, res, next) {
-        if (!req.session.admin) {
+        if (!req.session.admin || !u.contains(req.session.roles, 1)) {
             res.redirect(303, '/');
         }
         let ctg = [];

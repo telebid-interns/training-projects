@@ -178,13 +178,16 @@ module.exports = {
             }
         });
       }else{
+        if(!u.contains(req.session.roles, 1)){
+          res.redirect(303, '/');
+        }
         res.render('index', {
-            data: {
-                'isLoggedIn': req.session.loggedIn,
-                'user': req.session.username,
-                'isAdmin': req.session.admin,
-                'prods': products
-            }
+          data: {
+            'isLoggedIn': req.session.loggedIn,
+            'user': req.session.username,
+            'isAdmin': req.session.admin,
+            'prods': products
+          }
         });
       }
     },
