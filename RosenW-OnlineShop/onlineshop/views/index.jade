@@ -11,23 +11,24 @@ html
     block content
   include ./backofficenav.jade
 div
-  table(style='width:60%' id="maint")
+  table(id="maint")
     tr
-      th(width="20%") Product
-      th(width="20%") Description
-      th(width="20%") Quantity in stock
-      th(width="15%") Price
+      th Product
+      th Description
+      th Quantity in stock
+      th Price
       if data.isLoggedIn && !data.isAdmin
-        th(width="10%") Quantity
-        th(width="10%") Add
+        th Quantity
+        th Add
       if data.isAdmin
-        th(width="10%") Edit
-        th(width="10%") Delete
-    each item in data.prods
+        th Edit
+        th Delete
+    each item, index in data.prods
+      if index < 50
         tr
-          td(style="text-align:center") #{item.name}
-            img(height='120px' width='100%' src="#{item.img}")
-          td(style="text-align:left; vertical-align:top") #{item.description}
+          td(style="text-align:center")
+            img(height='120px' src="#{item.img}")
+          td(style="text-align:left; vertical-align:top") #{item.name}
           td(style="text-align:center") #{item.quantity}
           td(align="right") $#{item.price}
           if data.isLoggedIn && !data.isAdmin

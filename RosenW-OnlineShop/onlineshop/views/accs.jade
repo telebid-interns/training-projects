@@ -9,16 +9,16 @@ html
     block content
   include ./backofficenav.jade
 div
-  table(style='width:70%' id='maint')
+  table(id='maint')
     tr
-      th(width="20%" align="left") ID
-      th(width="20%" align="left") Email
-      th(width="15%" align="left") Name
-      th(width="10%" align="right") Address
-      th(width="5%" align="right") Role
-      th(width="5%" align="right") Active
-      th(width="5%" align="right") Suspended
-      th(width="7%")
+      th(align="left") ID
+      th(align="left") Email
+      th(align="left") Name
+      th(align="right") Address
+      th(align="right") Role
+      th(align="right") Active
+      th(align="right") Suspended
+      th
     each u in data.users
         tr
           td #{u.id}
