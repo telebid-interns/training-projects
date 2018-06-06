@@ -63,9 +63,5 @@ script.
         prices.push(cellText);
     });
 
-    console.log(names);
-    console.log(quantities);
-    console.log(prices);
-
     $.post('/print', {total: tot, user: user, names: names, qs: quantities, prices: prices});
   }

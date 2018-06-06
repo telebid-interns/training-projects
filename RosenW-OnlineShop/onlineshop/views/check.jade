@@ -27,7 +27,7 @@ html
           width: 20%;
           margin-top: 6px;
       }
-      .filtBtn {
+      .filtBtn{
           float: left;
           margin-top: 8px;
       }
@@ -86,6 +86,7 @@ div.center
       br
       br
       br
+    button#excelBtn(onclick="exportTableToExcel('maint', 'data')" type='submit' style="padding:5px") Generate Excel file
   table(style='width:100;' id="maint" class='allpurch' align="center")
     tr
       th(style="text-align:center")
@@ -152,7 +153,7 @@ script.
   let total = 0;
   $('[id^="tot-"]').each(function(){
     total += Number($(this).text().substr(2,));
-  });  
+  });
   $('#sum').text('$' + addTrailingZeros(total));
   
   function addTrailingZeros(number) {
@@ -160,7 +161,36 @@ script.
   }
   
   
-  
+  function exportTableToExcel(tableID, filename = ''){
+    var downloadLink;
+    var dataType = 'application/vnd.ms-excel';
+    var tableSelect = document.getElementById(tableID);
+    var tableHTML = tableSelect.outerHTML.replace(/ /g, '%20');
+    
+    // Specify file name
+    filename = filename?filename+'.xls':'excel_data.xls';
+    
+    // Create download link element
+    downloadLink = document.createElement("a");
+    
+    document.body.appendChild(downloadLink);
+    
+    if(navigator.msSaveOrOpenBlob){
+        var blob = new Blob(['\ufeff', tableHTML], {
+            type: dataType
+        });
+        navigator.msSaveOrOpenBlob( blob, filename);
+    }else{
+        // Create a link to the file
+        downloadLink.href = 'data:' + dataType + ', ' + tableHTML;
+    
+        // Setting the file name
+        downloadLink.download = filename;
+        
+        //triggering the function
+        downloadLink.click();
+    }
+  }
   
   
   
