@@ -9,9 +9,13 @@ module.exports = {
         let linkSentToMail = false;
         let googleRegistrationMessage = false;
         let googleAlreadyRegisteredMessage = false;
+        let forgottenPassNotif = false;
         if(req.query.pc==1){
             passNotfic = true;
-          }
+        }
+        if(req.query.fpe==1){
+          forgottenPassNotif = true;
+        }
         if(req.query.pi==1){
             profileInfoNotific = true;
         }
@@ -54,7 +58,8 @@ module.exports = {
                   'pi': profileInfoNotific,
                   'reg': linkSentToMail,
                   'GRM': googleRegistrationMessage,
-                  'GARM': googleAlreadyRegisteredMessage
+                  'GARM': googleAlreadyRegisteredMessage,
+                  'fpe': forgottenPassNotif
               }
           });
         }else{

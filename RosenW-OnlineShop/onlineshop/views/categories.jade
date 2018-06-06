@@ -104,6 +104,8 @@ html(lang='en')
         strong A mail with your password has been sent, please change it as soon as possible
       div.alert.alert-danger.pull-right.my-alert(id='GARM-alert' style='width:40%; height:24px; display:none; padding: 5px;')
         strong Already registered with this email
+      div.alert.alert-success.pull-right.my-alert(id='fpe-alert' style='width:40%; height:24px; display:none; padding: 5px;')
+        strong A link to change your password has been sent to your email 
 
     // Placed at the end of the document so the pages load faster
     script(src='assets/js/jquery.js')
@@ -163,5 +165,13 @@ if data.GARM
     $(document).ready(function(){ 
       let alert = $('#GARM-alert'); 
       alert.show();
-      setTimeout(() => {alert.hide();}, 2000);
+      setTimeout(() => {alert.hide();}, 3000);
+    });
+  
+if data.fpe
+  script.
+    $(document).ready(function(){ 
+      let alert = $('#fpe-alert'); 
+      alert.show();
+      setTimeout(() => {alert.hide();}, 3000);
     });

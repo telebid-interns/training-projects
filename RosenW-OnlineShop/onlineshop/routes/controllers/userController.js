@@ -466,6 +466,8 @@ module.exports = {
             console.log('Message sent: ' + info.response);
         });
         res.redirect(303, '/?fpe=1');
+      }else{
+        failForgottenEmail(req, res, 1);
       }
     },
     postFPassCode: async function(req, res, next) {
@@ -548,6 +550,7 @@ async function failRegister(req, res, code, info) {
         }
     });
 }
+
 
 async function failLogin(req, res, code) {
     let cats = await client.query("select * from categories");
