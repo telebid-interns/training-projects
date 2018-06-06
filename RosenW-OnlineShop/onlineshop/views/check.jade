@@ -14,8 +14,7 @@ html
       }
       .center {
         margin: auto;
-        width: 80%;
-        padding: 10px;
+        width: 100%;
       }
       .col-25 {
           float: left;
@@ -125,7 +124,7 @@ div.center
           a(href=
             "/check?state=#{data.state}&groupby=#{data.groupby}&sort=10&from=#{data.from}&to=#{data.to}&word=#{data.word}")  Total
       th
-    each item in data.purchases
+    each item, index in data.purchases
         tr
           td(style="text-align:center")  #{item.date}
           if item.first_name != undefined
@@ -134,11 +133,37 @@ div.center
             td(style="text-align:left")
           td(style="text-align:left")  #{item.address}
           td(style="text-align:center")  #{item.state}
-          td(style="text-align:right")  $#{item.tot}
+          td(id="tot-#{index}" style="text-align:right")  $#{item.tot}
           td(style="text-align:center") 
               button(onclick="location.href = '/check/#{item.id}';") see
+    tr
+      td(style="text-align:center")  Total
+      td
+      td
+      td
+      td#sum(style="text-align:right")
+      td
   
 script.
   //make link with black bg
   $('#nav-pur').addClass('page');
   $('#submenu-all').addClass('page');
+  
+  let total = 0;
+  $('[id^="tot-"]').each(function(){
+    total += Number($(this).text().substr(2,));
+  });  
+  $('#sum').text('$' + addTrailingZeros(total));
+  
+  function addTrailingZeros(number) {
+    return parseFloat(Math.round(number * 100) / 100).toFixed(2);
+  }
+  
+  
+  
+  
+  
+  
+  
+  
+  

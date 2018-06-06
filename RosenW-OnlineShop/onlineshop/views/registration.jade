@@ -30,45 +30,43 @@ html(lang='en')
       //
         Body Section
       .row
-        .span12
-          .row
-            .span4
-            .span5
-              .well
-                form.form(method='post')
-                  label First Name*
-                  input#fname(type='text' name='fname' onkeyup='checkFName()' placeholder='Length must be between 3 and 20, only letters' value='#{data.info.fName}')
-                  label Last Name*
-                  input#lname(type='text', name='lname' onkeyup='checkLName()' placeholder='Length must be between 3 and 20, only letters' value='#{data.info.lName}')
-                  label Address
-                  input#address(type='text', name='address' placeholder='Your address'  value='#{data.info.address}')
-                  label Country Code
-                  include ./phones.jade
-                  label Phone Number
-                  input(id='phone-num' type='text', name='phone' placeholder='Your phone number' onkeypress="return isNumberKey(event)"  value='#{data.info.phone}' maxlength="15")
-                  label Email*
-                  input#email(type='text', name='email' placeholder='Valid Email'  value='#{data.info.email}')
-                  label Password*
-                  input#password(type='password', name='password' onkeyup='checkPasswords()' placeholder='Length must be more than 6 symbols' value='#{data.info.pass}')
-                  label Confirm Password*
-                  input#cpassword(type='password', name='cpassword'  onkeyup='checkRPassword()' placeholder='Passwords must match' value='#{data.info.cpass}')
-                  div(class="g-recaptcha" data-sitekey="6LdF9FQUAAAAAO7KK6yzeKXmWB9vfvJUPhSg4YoT")
-                  if data.f == 1
-                    label(style='color:red') Password must be longer than 6 symbols
-                  if data.f == 2
-                    label(style='color:red') First and Last name must be between 3 to 20 letters
-                  if data.f == 3
-                    label(style='color:red') Please complete the captcha
-                  if data.f == 4
-                    label(style='color:red') Passwords don't match
-                  if data.f == 5
-                    label(style='color:red') Invalid Email
-                  if data.f == 6
-                    label(style='color:red') A user with this Email exists
-                  input#register(type='submit', name='regBtn', value='Register')
-                  br
-                  br
-                  a(href="#{data.url}") Register With Google !
+        .span4
+        .span5
+          .well
+            form.form(method='post')
+              label First Name*
+              input#fname(type='text' name='fname' onkeyup='checkFName()' placeholder='Length must be between 3 and 20, only letters' value='#{data.info.fName}')
+              label Last Name*
+              input#lname(type='text', name='lname' onkeyup='checkLName()' placeholder='Length must be between 3 and 20, only letters' value='#{data.info.lName}')
+              label Address
+              input#address(type='text', name='address' placeholder='Your address'  value='#{data.info.address}')
+              label Country Code
+              include ./phones.jade
+              label Phone Number
+              input(id='phone-num' type='text', name='phone' placeholder='Your phone number' onkeypress="return isNumberKey(event)"  value='#{data.info.phone}' maxlength="15")
+              label Email*
+              input#email(type='text', name='email' placeholder='Valid Email'  value='#{data.info.email}')
+              label Password*
+              input#password(type='password', name='password' onkeyup='checkPasswords()' placeholder='Length must be more than 6 symbols' value='#{data.info.pass}')
+              label Confirm Password*
+              input#cpassword(type='password', name='cpassword'  onkeyup='checkRPassword()' placeholder='Passwords must match' value='#{data.info.cpass}')
+              div(class="g-recaptcha" data-sitekey="6LdF9FQUAAAAAO7KK6yzeKXmWB9vfvJUPhSg4YoT")
+              if data.f == 1
+                label(style='color:red') Password must be longer than 6 symbols
+              if data.f == 2
+                label(style='color:red') First and Last name must be between 3 to 20 letters
+              if data.f == 3
+                label(style='color:red') Please complete the captcha
+              if data.f == 4
+                label(style='color:red') Passwords don't match
+              if data.f == 5
+                label(style='color:red') Invalid Email
+              if data.f == 6
+                label(style='color:red') A user with this Email exists
+              input#register(type='submit', name='regBtn', value='Register')
+              br
+              br
+              a(href="#{data.url}") Register With Google !
 
     // Placed at the end of the document so the pages load faster
     script(src='assets/js/jquery.js')
