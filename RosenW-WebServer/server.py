@@ -1,5 +1,7 @@
 import socket
 import codecs
+import datetime
+import os
 
 class Server:
     address_family = socket.AF_INET
@@ -24,6 +26,13 @@ class Server:
     def handle_request(self):
         #receive request data
         self.request = request = self.client_connection.recv(1024)
+
+        file = open("./logs/logs.txt","a+")
+        file.write(str(datetime.datetime.now()) + "\n")
+        # TODO: file.write(os.environ['REMOTE_USER']) 
+        file.write(request)
+        file.close()
+
         # Print formatted request data a la 'curl -v'
         print(''.join(
             '< {line}\n'.format(line=line)
@@ -86,16 +95,13 @@ class Server:
         return "HTTP/1.1 200 OK\n\n" + htmlf.read()
 
     def get_sum(self):
-        print 'in get sum'
         return self.get_page('sum')
 
     def get_file(self):
-        print 'IN GET FILE'
         return self.get_page('file')
 
     def post_file(self):
         print self.request
-        print 'BEFORE GET FILE'
         return self.get_file()
 
 if __name__ == '__main__':
