@@ -10,6 +10,7 @@ class Server:
     address_family = socket.AF_INET
     socket_type = socket.SOCK_STREAM
     request_queue_size = 1
+    forked = False
 
     def __init__(self, server_address):
         self.listen_socket = listen_socket = socket.socket(self.address_family, self.socket_type)
@@ -21,6 +22,11 @@ class Server:
         print 'Server Started'
         listen_socket = self.listen_socket
         while True:
+            if self.forked == False: # forking server once
+                self.forked = True
+                print "FORKING"
+                pid = os.fork()
+
             try:
                 # New client connection
                 self.client_connection, self.client_address = listen_socket.accept()
@@ -120,10 +126,13 @@ class Server:
             result += int(pkv[1])
         return "HTTP/1.1 200 OK\n\n" + str(result)
 
-    def get_file(self):
+    def get_file(self, uploaded=False):
         try:
             htmlf=codecs.open("./views/file.html", 'r', 'utf-8')
-            return "HTTP/1.1 200 OK\n\n" + htmlf.read()
+            returnStr = "HTTP/1.1 200 OK\n\n" + htmlf.read()
+            if uploaded:
+                returnStr += ' <p>File Uploaded</p>'
+            return returnStr
         except:
             return "HTTP/1.1 404 NOT FOUND\n\n"
 
@@ -152,9 +161,9 @@ class Server:
 
         print 'end'
         print self.request
-        return self.get_file()
+        return self.get_file(True)
 
-    def recv_timeout(self, the_socket, timeout=0.001):
+    def recv_timeout(self, the_socket, timeout=0.01):
         #make socket non blocking
         the_socket.setblocking(0)
 
