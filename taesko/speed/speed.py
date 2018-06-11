@@ -167,18 +167,12 @@ def main():
         'C': [Connection('C', 'A', 50), Connection('C', 'B', 70), Connection('C', 'A', 10)],
         'D': [Connection('D', 'B', 40)]
     }
-    sample_input = """7 10
-1 3 2
-4 2 8
-1 2 11
-1 4 3
-1 3 6
-5 3 5
-3 6 9
-7 6 6
-5 6 3
-2 5 7"""
+    sample_input = open('sample_1.input', mode='r').read()
+    sample_input_2 = open('sample_2.input', mode='r').read()
+    large_input = open('large.input', mode='r').read()
     test_input(sample_input, (3, 7))
+    print(best_solution(find_solutions(parse_input(sample_input_2))))
+    print(best_solution(find_solutions(parse_input(large_input))))
 
 
 if __name__ == '__main__':
