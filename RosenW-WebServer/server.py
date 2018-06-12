@@ -5,37 +5,45 @@ import datetime
 import os
 import time
 import re
+import sys
+from threading import Thread
+
+
+# import sys
+# firstarg=sys.argv[1]
+# secondarg=sys.argv[2]
+# thirdarg=sys.argv[3]
 
 class Server:
-    address_family = socket.AF_INET
+    address_family = socket.AF_INET #IPv4 addresses
     socket_type = socket.SOCK_STREAM
     request_queue_size = 1
     forked = False
 
     def __init__(self, server_address):
         self.listen_socket = listen_socket = socket.socket(self.address_family, self.socket_type)
-        self.listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #level, optname, value
         listen_socket.bind(server_address)
         listen_socket.listen(self.request_queue_size)
+        print 'Server Started'
 
     def start(self):
-        print 'Server Started'
         listen_socket = self.listen_socket
         while True:
-            if self.forked == False: # (pre)forking server once
+            if self.forked == False: # (pre)forking server
                 self.forked = True
-                print "FORKING 2 time(s)"
+                # forking 4 times
                 pid = os.fork()
-                pid = os.fork()
-                # if pid != 0:
-                #     print 'tuk'
-                #     second_pid = os.fork()
-                print 'asd'
+                if pid != 0:
+                    os.fork()
+                    os.fork()
+                # print 'asd'
             try:
                 # New client connection
                 self.client_connection, self.client_address = listen_socket.accept()
                 # Handle one request and close the client connection. Then
                 # loop over to wait for another client connection
+
                 self.handle_request()
             except Exception as e:
                 # self.client_connection.sendall("HTTP/1.1 500 INTERNAL SERVER ERROR\n\n")
@@ -235,3 +243,12 @@ class Server:
 if __name__ == '__main__':
     server = Server(('', 8888))
     server.start()
+
+    # thread = Thread(target = server.start, args=[])
+    # thread2 = Thread(target = server.start, args=[])
+    # thread2 = Thread(target = server.start, args=[])
+    #
+    # thread.start()
+    # thread2.start()
+    # thread.join()
+    # thread2.join()
