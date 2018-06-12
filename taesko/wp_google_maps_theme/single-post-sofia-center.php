@@ -10,7 +10,7 @@
  * @version 1.0
  */
 
-get_header(); ?>
+?>
 
 <?php
 function echo_from_txt() {
@@ -36,21 +36,30 @@ function echo_dm_cls() {
     echo "\"";
 }
 ?>
-<style>
-    #map {
-    height: 500px;
-    width: 100%;
-} 
-</style>
-<div class="wrap">
-    <div id="primary" class="content-area">
-        <main id="main" class="site-main" role="main">
-            <div id="map" <?php echo_dm_cls() ?> ></div>
-        </main><!-- #main -->
-    </div><!-- #primary -->
-    <?php get_sidebar(); ?>
-</div><!-- .wrap -->
-<script type="text/javascript" src="https://developers.google.com/maps/documentation/javascript/examples/markerclusterer/markerclusterer.js"></script>
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDe8Gok8E-1JFGtCRm24aZBnbFstkP3fyA&callback=initMap"></script>
-<script type="text/javascript">google_map()</script>
-<?php get_footer();
+<html <?php language_attributes(); ?> class="no-js no-svg">
+    <head>
+        <meta charset="<?php bloginfo( 'charset' ); ?>">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="profile" href="http://gmpg.org/xfn/11">
+
+        <?php wp_head(); ?>
+        <style>
+            html, body, #page, .site-content-contain, #content {
+            height: 100%;
+            width: 100%;
+            padding: 0;
+            margin: 1em, 0, 0, 0;
+        }
+            #map {
+            height: 100%;
+            width: 100%;
+        } 
+        </style>
+    </head>
+    <body>
+        <div id="map" <?php echo_dm_cls() ?> ></div>
+    </body>
+    <script type="text/javascript" src="https://developers.google.com/maps/documentation/javascript/examples/markerclusterer/markerclusterer.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDe8Gok8E-1JFGtCRm24aZBnbFstkP3fyA&callback=initMap"></script>
+    <script type="text/javascript">google_map()</script>
+</html>
