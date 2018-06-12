@@ -4,6 +4,7 @@
   "description": "",
   "main": "insert_locations.js",
   "scripts": {
+    "insert_locations": "WP_HOST=localhost WP_USER=wordpress WP_DB=wordpress CDO_TOKEN=BfEDFBhTwQyCcQbIemizDmdEQukkhKJr node insert_locations.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

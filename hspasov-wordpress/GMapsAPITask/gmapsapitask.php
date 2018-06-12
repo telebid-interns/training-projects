@@ -2,6 +2,7 @@
 /**
 *Plugin Name: Google maps API task
 **/
+  global $wpdb;
   $locations = $wpdb->get_results('SELECT address, lat, lng FROM locations;');
 
   function gmaps_api_task()

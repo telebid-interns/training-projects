@@ -67,9 +67,9 @@ read({
             // but table 'wp_wpgmza' has 10 other columns with NOT NULL constraint
             // so setting empty strings as values
             return connection.query(`INSERT INTO locations
-                (address, lat, lng)
+                (address, elevation, elevation_unit, data_coverage, min_date, max_date, lat, lng)
             VALUES ?;`,
-                [parsed.results.map(r => [r.name, r.latitude.toString(), r.longitude.toString()])]
+                [parsed.results.map(r => [r.name, r.elevation, r.elevationUnit, r.datacoverage, r.mindate, r.maxdate, r.latitude, r.longitude])]
             );
         }).then(() => {
             if (offset + limit < targetCount) {
