@@ -1,5 +1,6 @@
 import collections
-
+import functools
+import itertools
 
 _Connection = collections.namedtuple('Connection', ['city_a', 'city_b', 'weight'])
 
@@ -57,46 +58,72 @@ def backtrack(path, last_city, next_city):
     return new_path, new_path[-1].other_city(last_city), last_city
 
 
+class DepthFirstIterator:
+    def __init__(self, graph, start, excluding_cities=None):
+        self.graph = graph
+        self.start = start
+        self.excluding = excluding_cities if excluding_cities else set()
+        self.path_stack = [(start, list(self.walkable_edges(start)))]
+        self.passed_cities = set()
+        self.current_path = ()
+
+    @property
+    def current_city(self):
+        return self.path_stack[-1][0]
+
+    @property
+    def next_edges(self):
+        return self.path_stack[-1][1]
+
+    def walkable_edges(self, node):
+        for edge in self.graph[node]:
+            if edge.other_city(node) not in self.excluding:
+                yield edge
+
+    def __next__(self):
+        if not self.path_stack:
+            raise StopIteration()
+        while not self.can_advance():
+            self.backtrack()
+            if not self.path_stack:
+                raise StopIteration()
+        return self.advance()
+
+    def __iter__(self):
+        return self
+
+    def can_advance(self):
+        has_edges = bool(self.next_edges)
+        is_circular = self.current_city in self.passed_cities
+        return has_edges and not is_circular
+
+    def advance(self):
+        assert self.can_advance()
+        edge = self.next_edges.pop()
+        city = edge.other_city(self.current_city)
+        self.passed_cities.add(self.current_city)
+        frame = (city, list(self.walkable_edges(city)))
+        self.path_stack.append(frame)
+        self.current_path += (edge, )
+        return self.current_path
+
+    def backtrack(self):
+        assert not self.path_stack or self.current_city in self.passed_cities or not self.next_edges
+        self.path_stack.pop()
+        if self.passed_cities:
+            self.passed_cities.remove(self.current_city)
+        self.current_path = self.current_path[:-1]
+
+
 def all_paths_from(city_dict, city_a):
-    paths = []
-    for connection in city_dict[city_a]:
-        path_stacks = {}
-        passed_cities = [city_a] # cities we've passed don't include the tip of the last connection
-        current_path = (connection, )
-        paths.append(current_path)
-        last_city = city_a
-        current_city = current_path[-1].other_city(last_city)
-        while current_path:
-            if current_path not in path_stacks:
-                tracks = [conn for conn in city_dict[current_city] if conn not in current_path[-1]]
-                path_stacks[current_path] = tracks
-            try:
-                next_conn = path_stacks[current_path].pop(0)
-            except IndexError:
-                # no more nodes - backtrack
-                passed_cities.pop(-1)
-                if len(current_path) > 1:
-                    current_path, last_city, current_city = backtrack(current_path, last_city, current_city)
-                else:
-                    current_path = current_path[:-1]
-                continue
-            # don't enter a cycle in cyclic graphs
-            if next_conn.other_city(current_city) in passed_cities:
-                continue
-            current_path += (next_conn, )
-            paths.append(current_path)
-            passed_cities.append(current_city)
-            last_city, current_city = current_city, current_path[-1].other_city(current_city)
-    return paths
+    yield from DepthFirstIterator(city_dict, city_a)
 
 
 def all_paths(city_dict):
-    paths = [path for city in city_dict for path in all_paths_from(city_dict, city)]
-    filtered = []
-    for p in paths:
-        if p not in filtered and tuple(reversed(p)) not in filtered:
-            filtered.append(p)
-    return filtered
+    exclucions = itertools.accumulate(itertools.chain([[None]], city_dict.keys()),
+                                      lambda lst, city: lst + [city])
+    for city, excluded in zip(city_dict, exclucions):
+        yield from DepthFirstIterator(city_dict, city, excluding_cities=set(excluded))
 
 
 def has_path_between(paths, city_a, city_b):
@@ -167,12 +194,14 @@ def main():
         'C': [Connection('C', 'A', 50), Connection('C', 'B', 70), Connection('C', 'A', 10)],
         'D': [Connection('D', 'B', 40)]
     }
-    sample_input = open('sample_1.input', mode='r').read()
-    sample_input_2 = open('sample_2.input', mode='r').read()
-    large_input = open('large.input', mode='r').read()
-    test_input(sample_input, (3, 7))
-    print(best_solution(find_solutions(parse_input(sample_input_2))))
-    print(best_solution(find_solutions(parse_input(large_input))))
+    for path in all_paths(city_dict_1):
+        print(path)
+    # sample_input = open('sample_1.input', mode='r').read()
+    # sample_input_2 = open('sample_2.input', mode='r').read()
+    # large_input = open('large.input', mode='r').read()
+    # test_input(sample_input, (3, 7))
+    # print(best_solution(find_solutions(parse_input(sample_input_2))))
+    # print(best_solution(find_solutions(parse_input(large_input))))
 
 
 if __name__ == '__main__':
