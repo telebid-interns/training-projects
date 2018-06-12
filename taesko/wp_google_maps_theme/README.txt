@@ -3,5 +3,8 @@ A single post template "single-post-sofia-center.php" querries the database and
 injects into the map canvas as data-markers attribute the coordinates for
 markers. The js/google-map.js script renders the map and the markers.
 
-"single-post-sofia-center.php" can also import markers into the database from
-the bg_locations.txt file when a hard coded $import_markers flag is raised.
+The bin/import_markers.php script import markers to the database from a single
+file argument. The file's format must be akin to bg_locations.txt :
+"{asciiname}, {latitude}, {longtitude}\n"
+This script loads the core wordpress functionality in order to access the
+database and must be run with root permissions.
