@@ -22,11 +22,15 @@ class Server:
         print 'Server Started'
         listen_socket = self.listen_socket
         while True:
-            if self.forked == False: # forking server once
+            if self.forked == False: # (pre)forking server once
                 self.forked = True
-                print "FORKING"
+                print "FORKING 2 time(s)"
                 pid = os.fork()
-
+                pid = os.fork()
+                # if pid != 0:
+                #     print 'tuk'
+                #     second_pid = os.fork()
+                print 'asd'
             try:
                 # New client connection
                 self.client_connection, self.client_address = listen_socket.accept()
@@ -124,15 +128,45 @@ class Server:
         result = 0
         for pkv in self.param_values:
             result += int(pkv[1])
-        return "HTTP/1.1 200 OK\n\n" + str(result)
+        return  """HTTP/1.1 200 OK
 
-    def get_file(self, uploaded=False):
+                <html>
+                    <head>
+                    </head>
+                    <body>
+                      <a href="/file"> Go to file </a>
+                      </br>
+                      <input id='result' type="text" value="{0}" disabled>
+                    </body>
+                </html>
+                """.format(result)
+
+    def get_file(self):
+        files = os.listdir('./received-files')
+        filesAsParagraphs = ''
+        for file in files:
+            filesAsParagraphs += '<p>'+file+'</p>\n'
         try:
             htmlf=codecs.open("./views/file.html", 'r', 'utf-8')
-            returnStr = "HTTP/1.1 200 OK\n\n" + htmlf.read()
-            if uploaded:
-                returnStr += ' <p>File Uploaded</p>'
-            return returnStr
+            returnStr = """HTTP/1.1 200 OK
+
+                        <html>
+                            <head>
+                            </head>
+                            <body>
+                              <a href="/sum"> Go to sum </a>
+                              </br>
+                              <form method="post" enctype="multipart/form-data">
+                                <input type='file' name='file'>
+                                <input type='submit'>
+                              </form>
+                              <p>Uploaded Files: </p>
+                              <ul>
+                              {0}
+                              </ul>
+                            </body>
+                        </html>"""
+            return returnStr.format(filesAsParagraphs)
         except:
             return "HTTP/1.1 404 NOT FOUND\n\n"
 
@@ -161,7 +195,7 @@ class Server:
 
         print 'end'
         print self.request
-        return self.get_file(True)
+        return self.get_file()
 
     def recv_timeout(self, the_socket, timeout=0.01):
         #make socket non blocking
