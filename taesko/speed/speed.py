@@ -1,5 +1,4 @@
 import collections
-import functools
 import itertools
 
 _Connection = collections.namedtuple('Connection', ['city_a', 'city_b', 'weight'])
@@ -53,16 +52,10 @@ class Connection(_Connection):
         return self.weight == other.weight and self.city_a in other and self.city_b in other
 
 
-def backtrack(path, last_city, next_city):
-    new_path = path[:-1]
-    return new_path, new_path[-1].other_city(last_city), last_city
-
-
 class DepthFirstIterator:
-    def __init__(self, graph, start, excluding_cities=None):
+    def __init__(self, graph, start):
         self.graph = graph
         self.start = start
-        self.excluding = excluding_cities if excluding_cities else set()
         self.path_stack = [(start, list(self.walkable_edges(start)))]
         self.passed_cities = set()
         self.current_path = ()
@@ -77,8 +70,7 @@ class DepthFirstIterator:
 
     def walkable_edges(self, node):
         for edge in self.graph[node]:
-            if edge.other_city(node) not in self.excluding:
-                yield edge
+            yield edge
 
     def __next__(self):
         if not self.path_stack:
@@ -104,7 +96,7 @@ class DepthFirstIterator:
         self.passed_cities.add(self.current_city)
         frame = (city, list(self.walkable_edges(city)))
         self.path_stack.append(frame)
-        self.current_path += (edge, )
+        self.current_path += (edge,)
         return self.current_path
 
     def backtrack(self):
@@ -115,6 +107,55 @@ class DepthFirstIterator:
         self.current_path = self.current_path[:-1]
 
 
+# class SolutionFinder:
+#     def __init__(self, city_dict):
+#         self.city_dict = city_dict
+#         speed_list = sorted(set(conn.weight for connections in city_dict.values() for conn in connections))
+#         speed_twins = itertools.product(itertools.islice(speed_list, 0, len(speed_list) - 1),
+#                                         itertools.islice(speed_list, 1, len(speed_list) - 2))
+#         speed_twins = (twin for twin in speed_twins if twin[1] - twin[0] >= 0)
+#         speed_twins = sorted(speed_twins, key=lambda value: value[1] - value[0])
+#         self.speed_twins = speed_twins
+#         self.paths_iterable = all_paths(self.city_dict)
+#         connections = self.minimum_connections(self.city_dict)
+#         self.solution_map = {st: copy.deepcopy(connections) for st in self.speed_twins}
+#
+#     @staticmethod
+#     def minimum_connections(city_dict):
+#         dct = collections.defaultdict(set)
+#         for city_a, connections in city_dict.items():
+#             for city_b in (conn.other_city(city_a) for conn in connections):
+#                 if city_b not in dct:
+#                     dct[city_a].add(city_b)
+#         return dct
+#
+#     def search(self):
+#         for path in self.paths_iterable:
+#             speed_range = self.speed_range_for_path(path)
+#             cities = sorted(self.cities_on_path(path))
+#             for speeds, solution_state in self.solution_map.items():
+#                 if speeds[0] in speed_range and speeds[1] in speed_range:
+#                     self.cities_are_connected_at_speed(speeds, cities)
+#
+#     def cities_are_connected_at_speed(self, speeds, cities):
+#         for city in cities[1:]:
+#             for other_city in cities[:-1]:
+#                 self.solution_map[speeds][city].discard(other_city)
+#             if not self.solution_map[speeds][city]:
+#                 del self.solution_map[speeds][city]
+#
+#     @staticmethod
+#     def cities_on_path(path):
+#         for connection in path:
+#             yield connection.city_a
+#             yield connection.city_b
+#
+#     @staticmethod
+#     def speed_range_for_path(path):
+#         weights = (conn.weight for conn in path)
+#         return range(min(weights), max(weights))
+
+
 def all_paths_from(city_dict, city_a):
     yield from DepthFirstIterator(city_dict, city_a)
 
@@ -123,46 +164,49 @@ def all_paths(city_dict):
     exclucions = itertools.accumulate(itertools.chain([[None]], city_dict.keys()),
                                       lambda lst, city: lst + [city])
     for city, excluded in zip(city_dict, exclucions):
-        yield from DepthFirstIterator(city_dict, city, excluding_cities=set(excluded))
+        yield from DepthFirstIterator(city_dict, city)
 
 
-def has_path_between(paths, city_a, city_b):
-    for p in paths:
-        a_found = False
-        b_found = False
-        for conn in p:
-            a_found = True if city_a in conn else a_found
-            b_found = True if city_b in conn else b_found
-            if a_found and b_found:
-                return True
-    return False
+def cities_on_path(path):
+    for connection in path:
+        yield connection.city_a
+        yield connection.city_b
 
 
-def is_solution(base_connections, paths, minimal, maximum):
-    cut_connections = [conn for connections in base_connections.values() for conn in connections
+def is_solution(needed_connections, paths, minimal, maximum):
+    cut_connections = [conn for connections in needed_connections.values() for conn in connections
                        if not minimal <= conn.weight <= maximum]
     for cut in cut_connections:
         paths = [p for p in paths if cut not in p]
-    for city, connections in base_connections.items():
-        for conn in connections:
-            if not has_path_between(paths, conn.city_a, conn.city_b):
+    needed_connections = {city_a: set(conn.other_city(city_a) for conn in connections)
+                          for city_a, connections in needed_connections.items()}
+    reached_cities = collections.defaultdict(set)
+    for path in paths:
+        on_path = tuple(cities_on_path(path))
+        for city_a in itertools.islice(on_path, 0, len(on_path) - 1):
+            for city_b in itertools.islice(on_path, 1, len(on_path)):
+                reached_cities[city_a].add(city_b)
+    for city_a, other in needed_connections.items():
+        for city_b in other:
+            if city_b not in reached_cities[city_a]:
                 return False
     return True
 
 
 def find_solutions(city_dict):
-    all_connections = all_paths(city_dict)
+    all_connections = list(all_paths(city_dict))
     speed_list = sorted(set(conn.weight for connections in city_dict.values() for conn in connections))
-    solutions = []
-    for a in speed_list[:-1]:
-        for b in speed_list[1:]:
-            if is_solution(city_dict, all_connections, a, b):
-                solutions.append((a, b))
-    return solutions
+    speed_twins = itertools.product(itertools.islice(speed_list, 0, len(speed_list) - 1),
+                                    itertools.islice(speed_list, 1, len(speed_list) - 2))
+    speed_twins = (twin for twin in speed_twins if twin[1] - twin[0] >= 0)
+    speed_twins = sorted(speed_twins, key=lambda value: value[1] - value[0])
+    for a, b in speed_twins:
+        if is_solution(city_dict, all_connections, a, b):
+            yield a, b
 
 
 def best_solution(solutions):
-    return min(sorted(solutions), key=lambda sol: int(sol[1]) - int(sol[0]))
+    return next(solutions)
 
 
 def parse_input(string):
@@ -187,6 +231,15 @@ def test_input(string, expected):
     print("Passed.")
 
 
+def debug(sample_input, expected):
+    city_dict = parse_input(sample_input)
+    paths = list(all_paths(city_dict))
+    print(expected, "is solution", is_solution(city_dict, paths, *expected))
+    solutions = find_solutions(city_dict)
+    print("all solutions:", solutions)
+    print("best solution:", best_solution(solutions))
+
+
 def main():
     city_dict_1 = {
         'A': [Connection('A', 'C', 50), Connection('A', 'B', 90), Connection('A', 'C', 10)],
@@ -194,16 +247,12 @@ def main():
         'C': [Connection('C', 'A', 50), Connection('C', 'B', 70), Connection('C', 'A', 10)],
         'D': [Connection('D', 'B', 40)]
     }
-    for path in all_paths(city_dict_1):
-        print(path)
-    # sample_input = open('sample_1.input', mode='r').read()
-    # sample_input_2 = open('sample_2.input', mode='r').read()
-    # large_input = open('large.input', mode='r').read()
-    # test_input(sample_input, (3, 7))
-    # print(best_solution(find_solutions(parse_input(sample_input_2))))
-    # print(best_solution(find_solutions(parse_input(large_input))))
+    # debug(sample_input, (3, 7))
+    test_input(open('sample_1.input', mode='r').read(), (3, 7))
+    test_input(open('sample_2.input', mode='r').read(), (5, 19))
+    # print(list(all_paths(parse_input(open('large.input', mode='r').read()))))
+    # print(best_solution(find_solutions(parse_input(open('large.input', mode='r').read()))))
 
 
 if __name__ == '__main__':
     main()
-
