@@ -7,6 +7,7 @@ import time
 import re
 import sys
 from threading import Thread
+import sys
 
 
 # import sys
@@ -18,33 +19,37 @@ class Server:
     address_family = socket.AF_INET #IPv4 addresses
     socket_type = socket.SOCK_STREAM
     request_queue_size = 1
-    forked = False
+    # forked = False
 
     def __init__(self, server_address):
+        print 'asd'
         self.listen_socket = listen_socket = socket.socket(self.address_family, self.socket_type)
         self.listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #level, optname, value
         listen_socket.bind(server_address)
         listen_socket.listen(self.request_queue_size)
-        print 'Server Started'
+        print 'Server started on port %s' % server_address[1]
 
     def start(self):
         listen_socket = self.listen_socket
         while True:
-            if self.forked == False: # (pre)forking server
-                self.forked = True
-                # forking 4 times
-                pid = os.fork()
-                if pid != 0:
-                    os.fork()
-                    os.fork()
+            # if self.forked == False: # (pre)forking server
+            #     self.forked = True
+            #     # forking 4 times
+            #     pid = os.fork()
+            #     if pid != 0:
+            #         os.fork()
+            #         os.fork()
                 # print 'asd'
             try:
                 # New client connection
                 self.client_connection, self.client_address = listen_socket.accept()
                 # Handle one request and close the client connection. Then
                 # loop over to wait for another client connection
+                pid = os.fork()
+                if pid == 0:
+                    self.handle_request()
+                    break
 
-                self.handle_request()
             except Exception as e:
                 # self.client_connection.sendall("HTTP/1.1 500 INTERNAL SERVER ERROR\n\n")
                 print e
@@ -241,7 +246,11 @@ class Server:
         return ''.join(total_data)
 
 if __name__ == '__main__':
-    server = Server(('', 8888))
+    port = 8888
+    args = sys.argv
+    if len(args) == 2:
+        port = int(args[1])
+    server = Server(('', port))
     server.start()
 
     # thread = Thread(target = server.start, args=[])
