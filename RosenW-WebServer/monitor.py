@@ -58,7 +58,7 @@ def getTotalRequestsForToday():
     return requests
 
 def getInfo():
-    report = ''
+    report = 'PC INFO: '
     report += 'TOTAL RAM: %s' % getRAMinfo()[0] + ' KB\n'
     report += 'USED RAM: %s' % getRAMinfo()[1] + ' KB\n'
     report += 'FREE RAM: %s' % getRAMinfo()[2] + ' KB\n'
@@ -70,6 +70,8 @@ def getInfo():
     report += 'FREE DISK SPACE: %s' % getDiskSpace()[2] + 'B\n'
 
     report += 'REQUESTS MADE TODAY: %s' % getTotalRequestsForToday()
+
+    report += 'SERVER INFO: '
     return report
 
 while True:

@@ -31,31 +31,16 @@ class Server:
     def start(self):
         listen_socket = self.listen_socket
         while True:
-
-            #RESPONSE EXAMPLE
-            # HTTP/1.1 101 Switching Protocols
-            # Upgrade: websocket
-            # Connection: Upgrade
-            # Sec-WebSocket-Accept: HSmrc0sMlYUkAGmm5OPpG2HaGWk=
-            # Sec-WebSocket-Protocol: chat
-
-            # if self.forked == False: # (pre)forking server
-            #     self.forked = True
-            #     # forking 4 times
-            #     pid = os.fork()
-            #     if pid != 0:
-            #         os.fork()
-            #         os.fork()
-                # print 'asd'
             try:
                 # New client connection
-                self.client_connection, self.client_address = listen_socket.accept()
+                client_connection, client_address = listen_socket.accept()
+                print self.client_connection
+                print self.client_address
+                print 'ACCEPT'
                 # Handle one request and close the client connection. Then
                 # loop over to wait for another client connection
-                pid = os.fork()
-                if pid == 0:
-                    self.handle_request()
-                    break
+                currentThread = Thread(target = self.handle_request, args=[client_connection, client_address]).start()
+                print currentThread
 
             except Exception as e:
                 # self.client_connection.sendall("HTTP/1.1 500 INTERNAL SERVER ERROR\n\n")
@@ -63,7 +48,7 @@ class Server:
             finally:
                 self.client_connection.close()
 
-    def handle_request(self):
+    def handle_request(self, client, address):
         #receive request data
         self.request = request = self.recv_timeout(self.client_connection)
         today = datetime.date.today()
@@ -259,3 +244,13 @@ if __name__ == '__main__':
         port = int(args[1])
     server = Server(('', port))
     server.start()
+
+
+    # thread = Thread(target = server.start, args=[])
+    # thread2 = Thread(target = server.start, args=[])
+    # thread2 = Thread(target = server.start, args=[])
+    #
+    # thread.start()
+    # thread2.start()
+    # thread.join()
+    # thread2.join()
