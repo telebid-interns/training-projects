@@ -136,8 +136,6 @@
         return;
       }
 
-      var fromDate, toDate;
-
       var elevation = parseInputFloatRange(fromElevationInput, toElevationInput);
       var dataCoverage = parseInputFloatRange(fromDataCoverageInput, toDataCoverageInput);
       var date = parseInputDateRange(fromDateInput, toDateInput);
