@@ -1,0 +1,131 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Detect changes to any HTML form in JavaScript</title>
+<link rel="stylesheet" type="text/css" media="all" href="styles.css" />
+</head>
+<body>
+
+<h1>Detect changes to any HTML form in JavaScript</h1>
+
+<p>This page demonstrates <a href="formchanges.js">FormChanges(<em>string FormID | DOMelement FormNode</em>)</a>, a generic, standalone JavaScript function which detects when the user has made any updates to a form. It returns an array of changed elements &ndash; an empty array indicates that no changes have been made. NULL is returned if the form does not exist.</p>
+
+<p>The code works in most browsers and has been tested in IE6, IE7, IE8, Firefox 3.6, Chrome 8, Safari 5 and Opera 11.</p>
+
+<form id="myform" action="index.html" method="post">
+<fieldset>
+
+	<legend>Your profile</legend>
+
+	<input type="hidden" id="unseen" name="unseen" value="This value is hidden" />
+	
+	<div>
+		<label for="name">name:</label>
+		<input type="text" id="name" name="name" value="Jonny Dough" />
+	</div>
+
+	<div>
+		<label for="email">email:</label>
+		<input type="email" id="email" name="email" value="jon@email.com" />
+	</div>
+
+	<div class="checkbox">
+		<input type="checkbox" id="optin" name="optin" checked="checked" />
+		<label for="optin">subscribe to newsletter</label>
+	</div>
+
+	<div class="checkbox">
+		<p>newsletter format:</p>
+
+		<input type="radio" id="format_0" name="format" value="clientside" checked="checked" />
+		<label for="format_0">HTML</label>
+
+		<input type="radio" id="format_1" name="format" value="serverside" />
+		<label for="format_1">Plain text</label>
+	</div>
+
+	<div>
+		<label for="job">job title:</label>
+		<select id="job" name="job">
+			<option>web designer</option>
+			<option selected="selected">web developer</option>
+			<option>graphic artist</option>
+			<option>IT professional</option>
+			<option>other</option>
+		</select>
+	</div>
+
+	<div>
+		<label for="skills">skills:</label>
+		<select id="skills" name="skills" multiple="multiple">
+			<option selected="selected">HTML</option>
+			<option selected="selected">CSS</option>
+			<option selected="selected">JavaScript</option>
+			<option selected="selected">PHP</option>
+			<option>ASP.NET</option>
+			<option>Ruby</option>
+			<option>Python</option>
+			<option selected="selected">MySQL</option>
+			<option>PostgreSQL</option>
+			<option>Firebird</option>
+			<option>SQL Server</option>
+			<option>Oracle</option>
+		</select>
+	</div>
+
+	<div>
+		<label for="comments">comments:</label>
+		<textarea id="comments" name="comments" rows="3" cols="40">I have nothing to say!</textarea>
+	</div>
+	
+	<div>
+		<button type="submit">Update Profile</button>
+	</div>
+
+</fieldset>
+</form>
+
+<p>Click this link to discover which elements have been changed: <a href="#" onclick="DetectChanges(); return false;"><strong>detect form changes&hellip;</strong></a></p>
+
+<p>A "not saved" warning is displayed if you update the form but leave the page: <a href="http://blogs.sitepoint.com/javascript-form-change-checker/">visit the article describing this code&hellip;</a></p>
+
+<p>For more information:</p>
+
+<ul>
+<li><a href="http://blogs.sitepointstatic.com/examples/tech/formchanges/formchanges.zip">Download this code</a></li>
+<li>read <a href="http://blogs.sitepoint.com/detect-html-form-changes/">How to Check That an HTML Form Has Been Changed</a></li>
+<li>read <a href="http://blogs.sitepoint.com/javascript-form-change-checker/">How to Write a Generic Form Update Detection Function in JavaScript</a></li>
+</ul>
+
+<h2>Disclaimer</h2>
+<p>The code was developed by <a href="http://twitter.com/craigbuckler">Craig Buckler</a> of <a href="http://optimalworks.net/">OptimalWorks.net</a> for <a href="http://sitepoint.com/">SitePoint.com</a>.</p>
+
+<p>This code can be used without any restrictions but please don't expect 24/7 support! A link back to SitePoint.com is appreciated.</p>
+
+<script src="formchanges.js"></script>
+<script>
+var saving = false;
+var form = document.getElementById("myform");
+
+// form being updated
+form.onsubmit = function() { saving = true; };
+
+// form not saved warning
+window.onunload = function() {
+	if (!saving) {
+		var f = FormChanges(form);
+		if (f.length > 0) alert("Your form updates have not be saved.");
+	}
+};
+
+// show changed messages
+function DetectChanges() {
+	var f = FormChanges(form), msg = "";
+	for (var e = 0, el = f.length; e < el; e++) msg += "\n    #" + f[e].id;
+	alert((msg ? "Elements changed:" : "No changes made.") + msg);
+}
+</script>
+
+</body>
+</html>
