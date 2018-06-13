@@ -30,9 +30,9 @@
         <div>
           <label>Data between:</label>
           <label for="from_date">From</label>
-          <input id="from_date" type="date" step="0.0001">
+          <input id="from_date" type="data" step="0.0001">
           <label for="to_date">To</label>
-          <input id="to_date" type="date" step="0.0001">
+          <input id="to_date" type="data" step="0.0001">
           <hr>
         </div>
         <div>
@@ -138,16 +138,49 @@
 
       var elevation = parseInputFloatRange(fromElevationInput, toElevationInput);
       var dataCoverage = parseInputFloatRange(fromDataCoverageInput, toDataCoverageInput);
-      var date = parseInputDateRange(fromDateInput, toDateInput);
+      var data = parseInputDateRange(fromDateInput, toDateInput);
       var lat = parseInputFloatRange(fromLatInput, toLatInput);
       var lng = parseInputFloatRange(fromLngInput, toLngInput);
 
       console.log(elevation);
       console.log(dataCoverage);
-      console.log(date);
+      console.log(data);
       console.log(lat);
       console.log(lng);
 
+      var xmlhttp = new XMLHttpRequest();
+      var a = '../../filter-locations.php?elevation_from=';
+      var b = elevation.from === null? '%00' :  encodeURIComponent(elevation.from);
+      
+      xmlhttp.open('GET', '../../filter-locations.php?elevation_from=' + (elevation.from === null? '%00' :  encodeURIComponent(elevation.from)) +
+        '&elevation_to=' + (elevation.to? encodeURIComponent(elevation.to) : '%00') +
+        '&data_coverage_from=' + (dataCoverage.from? encodeURIComponent(dataCoverage.from) : '%00') +
+        '&data_coverage_to=' + (dataCoverage.to? encodeURIComponent(dataCoverage.to) : '%00') +
+        '&data_from=' + (data.from? encodeURIComponent(data.from) : '%00') +
+        '&data_to=' + (data.to? encodeURIComponent(data.to) : '%00') +
+        '&lat_from=' + (lat.from? encodeURIComponent(lat.from) : '%00') +
+        '&lat_to=' + (lat.to? encodeURIComponent(lat.to) : '%00') +
+        '&lng_from=' + (lng.from? encodeURIComponent(lng.from) : '%00') +
+        '&lng_to=' + (lng.to? encodeURIComponent(lng.to) : '%00')
+      );
+      xmlhttp.onload = function(load) {
+        console.log('load finished. load:');
+        console.log(load);
+      }
+      xmlhttp.onreadystatechange = function() {
+        if (xmlhttp.readyState == XMLHttpRequest.DONE) {
+          console.log(xmlhttp.responseText);
+          console.log(xmlhttp);
+        }
+      }
+      xmlhttp.setRequestHeader('Content-Type', 'application/json');
+      xmlhttp.send(JSON.stringify({
+        elevation: elevation,
+        dataCoverage: dataCoverage,
+        data: data,
+        lat: lat,
+        lng: lng
+      }))
     }
 
     function resetFilter() {

@@ -1,6 +1,7 @@
 <?php
-  $str_json = file_get_contents('php://input');
-  $filter = json_decode($str_json, true); // 'true' parameter makes json_decode return an array
+  require('wp-load.php');
+
+  global $wpdb;
 
   $query = 'SELECT address, elevation, elevation_unit, data_coverage, min_date, max_date, lat, lng 
     FROM locations WHERE
@@ -10,20 +11,36 @@
     lat >= COALESCE(%f, lat) AND lat <= COALESCE(%f, lat) AND
     lng >= COALESCE(%f, lng) AND lng <= COALESCE(%f, lng);';
   
-  $filtered = $wpdb->get_results($wpdb->prepare(
-    $query, 
-    $filter['elevation']['from'],
-    $filter['elevation']['to'],
-    $filter['dataCoverage']['from'],
-    $filter['dataCoverage']['to'],
-    $filter['date']['from'],
-    $filter['date']['to'],
-    $filter['lat']['from'],
-    $filter['lat']['to'],
-    $filter['lng']['from'],
-    $filter['lng']['to']
-    )
+  $prepared = $wpdb->prepare(
+    $query,
+    $_GET['elevation_from'],
+    $_GET['elevation_to'],
+    $_GET['data_coverage_from'],
+    $_GET['data_coverage_to'],
+    $_GET['data_from'],
+    $_GET['data_to'],
+    $_GET['lat_from'],
+    $_GET['lat_to'],
+    $_GET['lng_from'],
+    $_GET['lng_to']
   );
-  header('Content-Type: application/json');
-  echo json_encode($filtered);
+
+  echo $prepared; 
+
+  // $filtered = $wpdb->get_results($wpdb->prepare(
+  //   $query, 
+  //   ['elevation_from'],
+  //   $_GET['elevation_to'],
+  //   $_GET['data_coverage_from'],
+  //   $_GET['data_coverage_to'],
+  //   $_GET['data_from'],
+  //   $_GET['data_to'],
+  //   $_GET['lat_from'],
+  //   $_GET['lat_to'],
+  //   $_GET['lng_from'],
+  //   $_GET['lng_to']
+  //   )
+  // );
+  // header('Content-Type: application/json');
+  // echo json_encode($filtered);
 ?>
