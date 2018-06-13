@@ -54,10 +54,8 @@
     );
   }
 
-  echo $prepared; 
-
   $filtered = $wpdb->get_results($prepared);
-  
+
   header('Content-Type: application/json');
   echo json_encode($filtered);
 ?>

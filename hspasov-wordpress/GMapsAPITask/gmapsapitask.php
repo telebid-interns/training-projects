@@ -63,6 +63,7 @@
   <script>
     <?php echo 'var locations = '.json_encode($locations).';';?>;
 
+    var map = null;
     var markers = [];
 
     function parseInputDateRange(fromInput, toInput) {
@@ -142,15 +143,7 @@
       var lat = parseInputFloatRange(fromLatInput, toLatInput);
       var lng = parseInputFloatRange(fromLngInput, toLngInput);
 
-      console.log(elevation);
-      console.log(dataCoverage);
-      console.log(data);
-      console.log(lat);
-      console.log(lng);
-
       var xmlhttp = new XMLHttpRequest();
-      var a = '../../filter-locations.php?elevation_from=';
-      var b = elevation.from === null? '%00' :  encodeURIComponent(elevation.from);
       
       xmlhttp.open('GET', '../../filter-locations.php?elevation_from=' + (elevation.from === null? '%00' :  encodeURIComponent(elevation.from)) +
         '&elevation_to=' + (elevation.to? encodeURIComponent(elevation.to) : '%00') +
@@ -163,14 +156,12 @@
         '&lng_from=' + (lng.from? encodeURIComponent(lng.from) : '%00') +
         '&lng_to=' + (lng.to? encodeURIComponent(lng.to) : '%00')
       );
-      xmlhttp.onload = function(load) {
-        console.log('load finished. load:');
-        console.log(load);
-      }
+
       xmlhttp.onreadystatechange = function() {
         if (xmlhttp.readyState == XMLHttpRequest.DONE) {
-          console.log(xmlhttp.responseText);
-          console.log(xmlhttp);
+          locations = JSON.parse(xmlhttp.responseText);
+          clearMarkers();
+          initMap();
         }
       }
       xmlhttp.setRequestHeader('Content-Type', 'application/json');
@@ -207,11 +198,14 @@
 
     function initMap() {
       var usa = {lat: 37.275, lng: -95.655};
-      var map = new google.maps.Map(document.getElementById('map'), {
+      
+      markers.length = 0;
+      
+      map = new google.maps.Map(document.getElementById('map'), {
         zoom: 3,
         center: usa
       });
-      console.log(locations);
+      
       locations.forEach(location => {
         var infoWindow = new google.maps.InfoWindow({ 
           content: `address: ${location.address},
