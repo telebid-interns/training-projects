@@ -30,9 +30,9 @@
         <div>
           <label>Data between:</label>
           <label for="from_date">From</label>
-          <input id="from_date" type="data" step="0.0001">
+          <input id="from_date" type="date" step="0.0001">
           <label for="to_date">To</label>
-          <input id="to_date" type="data" step="0.0001">
+          <input id="to_date" type="date" step="0.0001">
           <hr>
         </div>
         <div>
@@ -66,47 +66,33 @@
     var map = null;
     var markers = [];
 
-    function parseInputDateRange(fromInput, toInput) {
-      var range = {};
-      var swap = null;
-
-      if (!fromInput.value || !toInput.value) {
-        range.from = null;
-        range.to = null;
-      } else {
-        range.from = fromInput.value;
-        range.to = toInput.value;
-
-        if (new Date(range.from) > new Date(range.to)) {
-          swap = range.from;
-          range.from = range.to;
-          range.to = swap;
+    function makeRequest(url) {
+      var xmlhttp = new XMLHttpRequest();
+      xmlhttp.open('GET', url);
+      xmlhttp.onreadystatechange = function() {
+        if (xmlhttp.readyState == XMLHttpRequest.DONE) {
+          locations = JSON.parse(xmlhttp.responseText);
+          clearMarkers();
+          initMap();
         }
       }
-
-      return range;
+      xmlhttp.send();
     }
 
-    function parseInputFloatRange(fromInput, toInput) {
-      var range = {};
-      var swap = null;
-
-      if (!fromInput.value || !toInput.value) {
-        range.from = null;
-        range.to = null;
+    function parseInputFloat(input) {
+      if (!input.value) {
+        return null;
       } else {
-        range.from = parseFloat(fromInput.value);
-        range.to = parseFloat(toInput.value);
-        
-        if (range.from > range.to) {
-          swap = range.from;
-          range.from = range.to;
-          range.to = swap;
-          swap = null;
-        }
+        return parseFloat(input.value);
       }
+    }
 
-      return range;
+    function parseInputDate(input) {
+      if (!input.value) {
+        return null;
+      } else {
+        return input.value;
+      }
     }
 
     function submitFilter() {
@@ -137,41 +123,29 @@
         return;
       }
 
-      var elevation = parseInputFloatRange(fromElevationInput, toElevationInput);
-      var dataCoverage = parseInputFloatRange(fromDataCoverageInput, toDataCoverageInput);
-      var data = parseInputDateRange(fromDateInput, toDateInput);
-      var lat = parseInputFloatRange(fromLatInput, toLatInput);
-      var lng = parseInputFloatRange(fromLngInput, toLngInput);
-
-      var xmlhttp = new XMLHttpRequest();
+      var elevationFrom = parseInputFloat(fromElevationInput);
+      var elevationTo = parseInputFloat(toElevationInput);
+      var dataCoverageFrom = parseInputFloat(fromDataCoverageInput);
+      var dataCoverageTo = parseInputFloat(toDataCoverageInput);
+      var dataFrom = parseInputDate(fromDateInput);
+      var dataTo = parseInputDate(toDateInput);
+      var latFrom = parseInputFloat(fromLatInput);
+      var latTo = parseInputFloat(toLatInput);
+      var lngFrom = parseInputFloat(fromLngInput);
+      var lngTo = parseInputFloat(toLngInput);
       
-      xmlhttp.open('GET', '../../filter-locations.php?elevation_from=' + (elevation.from === null? '%00' :  encodeURIComponent(elevation.from)) +
-        '&elevation_to=' + (elevation.to? encodeURIComponent(elevation.to) : '%00') +
-        '&data_coverage_from=' + (dataCoverage.from? encodeURIComponent(dataCoverage.from) : '%00') +
-        '&data_coverage_to=' + (dataCoverage.to? encodeURIComponent(dataCoverage.to) : '%00') +
-        '&data_from=' + (data.from? encodeURIComponent(data.from) : '%00') +
-        '&data_to=' + (data.to? encodeURIComponent(data.to) : '%00') +
-        '&lat_from=' + (lat.from? encodeURIComponent(lat.from) : '%00') +
-        '&lat_to=' + (lat.to? encodeURIComponent(lat.to) : '%00') +
-        '&lng_from=' + (lng.from? encodeURIComponent(lng.from) : '%00') +
-        '&lng_to=' + (lng.to? encodeURIComponent(lng.to) : '%00')
+      makeRequest('../../filter-locations.php?filter=true' + 
+        (elevationFrom === null? '' : ('&elevation_from=' + encodeURIComponent(elevationFrom))) +
+        (elevationTo === null? '' : ('&elevation_to=' + encodeURIComponent(elevationTo))) +
+        (dataCoverageFrom === null? '' : ('&data_coverage_from=' + encodeURIComponent(dataCoverageFrom))) +
+        (dataCoverageTo === null? '' : ('&data_coverage_to=' + encodeURIComponent(dataCoverageTo))) +
+        (dataFrom === null? '' : ('&data_from=' + encodeURIComponent(dataFrom))) +
+        (dataTo === null? '' : ('&data_to=' + encodeURIComponent(dataTo))) +
+        (latFrom === null? '' : ('&lat_from=' + encodeURIComponent(latFrom))) +
+        (latTo === null? '' : ('&lat_to=' + encodeURIComponent(latTo))) +
+        (lngFrom === null? '' : ('&lng_from=' + encodeURIComponent(lngFrom))) +
+        (lngTo === null? '' : ('&lng_to=' + encodeURIComponent(lngTo)))
       );
-
-      xmlhttp.onreadystatechange = function() {
-        if (xmlhttp.readyState == XMLHttpRequest.DONE) {
-          locations = JSON.parse(xmlhttp.responseText);
-          clearMarkers();
-          initMap();
-        }
-      }
-      xmlhttp.setRequestHeader('Content-Type', 'application/json');
-      xmlhttp.send(JSON.stringify({
-        elevation: elevation,
-        dataCoverage: dataCoverage,
-        data: data,
-        lat: lat,
-        lng: lng
-      }))
     }
 
     function resetFilter() {
@@ -186,7 +160,7 @@
       document.getElementById('from_lng').value = '';
       document.getElementById('to_lng').value = '';
       clearMarkers();
-      initMap();
+      makeRequest('../../filter-locations.php'); // no filtering
     }
 
     function clearMarkers() {
