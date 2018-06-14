@@ -3,38 +3,7 @@ import resource
 import os
 import time
 import datetime
-
-# Return RAM information (unit=kb) in a list
-# Index 0: total RAM
-# Index 1: used RAM
-# Index 2: free RAM
-def getRAMinfo():
-    p = os.popen('free')
-    i = 0
-    while 1:
-        i = i + 1
-        line = p.readline()
-        if i==2:
-            return(line.split()[1:4])
-
-# Return % of CPU used by user as a character string
-def getCPUuse():
-    return(str(os.popen("top -n1 | awk '/Cpu\(s\):/ {print $2}'").readline().strip(\
-)))
-
-# Return information about disk space as a list (unit included)
-# Index 0: total disk space
-# Index 1: used disk space
-# Index 2: remaining disk space
-# Index 3: percentage of disk used
-def getDiskSpace():
-    p = os.popen("df -h /")
-    i = 0
-    while 1:
-        i = i + 1
-        line = p.readline()
-        if i==2:
-            return(line.split()[1:5])
+import psutil
 
 def getTotalRequestsForToday():
     requests = 0
@@ -46,7 +15,7 @@ def getTotalRequestsForToday():
             for line in log:
                 words = line.split()
                 for word in words:
-                    if(word=='localhost:8888' or word=='127.0.0.1:8888'):
+                    if(word=='localhost:8888' or word=='127.0.0.1:8888' or word=='10.20.1.143:8888'):
                         requests=requests+1
         except Exception as e:
             print e
@@ -58,20 +27,39 @@ def getTotalRequestsForToday():
     return requests
 
 def getInfo():
-    report = 'PC INFO: '
-    report += 'TOTAL RAM: %s' % getRAMinfo()[0] + ' KB\n'
-    report += 'USED RAM: %s' % getRAMinfo()[1] + ' KB\n'
-    report += 'FREE RAM: %s' % getRAMinfo()[2] + ' KB\n'
+    report = 'CPU: \n'
+    report += '----CPU COUNT: %s\n' % psutil.cpu_count()
+    report += '----CPU USAGE: %s\n\n' % psutil.cpu_percent()
 
-    report += 'CPU USAGE: %s' % getCPUuse() + '%\n'
+    report += 'VIRTUAL MEMORY: \n'
+    report += '----TOTAL: %s\n' % psutil.virtual_memory()[0]
+    report += '----AVAILABLE: %s\n' % psutil.virtual_memory()[1]
+    report += '----PERCENT USED: %s\n' % psutil.virtual_memory()[2]
+    report += '----USED: %s\n' % psutil.virtual_memory()[3]
+    report += '----FREE: %s\n' % psutil.virtual_memory()[4]
+    report += '----ACTIVE: %s\n' % psutil.virtual_memory()[5]
+    report += '----INACTIVE: %s\n' % psutil.virtual_memory()[6]
+    report += '----CACHED: %s\n' % psutil.virtual_memory()[8]
+    report += '----SHARED: %s\n\n' % psutil.virtual_memory()[9]
 
-    report += 'TOTAL DISK SPACE: %s' % getDiskSpace()[0] + 'B\n'
-    report += 'USED DISK SPACE: ' + getDiskSpace()[1] + 'B' + ' (' + getDiskSpace()[3] + ')\n'
-    report += 'FREE DISK SPACE: %s' % getDiskSpace()[2] + 'B\n'
+    report += 'SWAP MEMORY: \n'
+    report += '----TOTAL: %s\n' % psutil.swap_memory()[0]
+    report += '----USED: %s\n' % psutil.swap_memory()[1]
+    report += '----FREE: %s\n' % psutil.swap_memory()[2]
+    report += '----PERCENT USED: %s\n\n' % psutil.swap_memory()[3]
 
-    report += 'REQUESTS MADE TODAY: %s' % getTotalRequestsForToday()
+    report += 'DISK SPACE (mounted on "/"): \n'
+    report += '----TOTAL: %s\n' % psutil.disk_usage('/')[0]
+    report += '----USED: %s\n' % psutil.disk_usage('/')[1]
+    report += '----FREE: %s\n' % psutil.disk_usage('/')[2]
+    report += '----PERCENT USED: %s\n\n' % psutil.disk_usage('/')[3]
 
-    report += 'SERVER INFO: '
+
+    report += 'SERVER INFO: \n'
+    report += '----REQUESTS MADE TODAY: %s\n\n' % getTotalRequestsForToday()
+
+    report += 'MONITOR PROCESS ID: %s' % os.getpid()
+
     return report
 
 while True:
