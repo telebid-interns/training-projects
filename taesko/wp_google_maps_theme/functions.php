@@ -465,10 +465,14 @@ add_action( 'wp_enqueue_scripts', 'twentyseventeen_scripts' );
 function add_get_values() {
     global $wp;
     $wp->add_query_var('loc_name');
-    $wp->add_query_var('lat');
-    $wp->add_query_var('lng');
-    $wp->add_query_var('ele');
-    $wp->add_query_var('pop');
+    $wp->add_query_var('latmin');
+    $wp->add_query_var('latmax');
+    $wp->add_query_var('lngmin');
+    $wp->add_query_var('lngmax');
+    $wp->add_query_var('elemin');
+    $wp->add_query_var('elemax');
+    $wp->add_query_var('popmin');
+    $wp->add_query_var('popmax');
     $wp->add_query_var('ccode');
 }
 add_action('init', 'add_get_values');
