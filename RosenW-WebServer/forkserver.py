@@ -8,6 +8,7 @@ import re
 import sys
 from threading import Thread
 import sys
+import psutil
 
 
 # import sys
@@ -29,7 +30,12 @@ class Server:
         print 'Server started on port %s' % server_address[1]
 
     def start(self):
+        main_process = os.getpid()
         listen_socket = self.listen_socket
+        monintor_process_id = os.fork()
+        if monintor_process_id == 0:
+            self.start_monitoring(main_process)
+
         while True:
 
             #RESPONSE EXAMPLE
@@ -251,6 +257,25 @@ class Server:
 
         #join all parts to make final string
         return ''.join(total_data)
+
+    def start_monitoring(self, main_process):
+        print 'server process id: %s' % main_process
+        while True:
+            try:
+                log_file = open("./monitoring/forkserver-parameters.txt","w")
+                p = psutil.Process(main_process)
+                report = 'SERVER CPU AND MEMORY USAGE: \n'
+                report += '----CPU USAGE: ' + str(p.cpu_percent()) + '\n'
+                report += '----RSS: ' + str(p.memory_info()[0]) + '\n'
+                report += '----VMS: ' + str(p.memory_info()[1]) + '\n'
+                log_file.write(report)
+                print p.memory_info()
+            except Exception as e:
+                print 'Error while logging: \n'
+                print e
+            finally:
+                log_file.close()
+                time.sleep(0.1)
 
 if __name__ == '__main__':
     port = 8888

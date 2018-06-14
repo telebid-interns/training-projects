@@ -58,7 +58,7 @@ def getInfo():
     report += 'SERVER INFO: \n'
     report += '----REQUESTS MADE TODAY: %s\n\n' % getTotalRequestsForToday()
 
-    report += 'MONITOR PROCESS ID: %s' % os.getpid()
+    report += 'MONITOR PROCESS ID: %s\n' % os.getpid()
 
     return report
 
