@@ -34,8 +34,8 @@ class Server:
             try:
                 # New client connection
                 client_connection, client_address = listen_socket.accept()
-                print self.client_connection
-                print self.client_address
+                print client_connection
+                print client_address
                 print 'ACCEPT'
                 # Handle one request and close the client connection. Then
                 # loop over to wait for another client connection
@@ -45,18 +45,17 @@ class Server:
             except Exception as e:
                 # self.client_connection.sendall("HTTP/1.1 500 INTERNAL SERVER ERROR\n\n")
                 print e
-            finally:
-                self.client_connection.close()
 
     def handle_request(self, client, address):
+        print 'HANDLING'
         #receive request data
-        self.request = request = self.recv_timeout(self.client_connection)
+        request = self.recv_timeout(client)
         today = datetime.date.today()
         now = str(datetime.datetime.now())
 
         try:
-            file = open("./logs/%s.txt" % today,"a+")
-            file.write('IP: ' + str(self.client_address) + '\n')
+            file = open("./logs/thread-%s.txt" % today,"a+")
+            file.write('IP: ' + str(client) + '\n')
             file.write('DATE: ' + now + "\n")
             file.write(request)
         except Exception as e:
@@ -70,68 +69,71 @@ class Server:
             '< {line}\n'.format(line=line)
             for line in request.splitlines()
         ))
-        self.parse_request(request)
+
 
         # Construct a response and send it back to the client
-        self.send_response(request)
-    def parse_request(self, request):
+        self.send_response(request, client)
+        client.close()
+
+
+    def send_response(self, request, client):
+        print 'request before exception 79'
+        print(request)
         line = request.splitlines()[0]
         line = line.rstrip('\r\n')
         # Break down the request line into components
-        (self.request_method,  # GET
-         self.whole_path,      # /hello
-         self.request_version  # HTTP/1.1
+        (method,  # GET
+         path,      # /hello
+         version  # HTTP/1.1
          ) = line.split()
+        response = self.dispatch_request(request, client, method, path)
+        client.send(response)
 
-    def send_response(self, request):
-        response = self.dispatch_request(request)
-        self.client_connection.sendall(response)
-
-    def dispatch_request(self, request):
+    def dispatch_request(self, request, client, method, path):
         params = []
-        if '?' in self.whole_path:
-            pathTokens = self.whole_path.split('?')
-            self.path = pathTokens[0]
+        if '?' in path:
+            pathTokens = path.split('?')
+            path = pathTokens[0]
             params_str = pathTokens[1]
             if '&' in params_str:
                 params = params_str.split('&');
             else:
                 params = [params_str]
-        else:
-            self.path = self.whole_path
 
-        self.param_values = []
+        param_values = []
         for p in params:
             pTokens = p.split('=')
-            self.param_values.append([pTokens[0], pTokens[1]])
-        if self.request_method == 'GET':
-            return self.call_get_function()
+            param_values.append([pTokens[0], pTokens[1]])
+        if method == 'GET':
+            return self.call_get_function(path, request, param_values)
         else:
-            return self.call_post_function()
+            return self.call_post_function(path, request)
 
-    def call_get_function(self):
+    def call_get_function(self, path, request, params):
         try:
             func = {
                 '/sum': self.get_sum,
                 '/file': self.get_file
-            }.get(self.path)
-            return func()
+            }.get(path)
+            return func(request, params)
         except Exception as e:
+            print e
             return "HTTP/1.1 404 NOT FOUND\n\n"
 
-    def call_post_function(self):
+    def call_post_function(self, path, request):
         try:
             func = {
                 '/file': self.post_file
-            }.get(self.path)
-            return func()
+            }.get(path)
+            return func(request)
         except Exception as e:
+            print e
             return "HTTP/1.1 404 NOT FOUND\n\n"
 
-    def get_sum(self):
+    def get_sum(self, request, params):
         nums = []
         result = 0
-        for pkv in self.param_values:
+        for pkv in params:
             result += int(pkv[1])
         return  """HTTP/1.1 200 OK
 
@@ -146,7 +148,7 @@ class Server:
                 </html>
                 """.format(result)
 
-    def get_file(self):
+    def get_file(self, request, params):
         files = os.listdir('./received-files')
         filesAsParagraphs = ''
         for file in files:
@@ -172,15 +174,18 @@ class Server:
                             </body>
                         </html>"""
             return returnStr.format(filesAsParagraphs)
-        except:
+        except Exception as e:
+            print 'here'
+            print e
             return "HTTP/1.1 404 NOT FOUND\n\n"
 
-    def post_file(self):
+    def post_file(self, request):
+        print 'in post'
         inside = False
         startAppending = 0
         fileName = ''
         fileContent = ''
-        for line in self.request.split('\n'):
+        for line in request.split('\n'):
             if inside == True:
                 startAppending+=1
             if line[:6] == '------':
@@ -199,8 +204,8 @@ class Server:
         file.close()
 
         print 'end'
-        print self.request
-        return self.get_file()
+        print request
+        return self.get_file('redirected', [])
 
     def recv_timeout(self, the_socket, timeout=0.01):
         #make socket non blocking
@@ -244,13 +249,3 @@ if __name__ == '__main__':
         port = int(args[1])
     server = Server(('', port))
     server.start()
-
-
-    # thread = Thread(target = server.start, args=[])
-    # thread2 = Thread(target = server.start, args=[])
-    # thread2 = Thread(target = server.start, args=[])
-    #
-    # thread.start()
-    # thread2.start()
-    # thread.join()
-    # thread2.join()
