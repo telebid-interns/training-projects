@@ -41,10 +41,10 @@ function get_param($param, $default) {
     return $val;
 }
 function get_country_code() {
-    $str = strtoupper(get_param("ccode", "BG"));
+    $str = strtoupper(get_param("ccode", ".*"));
     $len = strlen($str);
     if ($len < 2) {
-        return "BG";
+        return ".*";
     }
     else if($len == 2){
         return $str;
@@ -66,13 +66,13 @@ function get_country_code() {
 function echo_from_db() {
     global $wpdb;
     $query = $wpdb->prepare("
-        SELECT name, latitude, longitude from wp_map_markers
+        SELECT name, latitude, longitude,population, elevation from wp_map_markers
         WHERE (latitude BETWEEN %f AND %f) 
         AND (longitude BETWEEN %f AND %f)
         AND (elevation BETWEEN %f and %f)
         AND (name REGEXP '%s')
         AND (population BETWEEN %d AND %d)
-        AND country_code='%s'",
+        AND (country_code REGEXP '%s')",
         get_param('latmin', -300), get_param('latmax', 300),
         get_param('lngmin', -300), get_param('lngmax', 300),
         get_param('elemin', -12000), get_param('elemax', 120000),
@@ -86,7 +86,9 @@ function echo_from_db() {
         $name = str_replace(' ', '%20', $name);
         $lat = $result['latitude'];
         $lng = $result['longitude'];
-        echo "$name $lat $lng ";
+        $population = $result['population'];
+        $elevation = $result['elevation'];
+        echo "$name $lat $lng $population $elevation ";
     }
   
 }
@@ -141,7 +143,7 @@ function echo_dm_cls() {
         </style>
     </head>
     <body>
-        <form id='filter_form' method='get' onsubmit="return submitFilter()">
+        <form id='filter_form' method='get' novalidate>
             <div id='name_input_container' class='input_container'>
                 <label for='loc_name'>Name:</label>
                 <input type='text' name='loc_name'>
