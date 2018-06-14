@@ -8,9 +8,38 @@
   function gmaps_api_task()
   {
     global $locations;
-    $content = '<div>
+    $content = '<html><head>
+    <style>
+      .wrap {
+        width: 100%;
+        padding-left: 0;
+        padding-right: 0;
+        max-width: none;
+      }
+      .entry-header {
+        display: none;
+      }
+      #primary {
+        max-width: none !important;
+      }
+      #content {
+        padding: 0;
+      }
+      #filter-options {
+        max-width: 750px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+    </style>
+    </head>
+    <body>
+    <div>
       <div id="map" style="height: 400px; width: 100%;"></div>
-      <div>
+      <div id="filter-options">
+        <div>
+          <button id="submit_filter" onclick="submitFilter()">Submit filter</button>
+          <button id="reset_filter" onclick="resetFilter()">Reset filter</button>
+        </div>
         <div>
           <label>Elevation:</label>
           <label for="from_elevation">From</label>
@@ -53,12 +82,10 @@
           </div>
           <hr>
         </div>
-        <div>
-          <button id="submit_filter" onclick="submitFilter()">Submit filter</button>
-          <button id="reset_filter" onclick="resetFilter()">Reset filter</button>
-        </div>
       </div>
-    </div>';
+    </div>
+    </body>
+    </html>';
   ?>
   <script>
     <?php echo 'var locations = '.json_encode($locations).';';?>;
