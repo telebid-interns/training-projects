@@ -1,4 +1,5 @@
 import collections
+import functools
 import itertools
 
 _Connection = collections.namedtuple('Connection', ['city_a', 'city_b', 'weight'])
@@ -53,12 +54,15 @@ class Connection(_Connection):
 
 
 class DepthFirstIterator:
-    def __init__(self, graph, start):
+    def __init__(self, graph, start, excluding_nodes=frozenset(), rtype='edges'):
+        # TODO FIX bug iterator returns two singly connected nodes with a path going to one and then backwards
         self.graph = graph
         self.start = start
+        self.excluded_nodes = excluding_nodes
+        self.rtype = rtype
         self.path_stack = [(start, list(self.walkable_edges(start)))]
-        self.passed_cities = set()
-        self.current_path = ()
+        self.passed_cities = set()  # set of all path_stack[N][0] nodes, excluding the last
+        self.current_path = ()  # current path for the iterable
 
     @property
     def current_city(self):
@@ -70,7 +74,8 @@ class DepthFirstIterator:
 
     def walkable_edges(self, node):
         for edge in self.graph[node]:
-            yield edge
+            if not (edge.city_a in self.excluded_nodes or edge.city_b in self.excluded_nodes):
+                yield edge
 
     def __next__(self):
         if not self.path_stack:
@@ -92,11 +97,14 @@ class DepthFirstIterator:
     def advance(self):
         assert self.can_advance()
         edge = self.next_edges.pop()
+        if self.rtype == 'edges':
+            self.current_path += (edge,)
+        else:
+            self.current_path += (self.current_city,)
         city = edge.other_city(self.current_city)
         self.passed_cities.add(self.current_city)
         frame = (city, list(self.walkable_edges(city)))
         self.path_stack.append(frame)
-        self.current_path += (edge,)
         return self.current_path
 
     def backtrack(self):
@@ -193,15 +201,37 @@ def is_solution(needed_connections, paths, minimal, maximum):
     return True
 
 
+def graph_components(city_dict):
+    not_visited_cities = set(city_dict.keys())
+    while not_visited_cities:
+        city = not_visited_cities.pop()
+        visited = frozenset(city_dict.keys()) - not_visited_cities - {city}
+        new_cities = list(cities for cities in DepthFirstIterator(graph=city_dict, start=city,
+                                                                  excluding_nodes=visited, rtype='nodes'))
+        new_cities = functools.reduce(frozenset.union, new_cities, frozenset())
+        yield new_cities
+        not_visited_cities -= new_cities
+
+
+def cut_graph(city_dict, min_weight, max_weight):
+    return {city: [conn for conn in connections if min_weight<=conn.weight<=max_weight]
+            for city, connections in city_dict.items()}
+
+
+def is_solution_2(city_dict, min_weight, max_weight):
+    original_count = len(tuple(graph_components(city_dict)))
+    new_count = len(tuple(graph_components(cut_graph(city_dict, min_weight, max_weight))))
+    return new_count == original_count
+
+
 def find_solutions(city_dict):
-    all_connections = list(all_paths(city_dict))
     speed_list = sorted(set(conn.weight for connections in city_dict.values() for conn in connections))
     speed_twins = itertools.product(itertools.islice(speed_list, 0, len(speed_list) - 1),
-                                    itertools.islice(speed_list, 1, len(speed_list) - 2))
+                                    itertools.islice(speed_list, 1, len(speed_list)))
     speed_twins = (twin for twin in speed_twins if twin[1] - twin[0] >= 0)
     speed_twins = sorted(speed_twins, key=lambda value: value[1] - value[0])
     for a, b in speed_twins:
-        if is_solution(city_dict, all_connections, a, b):
+        if is_solution_2(city_dict, a, b):
             yield a, b
 
 
@@ -245,13 +275,24 @@ def main():
         'A': [Connection('A', 'C', 50), Connection('A', 'B', 90), Connection('A', 'C', 10)],
         'B': [Connection('B', 'A', 90), Connection('B', 'C', 70), Connection('B', 'D', 40)],
         'C': [Connection('C', 'A', 50), Connection('C', 'B', 70), Connection('C', 'A', 10)],
-        'D': [Connection('D', 'B', 40)]
+        'D': [Connection('D', 'B', 40)],
+        '1': [Connection('1', '2', 20)],
+        '2': [Connection('2', '1', 20)],
     }
-    # debug(sample_input, (3, 7))
-    test_input(open('sample_1.input', mode='r').read(), (3, 7))
-    test_input(open('sample_2.input', mode='r').read(), (5, 19))
+    # print(list(DepthFirstIterator(city_dict_1, 'A', rtype='nodes')))
+    # print(list(DepthFirstIterator(city_dict_1, 'A', rtype='edges')))
+    # print(list(graph_components(city_dict_1)))
+    # cut_map = cut_graph(city_dict_1, 70, 90)
+    # print(cut_map)
+    # print(list(DepthFirstIterator(cut_map, '1')))
+    # print(list(graph_components(cut_map)))
+    # print(list(find_solutions(city_dict_1)))
+    # print(list(graph_components(cut_graph(city_dict_1, 70, 90))))
+    # test_input(open('sample_1.input', mode='r').read(), (3, 7))
+    # test_input(open('sample_2.input', mode='r').read(), (5, 19))
     # print(list(all_paths(parse_input(open('large.input', mode='r').read()))))
-    # print(best_solution(find_solutions(parse_input(open('large.input', mode='r').read()))))
+    for sol in find_solutions(parse_input(open('large.input', mode='r').read())):
+        print(sol)
 
 
 if __name__ == '__main__':
