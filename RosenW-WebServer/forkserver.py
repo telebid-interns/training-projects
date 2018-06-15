@@ -30,6 +30,7 @@ class Server:
         print 'Server started on port %s' % server_address[1]
 
     def start(self):
+        counter = 0
         main_process = os.getpid()
         listen_socket = self.listen_socket
         monintor_process_id = os.fork()
@@ -37,32 +38,13 @@ class Server:
             self.start_monitoring(main_process)
 
         while True:
-
-            #RESPONSE EXAMPLE
-            # HTTP/1.1 101 Switching Protocols
-            # Upgrade: websocket
-            # Connection: Upgrade
-            # Sec-WebSocket-Accept: HSmrc0sMlYUkAGmm5OPpG2HaGWk=
-            # Sec-WebSocket-Protocol: chat
-
-            # if self.forked == False: # (pre)forking server
-            #     self.forked = True
-            #     # forking 4 times
-            #     pid = os.fork()
-            #     if pid != 0:
-            #         os.fork()
-            #         os.fork()
-                # print 'asd'
             try:
-                # New client connection
                 self.client_connection, self.client_address = listen_socket.accept()
-                # Handle one request and close the client connection. Then
-                # loop over to wait for another client connection
                 pid = os.fork()
+                print 'forking'
                 if pid == 0:
                     self.handle_request()
                     break
-
             except Exception as e:
                 # self.client_connection.sendall("HTTP/1.1 500 INTERNAL SERVER ERROR\n\n")
                 print e
@@ -197,31 +179,36 @@ class Server:
             return "HTTP/1.1 404 NOT FOUND\n\n"
 
     def post_file(self):
-        inside = False
-        startAppending = 0
-        fileName = ''
-        fileContent = ''
-        for line in self.request.split('\n'):
-            if inside == True:
-                startAppending+=1
-            if line[:6] == '------':
-                if inside:
-                    inside = False
-                else:
-                    inside = True
-            if startAppending > 3 and inside:
-                fileContent += line + '\n'
-            for part in line.split():
-                if part.startswith('filename='):
-                    fileName = part[10:-1]
+        try:
+            inside = False
+            startAppending = 0
+            fileName = ''
+            fileContent = ''
+            for line in self.request.split('\n'):
+                if inside == True:
+                    startAppending+=1
+                if line[:6] == '------':
+                    if inside:
+                        inside = False
+                    else:
+                        inside = True
+                if startAppending > 3 and inside:
+                    fileContent += line + '\n'
+                for part in line.split():
+                    if part.startswith('filename='):
+                        fileName = part[10:-1]
 
-        file = open("./received-files/%s" % fileName,"w+")
-        file.write(fileContent)
-        file.close()
 
-        print 'end'
-        print self.request
-        return self.get_file()
+            if fileName:
+                file = open("./received-files/%s" % fileName,"w+")
+                file.write(fileContent)
+                file.close()
+
+            print 'end'
+            print self.request
+            return self.get_file()
+        except Exception as e:
+            print e
 
     def recv_timeout(self, the_socket, timeout=0.01):
         #make socket non blocking

@@ -25,7 +25,7 @@ class Server:
 
     def start(self):
         listen_socket = self.listen_socket
-        monitorThread = Thread(target = self.start_monitoring, args=[os.getpid()]).start()
+        # monitorThread = Thread(target = self.start_monitoring, args=[os.getpid()]).start()
 
         while True:
             try:
@@ -198,12 +198,11 @@ class Server:
                 if part.startswith('filename='):
                     fileName = part[10:-1]
 
-        file = open("./received-files/%s" % fileName,"w+")
-        file.write(fileContent)
-        file.close()
+        if fileName:
+            file = open("./received-files/%s" % fileName,"w+")
+            file.write(fileContent)
+            file.close()
 
-        print 'end'
-        print request
         return self.get_file('redirected', [])
 
     def recv_timeout(self, the_socket, timeout=0.01):
