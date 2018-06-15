@@ -1,0 +1,12 @@
+<html>
+  <head>
+    <title>Results</title>
+  </head>
+  <body>
+    <div>
+      <% resultLinks.forEach(function (result) { %>
+        <a href="<%= result.link %>"><%= result.name %></a><br>
+      <% });%>
+    </div>
+  </body>
+</html>

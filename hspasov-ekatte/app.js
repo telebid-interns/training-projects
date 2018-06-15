@@ -27,7 +27,7 @@ app.context.db = client;
 render(app, {
   root: path.join(__dirname, 'view'),
   layout: false,
-  viewExt: 'html',
+  viewExt: 'ejs',
   cache: false,
   debug: true
 });
@@ -36,13 +36,26 @@ router.get('/', async (ctx, next) => {
   await ctx.render('index');
 });
 
-router.get('/settlements', async (ctx, next) => {
-  console.log(ctx.query);
-  const results = await ctx.db.query(`SELECT name FROM ekattes
+router.get('/search', async (ctx, next) => {
+  const results = await ctx.db.query(`SELECT id, name FROM ekattes
     WHERE name LIKE $1::TEXT;`, [`%${ctx.query.settlement}%`]);
-  console.log(results);
-  await ctx.render('result', {
-    results: results.rows.map(row => row.name)
+
+  const resultLinks = results.rows.map(row => {
+    return {
+      name: row.name,
+      link: `/settlements?settlement=${row.id}`
+    };
+  });
+
+  await ctx.render('result', { resultLinks });
+});
+
+router.get('/settlements', async (ctx, next) => {
+  const result = await ctx.db.query(`SELECT id, kind, name, category, altitude_code, document
+    FROM ekattes WHERE id = $1;`, [ctx.query.settlement]);
+
+  await ctx.render('settlement', {
+    settlement: result.rows[0]
   });
 });
 
