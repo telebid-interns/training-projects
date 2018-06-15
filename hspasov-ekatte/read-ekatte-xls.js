@@ -31,25 +31,9 @@ ekattesFileParsed.shift(); // first row is not valid data
 
 client.connect().then(() => {
   console.log('Successfully connected to database');
-  return client.query(`INSERT INTO ekattes
-      (id, kind, name, municipal_gov_id, category, altitude_code, tsb, document)
-    SELECT * FROM UNNEST ($1::text[], $2::int[], $3::text[], $4::text[], $5::int[], $6::int[], $7::text[], $8::text[]);`,
-  [
-    ekattesFileParsed.map(row => row.ekatte),
-    ekattesFileParsed.map(row => parseInt(row.kind)),
-    ekattesFileParsed.map(row => row.name),
-    ekattesFileParsed.map(row => row.kmetstvo),
-    ekattesFileParsed.map(row => parseInt(row.category)),
-    ekattesFileParsed.map(row => parseInt(row.altitude)),
-    ekattesFileParsed.map(row => row.tsb),
-    ekattesFileParsed.map(row => row.document)
-  ]
-  );
-}).then(() => {
-  console.log('Inserted ekattes');
   return client.query(`INSERT INTO municipalities
     (id, category, document)
-  SELECT * FROM UNNEST ($1::text[], $2::int[], $3::text[]);`,
+  SELECT * FROM UNNEST ($1::TEXT[], $2::INT[], $3::TEXT[]);`,
   [
     municipalitiesFileParsed.map(row => row.obstina),
     municipalitiesFileParsed.map(row => parseInt(row.category)),
@@ -60,7 +44,7 @@ client.connect().then(() => {
   console.log('Inserted municipalities');
   return client.query(`INSERT INTO provinces
     (id, region, document)
-  SELECT * FROM UNNEST ($1::text[], $2::text[], $3::text[]);`,
+  SELECT * FROM UNNEST ($1::TEXT[], $2::TEXT[], $3::TEXT[]);`,
   [
     provincesFileParsed.map(row => row.oblast),
     provincesFileParsed.map(row => row.region),
@@ -69,9 +53,27 @@ client.connect().then(() => {
   );
 }).then(() => {
   console.log('Inserted provinces');
+  return client.query(`INSERT INTO ekattes
+      (id, kind, name, province_id, municipality_id, municipal_gov_id, category, altitude_code, tsb, document)
+    SELECT * FROM UNNEST ($1::TEXT[], $2::INT[], $3::TEXT[], $4::TEXT[], $5::TEXT[], $6::TEXT[], $7::INT[], $8::INT[], $9::TEXT[], $10::TEXT[]);`,
+  [
+    ekattesFileParsed.map(row => row.ekatte),
+    ekattesFileParsed.map(row => parseInt(row.kind)),
+    ekattesFileParsed.map(row => row.name),
+    ekattesFileParsed.map(row => row.oblast),
+    ekattesFileParsed.map(row => row.obstina),
+    ekattesFileParsed.map(row => row.kmetstvo),
+    ekattesFileParsed.map(row => parseInt(row.category)),
+    ekattesFileParsed.map(row => parseInt(row.altitude)),
+    ekattesFileParsed.map(row => row.tsb),
+    ekattesFileParsed.map(row => row.document)
+  ]
+  );
+}).then(() => {
+  console.log('Inserted ekattes');
   return client.query(`INSERT INTO municipality_ekattes
     (ekatte_id, municipality_id)
-  SELECT * FROM UNNEST ($1::text[], $2::text[]);`,
+  SELECT * FROM UNNEST ($1::TEXT[], $2::TEXT[]);`,
   [
     municipalitiesFileParsed.map(row => row.ekatte),
     municipalitiesFileParsed.map(row => row.obstina)
@@ -88,7 +90,7 @@ client.connect().then(() => {
   ]
   );
 }).then(() => {
-  console.log('success!');
+  console.log('Success!');
   process.exit();
 }).catch(error => {
   console.error(error);
