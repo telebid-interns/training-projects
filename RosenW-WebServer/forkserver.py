@@ -10,12 +10,6 @@ from threading import Thread
 import sys
 import psutil
 
-
-# import sys
-# firstarg=sys.argv[1]
-# secondarg=sys.argv[2]
-# thirdarg=sys.argv[3]
-
 class Server:
     address_family = socket.AF_INET #IPv4 addresses
     socket_type = socket.SOCK_STREAM

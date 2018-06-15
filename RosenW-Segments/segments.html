@@ -1,0 +1,85 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="en">
+  <head>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  </head>
+   <body>
+     <input type="text" id='n' placeholder="n">
+     <input type="text" id='a' placeholder="a">
+     <input type="text" id='b' placeholder="b">
+     <input type="text" id='c' placeholder="c">
+     <button id='submit'> submit </button>
+     <p id='result'> </p>
+     <canvas id="myCanvas" width="2000" height="100" style="border:1px solid #000000;">
+     </canvas>
+    </body>
+</html>
+
+<script>
+
+  function draw(marks, col, n){
+    let drawArr = [];
+    for(let i=0;i<marks.length;i++){
+      if(col.includes(i)){
+        drawArr.push(marks[i])
+      }
+    }
+    let canvas = document.getElementById("myCanvas");
+    let ctx = canvas.getContext("2d");
+    for(let i=0;i<n;i++){
+      // console.log('');
+      if(drawArr.includes(i)){
+        ctx.fillStyle = "#FF0000";
+      }else{
+        ctx.fillStyle = "#000000";
+      }
+      ctx.fillRect(32 + (i*10),50,10,10)
+    }
+  }
+
+  function onlyUnique(value, index, self) {
+      return self.indexOf(value) === index;
+  }
+
+  $('#submit').click(function(){
+    let a = $('#a').val()
+    let b = $('#b').val()
+    let c = $('#c').val()
+    let n = $('#n').val()
+    let stop = false;
+    if(Number(n)>=100000 || Number(a)>=100000 || Number(b)>=100000 || Number(c)>=100000){
+      stop = true;
+    }
+    if(stop){
+      $('#result').text('Invalid Values')
+    }else{
+      let marks = []
+
+      for(let i=0;i<=n;i+=Number(a)){
+        marks.push(i)
+      }
+
+      for(let i=Number(n);i>=0;i-=Number(b)){
+        marks.push(i)
+      }
+
+      marks.sort((a, b) => a-b)
+      marks = marks.filter(onlyUnique);
+
+      let result = Number(n);
+
+      let colorArr = []
+
+      for (let i=0; i<marks.length; i++) {
+        if(marks[i+1] - marks[i] == Number(c)){
+          colorArr.push(i);
+          result-=Number(c);
+        }
+      }
+
+      draw(marks, colorArr, n);
+
+      $('#result').text(result)
+    }
+  });
+</script>
