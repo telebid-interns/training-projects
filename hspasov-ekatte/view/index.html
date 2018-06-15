@@ -4,8 +4,11 @@
   </head>
   <body>
     <div>
-      <input id="settlement-search" type="text">
-      <button id="search-submit">Search</button>
+      <form action="/settlements">
+        Search:<br>
+        <input name="settlement" type="text"><br>
+        <input type="submit" value="Submit">
+      </form>
     </div>
     <div id="search-results">
 
@@ -22,6 +25,5 @@
       <label>Document:</label><br>
       <label>Region:</label><br>
     </div>
-    <script type="text/javascript" src="index.js"></script>
   </body>
 </html>
