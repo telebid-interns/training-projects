@@ -33,7 +33,11 @@ client.connect().then(() => {
   console.log('Successfully connected to database');
   return client.query(`INSERT INTO municipalities
     (id, category, document)
-  SELECT * FROM UNNEST ($1::TEXT[], $2::INT[], $3::TEXT[]);`,
+  SELECT * FROM UNNEST ($1::TEXT[], $2::INT[], $3::TEXT[])
+  ON CONFLICT (id) DO
+  UPDATE SET
+    category = EXCLUDED.category,
+    document = EXCLUDED.document;`,
   [
     municipalitiesFileParsed.map(row => row.obstina),
     municipalitiesFileParsed.map(row => parseInt(row.category)),
@@ -44,7 +48,11 @@ client.connect().then(() => {
   console.log('Inserted municipalities');
   return client.query(`INSERT INTO provinces
     (id, region, document)
-  SELECT * FROM UNNEST ($1::TEXT[], $2::TEXT[], $3::TEXT[]);`,
+  SELECT * FROM UNNEST ($1::TEXT[], $2::TEXT[], $3::TEXT[])
+  ON CONFLICT (id) DO
+  UPDATE SET
+    region = EXCLUDED.region,
+    document = EXCLUDED.document;`,
   [
     provincesFileParsed.map(row => row.oblast),
     provincesFileParsed.map(row => row.region),
@@ -55,7 +63,18 @@ client.connect().then(() => {
   console.log('Inserted provinces');
   return client.query(`INSERT INTO ekattes
       (id, kind, name, province_id, municipality_id, municipal_gov_id, category, altitude_code, tsb, document)
-    SELECT * FROM UNNEST ($1::TEXT[], $2::INT[], $3::TEXT[], $4::TEXT[], $5::TEXT[], $6::TEXT[], $7::INT[], $8::INT[], $9::TEXT[], $10::TEXT[]);`,
+    SELECT * FROM UNNEST ($1::TEXT[], $2::INT[], $3::TEXT[], $4::TEXT[], $5::TEXT[], $6::TEXT[], $7::INT[], $8::INT[], $9::TEXT[], $10::TEXT[])
+    ON CONFLICT (id) DO
+    UPDATE SET
+      kind = EXCLUDED.kind,
+      name = EXCLUDED.name,
+      province_id = EXCLUDED.province_id,
+      municipality_id = EXCLUDED.municipality_id,
+      municipal_gov_id = EXCLUDED.municipal_gov_id,
+      category = EXCLUDED.category,
+      altitude_code = EXCLUDED.altitude_code,
+      tsb = EXCLUDED.tsb,
+      document = EXCLUDED.document;`,
   [
     ekattesFileParsed.map(row => row.ekatte),
     ekattesFileParsed.map(row => parseInt(row.kind)),
@@ -73,7 +92,8 @@ client.connect().then(() => {
   console.log('Inserted ekattes');
   return client.query(`INSERT INTO municipality_ekattes
     (ekatte_id, municipality_id)
-  SELECT * FROM UNNEST ($1::TEXT[], $2::TEXT[]);`,
+  SELECT * FROM UNNEST ($1::TEXT[], $2::TEXT[])
+  ON CONFLICT (ekatte_id, municipality_id) DO NOTHING;`,
   [
     municipalitiesFileParsed.map(row => row.ekatte),
     municipalitiesFileParsed.map(row => row.obstina)
@@ -83,7 +103,8 @@ client.connect().then(() => {
   console.log('Inserted municipality_ekattes');
   return client.query(`INSERT INTO province_ekattes
     (ekatte_id, province_id)
-  SELECT * FROM UNNEST ($1::TEXT[], $2::TEXT[]);`,
+  SELECT * FROM UNNEST ($1::TEXT[], $2::TEXT[])
+  ON CONFLICT (ekatte_id, province_id) DO NOTHING;`,
   [
     provincesFileParsed.map(row => row.ekatte),
     provincesFileParsed.map(row => row.oblast)
