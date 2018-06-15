@@ -1,0 +1,10 @@
+<img src="" id="track" style="width:1px;height:1px" /> 
+<script> 
+ var img = document.getElementById("track"); 
+ var qs = "date=" + encodeURI(new Date()) + 
+         "&docAll=" + ((document.all)?1:0) + 
+         "&isNativeXHR=" + ((window.XMLHttpRequest)?1:0); 
+ img.src = "http://www.someXYZServer.net/track.php" + qs; 
+ var img = null; 
+</script>
+

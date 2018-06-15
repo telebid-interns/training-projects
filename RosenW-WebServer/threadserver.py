@@ -8,18 +8,13 @@ import re
 import sys
 from threading import Thread
 import sys
-
-
-# import sys
-# firstarg=sys.argv[1]
-# secondarg=sys.argv[2]
-# thirdarg=sys.argv[3]
+import psutil
 
 class Server:
     address_family = socket.AF_INET #IPv4 addresses
     socket_type = socket.SOCK_STREAM
     request_queue_size = 1
-    # forked = False
+    main_process_running = True
 
     def __init__(self, server_address):
         self.listen_socket = listen_socket = socket.socket(self.address_family, self.socket_type)
@@ -30,6 +25,8 @@ class Server:
 
     def start(self):
         listen_socket = self.listen_socket
+        monitorThread = Thread(target = self.start_monitoring, args=[os.getpid()]).start()
+
         while True:
             try:
                 # New client connection
@@ -45,6 +42,8 @@ class Server:
             except Exception as e:
                 # self.client_connection.sendall("HTTP/1.1 500 INTERNAL SERVER ERROR\n\n")
                 print e
+            finally:
+                self.main_process_running = False
 
     def handle_request(self, client, address):
         print 'HANDLING'
@@ -242,10 +241,38 @@ class Server:
         #join all parts to make final string
         return ''.join(total_data)
 
+
+    def start_monitoring(self, main_process):
+        print 'server process id: %s' % main_process
+        while self.main_process_running:
+            try:
+                log_file = open("./monitoring/forkserver-parameters.txt","w")
+                p = psutil.Process(main_process)
+                report = 'SERVER CPU AND MEMORY USAGE: \n'
+                report += '----CPU USAGE: ' + str(p.cpu_percent()) + '\n'
+                report += '----RSS: ' + str(p.memory_info()[0]) + '\n'
+                report += '----VMS: ' + str(p.memory_info()[1]) + '\n'
+                log_file.write(report)
+            except Exception as e:
+                print 'Error while logging: \n'
+                print e
+            finally:
+                log_file.close()
+                time.sleep(0.1)
+
+
 if __name__ == '__main__':
     port = 8888
+    address = ''
     args = sys.argv
-    if len(args) == 2:
-        port = int(args[1])
-    server = Server(('', port))
+    # if len(args) == 2:
+    #     port = int(args[1])
+    for index in range(len(args)):
+        arg = args[index]
+        if arg == '-p':
+            port = int(args[index + 1])
+        if arg == '-a':
+            address = args[index + 1]
+
+    server = Server((address, port))
     server.start()

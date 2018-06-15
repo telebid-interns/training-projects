@@ -269,7 +269,6 @@ class Server:
                 report += '----RSS: ' + str(p.memory_info()[0]) + '\n'
                 report += '----VMS: ' + str(p.memory_info()[1]) + '\n'
                 log_file.write(report)
-                print p.memory_info()
             except Exception as e:
                 print 'Error while logging: \n'
                 print e
@@ -279,8 +278,16 @@ class Server:
 
 if __name__ == '__main__':
     port = 8888
+    address = ''
     args = sys.argv
-    if len(args) == 2:
-        port = int(args[1])
-    server = Server(('', port))
+    # if len(args) == 2:
+    #     port = int(args[1])
+    for index in range(len(args)):
+        arg = args[index]
+        if arg == '-p':
+            port = int(args[index + 1])
+        if arg == '-a':
+            address = args[index + 1]
+
+    server = Server((address, port))
     server.start()
