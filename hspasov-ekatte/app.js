@@ -29,7 +29,7 @@ render(app, {
   layout: false,
   viewExt: 'ejs',
   cache: false,
-  debug: true
+  debug: false
 });
 
 router.get('/', async (ctx, next) => {
@@ -51,12 +51,59 @@ router.get('/search', async (ctx, next) => {
 });
 
 router.get('/settlements', async (ctx, next) => {
+  ctx.assert(ctx.query.settlement, 400, 'Error: Settlement id not provided');
+
   const result = await ctx.db.query(`SELECT id, kind, name, category, altitude_code, document
     FROM ekattes WHERE id = $1;`, [ctx.query.settlement]);
 
-  await ctx.render('settlement', {
-    settlement: result.rows[0]
-  });
+  ctx.assert(result.rows.length > 0, 404, 'Error: No settlement found');
+
+  const settlement = result.rows[0];
+
+  switch (settlement.kind) {
+    case 1:
+      settlement.kind = 'city';
+      break;
+    case 3:
+      settlement.kind = 'village';
+      break;
+    case 7:
+      settlement.kind = 'monastery';
+      break;
+    default:
+      settlement.kind = 'unknown';
+  }
+
+  switch (settlement.altitude_code) {
+    case 1:
+      settlement.altitude_code = 'below 50 meters';
+      break;
+    case 2:
+      settlement.altitude_code = '50 - 99 meters';
+      break;
+    case 3:
+      settlement.altitude_code = '100 - 199 meters';
+      break;
+    case 4:
+      settlement.altitude_code = '200 - 299 meters';
+      break;
+    case 5:
+      settlement.altitude_code = '300 - 499 meters';
+      break;
+    case 6:
+      settlement.altitude_code = '500 - 699 meters';
+      break;
+    case 7:
+      settlement.altitude_code = '700 - 999 meters';
+      break;
+    case 8:
+      settlement.altitude_code = '1000 or above meters';
+      break;
+    default:
+      settlement.altitude_code = 'unknown';
+  }
+
+  await ctx.render('settlement', { settlement });
 });
 
 app.use(router.routes());

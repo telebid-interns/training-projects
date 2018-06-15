@@ -4,9 +4,18 @@
   </head>
   <body>
     <div>
-      <% resultLinks.forEach(function (result) { %>
-        <a href="<%= result.link %>"><%= result.name %></a><br>
-      <% });%>
+      <div>
+        <a href="/">Go back</a>
+      </div>
+      <div>
+        <% if (resultLinks.length > 0) { %>
+          <% resultLinks.forEach(function (result) { %>
+            <a href="<%= result.link %>"><%= result.name %></a><br>
+          <% });%>
+        <% } else { %>
+          <p>No results</p>
+        <% }%>
+      </div>
     </div>
   </body>
 </html>
