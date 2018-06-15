@@ -27,15 +27,69 @@ assert.strictEqual(ekattesFile instanceof Object, true, 'File is not read as a W
 assert.strictEqual(ekattesFile.Sheets instanceof Object, true, 'Object \'ekattesFile\' does not have an object property \'Sheets\'');
 assert.strictEqual(ekattesFile.Sheets.Ek_atte instanceof Object, true, 'Object \'Sheets\' does not have an object property \'Ek_atte\'');
 const ekattesFileParsed = xlsx.utils.sheet_to_json(ekattesFile.Sheets.Ek_atte);
-
-if (provincesFileParsed === municipalitiesFileParsed && municipalitiesFileParsed === ekattesFileParsed) {
-  console.log('done');
-}
+ekattesFileParsed.shift(); // first row is not valid data
 
 client.connect().then(() => {
-  console.log(ekattesFileParsed);
-  console.log('successfully connected');
-  
+  console.log('Successfully connected to database');
+  return client.query(`INSERT INTO ekattes
+      (id, kind, name, municipal_gov_id, category, altitude_code, tsb, document)
+    SELECT * FROM UNNEST ($1::text[], $2::int[], $3::text[], $4::text[], $5::int[], $6::int[], $7::text[], $8::text[]);`,
+  [
+    ekattesFileParsed.map(row => row.ekatte),
+    ekattesFileParsed.map(row => parseInt(row.kind)),
+    ekattesFileParsed.map(row => row.name),
+    ekattesFileParsed.map(row => row.kmetstvo),
+    ekattesFileParsed.map(row => parseInt(row.category)),
+    ekattesFileParsed.map(row => parseInt(row.altitude)),
+    ekattesFileParsed.map(row => row.tsb),
+    ekattesFileParsed.map(row => row.document)
+  ]
+  );
+}).then(() => {
+  console.log('Inserted ekattes');
+  return client.query(`INSERT INTO municipalities
+    (id, category, document)
+  SELECT * FROM UNNEST ($1::text[], $2::int[], $3::text[]);`,
+  [
+    municipalitiesFileParsed.map(row => row.obstina),
+    municipalitiesFileParsed.map(row => parseInt(row.category)),
+    municipalitiesFileParsed.map(row => row.document)
+  ]
+  );
+}).then(() => {
+  console.log('Inserted municipalities');
+  return client.query(`INSERT INTO provinces
+    (id, region, document)
+  SELECT * FROM UNNEST ($1::text[], $2::text[], $3::text[]);`,
+  [
+    provincesFileParsed.map(row => row.oblast),
+    provincesFileParsed.map(row => row.region),
+    provincesFileParsed.map(row => row.document)
+  ]
+  );
+}).then(() => {
+  console.log('Inserted provinces');
+  return client.query(`INSERT INTO municipality_ekattes
+    (ekatte_id, municipality_id)
+  SELECT * FROM UNNEST ($1::text[], $2::text[]);`,
+  [
+    municipalitiesFileParsed.map(row => row.ekatte),
+    municipalitiesFileParsed.map(row => row.obstina)
+  ]
+  );
+}).then(() => {
+  console.log('Inserted municipality_ekattes');
+  return client.query(`INSERT INTO province_ekattes
+    (ekatte_id, province_id)
+  SELECT * FROM UNNEST ($1::TEXT[], $2::TEXT[]);`,
+  [
+    provincesFileParsed.map(row => row.ekatte),
+    provincesFileParsed.map(row => row.oblast)
+  ]
+  );
+}).then(() => {
+  console.log('success!');
+  process.exit();
 }).catch(error => {
   console.error(error);
 });

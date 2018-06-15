@@ -15,31 +15,37 @@ CREATE TABLE ekattes (
   id TEXT NOT NULL PRIMARY KEY,
   kind INTEGER NOT NULL,
   name TEXT NOT NULL,
-  province_id TEXT, -- can be null if record is a province
-  municipality_id TEXT, -- can be null if record is a municipality
-  municipal_gov_id TEXT NOT NULL, -- if new table 'municipal_governemts' is created, NOT NULL constraint should be removed
+  municipal_gov_id TEXT NOT NULL,
   category INTEGER NOT NULL,
   altitude_code INTEGER NOT NULL,
-  tsb TEXT NOT NULL, -- if new table 'tsbs' is created, NOT NULL should be removed
-  document TEXT NOT NULL -- if new table 'documents' is created, NOT NULL should be removed
+  tsb TEXT NOT NULL,
+  document TEXT NOT NULL
 );
 
 CREATE TABLE municipalities (
   id TEXT NOT NULL PRIMARY KEY,
-  ekatte_id TEXT NOT NULL,
   category INTEGER NOT NULL,
-  document TEXT NOT NULL,
-  FOREIGN KEY (ekatte_id) REFERENCES ekattes (id)
+  document TEXT NOT NULL
 );
 
 CREATE TABLE provinces (
   id TEXT NOT NULL PRIMARY KEY,
-  ekatte_id TEXT NOT NULL,
   region TEXT NOT NULL,
-  document TEXT NOT NULL,
-  FOREIGN KEY (ekatte_id) REFERENCES ekattes (id)
+  document TEXT NOT NULL
 );
 
-ALTER TABLE ekattes
-ADD FOREIGN KEY (province_id) REFERENCES provinces (id),
-ADD FOREIGN KEY (municipality_id) REFERENCES municipalities (id);
+CREATE TABLE municipality_ekattes (
+  ekatte_id TEXT NOT NULL,
+  municipality_id TEXT NOT NULL,
+  FOREIGN KEY (ekatte_id) REFERENCES ekattes (id),
+  FOREIGN KEY (municipality_id) REFERENCES municipalities (id),
+  PRIMARY KEY (ekatte_id, municipality_id)
+);
+
+CREATE TABLE province_ekattes (
+  ekatte_id TEXT NOT NULL,
+  province_id TEXT NOT NULL,
+  FOREIGN KEY (ekatte_id) REFERENCES ekattes (id),
+  FOREIGN KEY (province_id) REFERENCES provinces (id),
+  PRIMARY KEY (ekatte_id, province_id)
+);

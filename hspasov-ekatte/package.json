@@ -5,6 +5,7 @@
   "main": "read-ekatte-xls.js",
   "scripts": {
     "start": "semistandard && node read-ekatte-xls.js",
+    "fix": "semistandard --fix read-ekatte-xls.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
