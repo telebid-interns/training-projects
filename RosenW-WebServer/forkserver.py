@@ -1,6 +1,5 @@
 #!/usr/bin/python
 import socket
-import codecs
 import datetime
 import os
 import time
@@ -9,24 +8,15 @@ import sys
 from threading import Thread
 import psutil
 import ssl
+import signal
 
 class Server:
     address_family = socket.AF_INET #IPv4 addresses
     socket_type = socket.SOCK_STREAM
     request_queue_size = 1
 
-    # forked = False
-
-    # self.listen_socket = ssl.wrap_socket(
-    #     self.listen_socket,
-    #     keyfile='./ssl/server.key',
-    #     certfile='./ssl/server.csr',
-    #     server_side=True,
-    #     cert_reqs=ssl.CERT_REQUIRED,
-    #     ca_certs=None,
-    #     do_handshake_on_connect=True,
-    #     suppress_ragged_eofs=True,
-    #     ciphers=None)
+    user = 'ros'
+    password = '1234'
 
     def __init__(self, server_address):
         self.listen_socket = socket.socket(self.address_family, self.socket_type)
@@ -46,6 +36,7 @@ class Server:
         monintor_process_id = os.fork()
         if monintor_process_id == 0:
             self.start_monitoring(main_process)
+        signal.signal(signal.SIGCHLD, self.kill_child)
 
         while True:
             try:
@@ -173,7 +164,6 @@ class Server:
         for file in files:
             filesAsParagraphs += '<p>'+file+'</p>\n'
         try:
-            htmlf=codecs.open("./views/file.html", 'r', 'utf-8')
             returnStr = """HTTP/1.1 200 OK
 
                         <html>
@@ -279,12 +269,24 @@ class Server:
                 log_file.close()
                 time.sleep(0.1)
 
+    def kill_child(self, signum, frame):
+        while True:
+            try:
+                pid, status = os.waitpid(
+                    -1,          # Wait for any child process
+                     os.WNOHANG  # Do not block and return EWOULDBLOCK error
+                )
+            except OSError:
+                return
+
+            if pid == 0:  # no more zombies
+                return
+
+
 if __name__ == '__main__':
     port = 8888
     address = ''
     args = sys.argv
-    # if len(args) == 2:
-    #     port = int(args[1])
     for index in range(len(args)):
         arg = args[index]
         if arg == '-p':
