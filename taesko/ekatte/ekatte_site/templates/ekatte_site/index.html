@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Ekatte</title>
+</head>
+<body>
+    <header>
+        <p>
+            {{ db_object_total }} objects<br>
+            {{ db_municipality_total }} municipalities<br>
+            {{ db_province_total }} provinces<br>
+            {{ db_ekatte_total }} places <br>
+        </p>
+    </header>
+    <form>
+        <label>
+            Search
+            <input name="search">
+        </label>
+    </form>
+    <main>
+        <table id="main-content-table">
+            <tr>
+                {% for column_header in table_data_headers %}
+                    <td>
+                        {{ column_header }}
+                    </td>
+                {% endfor %}
+            </tr>
+            {% for row in table_data %}
+            <tr>
+                {% for value in row %}
+                    <td>
+                        {{ value }}
+                    </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </table>
+    </main>
+</body>
+</html>
