@@ -85,6 +85,7 @@ client.connect().then(() => {
   ]
   );
 }).then(() => {
+  console.log('Inserted ekattes');
   console.log('Success!');
   process.exit();
 }).catch(error => {
