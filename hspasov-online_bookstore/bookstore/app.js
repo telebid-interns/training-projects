@@ -1,5 +1,6 @@
 const Koa = require('koa');
 const logger = require('koa-logger');
+const render = require('koa-ejs');
 const bodyParser = require('koa-bodyparser');
 const serve = require('koa-static');
 const session = require('koa-session');
@@ -25,6 +26,14 @@ app.use(serve(path.join(__dirname, 'public')));
 
 app.context.db = pool;
 app.use(routes);
+
+render(app, {
+  root: path.join(__dirname, 'views'),
+  layout: false,
+  viewExt: 'ejs',
+  cache: false,
+  debug: false
+});
 
 app.listen(3000);
 
