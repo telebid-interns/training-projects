@@ -9,11 +9,15 @@ from threading import Thread
 import psutil
 import ssl
 import signal
+import Cookie
 
 class Server:
     address_family = socket.AF_INET #IPv4 addresses
     socket_type = socket.SOCK_STREAM
     request_queue_size = 1
+
+    cur_user = ''
+    cur_pass = ''
 
     user = 'ros'
     password = '1234'
@@ -41,6 +45,7 @@ class Server:
         while True:
             try:
                 self.client_connection, self.client_address = self.listen_socket.accept()
+
                 pid = os.fork()
                 if pid == 0:
                     self.handle_request()
@@ -116,22 +121,58 @@ class Server:
         try:
             func = {
                 '/sum': self.get_sum,
-                '/file': self.get_file
+                '/file': self.get_file,
+                '/login': self.get_login
             }.get(self.path)
             return func()
         except Exception as e:
+            print e
             return "HTTP/1.1 404 NOT FOUND\n\n"
 
     def call_post_function(self):
         try:
             func = {
-                '/file': self.post_file
+                '/file': self.post_file,
+                '/login': self.post_login
             }.get(self.path)
             return func()
         except Exception as e:
             return "HTTP/1.1 404 NOT FOUND\n\n"
 
+    def get_login(self):
+        return  """HTTP/1.1 200 OK
+
+                <html>
+                    <head>
+                    </head>
+                    <body>
+                      </br>
+                      <form method='post' action='/login'>
+                          <label>User</label>
+                          <input id='user' type="text" name="user">
+                          </br>
+                          <label>Password</label>
+                          <input id='pass' type="text" name="pass">
+                          </br>
+                          <input id='submit' type="submit" value="Log In">
+                          </br>
+                      </form>
+                    </body>
+                </html>
+                """
+
+    def post_login(self):
+        pairs = self.request.split('?')
+        for pair in pairs:
+            pass
+        print self.request
+        #CONTINUE
+        return self.get_sum()
+
     def get_sum(self):
+        if not self.is_logged_in():
+            return self.get_login()
+
         nums = []
         result = 0
         for pkv in self.param_values:
@@ -159,6 +200,9 @@ class Server:
                 """.format(result)
 
     def get_file(self):
+        if not self.is_logged_in():
+            return self.get_login()
+
         files = os.listdir('./received-files')
         filesAsParagraphs = ''
         for file in files:
@@ -282,6 +326,11 @@ class Server:
             if pid == 0:  # no more zombies
                 return
 
+    def is_logged_in(self):
+        if self.cur_user == self.user and self.cur_password == self.password:
+            return True
+        else:
+            return False
 
 if __name__ == '__main__':
     port = 8888
