@@ -1,5 +1,5 @@
 import React from 'react';
-import ReactDOM from 'react-dom';
+import { render } from 'react-dom';
 import config from '../config/config.json';
 
 class LoginPage extends React.Component {
@@ -41,7 +41,7 @@ class LoginPage extends React.Component {
   }
 }
 
-ReactDOM.render(
+render(
   <LoginPage />,
   document.getElementById('content')
 );

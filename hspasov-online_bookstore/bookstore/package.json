@@ -2,8 +2,8 @@
   "name": "bookstore",
   "version": "1.0.5",
   "main": "index.js",
-  "repository": "https://github.com/hspasov/bookstore.git",
-  "author": "Hristo Spasov <hristo_sp99@abv.bg>",
+  "repository": "https://github.com/hspasov/training-projects.git",
+  "author": "Hristo Spasov <hristo@arc-global.org>",
   "license": "MIT",
   "dependencies": {
     "form-urlencoded": "^2.0.4",
@@ -22,10 +22,9 @@
   },
   "scripts": {
     "start": "semistandard && PGUSER=bookstore PGDATABASE=bookstore PGPASSWORD=bookstore PGPORT=5432 node app.js",
-    "admin": "semistandard && PGUSER=bookstore PGDATABASE=bookstore PGPASSWORD=bookstore PGPORT=5432 node app_admin.js",
-    "create-database": "semistandard && PGUSER=postgres PGPASSWORD=postgres PGDATABASE=postgres PGPORT=5432 NEWUSER=bookstore NEWPASSWORD=bookstore NEWDATABASE=bookstore node ./scripts/create-database.js",
     "watch": "webpack --mode=development --config webpack.config.js",
     "build": "webpack --mode=production --config webpack.config.js",
+    "fix": "semistandard --fix",
     "test": ""
   },
   "devDependencies": {

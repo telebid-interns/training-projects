@@ -5,7 +5,8 @@ module.exports = {
   entry: {
     'index': './views/index.jsx',
     'login': './views/login.jsx',
-    'register': './views/register.jsx'
+    'register': './views/register.jsx',
+    'admin': './views/admin.jsx'
   },
   output: {
     path: path.resolve(__dirname, './public/js'),

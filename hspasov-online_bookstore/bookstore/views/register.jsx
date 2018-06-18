@@ -1,5 +1,5 @@
 import React from 'react';
-import ReactDOM from 'react-dom';
+import { render } from 'react-dom';
 import config from '../config/config.json';
 
 function RegisterPage () {
@@ -80,7 +80,7 @@ function RegisterPage () {
   </div>;
 }
 
-ReactDOM.render(
+render(
   <RegisterPage />,
   document.getElementById('content')
 );
