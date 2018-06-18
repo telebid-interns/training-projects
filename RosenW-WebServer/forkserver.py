@@ -9,6 +9,7 @@ import sys
 from threading import Thread
 import sys
 import psutil
+import ssl
 
 class Server:
     address_family = socket.AF_INET #IPv4 addresses
@@ -16,24 +17,39 @@ class Server:
     request_queue_size = 1
     # forked = False
 
+    # self.listen_socket = ssl.wrap_socket(
+    #     self.listen_socket,
+    #     keyfile='./ssl/server.key',
+    #     certfile='./ssl/server.csr',
+    #     server_side=True,
+    #     cert_reqs=ssl.CERT_REQUIRED,
+    #     ca_certs=None,
+    #     do_handshake_on_connect=True,
+    #     suppress_ragged_eofs=True,
+    #     ciphers=None)
+
     def __init__(self, server_address):
-        self.listen_socket = listen_socket = socket.socket(self.address_family, self.socket_type)
+        self.listen_socket = socket.socket(self.address_family, self.socket_type)
+        self.listen_socket = ssl.wrap_socket(
+            self.listen_socket,
+            keyfile='./ssl/server.key',
+            certfile='./ssl/server.csr',
+            server_side=True)
         self.listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #level, optname, value
-        listen_socket.bind(server_address)
-        listen_socket.listen(self.request_queue_size)
+        self.listen_socket.bind(server_address)
+        self.listen_socket.listen(self.request_queue_size)
         print 'Server started on port %s' % server_address[1]
 
     def start(self):
         counter = 0
         main_process = os.getpid()
-        listen_socket = self.listen_socket
         monintor_process_id = os.fork()
         if monintor_process_id == 0:
             self.start_monitoring(main_process)
 
         while True:
             try:
-                self.client_connection, self.client_address = listen_socket.accept()
+                self.client_connection, self.client_address = self.listen_socket.accept()
                 pid = os.fork()
                 print 'forking'
                 if pid == 0:
@@ -138,7 +154,16 @@ class Server:
                     <body>
                       <a href="/file"> Go to file </a>
                       </br>
-                      <input id='result' type="text" value="{0}" disabled>
+                      <form method='get'>
+                          <input id='first' type="text" name="first">
+                          </br>
+                          <input id='second' type="text" name="second">
+                          </br>
+                          <input id='submit' type="submit">
+                          </br>
+                          <input id='result' type="text" value="{0}" disabled>
+                          </br>
+                      </form>
                     </body>
                 </html>
                 """.format(result)

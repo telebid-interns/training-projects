@@ -16,25 +16,56 @@
 </html>
 
 <script>
-
-  function draw(marks, col, n){
-    let drawArr = [];
-    for(let i=0;i<marks.length;i++){
-      if(col.includes(i)){
-        drawArr.push(marks[i])
+  function draw(marks, drawPoints, n, c){
+    let result = 0;
+    let boolArr = [];
+    for(let i = 0;i<n;i++){
+      if(drawPoints.includes(i)){
+        boolArr.push(true);
+      }else{
+        boolArr.push(false);
       }
     }
+
+    for(let i = n;i>=0;i--){
+      if(boolArr[i]){
+        for(let j = i;j<i+Number(c);j++){
+          boolArr[j] = true;
+        }
+      }
+    }
+
     let canvas = document.getElementById("myCanvas");
     let ctx = canvas.getContext("2d");
-    for(let i=0;i<n;i++){
-      // console.log('');
-      if(drawArr.includes(i)){
-        ctx.fillStyle = "#FF0000";
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "#000000";
+    let defaultFont = ctx.font;
+    for(let i=0;i<=n;i++){
+      if(marks.includes(i)){
+        ctx.font = "bold 9pt Courier";
+        ctx.fillText(i, 28 + (i*20),30);
+        ctx.font = defaultFont;
       }else{
-        ctx.fillStyle = "#000000";
+        ctx.fillText(i, 28 + (i*20),30);
       }
-      ctx.fillRect(32 + (i*10),50,10,10)
+      ctx.fillRect(32 + (i*20),40,2,30);
     }
+    for(let i=0;i<n;i++){
+      ctx.fillRect(32 + (i*20),50,20,20);
+    }
+
+    ctx.fillStyle = "#FF0000";
+    for(let i=0;i<n;i++){
+      if(boolArr[i]){
+        ctx.fillRect(32 + (i*20),50,20,20);
+      }else{
+        result++;
+      }
+    }
+
+    $('#result').text(result)
   }
 
   function onlyUnique(value, index, self) {
@@ -56,30 +87,26 @@
       let marks = []
 
       for(let i=0;i<=n;i+=Number(a)){
-        marks.push(i)
+        marks.push(i);
       }
 
       for(let i=Number(n);i>=0;i-=Number(b)){
-        marks.push(i)
+        marks.push(i);
       }
 
-      marks.sort((a, b) => a-b)
+      marks.sort((a, b) => a-b);
       marks = marks.filter(onlyUnique);
 
-      let result = Number(n);
 
-      let colorArr = []
+      let drawPoints = [];
 
       for (let i=0; i<marks.length; i++) {
-        if(marks[i+1] - marks[i] == Number(c)){
-          colorArr.push(i);
-          result-=Number(c);
+        if(marks.includes(Number(marks[i])+Number(c))){
+            drawPoints.push(marks[i]);
         }
       }
 
-      draw(marks, colorArr, n);
-
-      $('#result').text(result)
+      draw(marks, drawPoints, n, c);
     }
   });
 </script>
