@@ -7,7 +7,6 @@ import time
 import re
 import sys
 from threading import Thread
-import sys
 import psutil
 import ssl
 
@@ -15,6 +14,7 @@ class Server:
     address_family = socket.AF_INET #IPv4 addresses
     socket_type = socket.SOCK_STREAM
     request_queue_size = 1
+
     # forked = False
 
     # self.listen_socket = ssl.wrap_socket(
@@ -33,7 +33,7 @@ class Server:
         self.listen_socket = ssl.wrap_socket(
             self.listen_socket,
             keyfile='./ssl/server.key',
-            certfile='./ssl/server.csr',
+            certfile='./ssl/server.crt',
             server_side=True)
         self.listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #level, optname, value
         self.listen_socket.bind(server_address)
@@ -51,7 +51,6 @@ class Server:
             try:
                 self.client_connection, self.client_address = self.listen_socket.accept()
                 pid = os.fork()
-                print 'forking'
                 if pid == 0:
                     self.handle_request()
                     break
@@ -223,8 +222,6 @@ class Server:
                 file.write(fileContent)
                 file.close()
 
-            print 'end'
-            print self.request
             return self.get_file()
         except Exception as e:
             print e
