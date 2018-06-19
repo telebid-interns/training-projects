@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block head_content %}
+    <link href="{{ url_for('static', filename='line.css') }}" rel="stylesheet">
+{% endblock %}
+{% block main %}
+    <h2> Solution: {{ solution }} </h2>
+    <div class="colored-line" data-red-segments="{{ red_segments }}">
+        <span class="black-line">
+        <span class="dot green-dot"></span>
+    </div>
+{% endblock %}

@@ -5,7 +5,7 @@ def point_coords(line_length, a_step, b_step, b_offset):
     return range(0, line_length+1, a_step), range(b_offset, line_length+1, b_step)
 
 
-def segs_by_length(line_length, a_coords, b_coords, length):
+def segs_by_length(a_coords, b_coords, length):
     for a in a_coords:
         for b in b_coords:
             if abs(a - b) == length:
@@ -16,11 +16,10 @@ def segs_by_full_length(line_length, a_step, b_step, c_length):
     reset_length = a_step * b_step
     leftover = line_length % reset_length
     leftover_offset = reset_length * (line_length // reset_length)
-    repeating_segs = segs_by_length(reset_length,
-                                    *point_coords(reset_length, a_step, b_step, line_length % b_step),
+    repeating_segs = segs_by_length(*point_coords(reset_length, a_step, b_step, line_length % b_step),
                                     c_length)
     repeating_segs = sorted(tuple(sorted(seg)) for seg in repeating_segs)
-    leftover_segs = [(leftover_offset + seg[0], leftover_offset + seg[1])for seg in repeating_segs if seg[1] <= leftover]
+    leftover_segs = [(leftover_offset + seg[0], leftover_offset + seg[1]) for seg in repeating_segs if seg[1] <= leftover]
     return repeating_segs, leftover_segs
 
 
@@ -48,20 +47,26 @@ def concat_red_segments(segments):
     return red_segments
 
 
+def all_red_segments(line_length, a_step, b_step, segment_length):
+    repeating, leftover = segs_by_full_length(line_length, a_step, b_step, segment_length)
+    repetitions = line_length // (a_step * b_step)
+    return repeating * repetitions + leftover
+
+
 def total_red_length(red_segments):
     return sum(abs(seg[0] - seg[1]) for seg in red_segments)
 
 
-def parse_input_string(string):
-    return [int(num) for num in string.split(' ') if num]
-
-
-def solve(line_length, a_step, b_step, c_length):
-    repeating, leftover = segs_by_full_length(line_length, a_step, b_step, c_length)
+def solve(line_length, a_step, b_step, segment_length):
+    repeating, leftover = segs_by_full_length(line_length, a_step, b_step, segment_length)
     repeating_red = total_red_length(concat_red_segments(repeating))
     repetitions = line_length // (a_step * b_step)
     leftover_red = total_red_length(concat_red_segments(leftover))
     return line_length - (repeating_red * repetitions) - leftover_red
+
+
+def parse_input_string(string):
+    return [int(num) for num in string.split(' ') if num]
 
 
 def solution_2(string):
@@ -76,9 +81,6 @@ def main():
     parser.add_argument('segment_length', type=int)
     args = parser.parse_args()
     print(solve(args.line_length, args.a_step, args.b_step, args.segment_length))
-    # print(solution_2('9 3 2 1'))
-    # print(solution_2('20 3 2 3'))
-    # print(solution_2('999999 3 2 1'))
 
 
 if __name__ == '__main__':

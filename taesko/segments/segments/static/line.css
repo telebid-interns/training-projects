@@ -1,0 +1,41 @@
+.colored-line {
+    position: relative;
+
+}
+.black-line {
+    position: absolute;
+    z-index: 0;
+    border: none;
+    border-top: 5px solid #000;
+    color: #fff;
+    background-color: #fff;
+    height: 1px;
+    width: 100%;
+}
+.red-line {
+    position: absolute;
+    z-index: 1;
+    border: none;
+    border-top: 5px solid #f00;
+    color: #fff;
+    background-color: #fff;
+    height: 1px;
+    width: 50%;
+}
+
+.dot {
+    position: absolute;
+    z-index: 2;
+    top: -10px;
+    border-radius: 100%;
+    width: 15px;
+    height: 15px;
+}
+
+.green-dot {
+    background-color: green;
+}
+
+.blue-dot {
+    background-color: dodgerblue;
+}

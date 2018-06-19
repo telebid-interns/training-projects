@@ -29,7 +29,8 @@ def test_concat_red_segments(red_segments, expected):
     ('9 3 2 1', 6),
     ('10 2 3 1', 6),
     ('20 2 3 1', 14),
-    ('20 3 2 3', 2)
+    ('20 3 2 3', 2),
+    ('999999 3 2 1', 666666)
 ])
 def test_solution_2(string, expected):
     assert segments.solution_2(string) == expected

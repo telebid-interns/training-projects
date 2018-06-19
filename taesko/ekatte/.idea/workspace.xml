@@ -2,10 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="74db549b-6ed5-474d-8774-1cf8a17a8597" name="Default" comment="">
-      <change beforePath="$PROJECT_DIR$/../../.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/../../.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/bin/impxls.py" beforeDir="false" afterPath="$PROJECT_DIR$/bin/impxls.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ekatte_site/templates/ekatte_site/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/ekatte_site/templates/ekatte_site/index.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../segments/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../segments/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../segments/segments/segments.py" beforeDir="false" afterPath="$PROJECT_DIR$/../segments/segments/segments.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -53,7 +49,7 @@
       <file leaf-file-name="impxls.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/bin/impxls.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="680">
+            <state relative-caret-position="629">
               <caret line="79" selection-start-line="79" selection-end-line="79" />
               <folding>
                 <element signature="e#0#18#0" expanded="true" />
@@ -104,7 +100,7 @@
     <packageJsonPaths />
   </component>
   <component name="ProjectFrameBounds" extendedState="6">
-    <option name="x" value="1744" />
+    <option name="x" value="64" />
     <option name="y" value="-11" />
     <option name="width" value="1617" />
     <option name="height" value="1062" />
@@ -172,7 +168,7 @@
   </component>
   <component name="PropertiesComponent">
     <property name="WebServerToolWindowFactoryState" value="false" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../segments" />
     <property name="list.type.of.created.stylesheet" value="CSS" />
     <property name="nodejs_interpreter_path.stuck_in_default_project" value="undefined stuck path" />
     <property name="nodejs_npm_path_reset_for_default_project" value="true" />
@@ -232,7 +228,7 @@
     <servers />
   </component>
   <component name="ToolWindowManager">
-    <frame x="1744" y="-11" width="1617" height="1062" extended-state="6" />
+    <frame x="64" y="-11" width="1617" height="1062" extended-state="6" />
     <editor active="true" />
     <layout>
       <window_info anchor="bottom" id="TODO" order="6" />
@@ -390,7 +386,7 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/bin/impxls.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="680">
+        <state relative-caret-position="629">
           <caret line="79" selection-start-line="79" selection-end-line="79" />
           <folding>
             <element signature="e#0#18#0" expanded="true" />

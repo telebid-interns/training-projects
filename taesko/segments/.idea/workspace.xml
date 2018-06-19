@@ -2,8 +2,16 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="73a190f3-a367-4b88-b808-087ee81e048e" name="Default" comment="">
+      <change afterPath="$PROJECT_DIR$/segments/static/line.css" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/segments/static/line_rendering.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/segments/static/style.css" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/segments/templates/base.html" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/segments/templates/solution.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../ekatte/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/../ekatte/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/segments.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/segments.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/segments/segments.py" beforeDir="false" afterPath="$PROJECT_DIR$/segments/segments.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/segments/web.py" beforeDir="false" afterPath="$PROJECT_DIR$/segments/web.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/tests/test_segments.py" beforeDir="false" afterPath="$PROJECT_DIR$/tests/test_segments.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -14,22 +22,56 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="CoverageDataManager">
-    <SUITE FILE_PATH="coverage/segments$segments.coverage" NAME="segments Coverage Results" MODIFIED="1529409386575" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/segments" />
+    <SUITE FILE_PATH="coverage/segments$segments.coverage" NAME="segments Coverage Results" MODIFIED="1529409862306" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/segments" />
     <SUITE FILE_PATH="coverage/segments$test_segments.coverage" NAME="test_segments Coverage Results" MODIFIED="1529408019305" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/segments$py_test_in_segments_tests.coverage" NAME="py.test in segments/tests Coverage Results" MODIFIED="1529409382351" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/segments$py_test_in_segments_tests.coverage" NAME="py.test in segments/tests Coverage Results" MODIFIED="1529409889790" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
       <file leaf-file-name="web.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/segments/web.py">
-          <provider selected="true" editor-type-id="text-editor" />
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="442">
+              <caret line="26" column="51" selection-start-line="26" selection-start-column="51" selection-end-line="26" selection-end-column="51" />
+              <folding>
+                <element signature="e#0#18#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
         </entry>
       </file>
-      <file leaf-file-name="segments.py" pinned="false" current-in-tab="true">
+      <file leaf-file-name="solution.html" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/segments/templates/solution.html">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="136">
+              <caret line="8" column="24" selection-start-line="8" selection-start-column="24" selection-end-line="8" selection-end-column="24" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="line_rendering.js" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/segments/static/line_rendering.js">
+          <provider selected="true" editor-type-id="text-editor">
+            <state>
+              <caret column="8" selection-start-column="8" selection-end-column="8" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="line.css" pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/segments/static/line.css">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="680">
+              <caret line="40" selection-start-line="40" selection-end-line="40" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="segments.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/segments/segments.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="493">
-              <caret line="79" lean-forward="true" selection-start-line="79" selection-end-line="79" />
+            <state relative-caret-position="316">
+              <caret line="59" column="39" selection-start-line="59" selection-start-column="39" selection-end-line="59" selection-end-column="39" />
             </state>
           </provider>
         </entry>
@@ -37,8 +79,8 @@
       <file leaf-file-name="test_segments.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/tests/test_segments.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="429">
-              <caret line="31" column="18" selection-start-line="31" selection-start-column="18" selection-end-line="31" selection-end-column="18" />
+            <state relative-caret-position="480">
+              <caret line="34" column="4" selection-start-line="34" selection-start-column="4" selection-end-line="34" selection-end-column="4" />
               <folding>
                 <element signature="e#0#13#0" expanded="true" />
               </folding>
@@ -64,6 +106,9 @@
     <option name="RECENT_TEMPLATES">
       <list>
         <option value="Python Script" />
+        <option value="HTML File" />
+        <option value="CSS File" />
+        <option value="JavaScript File" />
       </list>
     </option>
   </component>
@@ -75,9 +120,14 @@
       <list>
         <option value="$PROJECT_DIR$/segments/__init__.py" />
         <option value="$PROJECT_DIR$/README" />
-        <option value="$PROJECT_DIR$/segments/web.py" />
         <option value="$PROJECT_DIR$/tests/test_segments.py" />
         <option value="$PROJECT_DIR$/segments/segments.py" />
+        <option value="$PROJECT_DIR$/segments/web.py" />
+        <option value="$PROJECT_DIR$/segments/templates/base.html" />
+        <option value="$PROJECT_DIR$/segments/static/style.css" />
+        <option value="$PROJECT_DIR$/segments/static/line_rendering.js" />
+        <option value="$PROJECT_DIR$/segments/templates/solution.html" />
+        <option value="$PROJECT_DIR$/segments/static/line.css" />
       </list>
     </option>
   </component>
@@ -91,7 +141,7 @@
     <packageJsonPaths />
   </component>
   <component name="ProjectFrameBounds" extendedState="6">
-    <option name="x" value="1744" />
+    <option name="x" value="64" />
     <option name="y" value="-11" />
     <option name="width" value="1617" />
     <option name="height" value="1062" />
@@ -117,6 +167,33 @@
             <path>
               <item name="segments" type="b2602c69:ProjectViewProjectNode" />
               <item name="segments" type="462c0819:PsiDirectoryNode" />
+              <item name="segments" type="462c0819:PsiDirectoryNode" />
+              <item name="static" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="segments" type="b2602c69:ProjectViewProjectNode" />
+              <item name="segments" type="462c0819:PsiDirectoryNode" />
+              <item name="segments" type="462c0819:PsiDirectoryNode" />
+              <item name="static" type="462c0819:PsiDirectoryNode" />
+              <item name="bootstrap" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="segments" type="b2602c69:ProjectViewProjectNode" />
+              <item name="segments" type="462c0819:PsiDirectoryNode" />
+              <item name="segments" type="462c0819:PsiDirectoryNode" />
+              <item name="static" type="462c0819:PsiDirectoryNode" />
+              <item name="bootstrap" type="462c0819:PsiDirectoryNode" />
+              <item name="css" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="segments" type="b2602c69:ProjectViewProjectNode" />
+              <item name="segments" type="462c0819:PsiDirectoryNode" />
+              <item name="segments" type="462c0819:PsiDirectoryNode" />
+              <item name="templates" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="segments" type="b2602c69:ProjectViewProjectNode" />
+              <item name="segments" type="462c0819:PsiDirectoryNode" />
               <item name="tests" type="462c0819:PsiDirectoryNode" />
             </path>
           </expand>
@@ -127,10 +204,13 @@
     </panes>
   </component>
   <component name="PropertiesComponent">
+    <property name="DefaultHtmlFileTemplate" value="HTML File" />
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$/tests" />
+    <property name="list.type.of.created.stylesheet" value="CSS" />
     <property name="nodejs_interpreter_path.stuck_in_default_project" value="undefined stuck path" />
     <property name="nodejs_npm_path_reset_for_default_project" value="true" />
+    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PythonContentEntriesConfigurable" />
   </component>
   <component name="RunDashboard">
     <option name="ruleStates">
@@ -144,7 +224,7 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.segments">
+  <component name="RunManager" selected="Python tests.py.test in segments/tests">
     <configuration name="segments" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="segments" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -227,19 +307,25 @@
     <history-entry file="py_test_in_segments_tests - 2018.06.19 at 14h 56m 22s.xml">
       <configuration name="py.test in segments/tests" configurationId="tests" />
     </history-entry>
+    <history-entry file="py_test_in_segments_tests - 2018.06.19 at 15h 04m 25s.xml">
+      <configuration name="py.test in segments/tests" configurationId="tests" />
+    </history-entry>
+    <history-entry file="py_test_in_segments_tests - 2018.06.19 at 15h 04m 50s.xml">
+      <configuration name="py.test in segments/tests" configurationId="tests" />
+    </history-entry>
   </component>
   <component name="ToolWindowManager">
-    <frame x="1744" y="-11" width="1617" height="1062" extended-state="6" />
+    <frame x="64" y="-11" width="1617" height="1062" extended-state="6" />
     <editor active="true" />
     <layout>
       <window_info anchor="bottom" id="TODO" order="6" />
-      <window_info anchor="bottom" id="Event Log" order="7" side_tool="true" />
+      <window_info anchor="bottom" id="Event Log" order="7" sideWeight="0.5003096" side_tool="true" weight="0.32980973" />
       <window_info anchor="bottom" id="Database Changes" order="7" show_stripe_button="false" />
-      <window_info active="true" anchor="bottom" id="Run" order="2" visible="true" weight="0.32980973" />
+      <window_info anchor="bottom" id="Run" order="2" sideWeight="0.4996904" weight="0.32980973" />
       <window_info anchor="bottom" id="Version Control" order="7" />
       <window_info anchor="bottom" id="Python Console" order="7" />
       <window_info anchor="bottom" id="Terminal" order="7" />
-      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.2495356" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.2495356" />
       <window_info anchor="bottom" id="Docker" order="7" show_stripe_button="false" />
       <window_info anchor="right" id="Database" order="3" />
       <window_info anchor="right" id="SciView" order="3" />
@@ -381,8 +467,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/tests/test_segments.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="429">
-          <caret line="31" column="18" selection-start-line="31" selection-start-column="18" selection-end-line="31" selection-end-column="18" />
+        <state relative-caret-position="480">
+          <caret line="34" column="4" selection-start-line="34" selection-start-column="4" selection-end-line="34" selection-end-column="4" />
           <folding>
             <element signature="e#0#13#0" expanded="true" />
           </folding>
@@ -390,12 +476,54 @@
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/segments/web.py">
-      <provider selected="true" editor-type-id="text-editor" />
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="442">
+          <caret line="26" column="51" selection-start-line="26" selection-start-column="51" selection-end-line="26" selection-end-column="51" />
+          <folding>
+            <element signature="e#0#18#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/segments/templates/base.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="187">
+          <caret line="11" column="57" selection-start-line="11" selection-start-column="57" selection-end-line="11" selection-end-column="57" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/segments/static/style.css">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="17">
+          <caret line="1" column="13" selection-start-line="1" selection-start-column="13" selection-end-line="1" selection-end-column="13" />
+        </state>
+      </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/segments/segments.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="493">
-          <caret line="79" lean-forward="true" selection-start-line="79" selection-end-line="79" />
+        <state relative-caret-position="316">
+          <caret line="59" column="39" selection-start-line="59" selection-start-column="39" selection-end-line="59" selection-end-column="39" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/segments/templates/solution.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="136">
+          <caret line="8" column="24" selection-start-line="8" selection-start-column="24" selection-end-line="8" selection-end-column="24" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/segments/static/line_rendering.js">
+      <provider selected="true" editor-type-id="text-editor">
+        <state>
+          <caret column="8" selection-start-column="8" selection-end-column="8" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/segments/static/line.css">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="680">
+          <caret line="40" selection-start-line="40" selection-end-line="40" />
         </state>
       </provider>
     </entry>
