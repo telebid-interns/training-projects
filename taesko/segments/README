@@ -1,0 +1,8 @@
+Segments fast task
+
+
+Given a line with length L. For all points A = {(a(n-1), an)} on the line
+with a given step `a` and all points B = {(bn, b(n-1))} on the line
+find the segments between all these points that have a length of C.
+These segments with length C will be colored in red. Find the
+uncolored length of the line.

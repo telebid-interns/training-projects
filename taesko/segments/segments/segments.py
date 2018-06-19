@@ -45,7 +45,7 @@ def solve_input_string(string):
     line_length, a_step, b_step, c_length = parse_input_string(string)
     a_coords = range(0, line_length, a_step)
     b_coords = range(line_length, 0, -b_step)
-    segs = list(segs_by_length(line_length, a_coords, b_coords, c_length))
+    segs = segs_by_length(line_length, a_coords, b_coords, c_length)
     reds = concat_red_segments(segs)
     return line_length - total_red_length(reds)
 
