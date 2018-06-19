@@ -1,5 +1,8 @@
-def point_coords(line_length, step):
-    return range(0, line_length, step)
+import argparse
+
+
+def point_coords(line_length, a_step, b_step, b_offset):
+    return range(0, line_length+1, a_step), range(b_offset, line_length+1, b_step)
 
 
 def segs_by_length(line_length, a_coords, b_coords, length):
@@ -7,6 +10,18 @@ def segs_by_length(line_length, a_coords, b_coords, length):
         for b in b_coords:
             if abs(a - b) == length:
                 yield (a, b)
+
+
+def segs_by_full_length(line_length, a_step, b_step, c_length):
+    reset_length = a_step * b_step
+    leftover = line_length % reset_length
+    leftover_offset = reset_length * (line_length // reset_length)
+    repeating_segs = segs_by_length(reset_length,
+                                    *point_coords(reset_length, a_step, b_step, line_length % b_step),
+                                    c_length)
+    repeating_segs = sorted(tuple(sorted(seg)) for seg in repeating_segs)
+    leftover_segs = [(leftover_offset + seg[0], leftover_offset + seg[1])for seg in repeating_segs if seg[1] <= leftover]
+    return repeating_segs, leftover_segs
 
 
 def concat_segments(seg_1, seg_2):
@@ -41,21 +56,29 @@ def parse_input_string(string):
     return [int(num) for num in string.split(' ') if num]
 
 
-def solve_input_string(string):
-    line_length, a_step, b_step, c_length = parse_input_string(string)
-    a_coords = range(0, line_length, a_step)
-    b_coords = range(line_length, 0, -b_step)
-    segs = segs_by_length(line_length, a_coords, b_coords, c_length)
-    reds = concat_red_segments(segs)
-    return line_length - total_red_length(reds)
+def solve(line_length, a_step, b_step, c_length):
+    repeating, leftover = segs_by_full_length(line_length, a_step, b_step, c_length)
+    repeating_red = total_red_length(concat_red_segments(repeating))
+    repetitions = line_length // (a_step * b_step)
+    leftover_red = total_red_length(concat_red_segments(leftover))
+    return line_length - (repeating_red * repetitions) - leftover_red
+
+
+def solution_2(string):
+    return solve(*parse_input_string(string))
 
 
 def main():
-    line_length = 10
-    a_step = 2
-    b_step = 3
-    c_length = 1
-    print(solve_input_string('10 2 3 1'))
+    parser = argparse.ArgumentParser()
+    parser.add_argument('line_length', type=int)
+    parser.add_argument('a_step', type=int)
+    parser.add_argument('b_step', type=int)
+    parser.add_argument('segment_length', type=int)
+    args = parser.parse_args()
+    print(solve(args.line_length, args.a_step, args.b_step, args.segment_length))
+    # print(solution_2('9 3 2 1'))
+    # print(solution_2('20 3 2 3'))
+    # print(solution_2('999999 3 2 1'))
 
 
 if __name__ == '__main__':
