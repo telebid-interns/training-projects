@@ -62,6 +62,7 @@ function fillInputs() {
 function parseCoordinates(string) {
     let markerCoordinates = [];
     let data_markers = string.split(' ');
+
     for (let k = 0; k < data_markers.length - 5; k += 5) {
         let name = data_markers[k];
         let lat = parseFloat(data_markers[k + 1]);

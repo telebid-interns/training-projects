@@ -182,8 +182,8 @@ def cities_on_path(path):
 
 
 def is_solution(needed_connections, paths, minimal, maximum):
-    cut_connections = [conn for connections in needed_connections.values() for conn in connections
-                       if not minimal <= conn.weight <= maximum]
+    cut_connections = [conn for connections in needed_connections.values()
+                       for conn in connections if not minimal <= conn.weight <= maximum]
     for cut in cut_connections:
         paths = [p for p in paths if cut not in p]
     needed_connections = {city_a: set(conn.other_city(city_a) for conn in connections)
