@@ -25,7 +25,7 @@ class Municipalities(models.Model):
 
 class Provinces(models.Model):
     id = models.CharField(primary_key=True, max_length=5)
-    municipal = models.ForeignKey(Municipalities, models.DO_NOTHING)
+    municipal = models.ForeignKey(Municipalities, models.PROTECT)
     name = models.CharField(max_length=25)
 
     class Meta:
@@ -35,7 +35,7 @@ class Provinces(models.Model):
 
 class Ekatte(models.Model):
     id = models.CharField(primary_key=True, max_length=5)
-    province = models.ForeignKey(Provinces, models.DO_NOTHING)
+    province = models.ForeignKey(Provinces, models.PROTECT)
     name = models.CharField(max_length=25)
     kind = models.CharField(max_length=1)
     altitude = models.SmallIntegerField()
