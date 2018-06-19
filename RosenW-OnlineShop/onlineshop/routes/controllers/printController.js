@@ -36,7 +36,7 @@ module.exports = {
 
         let newFormat = req.body.format;
         await client.query("update printformats set format = $1 where id = 1", [newFormat]);
-        res.redirect(303, '/check?state=4&sort=1&from=01-01-1999&to=01-01-2050&word=');
+        res.redirect(303, '/check?state=4&groupby=3&sort=1&from=01-01-1999&to=01-01-2050&word=');
     },
     postPrint: async function(req, res) {
         let maxLength = 0;
@@ -77,7 +77,7 @@ module.exports = {
         let paddingRequired = maxLength - ('Total: ' + total).length;
         let paddingString = '';
         for(let j = 0; j<paddingRequired;j++){
-          paddingString+='.';
+          paddingString+='.'; // TODO: replace with fixed space
         }
         info += 'Total: ' + paddingString + total;
 
@@ -87,8 +87,43 @@ module.exports = {
         format = format.replace(/ESC/g, '\x1b');
         format = format.replace(/GS/g, '\x1d');
 
-        cmd.get('echo "'+format+'" | lp', function(err, data, stderr){
+        lines = format.split('\n');
 
+        replacedText = ''
+
+        format = format.replace(/36/g, '\x24')
+
+        for (let i in format) {
+          console.log(format[i] + ' - ' + format.charCodeAt(i));
+        }
+
+        for (let i in lines) {
+          if(lines[i].substr(0,1) == '\u001b' || lines[i].substr(0,1) == '\u001d'){
+            let n = lines[i].replace( /^\D+/g, '');
+            let comm = lines[i].replace( /[0-9]/g, '');
+
+            let asciiValue = String.fromCharCode(Number(n));
+            if(asciiValue.charCodeAt(0) != 0){
+              console.log('logging comm');
+              console.log(comm);
+              comm += asciiValue;
+              console.log(comm);
+              console.log('\x1bi' + asciiValue);
+            }
+            replacedText += comm;
+          }else{
+            replacedText += lines[i] + '\n';
+          }
+        }
+
+        console.log(format);
+        console.log('---');
+        console.log(replacedText);
+
+        cmd.get('echo "'+format+'" | lp', function(err, data, stderr){
+          console.log(err);
+          console.log(data);
+          console.log(stderr);
         });
     }
 }
