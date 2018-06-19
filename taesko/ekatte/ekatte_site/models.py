@@ -40,6 +40,27 @@ class Ekatte(models.Model):
     kind = models.CharField(max_length=1)
     altitude = models.SmallIntegerField()
 
+    @staticmethod
+    def translate_kind(kind_integer):
+        map_ = {1: 'град', 3: 'село', 7: 'манастир' }
+        for key, val in list(map_.items()):
+            map_[str(key)] = val
+        return map_[kind_integer]
+
+    @staticmethod
+    def translate_altitude(altitude_integer):
+        if altitude_integer in range(1, 3):
+            min_val = (altitude_integer-1) * 50
+            max_val = altitude_integer * 50
+            return "между {} и {} метра".format(min_val, max_val)
+        elif altitude_integer in range(3, 9):
+            start = 100
+            min_val = start + (altitude_integer-1) * 50
+            max_val = start + (altitude_integer) * 50
+            return "между {} и {} метра".format(min_val, max_val)
+        else:
+            raise ValueError("altitude integer must be in range(1, 9) got {} instead".format(altitude_integer))
+
     class Meta:
         managed = False
         db_table = 'ekatte'
@@ -67,5 +88,10 @@ def full_ekatte_data(search_keywords=None):
         else:
             exc_query = cursor.mogrify(query)
         cursor.execute(exc_query)
-        rows = (FullEkatte(*row) for row in cursor.fetchall())
-        return FullEkatte._fields, rows
+        result_rows = []
+        for row in cursor.fetchall():
+            row = list(row)
+            row[4] = Ekatte.translate_kind(row[4])
+            row[5] = Ekatte.translate_altitude(row[5])
+            result_rows.append(FullEkatte(*row))
+        return FullEkatte._fields, result_rows
