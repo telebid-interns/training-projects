@@ -77,7 +77,7 @@ def insert_values(cursor, insert_query, placeholders, data):
     cursor.execute(query)
 
 
-def update_values():
+def update_values(cursor, table, placeholders, data):
     pass
 
 
