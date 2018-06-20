@@ -1,13 +1,14 @@
 const apiKey = 'AIzaSyDe2NF-3q_aCIi1TIW0bIN44OqHQAPEc5w';
-const searchMaxResults = 1;
+const searchMaxResults = 50;
 
 const channelLinkSubmit = document.getElementById('channel-link-submit');
+const addChannelLinkInput = document.getElementById('add-channel-link-input');
 const musicTable = document.getElementById('music-table');
 
 function channelLinkSubmitOnClick() {
   clearTable();
 
-  const channelLinkInput = document.getElementById('channel-link-input');
+  const channelLinkInputs = document.getElementsByName('channel-link-input');
   const getUntilLastElements = document.getElementsByName('getUntilLast');
 
   let getUntilLast;
@@ -20,11 +21,9 @@ function channelLinkSubmitOnClick() {
     }
 
   }
-
-  const channelLinks = [channelLinkInput.value];
   
-  channelLinks.forEach(async link => {
-    const { type, value } = getChannelIdentificator(link);
+  channelLinkInputs.forEach(async input => {
+    const { type, value } = getChannelIdentificator(input.value);
 
     let channelId;
   
@@ -38,7 +37,18 @@ function channelLinkSubmitOnClick() {
     }
   
     await getChannelVideos(channelId, getUntilLast);
+    console.log(channelId);
   });
+}
+
+function addChannelLinkInputOnClick() {
+  const channelLinkInputs = document.getElementById("channel-link-inputs");
+  const newInput = document.createElement('input');
+  newInput.type = 'text';
+  newInput.className = 'form-control';
+  newInput.placeholder = 'Link to channel';
+  newInput.name = 'channel-link-input';
+  channelLinkInputs.appendChild(newInput);
 }
 
 function clearTable() {
@@ -172,9 +182,11 @@ async function getChannelVideos(channelId, getUntilLast, pageToken='') {
   const searchVideosResponse = await response.json();
   await Promise.all(searchVideosResponse.items.map(async item => {
     const data = await getMusicVideoData(item.id.videoId);
-    insertTableRow(data);
+    if (data !== null) {
+      insertTableRow(data);
+    }
   }));
-  
+
   if (searchVideosResponse.nextPageToken) {
     return await getChannelVideos(channelId, getUntilLast, searchVideosResponse.nextPageToken);
   } else {
@@ -216,3 +228,4 @@ async function getMusicVideoData(videoId) {
 }
 
 channelLinkSubmit.onclick = channelLinkSubmitOnClick;
+addChannelLinkInput.onclick = addChannelLinkInputOnClick;
