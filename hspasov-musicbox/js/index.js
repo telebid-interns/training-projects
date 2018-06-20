@@ -2,12 +2,26 @@ const apiKey = 'AIzaSyDe2NF-3q_aCIi1TIW0bIN44OqHQAPEc5w';
 const searchMaxResults = 1;
 
 const channelLinkSubmit = document.getElementById('channel-link-submit');
+const musicTable = document.getElementById('music-table');
 
 function channelLinkSubmitOnClick() {
-  const channelLinkInput = document.getElementById('channel-link-input');
-  const channelLinkInput2 = document.getElementById('channel-link-input2');
+  clearTable();
 
-  const channelLinks = [channelLinkInput.value, channelLinkInput2.value];
+  const channelLinkInput = document.getElementById('channel-link-input');
+  const getUntilLastElements = document.getElementsByName('getUntilLast');
+
+  let getUntilLast;
+  for (let i = 0; i < getUntilLastElements.length; i++) {
+    
+    if (getUntilLastElements[i].checked) {
+      
+      getUntilLast = getUntilLastElements[i].value
+      break;
+    }
+
+  }
+
+  const channelLinks = [channelLinkInput.value];
   
   channelLinks.forEach(async link => {
     const { type, value } = getChannelIdentificator(link);
@@ -23,8 +37,32 @@ function channelLinkSubmitOnClick() {
       return;
     }
   
-    await getChannelVideos(channelId, 'week');
+    await getChannelVideos(channelId, getUntilLast);
   });
+}
+
+function clearTable() {
+  let tableHeaderRowCount = 1;
+  
+  for (let i = musicTable.rows.length - 1; i >= tableHeaderRowCount; i--) {
+    musicTable.deleteRow(i);
+  }
+}
+
+function insertTableRow(data) {
+  console.log(data);
+  let newRow = musicTable.insertRow(musicTable.rows.length);
+  let artistCell = newRow.insertCell(0);
+  let songCell = newRow.insertCell(1);
+  let albumCell = newRow.insertCell(2);
+  let durationCell = newRow.insertCell(3);
+  let releasedCell = newRow.insertCell(4);
+  
+  artistCell.innerHTML = data.artist;
+  songCell.innerHTML = data.songTitle;
+  albumCell.innerHTML = "";
+  durationCell.innerHTML = durationToString(data.duration);
+  releasedCell.innerHTML = data.publishedAt;
 }
 
 function getChannelIdentificator(channelAddress) {
@@ -68,6 +106,29 @@ function getChannelIdentificator(channelAddress) {
   }
 }
 
+function durationToString(duration) {
+  
+  let string = '';
+
+  if (duration.hours !== null) {
+    string += `${duration.hours}:`;
+  }
+ 
+  if (duration.minutes !== null) {
+    string += `${duration.minutes}:`;
+  } else {
+    string += '00:';
+  }
+
+  if (duration.seconds !== null) {
+    string += `${duration.seconds}`;
+  } else {
+    string += '00';
+  }
+
+  return string;
+}
+
 function parseDuration(duration) {
   const secondsPattern = /\d+(?=S)/;
   const minutesPattern = /\d+(?=M)/;
@@ -109,7 +170,10 @@ async function getChannelVideos(channelId, getUntilLast, pageToken='') {
 
   const response = await fetch(`https://www.googleapis.com/youtube/v3/search?key=${apiKey}&channelId=${channelId}&type=video&part=id&order=date&maxResults=${searchMaxResults}&pageToken=${pageToken}&publishedAfter=${date.toISOString()}`);
   const searchVideosResponse = await response.json();
-  await Promise.all(searchVideosResponse.items.map(item => getMusicVideoData(item.id.videoId)));
+  await Promise.all(searchVideosResponse.items.map(async item => {
+    const data = await getMusicVideoData(item.id.videoId);
+    insertTableRow(data);
+  }));
   
   if (searchVideosResponse.nextPageToken) {
     return await getChannelVideos(channelId, getUntilLast, searchVideosResponse.nextPageToken);
@@ -143,10 +207,6 @@ async function getMusicVideoData(videoId) {
 
   const publishedAt = videoData.items[0].snippet.publishedAt;
 
-  console.log(artist);
-  console.log(songTitle);
-  console.log(duration);
-  console.log(publishedAt);
   return {
     artist,
     songTitle,
