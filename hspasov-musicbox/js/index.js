@@ -2,15 +2,45 @@ const apiKey = 'AIzaSyDe2NF-3q_aCIi1TIW0bIN44OqHQAPEc5w';
 const searchMaxResults = 50;
 
 const channelLinkSubmit = document.getElementById('channel-link-submit');
-const addChannelLinkInput = document.getElementById('add-channel-link-input');
+const addChannelLinkInputButton = document.getElementById('add-channel-link-input');
+const removeAllChannelLinkInputsButton = document.getElementById('remove-all-channel-link-inputs');
 const musicTable = document.getElementById('music-table');
 
-function channelLinkSubmitOnClick() {
+async function channelLinkSubmitOnClick() {
   clearTable();
 
   const channelLinkInputs = document.getElementsByName('channel-link-input');
-  const getUntilLastElements = document.getElementsByName('getUntilLast');
 
+  const getUntilLast = generateGetUntilLast();
+
+  for (let i = 0; i < channelLinkInputs.length; i++) {
+
+    const identificator = getChannelIdentificator(channelLinkInputs[i].value);
+
+    if (!identificator) {
+      continue;
+    }
+
+    let channelId;
+  
+    if (identificator.type === 'username') {
+      channelId = await getChannelId(identificator.value);
+    } else if (identificator.type === 'channelId') {
+      channelId = identificator.value;
+    } else {
+      // error
+      return;
+    }
+  
+    await getChannelVideos(channelId, getUntilLast);
+
+  }
+
+  saveStateToLocalStorage();
+}
+
+function generateGetUntilLast() {
+  const getUntilLastElements = document.getElementsByName('getUntilLast');
   let getUntilLast;
   for (let i = 0; i < getUntilLastElements.length; i++) {
     
@@ -21,34 +51,42 @@ function channelLinkSubmitOnClick() {
     }
 
   }
-  
-  channelLinkInputs.forEach(async input => {
-    const { type, value } = getChannelIdentificator(input.value);
-
-    let channelId;
-  
-    if (type === 'username') {
-      channelId = await getChannelId(value);
-    } else if (type === 'channelId') {
-      channelId = value;
-    } else {
-      // error
-      return;
-    }
-  
-    await getChannelVideos(channelId, getUntilLast);
-    console.log(channelId);
-  });
+  return getUntilLast;
 }
 
-function addChannelLinkInputOnClick() {
-  const channelLinkInputs = document.getElementById("channel-link-inputs");
+function setGetUntilLast(getUntilLast) {
+  const getUntilLastElements = document.getElementsByName('getUntilLast');
+  
+  for (let i = 0; i < getUntilLastElements.length; i++) {
+    
+    if (getUntilLastElements[i].value === getUntilLast) {
+      
+      getUntilLastElements[i].checked = true;
+      break;
+    }
+
+  }
+}
+
+function addChannelLinkInput(value) {
+  const channelLinkInputs = document.getElementById('channel-link-inputs');
   const newInput = document.createElement('input');
   newInput.type = 'text';
   newInput.className = 'form-control';
   newInput.placeholder = 'Link to channel';
   newInput.name = 'channel-link-input';
+  if (value) {
+    newInput.value = value;
+  }
   channelLinkInputs.appendChild(newInput);
+}
+
+function clearChannelLinkInputs() {
+  clearTable();
+  const channelLinkInputs = document.getElementById('channel-link-inputs');
+  while (channelLinkInputs.firstChild) {
+    channelLinkInputs.removeChild(channelLinkInputs.firstChild);
+  }
 }
 
 function clearTable() {
@@ -57,10 +95,10 @@ function clearTable() {
   for (let i = musicTable.rows.length - 1; i >= tableHeaderRowCount; i--) {
     musicTable.deleteRow(i);
   }
+
 }
 
 function insertTableRow(data) {
-  console.log(data);
   let newRow = musicTable.insertRow(musicTable.rows.length);
   let artistCell = newRow.insertCell(0);
   let songCell = newRow.insertCell(1);
@@ -73,6 +111,74 @@ function insertTableRow(data) {
   albumCell.innerHTML = "";
   durationCell.innerHTML = durationToString(data.duration);
   releasedCell.innerHTML = data.publishedAt;
+}
+
+function getTableData() {
+  const tableData = [];
+
+  for (let i = 0; i < musicTable.rows.length; i++) {
+    
+    const rowData = [];
+    const cells = musicTable.rows.item(i).cells;
+    
+    for (let k = 0; k < cells.length; k++) {
+      rowData.push(cells.item(k).innerHTML);
+    } 
+
+    tableData.push(rowData);
+  }
+
+  return tableData;
+}
+
+function saveStateToLocalStorage() {
+  const state = {};
+
+  const channelLinkInputs = document.getElementsByName('channel-link-input');
+  
+  const getUntilLast = generateGetUntilLast();
+
+  const channelLinkInputValues = [];
+  for (let i = 0; i < channelLinkInputs.length; i++) {
+    channelLinkInputValues.push(channelLinkInputs[i].value);
+  }
+
+  state.getUntilLast = getUntilLast;
+  state.tableData = getTableData();
+  state.channelLinkInputValues = channelLinkInputValues;
+
+  localStorage.setItem('musicbox', JSON.stringify(state));
+}
+
+function restoreStateFromLocalStorage() {
+  
+  const state = JSON.parse(localStorage.getItem('musicbox'));
+
+  if (!state) {
+    return;
+  }
+
+  if (state.channelLinkInputValues) {
+
+    clearChannelLinkInputs();
+    state.channelLinkInputValues.forEach(value => addChannelLinkInput(value));
+  }
+
+  if (state.getUntilLast) {
+    setGetUntilLast(state.getUntilLast);
+  }
+
+  if (state.tableData) {
+    for (let i = 1; i < state.tableData.length; i++) {
+      insertTableRow({
+        artist: state.tableData[i][0],
+        songTitle: state.tableData[i][1],
+        duration: state.tableData[i][2],
+        publishedAt: state.tableData[i][3]
+      });
+    }
+  }
+
 }
 
 function getChannelIdentificator(channelAddress) {
@@ -228,4 +334,10 @@ async function getMusicVideoData(videoId) {
 }
 
 channelLinkSubmit.onclick = channelLinkSubmitOnClick;
-addChannelLinkInput.onclick = addChannelLinkInputOnClick;
+addChannelLinkInputButton.onclick = () => addChannelLinkInput();
+removeAllChannelLinkInputsButton.onclick = () => { 
+  clearChannelLinkInputs();
+  saveStateToLocalStorage();
+};
+
+restoreStateFromLocalStorage();
