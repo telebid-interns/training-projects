@@ -87,28 +87,18 @@ module.exports = {
         format = format.replace(/ESC/g, '\x1b');
         format = format.replace(/GS/g, '\x1d');
 
-        lines = format.split('\n');
+        lines = format.split('\r\n');
 
         replacedText = ''
 
-        format = format.replace(/36/g, '\x24')
-
-        for (let i in format) {
-          console.log(format[i] + ' - ' + format.charCodeAt(i));
-        }
-
         for (let i in lines) {
           if(lines[i].substr(0,1) == '\u001b' || lines[i].substr(0,1) == '\u001d'){
-            let n = lines[i].replace( /^\D+/g, '');
+            let n = lines[i].replace( /^\D+/g, ''); //doesnt change lines[i]
             let comm = lines[i].replace( /[0-9]/g, '');
 
             let asciiValue = String.fromCharCode(Number(n));
             if(asciiValue.charCodeAt(0) != 0){
-              console.log('logging comm');
-              console.log(comm);
               comm += asciiValue;
-              console.log(comm);
-              console.log('\x1bi' + asciiValue);
             }
             replacedText += comm;
           }else{
@@ -116,14 +106,39 @@ module.exports = {
           }
         }
 
-        console.log(format);
-        console.log('---');
-        console.log(replacedText);
+        let codes = [];
 
-        cmd.get('echo "'+format+'" | lp', function(err, data, stderr){
+
+        // let cyrillicCompatibleText = '';
+        let cyrillicCompatibleText = '\x1b\x74\x1c\n';
+        for (var i = 0; i <= 300; i++) { // TEST
+            cyrillicCompatibleText += String.fromCharCode(i);
+        }
+        cyrillicCompatibleText += '\x1bi'
+
+        // for (let index in replacedText) {
+        //   symbolCode = replacedText.charCodeAt(index);
+        //   cyrillicCompatibleText += String.fromCharCode(symbolCode - 848);
+          // if(symbolCode > 1000){
+          //   codes.push(symbolCode-848);
+          //   cyrillicCompatibleText += String.fromCharCode(symbolCode - 848); //hardcodded
+          // }else{
+          //   codes.push(symbolCode);
+          //   cyrillicCompatibleText += replacedText[index];
+          // }
+        // }
+
+        // console.log(cyrillicCompatibleText);
+        // console.log(codes);
+
+
+        cmd.get('echo "'+cyrillicCompatibleText+'" | lp', function(err, data, stderr){
           console.log(err);
           console.log(data);
           console.log(stderr);
         });
-    }
+    },
+    // formatString: function(){ // todo
+    //
+    // }
 }
