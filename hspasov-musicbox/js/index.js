@@ -23,10 +23,8 @@ function channelLinkSubmitOnClick() {
       return;
     }
   
-    await getChannelVideos(channelId);
+    await getChannelVideos(channelId, 'week');
   });
-
-  console.log('finished');
 }
 
 function getChannelIdentificator(channelAddress) {
@@ -70,25 +68,57 @@ function getChannelIdentificator(channelAddress) {
   }
 }
 
-async function getChannelId(username) {
-  const response = await fetch(`https://www.googleapis.com/youtube/v3/channels?key=${apiKey}&forUsername=${username}&part=id`);
-  const ytChannelResponse = await response.json();
-  console.log(ytChannelResponse);
-  return ytChannelResponse.items[0].id;
+function parseDuration(duration) {
+  const secondsPattern = /\d+(?=S)/;
+  const minutesPattern = /\d+(?=M)/;
+  const hoursPattern = /\d+(?=H)/;
+
+  const secondsMatches = duration.match(secondsPattern);
+  const minutesMatches = duration.match(minutesPattern);
+  const hoursMatches = duration.match(hoursPattern);
+
+  return {
+    seconds: (secondsMatches === null) ? null : secondsMatches[0],
+    minutes: (minutesMatches === null) ? null : minutesMatches[0],
+    hours: (hoursMatches === null) ? null : hoursMatches[0]
+  };
 }
 
-async function getChannelVideos(channelId, pagesLeft=20, pageToken='') {
-  const response = await fetch(`https://www.googleapis.com/youtube/v3/search?key=${apiKey}&channelId=${channelId}&type=video&part=id&order=date&maxResults=${searchMaxResults}&pageToken=${pageToken}`);
-  const ytSearchVideosResponse = await response.json();
-  await Promise.all(ytSearchVideosResponse.items.map(item => getVideoData(item.id.videoId)));
-  if (pagesLeft > 0 && ytSearchVideosResponse.nextPageToken) {
-    return await getChannelVideos(channelId, pagesLeft - 1, ytSearchVideosResponse.nextPageToken);
+async function getChannelId(username) {
+  const response = await fetch(`https://www.googleapis.com/youtube/v3/channels?key=${apiKey}&forUsername=${username}&part=id`);
+  const channelResponse = await response.json();
+  return channelResponse.items[0].id;
+}
+
+async function getChannelVideos(channelId, getUntilLast, pageToken='') {
+  
+  const date = new Date();
+  switch (getUntilLast) {
+    case 'week':
+      date.setDate(date.getDate() - 7);
+      break;
+    case 'month':
+      date.setMonth(date.getMonth() - 1);
+      break;
+    case 'year':
+      date.setFullYear(date.getFullYear() - 1);
+      break;
+    default:
+      // error
+  }
+
+  const response = await fetch(`https://www.googleapis.com/youtube/v3/search?key=${apiKey}&channelId=${channelId}&type=video&part=id&order=date&maxResults=${searchMaxResults}&pageToken=${pageToken}&publishedAfter=${date.toISOString()}`);
+  const searchVideosResponse = await response.json();
+  await Promise.all(searchVideosResponse.items.map(item => getMusicVideoData(item.id.videoId)));
+  
+  if (searchVideosResponse.nextPageToken) {
+    return await getChannelVideos(channelId, getUntilLast, searchVideosResponse.nextPageToken);
   } else {
     return;
   }
 }
 
-async function getVideoData(videoId) {
+async function getMusicVideoData(videoId) {
   const artistPattern = /^.+(?= - )/; // matches 'Artist Name' in 'Artist Name - Song name (remix)'
   const titlePattern = / - [^\(\)\[\]]+/; // matches ' - Song name ' in 'Artist Name - Song name (remix)'
 
@@ -96,16 +126,33 @@ async function getVideoData(videoId) {
   const videoData = await response.json();
 
   const videoTitle = videoData.items[0].snippet.title;
-  
+
   const artistMatches = videoTitle.match(artistPattern);
+  if (artistMatches === null) {
+    return null;
+  }
   const artist = artistMatches[0].trim();
 
   const songTitleMatches = videoTitle.match(titlePattern);
+  if (songTitleMatches === null) {
+    return null;
+  }
   const songTitle = songTitleMatches[0].replace(' - ', '').trim();
+
+  const duration = parseDuration(videoData.items[0].contentDetails.duration);
+
+  const publishedAt = videoData.items[0].snippet.publishedAt;
 
   console.log(artist);
   console.log(songTitle);
-  return { artist, songTitle };
+  console.log(duration);
+  console.log(publishedAt);
+  return {
+    artist,
+    songTitle,
+    duration,
+    publishedAt
+  };
 }
 
 channelLinkSubmit.onclick = channelLinkSubmitOnClick;
