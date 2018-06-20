@@ -13,33 +13,32 @@
 <body>
 <div class="container">
     <header class="container">
-        <form>
-            <label class="sr-only" for="urls_input"></label>
-            <input type="text" class="form-control" name="urls" id="urls_input">
+        <form id="url-form">
+            <label class="sr-only" for="urls-input"></label>
+            <input type="text" class="form-control" name="urls" id="urls-input" placeholder="Channel urls">
         </form>
+        <ul id="url-list">
+        </ul>
     </header>
     <main class="container">
         <table class="table table-stripped table-hover">
             <thead>
                 <tr>
-                    <th scope="col">Artist</th>
-                    <th scope="col">Track</th>
-                    <th scope="col">Album</th>
-                    <th scope="col">Length</th>
+                    <th scope="col" id="channel">Channel</th>
+                    <th scope="col" id="artist">Artist</th>
+                    <th scope="col" id="album">Album</th>
+                    <th scope="col" id="track">Track</th>
+                    <th scope="col" id="length">Length</th>
                 </tr>
             </thead>
             <tbody>
-                <tr>
-                    <td>Hello</td>
-                    <td>World</td>
-                    <td>Whistle</td>
-                    <td>00:05</td>
-                </tr>
             </tbody>
         </table>
     </main>
 </div>
-</body>
 <script src="https://apis.google.com/js/api.js" defer></script>
+<script src="interactive.js" defer></script>
+<script src="table.js" defer></script>
 <script src="main.js" defer></script>
+</body>
 </html>
