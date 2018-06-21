@@ -108,13 +108,39 @@ module.exports = {
 
         let codes = [];
 
+        cmd.get('echo "��������" > kirilica.tmp', function(err, data, stderr){
+          console.log(err);
+          console.log(data);
+          console.log(stderr);
+        });
 
         // let cyrillicCompatibleText = '';
-        let cyrillicCompatibleText = '\x1b\x74\x1c\n';
-        for (var i = 0; i <= 300; i++) { // TEST
-            cyrillicCompatibleText += String.fromCharCode(i);
-        }
-        cyrillicCompatibleText += '\x1bi'
+        //17 - 11
+        //28 - 1c - 1251
+        //36 - 24
+        // let p1251 = '\x1b\x74\x1c\n';
+        // for (let i = 0; i <= 2000; i++) { // TEST
+        //     let currentChar = String.fromCharCode(i);
+        //     // if(currentChar != '\'' && currentChar != '\"' && currentChar != '\`' ){
+        //       p1251 += currentChar;
+        //     // }
+        // }
+        // p1251 += 'абвгдежзийклмнопрстуфхцчшщьъюя'
+        // p1251 += '\x1bi'
+        //
+        // p1251u = u.utf8_decode(p1251);
+        //
+        // for (var i = 0; i < p1251.length; i++) {
+        //   console.log(p1251.charCodeAt(i));
+        // }
+        // console.log(p1251);
+        //
+        // console.log('.......................');
+        //
+        // for (var i = 0; i < p1251u.length; i++) {
+        //   console.log(p1251u.charCodeAt(i));
+        // }
+        // console.log(p1251u);
 
         // for (let index in replacedText) {
         //   symbolCode = replacedText.charCodeAt(index);
@@ -131,13 +157,59 @@ module.exports = {
         // console.log(cyrillicCompatibleText);
         // console.log(codes);
 
+        // console.log(u.utf8_decode('��������������������������'));
 
-        cmd.get('echo "'+cyrillicCompatibleText+'" | lp', function(err, data, stderr){
-          console.log(err);
-          console.log(data);
-          console.log(stderr);
-        });
-    },
+        // bruteForceTestStringDec = u.utf8_decode('�абвгдежзийклмнопрстуфхцчшщьъюя');
+        // for (var i = 0; i < bruteForceTestStringDec.length; i++) {
+        //   console.log(bruteForceTestStringDec.charCodeAt(i));
+        // }
+        // console.log(bruteForceTestStringDec);
+        //
+        // cmd.get('echo "'+ '\x1b\x74\x1c' + bruteForceTestStringDec +'" | lp', function(err, data, stderr){
+        //   console.log(err);
+        //   console.log(data);
+        //   console.log(stderr);
+        // });
+        //
+        //
+        //
+        // bruteForceTestString = 'абвгдежзийклмнопрстуфхцчшщьъюя';
+        // for (var i = 0; i < bruteForceTestString.length; i++) {
+        //   console.log(bruteForceTestString.charCodeAt(i));
+        // }
+        // console.log(bruteForceTestString);
+        //
+        // cmd.get('echo "'+ '\x1b\x74\x1c' + bruteForceTestString +'" | lp', function(err, data, stderr){
+        //   console.log(err);
+        //   console.log(data);
+        //   console.log(stderr);
+        // });
+
+        // for (var i = 16; i <= 42; i++) {
+        //   bruteForceTestString += '\x1b\x74';
+        //   bruteForceTestString += String.fromCharCode(i);
+        //   console.log(String.fromCharCode(i));
+        //   bruteForceTestString += utf8_decode('абвгдежзийклмнопрстуфхцчшщьъюя') + i;
+        // }
+
+        // cmd.get('echo "тест" > file.tmp', function(err, data, stderr){
+        //   console.log(err);
+        //   console.log(data);
+        //   console.log(stderr);
+        // });
+
+        // cmd.get('echo "' + u.utf8_decode(p1251) + '" | lp', function(err, data, stderr){
+        //   console.log(err);
+        //   console.log(data);
+        //   console.log(stderr);
+        // });
+
+        // cmd.get('echo "' + p855 + '" | lp', function(err, data, stderr){
+        //   console.log(err);
+        //   console.log(data);
+        //   console.log(stderr);
+        // });
+    }
     // formatString: function(){ // todo
     //
     // }

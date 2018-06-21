@@ -66,5 +66,25 @@ module.exports = {
         }
     }
     return false;
+    },
+    //utf8 to 1251 converter (1 byte format)
+    utf8_decode: function(utf8String) {
+        var result = '', c = 0;
+        for (var i = 0; i < utf8String.length; i++) {
+            c = utf8String.charCodeAt(i);
+            if (c > 127) {
+                if (c > 1024) {
+                    if (c == 1025) {
+                        c = 1016;
+                    } else if (c == 1105) {
+                        c = 1032;
+                    }
+                    result += String.fromCharCode(c - 848);
+                }
+            } else {
+                result += utf8String.charAt(i);
+            }
+        }
+        return result;
     }
 }
