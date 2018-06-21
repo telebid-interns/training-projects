@@ -12,6 +12,10 @@ const channelAddressSubmit = document.getElementById('channel-address-submit');
 const addChannelAddressInputButton = document.getElementById('add-channel-address-input');
 const removeAllChannelAddressInputsButton = document.getElementById('remove-all-channel-address-inputs');
 const musicTable = document.getElementById('music-table');
+const searchStatus = document.getElementById('search-status');
+
+let resultsFound = 0;
+let unsuccessfullyParsed = 0;
 
 class ApplicationError extends Error {
   constructor(msg) {
@@ -146,6 +150,11 @@ async function channelAddressSubmitOnClick() {
     }
   }
 
+  if (musicTable.style.visibility === 'hidden') { // if no results 
+    searchStatus.style.visibility = 'visible';
+    searchStatus.innerHTML = 'No results';
+  }
+
   saveStateToLocalStorage();
 }
 
@@ -241,12 +250,22 @@ function clearChannelAddressInputs() {
 
 function clearTable() {
   let tableHeaderRowCount = 1;
+  resultsFound = 0;
+  unsuccessfullyParsed = 0;
 
   if (!(musicTable instanceof HTMLTableElement)) {
     handleError(new ElementNotFoundError('musicTable'));
     return;
   }
-  
+
+  if (!(searchStatus instanceof HTMLParagraphElement)) {
+    handleError(new ElementNotFoundError('searchStatus'));
+    return;
+  }
+
+  musicTable.style.visibility = 'hidden';
+  searchStatus.style.visibility = 'hidden';
+
   for (let i = musicTable.rows.length - 1; i >= tableHeaderRowCount; i--) {
     musicTable.deleteRow(i);
   }
@@ -258,18 +277,29 @@ function insertTableRow(data) {
     throw new ElementNotFoundError('musicTable');
   }
 
+  musicTable.style.visibility = 'visible';
+  searchStatus.style.visibility = 'visible';
+  searchStatus.innerHTML = `${resultsFound} results found.`;
+
+  if (unsuccessfullyParsed > 0) {
+
+    searchStatus.innerHTML += ` ${unsuccessfullyParsed} were not songs.`;
+  }
+
   let newRow = musicTable.insertRow(musicTable.rows.length);
   let artistCell = newRow.insertCell(0);
   let songCell = newRow.insertCell(1);
   let albumCell = newRow.insertCell(2);
   let durationCell = newRow.insertCell(3);
   let releasedCell = newRow.insertCell(4);
+  let channelCell = newRow.insertCell(5);
   
   artistCell.innerHTML = data.artist;
   songCell.innerHTML = data.songTitle;
   albumCell.innerHTML = "";
   durationCell.innerHTML = data.duration;
   releasedCell.innerHTML = data.publishedAt;
+  channelCell.innerHTML = data.channel;
 }
 
 function getTableData() {
@@ -390,7 +420,8 @@ function restoreStateFromLocalStorage() {
         songTitle: state.tableData[i][1],
         album: state.tableData[i][2],
         duration: state.tableData[i][3],
-        publishedAt: state.tableData[i][4]
+        publishedAt: state.tableData[i][4],
+        channel: state.tableData[i][5]
       });
     }
   }
@@ -584,7 +615,10 @@ async function getChannelVideos(channelId, getUntilLast, pageToken) {
     throw new DataError('videos search');
   }
 
-  await Promise.all(searchVideosResponse.items.map(async item => {
+  for (let i = 0; i < searchVideosResponse.items.length; i++) {
+
+    let item = searchVideosResponse.items[i];
+    resultsFound++;
 
     if (
       typeof item !== 'object' ||
@@ -601,14 +635,17 @@ async function getChannelVideos(channelId, getUntilLast, pageToken) {
       // TODO maybe there will be a problem if we throw here
       throw new DataError('music video');
     
+    } else if (Object.keys(data).length === 0) {
+      
+      unsuccessfullyParsed++;
     } else {
 
       data.duration = durationToString(data.duration);
 
       insertTableRow(data);
     }
-  
-  }));
+
+  }
 
   if (searchVideosResponse.nextPageToken) {
   
@@ -657,6 +694,7 @@ async function getMusicVideoData(videoId) {
   });
 
   if (videoData === null) {
+    
     return null;
   } 
 
@@ -680,6 +718,7 @@ async function getMusicVideoData(videoId) {
     typeof video.snippet !== 'object' ||
     typeof video.snippet.title !== 'string' ||
     typeof video.snippet.publishedAt !== 'string' ||
+    typeof video.snippet.channelTitle !== 'string' ||
     typeof video.contentDetails !== 'object' ||
     typeof video.contentDetails.duration !== 'string') {
 
@@ -691,7 +730,8 @@ async function getMusicVideoData(videoId) {
   const artistMatches = videoTitle.match(artistPattern);
   
   if (artistMatches === null) {
-    return null;
+
+    return {};
   }
 
   if (artistMatches.length !== 1) {
@@ -704,7 +744,8 @@ async function getMusicVideoData(videoId) {
   const songTitleMatches = videoTitle.match(titlePattern);
   
   if (songTitleMatches === null) {
-    return null;
+
+    return {};
   }
 
   if (songTitleMatches.length !== 1) {
@@ -718,16 +759,19 @@ async function getMusicVideoData(videoId) {
   const duration = parseDuration(video.contentDetails.duration);
 
   if (duration === null) {
-    return null;
+    
+    return {};
   }
 
   const publishedAt = video.snippet.publishedAt;
+  const channel = video.snippet.channelTitle;
 
   return {
     artist,
     songTitle,
     duration,
-    publishedAt
+    publishedAt,
+    channel
   };
 }
 
@@ -739,4 +783,6 @@ removeAllChannelAddressInputsButton.onclick = () => {
   saveStateToLocalStorage();
 };
 
+musicTable.style.visibility = 'hidden';
+searchStatus.style.visibility = 'hidden';
 restoreStateFromLocalStorage();

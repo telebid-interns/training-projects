@@ -33,19 +33,19 @@
           <label>Get until last:</label>
           <div class="radio">
             <label>
-              <input type="radio" class="get-until-last" value="week" checked="checked">
+              <input type="radio" name="get-until-last" class="get-until-last" value="week" checked="checked">
               week
             </label>
           </div>
           <div class="radio">
             <label>
-              <input type="radio" class="get-until-last" value="month">
+              <input type="radio" name="get-until-last" class="get-until-last" value="month">
               month
             </label>
           </div>
           <div class="radio">
             <label>
-              <input type="radio" class="get-until-last" value="year">
+              <input type="radio" name="get-until-last" class="get-until-last" value="year">
               year
             </label>
           </div>
@@ -53,13 +53,15 @@
         <div class="col-md-2"></div>
       </div>
       <div class="row">
+        <p id="search-status"></p>
         <table class="table table-hover" id="music-table">
           <tr>
             <th>Artist</th>
             <th>Song</th>
             <th>Album</th>
             <th>Duration</th>
-            <th>Released</th>            
+            <th>Released</th>
+            <th>Channel</th>            
           </tr>
         </table>
       </div>
