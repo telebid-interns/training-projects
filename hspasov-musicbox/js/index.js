@@ -1,96 +1,251 @@
-const apiKey = 'AIzaSyDe2NF-3q_aCIi1TIW0bIN44OqHQAPEc5w';
-const searchMaxResults = 50;
+'use strict';
 
-const channelLinkSubmit = document.getElementById('channel-link-submit');
-const addChannelLinkInputButton = document.getElementById('add-channel-link-input');
-const removeAllChannelLinkInputsButton = document.getElementById('remove-all-channel-link-inputs');
+const DEBUG_MODE = true;
+
+const YT_CHANNELS_API = 'https://www.googleapis.com/youtube/v3/channels';
+const YT_SEARCH_API = 'https://www.googleapis.com/youtube/v3/search';
+const YT_VIDEOS_API = 'https://www.googleapis.com/youtube/v3/videos';
+const API_KEY = 'AIzaSyDe2NF-3q_aCIi1TIW0bIN44OqHQAPEc5w';
+const SEARCH_MAX_RESULTS = 50;
+
+const channelAddressSubmit = document.getElementById('channel-address-submit');
+const addChannelAddressInputButton = document.getElementById('add-channel-address-input');
+const removeAllChannelAddressInputsButton = document.getElementById('remove-all-channel-address-inputs');
 const musicTable = document.getElementById('music-table');
 
-async function channelLinkSubmitOnClick() {
+class ApplicationError extends Error {
+  constructor(msg) {
+    super(msg);
+
+    if (DEBUG_MODE) {
+      console.error(msg);
+    }
+  }
+}
+
+class DataError extends ApplicationError {
+  constructor(data) {
+    super(`Could not get data ${data}`);
+  }
+}
+
+class ElementNotFoundError extends ApplicationError {
+  constructor(identificator) {
+    super(`Element '${identificator}' not found.`);
+  }
+}
+
+class UnexpectedPropertyTypeError extends ApplicationError {
+  constructor(real, expected) {
+    super(`Expected property type ${expected}, but got ${real}.`);
+  }
+}
+
+class UnexpectedValueError extends ApplicationError {
+  constructor(property, value) {
+    super(`Unexpected value "${value}" for property "${property}".`);
+  }
+}
+
+class UserError extends Error {
+  constructor(msg) {
+    super(msg);
+  }
+}
+
+class Warning {
+  constructor(msg) {
+    this.msg = msg;
+
+    if (DEBUG_MODE) {
+      console.log(msg);
+    }
+  }
+}
+
+function handleError(e) {
+  if (e instanceof ApplicationError) {
+
+  } else if (e instanceof UserError) {
+
+  } else {
+
+  }
+}
+
+async function channelAddressSubmitOnClick() {
+  
+  const channelAddressInputsClassName = 'channel-address-input';
+  let getUntilLast, channelId;
+
   clearTable();
 
-  const channelLinkInputs = document.getElementsByName('channel-link-input');
+  const channelAddressInputs = document.getElementsByClassName(channelAddressInputsClassName);
 
-  const getUntilLast = generateGetUntilLast();
+  // TODO escape input
 
-  for (let i = 0; i < channelLinkInputs.length; i++) {
+  if (channelAddressInputs.length <= 0) {
 
-    const identificator = getChannelIdentificator(channelLinkInputs[i].value);
+    handleError(new ElementNotFoundError(channelAddressInputsClassName));
+    return;
+  }
 
-    if (!identificator) {
-      continue;
-    }
+  try {
 
-    let channelId;
+    getUntilLast = generateGetUntilLast();
   
-    if (identificator.type === 'username') {
-      channelId = await getChannelId(identificator.value);
-    } else if (identificator.type === 'channelId') {
-      channelId = identificator.value;
-    } else {
-      // error
+  } catch(e) {
+    
+    handleError(e);
+    return;
+  }
+
+
+  for (let i = 0; i < channelAddressInputs.length; i++) {
+
+    let channelAddress = channelAddressInputs[i].value;
+    let identificator;
+
+    if (typeof channelAddress !== 'string') {
+      
+      handleError(new UnexpectedPropertyTypeError(typeof channelAddress, 'string'));
       return;
     }
-  
-    await getChannelVideos(channelId, getUntilLast);
 
+    try {
+      
+      identificator = getChannelIdentificator(channelAddress);
+  
+      if (identificator.type === 'username') {
+
+        try {
+
+          channelId = await getChannelId(identificator.value);
+        } catch(e) {
+
+          handleError(e);
+          return;
+        }
+
+      } else if (identificator.type === 'channelId') {
+
+        channelId = identificator.value;
+
+      } else {
+        
+        handleError(new UserError(`Sorry, "${channelAddress}" could not be recognised as a youtube channel address.`));
+        return;
+      }
+  
+      await getChannelVideos(channelId, getUntilLast);
+
+    } catch(e) {
+
+      handleError(e);
+      return;
+    }
   }
 
   saveStateToLocalStorage();
 }
 
 function generateGetUntilLast() {
-  const getUntilLastElements = document.getElementsByName('getUntilLast');
+
+  const getUntilLastElementsClassName = 'get-until-last';
+  const getUntilLastElements = document.getElementsByClassName(getUntilLastElementsClassName);
   let getUntilLast;
+
+  if (getUntilLastElements.length <= 0) {
+    throw new ElementNotFoundError(getUntilLastElementsClassName);
+  }
+
   for (let i = 0; i < getUntilLastElements.length; i++) {
     
     if (getUntilLastElements[i].checked) {
       
-      getUntilLast = getUntilLastElements[i].value
+      getUntilLast = getUntilLastElements[i].value;
       break;
     }
 
   }
+
+  if (!getUntilLast) {
+
+    throw new UserError('Please select an option from "Get until last".');
+  }
+
   return getUntilLast;
 }
 
 function setGetUntilLast(getUntilLast) {
-  const getUntilLastElements = document.getElementsByName('getUntilLast');
+
+  const getUntilLastElementsClassName = 'get-until-last';
+
+  const getUntilLastElements = document.getElementsByClassName(getUntilLastElementsClassName);
   
+  if (!getUntilLastElements) {
+    
+    handleError(new ElementNotFoundError(getUntilLastElementsClassName));
+    return;
+  }
+
   for (let i = 0; i < getUntilLastElements.length; i++) {
     
     if (getUntilLastElements[i].value === getUntilLast) {
       
-      getUntilLastElements[i].checked = true;
+      getUntilLastElements[i].checked = "checked";
       break;
     }
 
   }
 }
 
-function addChannelLinkInput(value) {
-  const channelLinkInputs = document.getElementById('channel-link-inputs');
+function addChannelAddressInput(value) {
+  const channelAddressInputsId = 'channel-address-inputs';
+
+  const channelAddressInputs = document.getElementById(channelAddressInputsId);
+
+  if (!channelAddressInputsId) {
+
+    handleError(new ElementNotFoundError(channelAddressInputsId));
+    return;
+  }
+
   const newInput = document.createElement('input');
   newInput.type = 'text';
-  newInput.className = 'form-control';
+  newInput.className = 'channel-address-input form-control';
   newInput.placeholder = 'Link to channel';
-  newInput.name = 'channel-link-input';
   if (value) {
     newInput.value = value;
   }
-  channelLinkInputs.appendChild(newInput);
+  channelAddressInputs.appendChild(newInput);
 }
 
-function clearChannelLinkInputs() {
+function clearChannelAddressInputs() {
+  const channelAddressInputsId = 'channel-address-inputs';
+
   clearTable();
-  const channelLinkInputs = document.getElementById('channel-link-inputs');
-  while (channelLinkInputs.firstChild) {
-    channelLinkInputs.removeChild(channelLinkInputs.firstChild);
+  
+  const channelAddressInputs = document.getElementById(channelAddressInputsId);
+
+  if (!channelAddressInputs) {
+
+    handleError(new ElementNotFoundError(channelAddressInputsId));
+    return;
+  }
+
+  while (channelAddressInputs.firstChild) {
+    channelAddressInputs.removeChild(channelAddressInputs.firstChild);
   }
 }
 
 function clearTable() {
   let tableHeaderRowCount = 1;
+
+  if (!(musicTable instanceof HTMLTableElement)) {
+    handleError(new ElementNotFoundError('musicTable'));
+    return;
+  }
   
   for (let i = musicTable.rows.length - 1; i >= tableHeaderRowCount; i--) {
     musicTable.deleteRow(i);
@@ -99,6 +254,10 @@ function clearTable() {
 }
 
 function insertTableRow(data) {
+  if (!(musicTable instanceof HTMLTableElement)) {
+    throw new ElementNotFoundError('musicTable');
+  }
+
   let newRow = musicTable.insertRow(musicTable.rows.length);
   let artistCell = newRow.insertCell(0);
   let songCell = newRow.insertCell(1);
@@ -116,6 +275,10 @@ function insertTableRow(data) {
 function getTableData() {
   const tableData = [];
 
+  if (!(musicTable instanceof HTMLTableElement)) {
+    throw new ElementNotFoundError('musicTable');
+  }
+
   for (let i = 0; i < musicTable.rows.length; i++) {
     
     const rowData = [];
@@ -132,36 +295,88 @@ function getTableData() {
 }
 
 function saveStateToLocalStorage() {
+
   const state = {};
+  const channelAddressInputsClassName = 'channel-address-input';
+  const channelAddressInputs = document.getElementsByClassName(channelAddressInputsClassName);
+  const channelAddressInputValues = [];
+  let getUntilLast;
+  let stateStringified;
 
-  const channelLinkInputs = document.getElementsByName('channel-link-input');
+  try {
+
+    if (channelAddressInputs.length <= 0) {
+
+      throw new ElementNotFoundError(channelAddressInputsClassName);
+    }
+
+    getUntilLast = generateGetUntilLast();
   
-  const getUntilLast = generateGetUntilLast();
+    for (let i = 0; i < channelAddressInputs.length; i++) {
 
-  const channelLinkInputValues = [];
-  for (let i = 0; i < channelLinkInputs.length; i++) {
-    channelLinkInputValues.push(channelLinkInputs[i].value);
+      if (!(channelAddressInputs[i] instanceof HTMLInputElement)) {
+
+        throw new ElementNotFoundError(channelAddressInputsClassName);
+        return;
+      }
+
+      channelAddressInputValues.push(channelAddressInputs[i].value);
+    }
+
+    state.getUntilLast = getUntilLast;
+    
+    state.tableData = getTableData();
+  
+  } catch(e) {
+
+    handleError(e);
+    return;
   }
 
-  state.getUntilLast = getUntilLast;
-  state.tableData = getTableData();
-  state.channelLinkInputValues = channelLinkInputValues;
+  state.channelAddressInputValues = channelAddressInputValues;
 
-  localStorage.setItem('musicbox', JSON.stringify(state));
+  try {
+   
+    localStorage.setItem('musicbox', stateStringified); 
+    stateStringified = JSON.stringify(state);
+  
+  } catch(e) {
+
+    handleError(new ApplicationError('Failed to save app state'));
+    return;
+  }
 }
 
+
 function restoreStateFromLocalStorage() {
+
+  let state;
+
+  try {
+    
+    let stateStringified = localStorage.getItem('musicbox');
+
+    if (!stateStringified) {
+      return;
+    }
+
+    state = JSON.parse(stateStringified);
   
-  const state = JSON.parse(localStorage.getItem('musicbox'));
+  } catch(e) {
+
+    handleError(new ApplicationError('Failed to restore app state'));
+    return;
+  }
+
 
   if (!state) {
     return;
   }
 
-  if (state.channelLinkInputValues) {
+  if (state.channelAddressInputValues) {
 
-    clearChannelLinkInputs();
-    state.channelLinkInputValues.forEach(value => addChannelLinkInput(value));
+    clearChannelAddressInputs();
+    state.channelAddressInputValues.forEach(value => addChannelAddressInput(value));
   }
 
   if (state.getUntilLast) {
@@ -186,13 +401,22 @@ function getChannelIdentificator(channelAddress) {
   const channelRoutePattern = /\/channel\/[^/\s]+/; // matches '/channel/channelId' in 'https://www.youtube.com/channel/channelId'
   const usernameRoutePattern = /\/user\/[^/\s]+/; // matches '/user/username' in 'https://www.youtube.com/user/username'
   const usernameShortRoutePattern = /.com\/[^/\s]+/; // matches '.com/username' in 'https://www.youtube.com/username'
+  let identificator;
 
   if (channelAddress.match(channelRoutePattern)) {
 
     const channelIdMatches = channelAddress.match(channelRoutePattern);
-    const result = channelIdMatches[0].replace('/channel/', '').trim();
+
+    if (channelIdMatches.length !== 1) {
+
+      new Warning(`Expected 1 match for channelRoutePattern but got ${channelIdMatches.length}.`);
+    }
+
+    const channelIdMatch = channelIdMatches[0];
+    const result = channelIdMatch.replace('/channel/', '')
+      .trim();
     
-    return {
+    identificator = {
       type: 'channelId',
       value: result
     };
@@ -200,9 +424,17 @@ function getChannelIdentificator(channelAddress) {
   } else if (channelAddress.match(usernameRoutePattern)) {
 
     const usernameMatches = channelAddress.match(usernameRoutePattern);
-    const result = usernameMatches[0].replace('/user/', '').trim();
+
+    if (usernameMatches.length !== 1) {
+
+      new Warning(`Expected 1 match for usernameRoutePattern but got ${usernameMatches.length}.`);
+    }
+
+    const usernameMatch = usernameMatches[0];
+    const result = usernameMatch.replace('/user/', '')
+      .trim();
     
-    return {
+    identificator = {
       type: 'username',
       value: result
     };
@@ -210,16 +442,30 @@ function getChannelIdentificator(channelAddress) {
   } else if (channelAddress.match(usernameShortRoutePattern)) {
 
     const usernameMatches = channelAddress.match(usernameShortRoutePattern);
-    const result = usernameMatches[0].replace('.com/', '').trim();
 
-    return {
+    if (usernameMatches.length !== 1) {
+
+      new Warning(`Expected 1 match for usernameShortRoutePattern but got ${usernameMatches.length}.`);
+    }
+
+    const usernameMatch = usernameMatches[0];
+    const result = usernameMatch.replace('.com/', '')
+      .trim();
+
+    identificator = {
       type: 'username',
       value: result
     };
 
   } else {
-    // error - invalid input
+    throw new UserError(`Sorry, "${channelAddress}" could not be recognised as a youtube channel address.`);
   }
+
+  if (!identificator.value) {
+    throw new UserError(`Sorry, "${channelAddress}" could not be recognised as a youtube channel address.`);
+  }
+
+  return identificator;
 }
 
 function durationToString(duration) {
@@ -246,6 +492,7 @@ function durationToString(duration) {
 }
 
 function parseDuration(duration) {
+
   const secondsPattern = /\d+(?=S)/;
   const minutesPattern = /\d+(?=M)/;
   const hoursPattern = /\d+(?=H)/;
@@ -253,6 +500,22 @@ function parseDuration(duration) {
   const secondsMatches = duration.match(secondsPattern);
   const minutesMatches = duration.match(minutesPattern);
   const hoursMatches = duration.match(hoursPattern);
+
+
+  if (secondsMatches !== null && secondsMatches.length !== 1) {
+
+    new Warning(`Expected 1 match for seconds but got ${secondsMatches.length}.`);
+  }
+
+  if (minutesMatches !== null && minutesMatches.length !== 1) {
+
+    new Warning(`Expected 1 match for minutes but got ${minutesMatches.length}.`);
+  }
+
+  if (hoursMatches !== null && hoursMatches.length !== 1) {
+
+    new Warning(`Expected 1 match for hours but got ${hoursMatches.length}.`);
+  }
 
   return {
     seconds: (secondsMatches === null) ? null : secondsMatches[0],
@@ -262,68 +525,200 @@ function parseDuration(duration) {
 }
 
 async function getChannelId(username) {
-  const response = await fetch(`https://www.googleapis.com/youtube/v3/channels?key=${apiKey}&forUsername=${username}&part=id`);
-  const channelResponse = await response.json();
+
+  const channelResponse = await getJSONResponse(YT_CHANNELS_API, {
+    key: API_KEY,
+    forUsername: username,
+    part: 'id'
+  });
+
+  if (
+    channelResponse === null || 
+    !(channelResponse.items instanceof Array) ||
+    channelResponse.items.length <= 0 ||
+    !(typeof channelResponse.items[0].id === 'string')) {
+    
+    throw new DataError('channel id');
+  }
+
+  if (channelResponse.items.length !== 1) {
+
+    new Warning(`Expected 1 for channelResponse.items.length but got ${channelResponse.items.length}.`);
+  }
+
   return channelResponse.items[0].id;
 }
 
-async function getChannelVideos(channelId, getUntilLast, pageToken='') {
+async function getChannelVideos(channelId, getUntilLast, pageToken) {
   
   const date = new Date();
-  switch (getUntilLast) {
-    case 'week':
-      date.setDate(date.getDate() - 7);
-      break;
-    case 'month':
-      date.setMonth(date.getMonth() - 1);
-      break;
-    case 'year':
-      date.setFullYear(date.getFullYear() - 1);
-      break;
-    default:
-      // error
+
+  if (getUntilLast === 'week') {
+    date.setDate(date.getDate() - 7);
+
+  } else if (getUntilLast === 'month') {
+    date.setMonth(date.getMonth() - 1);
+
+  } else if (getUntilLast === 'year') {
+    date.setFullYear(date.getFullYear() - 1);
+
+  } else {
+    throw new UnexpectedValueError('getUntilLast', getUntilLast);
   }
 
-  const response = await fetch(`https://www.googleapis.com/youtube/v3/search?key=${apiKey}&channelId=${channelId}&type=video&part=id&order=date&maxResults=${searchMaxResults}&pageToken=${pageToken}&publishedAfter=${date.toISOString()}`);
-  const searchVideosResponse = await response.json();
+  const searchVideosResponse = await getJSONResponse(YT_SEARCH_API, {
+    key: API_KEY,
+    channelId: channelId,
+    type: 'video',
+    part: 'id',
+    order: 'date',
+    maxResults: SEARCH_MAX_RESULTS,
+    pageToken: pageToken || '',
+    publishedAfter: date.toISOString()
+  });
+
+  if (typeof searchVideosResponse !== 'object' ||
+    !(searchVideosResponse.items instanceof Array)) {
+
+    throw new DataError('videos search');
+  }
+
   await Promise.all(searchVideosResponse.items.map(async item => {
+
+    if (
+      typeof item !== 'object' ||
+      typeof item.id !== 'object' ||
+      typeof item.id.videoId !== 'string') {
+
+      // TODO maybe there will be a problem if we throw here
+      throw new DataError('video id');
+    }
+
     const data = await getMusicVideoData(item.id.videoId);
-    if (data !== null) {
+
+    if (data === null) {
+      // TODO maybe there will be a problem if we throw here
+      throw new DataError('music video');
+    
+    } else {
+
       insertTableRow(data);
     }
+  
   }));
 
   if (searchVideosResponse.nextPageToken) {
+  
     return await getChannelVideos(channelId, getUntilLast, searchVideosResponse.nextPageToken);
+  
   } else {
+
     return;
   }
 }
 
+function toQueryString(params) {
+  const paramsList = [];
+
+  for(const [param, val] of Object.entries(params)) {
+    paramsList.push([encodeURIComponent(param), encodeURIComponent(val)]);
+  }
+
+  return paramsList.map(pair => pair.join('='))
+    .join('&');
+}
+
+async function getResponse(url, queryParams) {
+  return await fetch(`${url}?${toQueryString(queryParams)}`);
+}
+
+async function getJSONResponse(url, queryParams) {
+  try {
+    const response = await getResponse(url, queryParams);
+    return await response.json();
+  } catch (e) {
+    return null;
+  }
+}
+
 async function getMusicVideoData(videoId) {
+  
   const artistPattern = /^.+(?= - )/; // matches 'Artist Name' in 'Artist Name - Song name (remix)'
   const titlePattern = / - [^\(\)\[\]]+/; // matches ' - Song name ' in 'Artist Name - Song name (remix)'
+  let video;
 
-  const response = await fetch(`https://www.googleapis.com/youtube/v3/videos?key=${apiKey}&part=contentDetails,snippet&id=${videoId}`);
-  const videoData = await response.json();
+  const videoData = await getJSONResponse(YT_VIDEOS_API, {
+    key: API_KEY,
+    part: 'contentDetails,snippet',
+    id: videoId
+  });
 
-  const videoTitle = videoData.items[0].snippet.title;
+  if (videoData === null) {
+    return null;
+  } 
+
+  if (
+    typeof videoData !== 'object' ||
+    !(videoData.items instanceof Array) ||
+    videoData.items.length <= 0) {
+
+    return null;
+  }
+
+  if (videoData.items.length !== 1) {
+
+    new Warning(`Expected 1 for videoData items but got ${videoData.items.length}.`);
+  }
+
+  video = videoData.items[0];
+
+  if (
+    typeof video !== 'object' ||
+    typeof video.snippet !== 'object' ||
+    typeof video.snippet.title !== 'string' ||
+    typeof video.snippet.publishedAt !== 'string' ||
+    typeof video.contentDetails !== 'object' ||
+    typeof video.contentDetails.duration !== 'string') {
+
+    return null;
+  }
+
+  const videoTitle = video.snippet.title;
 
   const artistMatches = videoTitle.match(artistPattern);
+  
   if (artistMatches === null) {
     return null;
   }
+
+  if (artistMatches.length !== 1) {
+
+    new Warning(`Expected 1 match for artist matches but got ${artistMatches.length}.`);
+  }
+
   const artist = artistMatches[0].trim();
 
   const songTitleMatches = videoTitle.match(titlePattern);
+  
   if (songTitleMatches === null) {
     return null;
   }
-  const songTitle = songTitleMatches[0].replace(' - ', '').trim();
 
-  const duration = parseDuration(videoData.items[0].contentDetails.duration);
+  if (songTitleMatches.length !== 1) {
 
-  const publishedAt = videoData.items[0].snippet.publishedAt;
+    new Warning(`Expected 1 match for song title matches but got ${songTitleMatches.length}.`);
+  }
+  
+  const songTitle = songTitleMatches[0].replace(' - ', '')
+    .trim();
+
+  const duration = parseDuration(video.contentDetails.duration);
+
+  if (duration === null) {
+    return null;
+  }
+
+  const publishedAt = video.snippet.publishedAt;
 
   return {
     artist,
@@ -333,10 +728,10 @@ async function getMusicVideoData(videoId) {
   };
 }
 
-channelLinkSubmit.onclick = channelLinkSubmitOnClick;
-addChannelLinkInputButton.onclick = () => addChannelLinkInput();
-removeAllChannelLinkInputsButton.onclick = () => { 
-  clearChannelLinkInputs();
+channelAddressSubmit.onclick = channelAddressSubmitOnClick;
+addChannelAddressInputButton.onclick = () => addChannelAddressInput();
+removeAllChannelAddressInputsButton.onclick = () => { 
+  clearChannelAddressInputs();
   saveStateToLocalStorage();
 };
 
