@@ -268,7 +268,7 @@ function insertTableRow(data) {
   artistCell.innerHTML = data.artist;
   songCell.innerHTML = data.songTitle;
   albumCell.innerHTML = "";
-  durationCell.innerHTML = durationToString(data.duration);
+  durationCell.innerHTML = data.duration;
   releasedCell.innerHTML = data.publishedAt;
 }
 
@@ -337,8 +337,8 @@ function saveStateToLocalStorage() {
 
   try {
    
-    localStorage.setItem('musicbox', stateStringified); 
     stateStringified = JSON.stringify(state);
+    localStorage.setItem('musicbox', stateStringified);
   
   } catch(e) {
 
@@ -388,8 +388,9 @@ function restoreStateFromLocalStorage() {
       insertTableRow({
         artist: state.tableData[i][0],
         songTitle: state.tableData[i][1],
-        duration: state.tableData[i][2],
-        publishedAt: state.tableData[i][3]
+        album: state.tableData[i][2],
+        duration: state.tableData[i][3],
+        publishedAt: state.tableData[i][4]
       });
     }
   }
@@ -602,6 +603,8 @@ async function getChannelVideos(channelId, getUntilLast, pageToken) {
     
     } else {
 
+      data.duration = durationToString(data.duration);
+
       insertTableRow(data);
     }
   
@@ -732,6 +735,7 @@ channelAddressSubmit.onclick = channelAddressSubmitOnClick;
 addChannelAddressInputButton.onclick = () => addChannelAddressInput();
 removeAllChannelAddressInputsButton.onclick = () => { 
   clearChannelAddressInputs();
+  addChannelAddressInput();
   saveStateToLocalStorage();
 };
 
