@@ -3,74 +3,61 @@ var RESPONSE;
 
 
 function getAPIKey() {
-    return '***'
+    return 'AIzaSyAHhFtmNEo9TwEN90p6yyZg43_4MKCiyyQ'
 }
 
 
-function channelVideosHook({id = '', name = '', hook}) {
-    let listPromise;
-    console.log("ARGUMENTS", id, name, hook);
-    if(name) {
-        listPromise = gapi.client.youtube.channels.list({
-            'forUsername': name,
-            'part': 'snippet,contentDetails'
-        })
-    }
-    else {
-        listPromise = gapi.client.youtube.channels.list({
-            'id': id,
-            'part': 'snippet,contentDetails'
-        })
-    }
-    listPromise
-        .then(function (response) {
-            let playlistId = response.result.items[0].contentDetails.relatedPlaylists.uploads;
-            let channel_name = response.result.items[0].snippet.title;
-            console.log('playlist', playlistId);
+const ChannelDataAPI = {
+    args: (type, identifier) => {
+        obj = {part: 'snippet,contentDetails'};
+        obj[type] = identifier;
+        return obj
+    },
 
-            gapi.client.youtube.playlistItems.list({
-                maxResults: 25,
-                part: 'snippet,contentDetails',
-                playlistId
-            })
-                .then(function (response) {
-                    RESPONSE = response;
-                    console.log("loaded videos for channel id", id);
-                    hook(RESPONSE.result.items.map(item => {
-                        return {'title': item.snippet.title, 'channelName': channel_name}
-                }));
-            })
-    });
-}
-
-
-function channelIsLoaded(name) {
-    return name in LOADED_CHANNELS;
-}
-
-
-function loadChannel(name) {
-    if(!channelIsLoaded(name)) {
-        channelVideosHook({
-            'name': name,
-            'hook': videoData => populateTable(extractSongs(videoData))
+    getData: async function(type, identifier) {
+        // TODO handle errors
+        let channelResponse = await gapi.client.youtube.channels.list(ChannelDataAPI.args(type, identifier));
+        console.log("args", ChannelDataAPI.args(type, identifier));
+        console.log("Handling promise response", channelResponse);
+        let playlistId = channelResponse.result.items[0].contentDetails.relatedPlaylists.uploads;
+        let channel_name = channelResponse.result.items[0].snippet.title;
+        console.log('playlist', playlistId);
+        let playlistRespsonse = await gapi.client.youtube.playlistItems.list({
+            maxResults: 25,
+            part: 'snippet,contentDetails',
+            playlistId
         });
+        console.log("Playlist", playlistRespsonse);
+        gotNewData(playlistRespsonse.result.items
+            .map(item => {
+                return {'title': item.snippet.title, 'channelName': channel_name}
+            })
+        );
+
+    },
+
+    getByName: name => {
+        return ChannelDataAPI.getData('forUsername', name);
+    },
+
+    getById: id => {
+        return ChannelDataAPI.getData('id', name);
     }
-}
-
-
-function clearChannel(name) {
-    if(channelIsLoaded(name)) {
-        removeChannelFromTable(name);
-    }
-}
-
+};
 
 const parsers = {
     map: {},
 
-    forUrl(url) {
-        return map['liquicity'];
+    forUrl: (url) => {
+        return parsers.map['liquicity'];
+    },
+
+    forChannelId: (id) => {
+        return parsers.map['liquicity']
+    },
+
+    forChannelName: (name) => {
+        return parsers.map['liquicity'];
     },
 
     registerParser: (pattern, func) => {
@@ -82,17 +69,29 @@ const parsers = {
         let regex = new RegExp("([^-]+) - ([^-]+)");
         let result = regex.exec(videoTitle);
         if (result) {
-            return {'artist': result[1], 'track': result[2]};
+            return {'artist': result[1], 'track': result[2], channel: 'Liquicity'};
         }
     },
 
     // TODO find out how to do this
     _initialize: () => {
-        parsers.map['liquicity'] = parsers.parseLiquicity();
+        parsers.map['liquicity'] = parsers.parseLiquicity;
     }
 
 };
 parsers._initialize();
+
+
+function extractSongs(videos) {
+    return videos.map(vid => {
+        return parsers.forChannelName(vid.channelName)(vid.title);
+    });
+}
+
+
+function gotNewData(videoData) {
+    TableAPI.addSongs(extractSongs(videoData))
+}
 
 
 function start() {
@@ -103,12 +102,7 @@ function start() {
     });
     gapi.client.load('youtube', 'v3', function () {
         console.log("youtube loaded");
-        channelVideosHook({
-            'name':"Liquicity",
-            'hook': videoData => {
-                TableAPI.addSongs(extractSongs(videoData))
-            }
-        });
+        ChannelDataAPI.getByName('Liquicity');
     });
 }
 

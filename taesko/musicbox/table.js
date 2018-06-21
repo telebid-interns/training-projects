@@ -1,5 +1,17 @@
+function invertArray(arr) {
+    return arr.map(value => {
+        return arr.indexOf(value);
+    }).reduce(
+        (obj, index) => (obj[arr[index]] = arr),
+        {}
+    );
+}
+
+
 const TableAPI = {
     displayedChannels: [],
+    columnNames: ['channel', 'artist', 'album', 'track', 'length'],
+    columnIndexes: {channel: 0, artist: 1, album: 2, track: 3, length: 4},
 
     addSongs: songs => {
         let tbody = document.querySelector('table tbody');
@@ -20,7 +32,7 @@ const TableAPI = {
         document.querySelectorAll('table tbody tr')
             .forEach(row => {
                 let columns = row.getElementsByTagName('td');
-                let channelName = columns[TableAPI.columnIndex('channel')].textContent;
+                let channelName = columns[TableAPI.columnIndexes['channel']].textContent;
                 console.log(channelName, name);
                 if (channelName === name) {
                     row.remove();
@@ -33,62 +45,22 @@ const TableAPI = {
         )
     },
 
-    columnNames: ['channel', 'artist', 'album', 'track', 'length'],
-
-    columnIndex: columnName  => {
-        return TableAPI.columnNames.indexOf(columnName)
-    }
-
-};
-let TABLE_INDEX_HEADER_MAP = {
-    0: 'channelName',
-    1: 'artist',
-    2: 'album',
-    3: 'track',
-    4: 'length'
-};
-let TABLE_HEADER_INDEX_MAP = {};
-Object.keys(TABLE_INDEX_HEADER_MAP).forEach(key => {
-    TABLE_HEADER_INDEX_MAP[TABLE_INDEX_HEADER_MAP[key]] = key;
-});
-
-
-function removeChannelFromTable(name) {
-}
-
-
-function clearTable() {
-    document.querySelectorAll('table tbody tr')
+    clearTable: () => {
+        document.querySelectorAll('table tbody tr')
         .forEach(row => row.remove());
+    },
 
-}
+};
 
-
-function populateTable(songs) {
-}
-
-
-function channelIsAllowed(name) {
-    return name in ['Liquicity'];
-}
-
-function parseLiquicityVideoTitle(videoTitle) {
-    let regex = new RegExp("([^-]+) - ([^-]+)");
-    let result = regex.exec(videoTitle);
-    if (result) {
-        return {'artist': result[1], 'track': result[2]}
-    }
-}
-
-
-function extractSongs(videos) {
-    let parse_map = {'liquicity': parseLiquicityVideoTitle};
-    return videos.map(vid => {
-        let parsed = parse_map[vid.channelName.toLowerCase()](vid.title);
-        return {
-            'channel': vid.channelName,
-            'track': parsed.track,
-            'artist': parsed.artist
-        }
-    });
-}
+// function extractSongs(videos) {
+//     let parse_map = {'liquicity': parsers.parseLiquicity()};
+//     return videos.map(vid => {
+//         console.log(vid.channelName);
+//         let parsed = parse_map[vid.channelName.toLowerCase()](vid.title);
+//         return {
+//             'channel': vid.channelName,
+//             'track': parsed.track,
+//             'artist': parsed.artist
+//         }
+//     });
+// }
