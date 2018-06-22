@@ -13,6 +13,9 @@ const addChannelAddressInputButton = document.getElementById('add-channel-addres
 const removeAllChannelAddressInputsButton = document.getElementById('remove-all-channel-address-inputs');
 const musicTable = document.getElementById('music-table');
 const searchStatus = document.getElementById('search-status');
+const errorDialog = document.getElementById('error-dialog');
+const closeErrorDialogButton = document.getElementById('close-error-dialog-button');
+const errorDialogMessage = document.getElementById('error-dialog-message');
 
 let resultsFound = 0;
 let unsuccessfullyParsed = 0;
@@ -20,10 +23,6 @@ let unsuccessfullyParsed = 0;
 class ApplicationError extends Error {
   constructor(msg) {
     super(msg);
-
-    if (DEBUG_MODE) {
-      console.error(msg);
-    }
   }
 }
 
@@ -68,13 +67,26 @@ class Warning {
 }
 
 function handleError(e) {
-  if (e instanceof ApplicationError) {
 
-  } else if (e instanceof UserError) {
+  if (e instanceof UserError) {
+
+    errorDialogMessage.innerHTML = e.message;
 
   } else {
 
+    errorDialogMessage.innerHTML = 'An unexpected error occurred.';
+
+    if (DEBUG_MODE) {
+      console.error(e.message);
+    }
   }
+
+  errorDialog.showModal();
+}
+
+function closeErrorDialog() {
+
+  errorDialog.close();
 }
 
 async function channelAddressSubmitOnClick() {
@@ -300,6 +312,8 @@ function insertTableRow(data) {
   durationCell.innerHTML = data.duration;
   releasedCell.innerHTML = data.publishedAt;
   channelCell.innerHTML = data.channel;
+
+  newRow.title = data.title;
 }
 
 function getTableData() {
@@ -312,11 +326,14 @@ function getTableData() {
   for (let i = 0; i < musicTable.rows.length; i++) {
     
     const rowData = [];
-    const cells = musicTable.rows.item(i).cells;
+    const item = musicTable.rows.item(i);
+    const cells = item.cells;
     
     for (let k = 0; k < cells.length; k++) {
       rowData.push(cells.item(k).innerHTML);
-    } 
+    }
+
+    rowData.push(item.title);
 
     tableData.push(rowData);
   }
@@ -364,6 +381,8 @@ function saveStateToLocalStorage() {
   }
 
   state.channelAddressInputValues = channelAddressInputValues;
+  state.resultsFound = resultsFound;
+  state.unsuccessfullyParsed = unsuccessfullyParsed;
 
   try {
    
@@ -403,6 +422,11 @@ function restoreStateFromLocalStorage() {
     return;
   }
 
+  if (!(searchStatus instanceof HTMLParagraphElement)) {
+    handleError(new ElementNotFoundError('searchStatus'));
+    return;
+  }
+
   if (state.channelAddressInputValues) {
 
     clearChannelAddressInputs();
@@ -421,8 +445,18 @@ function restoreStateFromLocalStorage() {
         album: state.tableData[i][2],
         duration: state.tableData[i][3],
         publishedAt: state.tableData[i][4],
-        channel: state.tableData[i][5]
+        channel: state.tableData[i][5],
+        title: state.tableData[i][6]
       });
+    }
+  }
+
+  if (state.resultsFound) {
+    searchStatus.innerHTML = `${state.resultsFound} results found.`;
+
+    if (state.unsuccessfullyParsed && state.unsuccessfullyParsed > 0) {
+
+      searchStatus.innerHTML += ` ${state.unsuccessfullyParsed} were not songs.`;
     }
   }
 
@@ -625,14 +659,13 @@ async function getChannelVideos(channelId, getUntilLast, pageToken) {
       typeof item.id !== 'object' ||
       typeof item.id.videoId !== 'string') {
 
-      // TODO maybe there will be a problem if we throw here
       throw new DataError('video id');
     }
 
     const data = await getMusicVideoData(item.id.videoId);
 
     if (data === null) {
-      // TODO maybe there will be a problem if we throw here
+      
       throw new DataError('music video');
     
     } else if (Object.keys(data).length === 0) {
@@ -765,13 +798,15 @@ async function getMusicVideoData(videoId) {
 
   const publishedAt = video.snippet.publishedAt;
   const channel = video.snippet.channelTitle;
+  const title = video.snippet.title;
 
   return {
     artist,
     songTitle,
     duration,
     publishedAt,
-    channel
+    channel,
+    title
   };
 }
 
@@ -782,6 +817,7 @@ removeAllChannelAddressInputsButton.onclick = () => {
   addChannelAddressInput();
   saveStateToLocalStorage();
 };
+closeErrorDialogButton.onclick = closeErrorDialog;
 
 musicTable.style.visibility = 'hidden';
 searchStatus.style.visibility = 'hidden';
