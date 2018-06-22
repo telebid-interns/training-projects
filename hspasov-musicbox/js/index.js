@@ -16,6 +16,7 @@ const channelAddressSubmit = document.getElementById('channel-address-submit');
 const addChannelAddressInputButton = document.getElementById('add-channel-address-input');
 const removeAllChannelAddressInputsButton = document.getElementById('remove-all-channel-address-inputs');
 const musicTable = document.getElementById('music-table');
+const resultsFoundMessage = document.getElementById('results-found-message');
 const searchStatus = document.getElementById('search-status');
 const errorDialog = document.getElementById('error-dialog');
 const closeErrorDialogButton = document.getElementById('close-error-dialog-button');
@@ -98,6 +99,7 @@ function closeErrorDialog() {
 
 function closeArtistDialog() {
 
+  artistImage.src = '';
   artistDialog.close();
 }
 
@@ -143,6 +145,15 @@ async function channelAddressSubmitOnClick() {
     handleError(new ElementNotFoundError(channelAddressInputsClassName));
     return;
   }
+
+  if (!(resultsFoundMessage instanceof HTMLParagraphElement)) {
+
+    handleError(new ElementNotFoundError('resultsFoundMessage'));
+    return;
+  }
+
+  searchStatus.style.visibility = 'visible';
+  searchStatus.innerHTML = 'Searching...';
 
   try {
 
@@ -200,9 +211,12 @@ async function channelAddressSubmitOnClick() {
     }
   }
 
+  searchStatus.style.visibility = 'visible';
+  searchStatus.innerHTML = 'Finished';
+
   if (musicTable.style.visibility === 'hidden') { // if no results 
-    searchStatus.style.visibility = 'visible';
-    searchStatus.innerHTML = 'No results';
+    resultsFoundMessage.style.visibility = 'visible';
+    resultsFoundMessage.innerHTML = 'No results';
   }
 
   saveStateToLocalStorage();
@@ -293,6 +307,14 @@ function clearChannelAddressInputs() {
     return;
   }
 
+  if (!(searchStatus instanceof HTMLParagraphElement)) {
+
+    handleError(new ElementNotFoundError('searchStatus'));
+    return;
+  }
+
+  searchStatus.style.visibility = 'hidden';
+
   while (channelAddressInputs.firstChild) {
     channelAddressInputs.removeChild(channelAddressInputs.firstChild);
   }
@@ -308,13 +330,13 @@ function clearTable() {
     return;
   }
 
-  if (!(searchStatus instanceof HTMLParagraphElement)) {
-    handleError(new ElementNotFoundError('searchStatus'));
+  if (!(resultsFoundMessage instanceof HTMLParagraphElement)) {
+    handleError(new ElementNotFoundError('resultsFoundMessage'));
     return;
   }
 
   musicTable.style.visibility = 'hidden';
-  searchStatus.style.visibility = 'hidden';
+  resultsFoundMessage.style.visibility = 'hidden';
 
   for (let i = musicTable.rows.length - 1; i >= tableHeaderRowCount; i--) {
     musicTable.deleteRow(i);
@@ -328,12 +350,12 @@ function insertTableRow(data) {
   }
 
   musicTable.style.visibility = 'visible';
-  searchStatus.style.visibility = 'visible';
-  searchStatus.innerHTML = `${resultsFound} results found.`;
+  resultsFoundMessage.style.visibility = 'visible';
+  resultsFoundMessage.innerHTML = `${resultsFound} results found.`;
 
   if (unsuccessfullyParsed > 0) {
 
-    searchStatus.innerHTML += ` ${unsuccessfullyParsed} were not songs.`;
+    resultsFoundMessage.innerHTML += ` ${unsuccessfullyParsed} were not songs.`;
   }
 
   let newRow = musicTable.insertRow(musicTable.rows.length);
@@ -480,8 +502,8 @@ function restoreStateFromLocalStorage() {
     return;
   }
 
-  if (!(searchStatus instanceof HTMLParagraphElement)) {
-    handleError(new ElementNotFoundError('searchStatus'));
+  if (!(resultsFoundMessage instanceof HTMLParagraphElement)) {
+    handleError(new ElementNotFoundError('resultsFoundMessage'));
     return;
   }
 
@@ -510,11 +532,11 @@ function restoreStateFromLocalStorage() {
   }
 
   if (state.resultsFound) {
-    searchStatus.innerHTML = `${state.resultsFound} results found.`;
+    resultsFoundMessage.innerHTML = `${state.resultsFound} results found.`;
 
     if (state.unsuccessfullyParsed && state.unsuccessfullyParsed > 0) {
 
-      searchStatus.innerHTML += ` ${state.unsuccessfullyParsed} were not songs.`;
+      resultsFoundMessage.innerHTML += ` ${state.unsuccessfullyParsed} were not songs.`;
     }
   }
 
@@ -734,8 +756,6 @@ async function getChannelVideos(channelId, getUntilLast, pageToken) {
       const artistNamesSeparated = separateArtists(musicVideoData.artist);
       const artistCellInnerHTML = await generateArtistCellInnerHTML(artistNamesSeparated);
       
-      console.log(artistCellInnerHTML);
-
       insertTableRow({
         artists: artistCellInnerHTML,
         songTitle: musicVideoData.songTitle,
@@ -980,5 +1000,6 @@ closeErrorDialogButton.onclick = closeErrorDialog;
 closeArtistDialogButton.onclick = closeArtistDialog;
 
 musicTable.style.visibility = 'hidden';
+resultsFoundMessage.style.visibility = 'hidden';
 searchStatus.style.visibility = 'hidden';
 restoreStateFromLocalStorage();
