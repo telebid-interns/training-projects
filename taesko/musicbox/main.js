@@ -1,3 +1,4 @@
+const NO_CONTENT_PARAGRAPH = document.getElementById('no-content-message');
 const loadedChannels = [];
 
 
@@ -12,39 +13,23 @@ const SongDataAPI = {
         apiSecret: '51305668ff35178ee80976315a52042'
     }),
 
-    test: () => {
-        /* Create a cache object */
-
-        /* Create a LastFM object */
-        /* Load some artist info. */
-        SongDataAPI.apiObj.artist.getInfo({artist: 'The xx'}, {
-            success: function (data) {
-                console.log(data)
-                /* Use data. */
-            }, error: function (code, message) {
-                /* Show error message. */
-            }
-        });
-    },
-
     getTrackInfo: (artist, track) => {
         return new Promise((resolve, reject) => {
             function resolveData(data) {
-                console.log('lastfm data', data);
                 resolve(data);
             }
+
             SongDataAPI.apiObj.track.getInfo(
                 {artist, track},
                 {
                     success: resolveData,
                     error: (code, message) => {
-                        alert("Error message " + message);
+                        reject(message);
                     }
                 }
             )
         });
     }
-
 };
 
 const ChannelDataAPI = {
@@ -56,31 +41,73 @@ const ChannelDataAPI = {
         return obj
     },
 
-    channelInfoFromName: async name => {
-        let response = await gapi.client.youtube.channels.list({
-            part: 'snippet',
-            forUsername: name,
-        });
-        return {
-            id: response.result.items[0].id,
-            name: name,
-            title: response.result.items[0].snippet.title,
-            customUrl: response.result.items[0].snippet.customUrl
-        };
+    _getChannelMetaFromResponseItem: item => {
+        let resultObject = {id: item.id};
+
+        if (item.hasOwnProperty('snippet')) {
+            resultObject.title = item.snippet.title;
+            resultObject.customUrl = item.snippet.customUrl;
+        }
+        return resultObject
+    },
+
+    getChannelMeta: async ({id, userName}) => {
+        let params = {part: 'snippet'};
+
+        if (id) {
+            params['id'] = id;
+        }
+        else if (userName) {
+            params['forUsername'] = userName;
+        }
+        else {
+            throw "Constructor requires either an id or an userName parameter to be provided";
+        }
+
+        let resultObject = {};
+        let response;
+
+        try {
+            response = await gapi.client.youtube.channels.list(params);
+        }
+        catch {
+            console.log("Youtube API failed to get channel information for params: " + params);
+            resultObject.id = resultObject.id || '';
+            resultObject.title = resultObject.title || '';
+            resultObject.customUrl = resultObject.customUrl || '';
+            return resultObject;
+        }
+
+        let meta = response.result.items[0];
+        resultObject.id = meta.id;
+        if (meta.hasOwnProperty('snippet')) {
+            resultObject.title = meta.snippet.title;
+            resultObject.customUrl = meta.snippet.customUrl;
+        }
+        return resultObject
     },
 
     getDataFromUrl: async url => {
-        let name = parsers.parseYoutubeUrl(url).name;
-        let info = await ChannelDataAPI.channelInfoFromName(name);
+        let userName = parsers.parseYoutubeUrl(url).name;
+        let channelMeta = await ChannelDataAPI.getChannelMeta({userName});
         return await ChannelDataAPI.getData({
             type: 'id',
-            identifier: info.id,
-        })
+            identifier: channelMeta.id
+        });
     },
 
     getData: async function ({type = 'forUsername', identifier}) {
         // TODO handle errors
-        let channelResponse = await gapi.client.youtube.channels.list(ChannelDataAPI.args(type, identifier));
+        let channelResponse;
+        let params = ChannelDataAPI.args(type, identifier);
+        try {
+            channelResponse = await gapi.client.youtube.channels.list(params);
+        }
+        catch (e) {
+            console.log("Failed to get youtube data for params: ");
+            console.log(params);
+            throw "Youtube API can't get channel data";
+        }
 
         let customUrl = channelResponse.result.items[0].snippet.customUrl;
         let channelName = channelResponse.result.items[0].snippet.title;
@@ -113,7 +140,8 @@ const ChannelDataAPI = {
                     id: identifier,
                     title: item.snippet.title,
                     customUrl: customUrl,
-                    channelName: channelName
+                    channelName: channelName,
+                    channel: ChannelDataAPI._getChannelMetaFromResponseItem(channelResponse.result.items[0])
                 }
             });
 
@@ -124,21 +152,13 @@ const ChannelDataAPI = {
 const parsers = {
     map: {},
 
-    forUrl: (url) => {
-        return parsers.map['liquicity'];
-    },
-
-    forChannelId: (id) => {
-        return parsers.map['liquicity']
-    },
-
     forChannelName: (name) => {
         return parsers.map[name.toLowerCase()];
     },
 
+    // TODO display titles which can't be parsed
     parseLiquicity: videoTitle => {
-        // TODO shorten
-        let regex = new RegExp("([^-]+) - ([^-]+)");
+        let regex = /([^-]+) - ([^-]+)/;
         let result = regex.exec(videoTitle);
         if (result) {
             return {'artist': result[1], 'track': result[2]};
@@ -146,8 +166,7 @@ const parsers = {
     },
 
     parseTaylorSwift: videoTitle => {
-        // TODO display titles which can't be parsed
-        let regex = new RegExp("Taylor Swift - ([^-]+)");
+        let regex = /Taylor Swift - ([^-]+)/;
         let result = regex.exec(videoTitle);
         if (result) {
             return {'artist': 'Taylor Swift', 'track': result[1]};
@@ -155,13 +174,29 @@ const parsers = {
     },
 
     parseYoutubeUrl: url => {
-        let u = "https://www.youtube.com/user/taylorswift/videos";
         let regex = new RegExp("www.youtube.com/user/([^/]+).*");
         let result = regex.exec(url);
         if (!result) {
             alert("Could not parse url " + url);
         }
         return {id: undefined, name: result[1]};
+    },
+
+    parseInputUrls: str => {
+        // taken from https://stackoverflow.com/questions/6038061/regular-expression-to-find-urls-within-a-string
+        let regex = new RegExp(
+            "(http|ftp|https)://([\\w_-]+(?:(?:\\.[\\w_-]+)+))([\\w.,@?^=%&:/~+#-]*[\\w@?^=%&/~+#-])?",
+            "g");
+        let match;
+        let urls = [];
+
+        do {
+            match = regex.exec(str);
+            if(match) urls.push(match[0]);
+            else break;
+
+        } while(true);
+        return urls
     },
 
     // TODO find out how to do this
@@ -175,43 +210,56 @@ parsers._initialize();
 
 
 const TableAPI = {
-    displayedChannels: [],
-    columnNames: ['channelName', 'artist', 'album', 'track', 'length'],
-    columnIndexes: {channelName: 0, artist: 1, album: 2, track: 3, length: 4},
+    table: document.getElementsByClassName('table')[0],
+    tableBody: document.querySelector('table tbody'),
 
-    addSongs: songs => {
-        let tbody = document.querySelector('table tbody');
-        let addedChannels = [];
-        songs.forEach(song => {
-            let newRow = tbody.insertRow(-1);
-            for (let name of TableAPI.columnNames) {
-                newRow.insertCell(-1).textContent = song[name];
-            }
+    addSong: song => {
+        let newRow = TableAPI.tableBody.insertRow(-1);
+        [
+            song.channel.title,
+            song.artist,
+            song.album,
+            song.track,
+            song.length
+        ].forEach(string => {
+            newRow.insertCell(-1).textContent = string;
         });
-        TableAPI.displayedChannels.push(addedChannels)
+        newRow.setAttribute('data-custom-url', song.customUrl);
     },
 
-    removeSongsFromChannel: name => {
+    addSongs: songs => {
+        songs.forEach(song => {
+            TableAPI.addSong(song);
+        });
+    },
+
+    removeSongsByChannelTitle: name => {
         console.log("Removing songs from", name);
         document.querySelectorAll('table tbody tr')
             .forEach(row => {
-                    let columns = row.getElementsByTagName('td');
-                    let channelName = columns[TableAPI.columnIndexes['channelName']].textContent;
-                    console.log(channelName, name);
-                    if (channelName.toLowerCase() === name.toLowerCase()) {
+                    let title = row.childNodes[0].textContent;
+                    if (title.toLowerCase() === name.toLowerCase()) {
                         row.remove();
                     }
                 }
             );
-        TableAPI.displayedChannels.splice(
-            TableAPI.displayedChannels.indexOf(name),
-            1
-        )
+    },
+
+    showTable: () => {
+        TableAPI.table.style.display = 'block';
+        NO_CONTENT_PARAGRAPH.style.display = 'none';
+    },
+
+    hideTable: () => {
+        TableAPI.table.style.display = 'none';
+        NO_CONTENT_PARAGRAPH.style.display = 'block';
+        NO_CONTENT_PARAGRAPH.textContent = '';
     },
 
     clearTable: () => {
         document.querySelectorAll('table tbody tr')
             .forEach(row => row.remove());
+        TableAPI.hideTable();
     },
 
 };
@@ -233,6 +281,7 @@ const UrlList = {
         let close_button = document.createElement('button');
 
         close_button.addEventListener("click", function (event) {
+            // TODO this is a promise
             SubsAPI.unsubFromUrl(url);
         });
 
@@ -251,7 +300,6 @@ const UrlList = {
     hide: url => {
         document.querySelectorAll('#url-list li').forEach(item => {
             if (item.textContent !== url) return;
-            console.log("removed item");
             item.remove();
         });
     }
@@ -261,80 +309,113 @@ const UrlList = {
 const SubsAPI = {
     whitelist: ['liquicity', 'maroon5', 'taylorswift'],
 
+    // TODO fix bad hack
+    canAddTo: {'liquicity': true, 'maroon5': true, 'taylorswift': true},
+
     subToUrl: async url => {
-        let channel = parsers.parseYoutubeUrl(url).name;
+        let channelUsername = parsers.parseYoutubeUrl(url).name;
 
         console.log("Currently subscribed channels: ", loadedChannels);
 
-        if (SubsAPI.whitelist.indexOf(channel) === -1) {
-            alert("Channel " + channel + " is not supported.");
+        if (SubsAPI.whitelist.indexOf(channelUsername) === -1) {
+            alert("Channel " + channelUsername + " is not supported.");
             return
         }
-        else if (loadedChannels.indexOf(channel) !== -1) {
-            alert("Already subscribed to channel " + channel);
+        else if (loadedChannels.indexOf(channelUsername) !== -1) {
+            alert("Already subscribed to channel " + channelUsername);
             // TODO display error
             return
         }
 
-        console.log("Subscribing to url " + url + " with channel name = " + channel);
+        console.log("Subscribing to url " + url + " with channel name = " + channelUsername);
 
         let videoData = await ChannelDataAPI.getDataFromUrl(url);
-        let songs = extractSongs(videoData);
-        let successful = songs.filter(song => {
-            return song !== undefined;
-        });
-        let unsuccessful = songs.filter(song => {
-            return song === undefined;
-        });
+        let extracted = extractSongs(videoData);
+        let successful = extracted['successful'];
+        let unsuccessful = extracted['unsuccessful'];
 
         if (unsuccessful) {
-            alert("Some videos could not be parsed.");
+            // TODO display error
         }
 
-        console.log("Subscription to channel " + channel + " successfully parsed these songs: ", successful);
-        console.log("Subscription to channel " + channel + " could not parse these videos: ", unsuccessful);
+        console.log("Subscription to channel " + channelUsername + " successfully parsed these songs: ", successful);
+        console.log("Subscription to channel " + channelUsername + " could not parse these videos: ", unsuccessful);
 
-        TableAPI.addSongs(successful);
-        loadedChannels.push(channel);
+        loadedChannels.push(channelUsername);
         UrlList.display(url);
+
+        successful.forEach(
+            async song => {
+                let newData;
+                try {
+                    newData = await SongDataAPI.getTrackInfo(song.artist, song.track);
+
+                }
+                catch (e) {
+                    // TODO handle
+                    return
+                }
+                if (newData.hasOwnProperty('track')) {
+                    if (newData.track.hasOwnProperty('artist') && newData.track.hasOwnProperty('name'))
+                        song.artist = newData.track.artist.name;
+                    if (newData.track.hasOwnProperty('name'))
+                        song.track = newData.track.name;
+                    if (newData.track.hasOwnProperty('album') && newData.track.album.hasOwnProperty('title'))
+                        song.album = newData.track.album.title;
+                }
+                if (SubsAPI.canAddTo[channelUsername]) {
+                    TableAPI.addSong(song);
+                }
+            }
+        );
+        SubsAPI.canAddTo[channelUsername] = true;
+        TableAPI.showTable();
     },
 
-    unsubFromUrl: url => {
-        let channel = parsers.parseYoutubeUrl(url).name;
-        console.log("Unsubscribe from url " + url + " with channel name " + url);
-        if (loadedChannels.indexOf(channel) === -1) {
-            alert("You are not subscribed to " + channel);
+    unsubFromUrl: async url => {
+        // TODO will break if url has an id instead of user name.
+        // TODO don't use an API call.
+        let channelInfo = await ChannelDataAPI.getChannelMeta({userName: parsers.parseYoutubeUrl(url).name});
+        let channelUsername = channelInfo.customUrl.toLowerCase();
+        console.log("Unsubscribe from url " + url + " with channel name " + channelUsername);
+        console.log("All subs: ", loadedChannels);
+        if (loadedChannels.indexOf(channelUsername) === -1) {
+            alert("You are not subscribed to " + channelUsername);
             // TODO display errors
             return;
         }
-        loadedChannels.splice(loadedChannels.indexOf(channel), 1);
-        TableAPI.removeSongsFromChannel(channel);
-        UrlList.hide(url)
+        SubsAPI.canAddTo[channelUsername] = false;
+        TableAPI.removeSongsByChannelTitle(channelInfo.title);
+        loadedChannels.splice(loadedChannels.indexOf(channelUsername), 1);
+        UrlList.hide(url);
+        if (loadedChannels !== undefined || loadedChannels.length === 0)
+            TableAPI.hideTable();
     }
 };
 
 
 function extractSongs(videos) {
-    return videos.map(vid => {
-        let title_info = parsers.forChannelName(vid.customUrl)(vid.title);
-        if (!title_info)
-            return undefined;
-        return {
-            track: title_info.track,
-            artist: title_info.artist,
-            customUrl: vid.customUrl,
-            channelName: vid.channelName
-        }
+    let successful = [];
+    let unsuccessful = [];
+    videos.forEach(vid => {
+        let titleInfo = parsers.forChannelName(vid.customUrl)(vid.title);
+        if (titleInfo) successful.push(
+            Object.assign({}, vid, {track: titleInfo.track, artist: titleInfo.artist})
+        );
+        else unsuccessful.push(vid);
     });
+    return {successful, unsuccessful};
 }
 
 
 async function processForm(e) {
     if (e.preventDefault) e.preventDefault();
 
-    await SubsAPI.subToUrl(document.getElementById('urls-input').value);
-
-    await SongDataAPI.getTrackInfo('Taylor Swift', 'Troublemaker');
+    parsers.parseInputUrls(
+        document.getElementById('urls-input').value
+    ).forEach(async url => {
+        await SubsAPI.subToUrl(url);
+    });
     // return false to prevent the default form behavior
     return false;
 }
@@ -364,4 +445,3 @@ function start() {
 
 // Loads the JavaScript client library and invokes `start` afterwards.
 gapi.load('client', start);
-SongDataAPI.test();
