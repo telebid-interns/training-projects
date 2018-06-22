@@ -309,8 +309,8 @@ function insertTableRow(data) {
   let durationCell = newRow.insertCell(3);
   let releasedCell = newRow.insertCell(4);
   let channelCell = newRow.insertCell(5);
-  
-  artistCell.innerHTML = data.artist;
+
+  artistCell.innerHTML = data.artists;
   songCell.innerHTML = data.songTitle;
   albumCell.innerHTML = data.album;
   durationCell.innerHTML = data.duration;
@@ -444,7 +444,7 @@ function restoreStateFromLocalStorage() {
   if (state.tableData) {
     for (let i = 1; i < state.tableData.length; i++) {
       insertTableRow({
-        artist: state.tableData[i][0],
+        artists: state.tableData[i][0],
         songTitle: state.tableData[i][1],
         album: state.tableData[i][2],
         duration: state.tableData[i][3],
@@ -677,10 +677,20 @@ async function getChannelVideos(channelId, getUntilLast, pageToken) {
       unsuccessfullyParsed++;
     } else {
 
-      musicVideoData.duration = durationToString(musicVideoData.duration);
-      musicVideoData.album = await getAlbum(musicVideoData);
+      const artistNamesSeparated = separateArtists(musicVideoData.artist);
+      const artistCellInnerHTML = await generateArtistCellInnerHTML(artistNamesSeparated);
+      
+      console.log(artistCellInnerHTML);
 
-      insertTableRow(musicVideoData);
+      insertTableRow({
+        artists: artistCellInnerHTML,
+        songTitle: musicVideoData.songTitle,
+        album: await getAlbum(musicVideoData),
+        duration: durationToString(musicVideoData.duration),
+        publishedAt: musicVideoData.publishedAt,
+        channel: musicVideoData.channel,
+        title: musicVideoData.title
+      });
     }
 
   }
@@ -693,6 +703,35 @@ async function getChannelVideos(channelId, getUntilLast, pageToken) {
 
     return;
   }
+}
+
+async function generateArtistCellInnerHTML(artistNames) {
+
+  let artistCellInnerHTML = [];
+  const artistsDataParagraph = document.createElement('p');
+
+  for (let k = 0; k < artistNames.length; k++) {
+
+    const artistName = artistNames[k];
+    
+    const artistPopUp = document.createElement('a');
+    artistPopUp.innerHTML = artistName;
+    artistPopUp.href = await getArtistImage(artistName);
+
+    if (k !== 0 && k !== artistNames.length - 1) {
+
+      artistCellInnerHTML += ', ';
+    
+    } else if (k === artistNames.length - 1) {
+
+      artistCellInnerHTML += ' & ';
+
+    }
+    artistCellInnerHTML += artistPopUp.outerHTML;
+
+  }
+
+  return artistCellInnerHTML;
 }
 
 function toQueryString(params) {
@@ -815,6 +854,14 @@ async function getMusicVideoData(videoId) {
   };
 }
 
+function separateArtists(artistsString) {
+
+  const artistPattern = /[\w\s]+/g;
+
+  return artistsString.match(artistPattern)
+    .map(artist => artist.trim());
+}
+
 async function getAlbum(musicVideoData) {
 
   if (typeof musicVideoData !== 'object' ||
@@ -841,6 +888,30 @@ async function getAlbum(musicVideoData) {
   }
 
   return albumData.track.album.title;
+}
+
+async function getArtistImage(artist) {
+
+  const artistData = await getJSONResponse(LFM_API, {
+    method: 'artist.getInfo',
+    api_key: LFM_API_KEY,
+    artist: artist,
+    format: 'json'
+  });
+
+  if (typeof artistData !== 'object' ||
+    typeof artistData.artist !== 'object' ||
+    !(artistData.artist.image instanceof Array) ||
+    artistData.artist.image.length <= 0 ||
+    typeof artistData.artist.image[artistData.artist.image.length - 1] !== 'object' ||
+    typeof artistData.artist.image[artistData.artist.image.length - 1]['#text'] !== 'string') {
+
+    return null;
+  }
+
+  const image = artistData.artist.image[artistData.artist.image.length - 1]['#text'];
+
+  return image;
 }
 
 channelAddressSubmit.onclick = channelAddressSubmitOnClick;
