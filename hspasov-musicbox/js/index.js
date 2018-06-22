@@ -20,6 +20,9 @@ const searchStatus = document.getElementById('search-status');
 const errorDialog = document.getElementById('error-dialog');
 const closeErrorDialogButton = document.getElementById('close-error-dialog-button');
 const errorDialogMessage = document.getElementById('error-dialog-message');
+const artistDialog = document.getElementById('artist-dialog');
+const artistImage = document.getElementById('artist-image');
+const closeArtistDialogButton = document.getElementById('close-artist-dialog-button');
 
 let resultsFound = 0;
 let unsuccessfullyParsed = 0;
@@ -91,6 +94,37 @@ function handleError(e) {
 function closeErrorDialog() {
 
   errorDialog.close();
+}
+
+function closeArtistDialog() {
+
+  artistDialog.close();
+}
+
+function showArtistDialog(e) {
+  e.preventDefault(); // to not open link, when clicked, as new page
+
+  if (!(artistImage instanceof HTMLImageElement)) {
+
+    handleError(new ElementNotFoundError('artistImage'));
+    return;
+  }
+
+  if (!(artistDialog instanceof HTMLDialogElement)) {
+
+    handleError(new ElementNotFoundError('artistDialog'));
+    return;
+  }
+
+  if (typeof e.target.href !== 'string') {
+
+    handleError(new UnexpectedPropertyTypeError('string', typeof e.target.href));
+    return;
+  }
+
+  artistImage.src = e.target.href;
+
+  artistDialog.showModal();
 }
 
 async function channelAddressSubmitOnClick() {
@@ -310,6 +344,8 @@ function insertTableRow(data) {
   let releasedCell = newRow.insertCell(4);
   let channelCell = newRow.insertCell(5);
 
+  newRow.title = data.title;
+
   artistCell.innerHTML = data.artists;
   songCell.innerHTML = data.songTitle;
   albumCell.innerHTML = data.album;
@@ -317,7 +353,25 @@ function insertTableRow(data) {
   releasedCell.innerHTML = data.publishedAt;
   channelCell.innerHTML = data.channel;
 
-  newRow.title = data.title;
+  const artistPopUps = document.getElementsByClassName('artist-pop-up');
+
+  if (!(artistPopUps instanceof HTMLCollection)) {
+
+    throw new ElementNotFoundError('artistPopUps');
+  }
+
+  for (let i = 0; i < artistPopUps.length; i++) {
+
+    const artistPopUp = artistPopUps[i];
+
+    if (!(artistPopUp instanceof HTMLAnchorElement)) {
+
+      throw new ElementNotFoundError('artistPopUp');
+    }
+
+    artistPopUp.onclick = showArtistDialog;
+  }
+
 }
 
 function getTableData() {
@@ -716,13 +770,14 @@ async function generateArtistCellInnerHTML(artistNames) {
     
     const artistPopUp = document.createElement('a');
     artistPopUp.innerHTML = artistName;
-    artistPopUp.href = await getArtistImage(artistName);
+    artistPopUp.setAttribute('href', await getArtistImage(artistName));
+    artistPopUp.setAttribute('class', 'artist-pop-up');
 
     if (k !== 0 && k !== artistNames.length - 1) {
 
       artistCellInnerHTML += ', ';
     
-    } else if (k === artistNames.length - 1) {
+    } else if (k !== 0 && k === artistNames.length - 1) {
 
       artistCellInnerHTML += ' & ';
 
@@ -922,6 +977,7 @@ removeAllChannelAddressInputsButton.onclick = () => {
   saveStateToLocalStorage();
 };
 closeErrorDialogButton.onclick = closeErrorDialog;
+closeArtistDialogButton.onclick = closeArtistDialog;
 
 musicTable.style.visibility = 'hidden';
 searchStatus.style.visibility = 'hidden';
