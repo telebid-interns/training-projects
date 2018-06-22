@@ -5,7 +5,11 @@ const DEBUG_MODE = true;
 const YT_CHANNELS_API = 'https://www.googleapis.com/youtube/v3/channels';
 const YT_SEARCH_API = 'https://www.googleapis.com/youtube/v3/search';
 const YT_VIDEOS_API = 'https://www.googleapis.com/youtube/v3/videos';
-const API_KEY = 'AIzaSyDe2NF-3q_aCIi1TIW0bIN44OqHQAPEc5w';
+const YT_API_KEY = 'AIzaSyDe2NF-3q_aCIi1TIW0bIN44OqHQAPEc5w';
+
+const LFM_API = 'http://ws.audioscrobbler.com/2.0/';
+const LFM_API_KEY = '545cfc729a150144d0834bf15b273835';
+
 const SEARCH_MAX_RESULTS = 50;
 
 const channelAddressSubmit = document.getElementById('channel-address-submit');
@@ -308,7 +312,7 @@ function insertTableRow(data) {
   
   artistCell.innerHTML = data.artist;
   songCell.innerHTML = data.songTitle;
-  albumCell.innerHTML = "";
+  albumCell.innerHTML = data.album;
   durationCell.innerHTML = data.duration;
   releasedCell.innerHTML = data.publishedAt;
   channelCell.innerHTML = data.channel;
@@ -593,7 +597,7 @@ function parseDuration(duration) {
 async function getChannelId(username) {
 
   const channelResponse = await getJSONResponse(YT_CHANNELS_API, {
-    key: API_KEY,
+    key: YT_API_KEY,
     forUsername: username,
     part: 'id'
   });
@@ -633,7 +637,7 @@ async function getChannelVideos(channelId, getUntilLast, pageToken) {
   }
 
   const searchVideosResponse = await getJSONResponse(YT_SEARCH_API, {
-    key: API_KEY,
+    key: YT_API_KEY,
     channelId: channelId,
     type: 'video',
     part: 'id',
@@ -662,20 +666,21 @@ async function getChannelVideos(channelId, getUntilLast, pageToken) {
       throw new DataError('video id');
     }
 
-    const data = await getMusicVideoData(item.id.videoId);
+    const musicVideoData = await getMusicVideoData(item.id.videoId);
 
-    if (data === null) {
+    if (musicVideoData === null) {
       
       throw new DataError('music video');
     
-    } else if (Object.keys(data).length === 0) {
+    } else if (Object.keys(musicVideoData).length === 0) {
       
       unsuccessfullyParsed++;
     } else {
 
-      data.duration = durationToString(data.duration);
+      musicVideoData.duration = durationToString(musicVideoData.duration);
+      musicVideoData.album = await getAlbum(musicVideoData);
 
-      insertTableRow(data);
+      insertTableRow(musicVideoData);
     }
 
   }
@@ -721,7 +726,7 @@ async function getMusicVideoData(videoId) {
   let video;
 
   const videoData = await getJSONResponse(YT_VIDEOS_API, {
-    key: API_KEY,
+    key: YT_API_KEY,
     part: 'contentDetails,snippet',
     id: videoId
   });
@@ -808,6 +813,34 @@ async function getMusicVideoData(videoId) {
     channel,
     title
   };
+}
+
+async function getAlbum(musicVideoData) {
+
+  if (typeof musicVideoData !== 'object' ||
+    typeof musicVideoData.artist !== 'string' ||
+    typeof musicVideoData.songTitle !== 'string') {
+
+    return null;
+  }
+
+  const albumData = await getJSONResponse(LFM_API, {
+    method: 'track.getInfo',
+    api_key: LFM_API_KEY,
+    artist: musicVideoData.artist,
+    track: musicVideoData.songTitle,
+    format: 'json'
+  });
+
+  if (typeof albumData !== 'object' ||
+    typeof albumData.track !== 'object' ||
+    typeof albumData.track.album !== 'object' ||
+    typeof albumData.track.album.title !== 'string') {
+
+    return null;
+  }
+
+  return albumData.track.album.title;
 }
 
 channelAddressSubmit.onclick = channelAddressSubmitOnClick;
