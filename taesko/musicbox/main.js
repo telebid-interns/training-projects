@@ -13,7 +13,7 @@ const SongDataAPI = {
         apiSecret: '51305668ff35178ee80976315a52042'
     }),
 
-    getTrackInfo: (artist, track) => {
+    getTrackInfo: ({artist, track}) => {
         return new Promise((resolve, reject) => {
             function resolveData(data) {
                 resolve(data);
@@ -138,9 +138,20 @@ const ChannelDataAPI = {
             item => {
                 return {
                     id: identifier,
-                    title: item.snippet.title,
+                    track: {
+                        name: item.snippet.title,
+                        artist: {
+                            name: undefined,
+                            lastFmUrl: undefined
+                        },
+                        duration: -1,
+                        album: {
+                            title: undefined,
+                            lastFmUrl: undefined,
+                            images: []
+                        }
+                    },
                     customUrl: customUrl,
-                    channelName: channelName,
                     channel: ChannelDataAPI._getChannelMetaFromResponseItem(channelResponse.result.items[0])
                 }
             });
@@ -217,10 +228,10 @@ const TableAPI = {
         let newRow = TableAPI.tableBody.insertRow(-1);
         [
             song.channel.title,
-            song.artist,
-            song.album,
-            song.track,
-            song.length
+            song.track.artist.name,
+            song.track.album.title,
+            song.track.name,
+            song.track.duration
         ].forEach(string => {
             newRow.insertCell(-1).textContent = string;
         });
@@ -347,21 +358,32 @@ const SubsAPI = {
         successful.forEach(
             async song => {
                 let newData;
+                // sending undefined track
+                // actually finds an undefined track on the artist page
+                // similarly for artist
+                let params = {artist: song.track.artist.name, track: song.track.name};
                 try {
-                    newData = await SongDataAPI.getTrackInfo(song.artist, song.track);
-
+                    newData = await SongDataAPI.getTrackInfo(params);
                 }
                 catch (e) {
                     // TODO handle
+                    console.log("lastFM API couldn't get data for params ", params);
                     return
                 }
+
+                // TODO refactor this
                 if (newData.hasOwnProperty('track')) {
-                    if (newData.track.hasOwnProperty('artist') && newData.track.hasOwnProperty('name'))
-                        song.artist = newData.track.artist.name;
                     if (newData.track.hasOwnProperty('name'))
-                        song.track = newData.track.name;
+                        song.track.name = newData.track.name;
+                    if (newData.track.hasOwnProperty('artist') && newData.track.artist.hasOwnProperty('name'))
+                        song.track.artist = newData.track.artist || {};
+                    if (newData.track.hasOwnProperty('name'))
+                        song.track.name = newData.track.name;
+                    if (newData.track.hasOwnProperty('durattion'))
+                        song.track.duration = newData.track.duration;
                     if (newData.track.hasOwnProperty('album') && newData.track.album.hasOwnProperty('title'))
-                        song.album = newData.track.album.title;
+                        // not every track has an album (singles for e.g.)
+                        song.track.album = newData.track.album || {};
                 }
                 if (SubsAPI.canAddTo[channelUsername]) {
                     TableAPI.addSong(song);
@@ -398,10 +420,13 @@ function extractSongs(videos) {
     let successful = [];
     let unsuccessful = [];
     videos.forEach(vid => {
-        let titleInfo = parsers.forChannelName(vid.customUrl)(vid.title);
-        if (titleInfo) successful.push(
-            Object.assign({}, vid, {track: titleInfo.track, artist: titleInfo.artist})
-        );
+        let titleInfo = parsers.forChannelName(vid.customUrl)(vid.track.name);
+        if (titleInfo) {
+            let obj = Object.assign({}, vid);
+            obj.track.artist.name = titleInfo.artist;
+            obj.track.name = titleInfo.track;
+            successful.push(obj);
+        }
         else unsuccessful.push(vid);
     });
     return {successful, unsuccessful};
