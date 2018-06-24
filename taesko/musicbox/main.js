@@ -110,7 +110,6 @@ const ChannelDataAPI = {
         }
 
         let customUrl = channelResponse.result.items[0].snippet.customUrl;
-        let channelName = channelResponse.result.items[0].snippet.title;
         let playlistId;
         let playlistResponse;
 
@@ -161,36 +160,66 @@ const ChannelDataAPI = {
 
 
 const parsers = {
-    map: {},
+    parseFunctions: {},
 
-    forChannelName: (name) => {
-        return parsers.map[name.toLowerCase()];
-    },
+    forChannelName: (name) => parsers.parseFunctions[name] || parsers.parseVevo,
 
     // TODO display titles which can't be parsed
     parseLiquicity: videoTitle => {
         let regex = /([^-]+) - ([^-]+)/;
         let result = regex.exec(videoTitle);
-        if (result) {
-            return {'artist': result[1], 'track': result[2]};
+        if (!result) {
+            alert("Could not parse title + " + videoTitle);
+            return {};
         }
+        return {'artist': result[1], 'track': result[2]};
     },
 
     parseTaylorSwift: videoTitle => {
         let regex = /Taylor Swift - ([^-]+)/;
         let result = regex.exec(videoTitle);
-        if (result) {
-            return {'artist': 'Taylor Swift', 'track': result[1]};
+
+        if (!result) {
+            alert("Could not parse title + " + videoTitle);
+            return {};
         }
+        return {'artist': 'Taylor Swift', 'track': result[1]};
     },
 
     parseYoutubeUrl: url => {
         let regex = new RegExp("www.youtube.com/user/([^/]+).*");
         let result = regex.exec(url);
+
         if (!result) {
             alert("Could not parse url " + url);
+            return {};
         }
         return {id: undefined, name: result[1]};
+    },
+
+    parseVevo: videoTitle => {
+        let regex = /\s*([^_]+)\s+-\s+([^()]+)\s*/;
+        let featuringRegex = /(?:ft\.|feat\.)\s*(.*)/;
+
+        let featMatch = featuringRegex.exec(videoTitle);
+        let feat;
+        if (featMatch) {
+            videoTitle = videoTitle.replace(featMatch[0], '');
+            feat = featMatch[1];
+        }
+
+        let result = regex.exec(videoTitle);
+        if (!result) {
+            console.log("Could not parse title " + videoTitle);
+            return {};
+        }
+        result = result.map(ele => {
+            if(ele)
+                return ele.trim();
+            return ele;
+        });
+
+        return {artist: result[1], track: result[2], feat};
     },
 
     parseInputUrls: str => {
@@ -212,8 +241,8 @@ const parsers = {
 
     // TODO find out how to do this
     _initialize: () => {
-        parsers.map['liquicity'] = parsers.parseLiquicity;
-        parsers.map['taylorswift'] = parsers.parseTaylorSwift;
+        parsers.parseFunctions['liquicity'] = parsers.parseLiquicity;
+        parsers.parseFunctions['taylorswift'] = parsers.parseTaylorSwift;
     }
 
 };
@@ -236,12 +265,6 @@ const TableAPI = {
             newRow.insertCell(-1).textContent = string;
         });
         newRow.setAttribute('data-custom-url', song.customUrl);
-    },
-
-    addSongs: songs => {
-        songs.forEach(song => {
-            TableAPI.addSong(song);
-        });
     },
 
     removeSongsByChannelTitle: name => {
@@ -318,8 +341,6 @@ const UrlList = {
 
 
 const SubsAPI = {
-    whitelist: ['liquicity', 'maroon5', 'taylorswift'],
-
     // TODO fix bad hack
     canAddTo: {'liquicity': true, 'maroon5': true, 'taylorswift': true},
 
@@ -328,11 +349,7 @@ const SubsAPI = {
 
         console.log("Currently subscribed channels: ", loadedChannels);
 
-        if (SubsAPI.whitelist.indexOf(channelUsername) === -1) {
-            alert("Channel " + channelUsername + " is not supported.");
-            return
-        }
-        else if (loadedChannels.indexOf(channelUsername) !== -1) {
+        if (loadedChannels.indexOf(channelUsername) !== -1) {
             alert("Already subscribed to channel " + channelUsername);
             // TODO display error
             return
