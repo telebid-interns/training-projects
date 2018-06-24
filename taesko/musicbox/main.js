@@ -1,4 +1,4 @@
-const NO_CONTENT_PARAGRAPH = document.getElementById('no-content-message');
+const noContentParagraph = document.getElementById('no-content-message');
 const loadedChannels = [];
 
 
@@ -281,13 +281,13 @@ const TableAPI = {
 
     showTable: () => {
         TableAPI.table.style.display = 'block';
-        NO_CONTENT_PARAGRAPH.style.display = 'none';
+        noContentParagraph.style.display = 'none';
     },
 
     hideTable: () => {
         TableAPI.table.style.display = 'none';
-        NO_CONTENT_PARAGRAPH.style.display = 'block';
-        NO_CONTENT_PARAGRAPH.textContent = '';
+        noContentParagraph.style.display = 'block';
+        noContentParagraph.textContent = '';
     },
 
     clearTable: () => {
@@ -371,6 +371,11 @@ const SubsAPI = {
 
         loadedChannels.push(channelUsername);
         UrlList.display(url);
+
+        let clean = {};
+        for(let ele of successful)
+            clean[ele.track.artist.name+ele.track.name] = ele;
+        successful = Object.values(clean);
 
         successful.forEach(
             async song => {
