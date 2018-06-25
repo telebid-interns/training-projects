@@ -15,7 +15,7 @@
 <div class="container">
     <header class="container">
         <form id="url-form" class="row">
-            <div class="col-lg-6">
+            <div class="col-lg-9">
                 <div class="input-group">
                     <input id="urls-input" type="text" class="form-control" placeholder="Enter channel urls here...">
                     <span class="input-group-btn">
@@ -24,6 +24,26 @@
                     </span>
                 </div><!-- /input-group -->
             </div><!-- /.col-lg-6 -->
+            <div class="col-lg-3">
+                Uploaded in the last:
+                <br>
+                <div class="radio-inline">
+                    <input type="radio" name="uploaded-filters" id="last-week-filter" value="last-week">
+                    <label for="last-week-filter">Week </label>
+                </div>
+                <div class="radio-inline">
+                    <input type="radio" name="uploaded-filters" id="last-month-filter" value="last-month">
+                    <label for="last-month-filter">Month</label>
+                </div>
+                <div class="radio-inline">
+                    <input type="radio" name="uploaded-filters" id="last-year-filter" value="last-year">
+                    <label for="last-year-filter">Year</label>
+                </div>
+                <div class="radio-inline">
+                    <input type="radio" name="uploaded-filters" id="eternity-filter" value="eternity" checked>
+                    <label for="eternity-filter">Eternity</label>
+                </div>
+            </div>
         </form>
         <div class="row" id="url-controls">
             <ul id="url-list">

@@ -1,5 +1,9 @@
 const noContentParagraph = document.getElementById('no-content-message');
 const loadedChannels = [];
+const LAST_WEEK_FILTER = document.getElementById('last-week-filter');
+const LAST_MONTH_FILTER = document.getElementById('last-month-filter');
+const LAST_YEAR_FILTER = document.getElementById('last-year-filter');
+const ETERNITY_FILTER = document.getElementById('eternity-filter');
 
 
 function getAPIKey() {
@@ -151,6 +155,7 @@ const ChannelDataAPI = {
                         }
                     },
                     customUrl: customUrl,
+                    publishedAt: new Date(item.snippet.publishedAt),
                     channel: ChannelDataAPI._getChannelMetaFromResponseItem(channelResponse.result.items[0])
                 }
             });
@@ -252,6 +257,7 @@ parsers._initialize();
 const TableAPI = {
     table: document.getElementsByClassName('table')[0],
     tableBody: document.querySelector('table tbody'),
+    allSongs: {},
 
     addSong: song => {
         let newRow = TableAPI.tableBody.insertRow(-1);
@@ -264,7 +270,9 @@ const TableAPI = {
         ].forEach(string => {
             newRow.insertCell(-1).textContent = string;
         });
+        newRow.setAttribute('data-song-id', songId(song));
         newRow.setAttribute('data-custom-url', song.customUrl);
+        TableAPI.allSongs[songId(song)] = song;
     },
 
     removeSongsByChannelTitle: name => {
@@ -274,9 +282,39 @@ const TableAPI = {
                     let title = row.childNodes[0].textContent;
                     if (title.toLowerCase() === name.toLowerCase()) {
                         row.remove();
+                        delete TableAPI.allSongs[row.getAttribute('data-song-id')];
                     }
                 }
             );
+    },
+
+    filterSongs: (func) => {
+        console.log("TABLE API is filtering songs.");
+        TableAPI.showAllSongs();
+        let filtered = Object.values(TableAPI.allSongs)
+                .filter(ele => func(ele));
+        console.log("HIDING SONGS", filtered);
+        TableAPI.hideSongs(filtered);
+    },
+
+    showAllSongs: () => {
+        for (let row of TableAPI.table.rows) {
+            if(row.classList.contains('hidden'))
+                row.classList.remove('hidden');
+        }
+    },
+
+    hideSongs: (songs) => {
+        for(let song of songs) {
+            for (let row of TableAPI.table.rows) {
+                if(
+                    row.getAttribute('data-song-id') === songId(song) &&
+                    !row.classList.contains('hidden')
+                ) {
+                    row.classList.add('hidden');
+                }
+            }
+        }
     },
 
     showTable: () => {
@@ -385,6 +423,7 @@ const SubsAPI = {
         for(let ele of successful)
             clean[ele.track.artist.name+ele.track.name] = ele;
         successful = Object.values(clean);
+        console.log("Filtered: ", successful.filter(songIsInDateRange));
 
         successful.forEach(
             async song => {
@@ -423,6 +462,8 @@ const SubsAPI = {
         );
         SubsAPI.canAddTo[channelUsername] = true;
         TableAPI.showTable();
+        // TODO this doesn't work right from the start because of async
+        TableAPI.filterSongs(songIsInDateRange);
     },
 
     unsubFromUrl: async url => {
@@ -459,6 +500,27 @@ const SubsAPI = {
 };
 
 
+function songId(song) {
+    return song.track.artist.name + '-' + song.track.name;
+}
+
+
+function songIsInDateRange(song) {
+    let songDate = song.publishedAt;
+    let dateRange = new Date();
+    if(LAST_WEEK_FILTER.checked) {
+        dateRange.setDate(dateRange.getDate() - 7);
+    } else if (LAST_MONTH_FILTER.checked) {
+        dateRange.setMonth(dateRange.getMonth() - 1);
+    } else if (LAST_YEAR_FILTER.checked) {
+        dateRange.setFullYear(dateRange.getFullYear() - 1);
+    } else {
+        return false;
+    }
+    return songDate.getTime() <= dateRange.getTime()
+}
+
+
 function extractSongs(videos) {
     let successful = [];
     let unsuccessful = [];
@@ -490,6 +552,14 @@ async function processForm(e) {
 
 
 window.onload = function () {
+    gapi.load('client', start);
+
+    function selectedFilter(event) {
+        console.log("Filtering songs");
+        TableAPI.filterSongs(songIsInDateRange);
+    }
+
+
     let form = document.getElementById('url-form');
 
     if (form.attachEvent) {
@@ -500,6 +570,11 @@ window.onload = function () {
 
     document.getElementById('unsubscribe-all-btn')
         .addEventListener('click', SubsAPI.unsubFromAll);
+
+    LAST_WEEK_FILTER.addEventListener('click', selectedFilter);
+    LAST_MONTH_FILTER.addEventListener('click', selectedFilter);
+    LAST_YEAR_FILTER.addEventListener('click', selectedFilter);
+    ETERNITY_FILTER.addEventListener('click', selectedFilter);
 };
 
 
@@ -513,6 +588,3 @@ function start() {
         console.log("youtube loaded");
     });
 }
-
-// Loads the JavaScript client library and invokes `start` afterwards.
-gapi.load('client', start);
