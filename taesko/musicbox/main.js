@@ -260,6 +260,11 @@ const TableAPI = {
     tableItemTemplate: document.getElementById('table-row-template'),
     allSongs: {},
 
+    prepareChannelDialog: (dialog, songData) => {
+        dialog.getElementsByTagName('p')[0].textContent = songData.channel.title;
+        dialog.getElementsByTagName('a')[0].setAttribute('href', songData.channel.customUrl);
+    },
+
     addSong: song => {
         let newRow = TableAPI.tableItemTemplate.cloneNode(true);
         newRow.classList.remove('hidden');
@@ -271,9 +276,17 @@ const TableAPI = {
             song.track.name,
             song.track.duration
         ];
+
         for(let k=0; k<newRow.cells.length; k++) {
-            newRow.cells[k].textContent = SONG_DATA[k];
+            let t = document.createTextNode(SONG_DATA[k]);
+            newRow.cells[k].appendChild(t);
         }
+
+        dialog = newRow.cells[0].getElementsByTagName('dialog')[0];
+        TableAPI.prepareChannelDialog(dialog, song);
+        newRow.cells[0].addEventListener('mouseover', event => {
+            dialog.showModal();
+        });
         newRow.setAttribute('data-song-id', songId(song));
         newRow.setAttribute('data-custom-url', song.customUrl);
         TableAPI.allSongs[songId(song)] = song;
