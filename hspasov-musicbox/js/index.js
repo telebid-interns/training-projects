@@ -820,7 +820,10 @@ restoreStateFromLocalStorage();
 //   console.log('test');
 // }
 
-window.addEventListener('error', (event) => handleError(error));
+window.addEventListener('error', (event) => {
+  console.log('error');
+  // handleError(error)
+});
 window.addEventListener('unhandledrejection', (event) => { 
   console.log('unhandledrejection');
   // handleError(error);
