@@ -257,22 +257,27 @@ parsers._initialize();
 const TableAPI = {
     table: document.getElementsByClassName('table')[0],
     tableBody: document.querySelector('table tbody'),
+    tableItemTemplate: document.getElementById('table-row-template'),
     allSongs: {},
 
     addSong: song => {
-        let newRow = TableAPI.tableBody.insertRow(-1);
-        [
+        let newRow = TableAPI.tableItemTemplate.cloneNode(true);
+        newRow.classList.remove('hidden');
+        newRow.removeAttribute('id');
+        const SONG_DATA = [
             song.channel.title,
             song.track.artist.name,
             song.track.album.title,
             song.track.name,
             song.track.duration
-        ].forEach(string => {
-            newRow.insertCell(-1).textContent = string;
-        });
+        ];
+        for(let k=0; k<newRow.cells.length; k++) {
+            newRow.cells[k].textContent = SONG_DATA[k];
+        }
         newRow.setAttribute('data-song-id', songId(song));
         newRow.setAttribute('data-custom-url', song.customUrl);
         TableAPI.allSongs[songId(song)] = song;
+        TableAPI.tableBody.appendChild(newRow);
     },
 
     removeSongsByChannelTitle: name => {
@@ -299,8 +304,12 @@ const TableAPI = {
 
     showAllSongs: () => {
         for (let row of TableAPI.table.rows) {
-            if(row.classList.contains('hidden'))
+            if(
+                row.classList.contains('hidden') &&
+                row.getAttribute('id') !== 'table-row-template'
+            ) {
                 row.classList.remove('hidden');
+            }
         }
     },
 
