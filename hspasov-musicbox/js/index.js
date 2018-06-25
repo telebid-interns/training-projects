@@ -29,32 +29,27 @@ let resultsFound = 0;
 let unsuccessfullyParsed = 0;
 
 class ApplicationError extends Error {}
-
-class DataError extends ApplicationError {
-  constructor (data) {
-    super(`Could not get data ${data}`);
-  }
-}
-
-class ElementNotFoundError extends ApplicationError {
-  constructor (identificator) {
-    super(`Element '${identificator}' not found.`);
-  }
-}
-
-class UnexpectedPropertyTypeError extends ApplicationError {
-  constructor (real, expected) {
-    super(`Expected property type ${expected}, but got ${real}.`);
-  }
-}
-
-class UnexpectedValueError extends ApplicationError {
-  constructor (property, value) {
-    super(`Unexpected value "${value}" for property "${property}".`);
-  }
-}
-
+class PeerError extends Error {}
 class UserError extends Error {}
+
+
+function assertPeer(assertion, errorMessage) {
+  if (!assertion) {
+    throw new PeerError(errorMessage);
+  }
+}
+
+function assertApplication(assertion, errorMessage) {
+  if (!assertion) {
+    throw new ApplicationError(errorMessage);
+  }
+}
+
+function assertUser(assertion, errorMessage) {
+  if (!assertion) {
+    throw new UserError(errorMessage);
+  }
+}
 
 function warning (msg) {
   if (DEBUG_MODE) {
@@ -63,6 +58,11 @@ function warning (msg) {
 }
 
 function handleError (e) {
+
+  console.log(e);
+
+  console.log('inside handle error');
+
   fixAppState();
 
   if (e instanceof UserError) {
@@ -96,20 +96,9 @@ function closeArtistDialog () {
 function showArtistDialog (e) {
   e.preventDefault(); // to not open link, when clicked, as new page
 
-  if (!(artistImage instanceof window.HTMLImageElement)) {
-    handleError(new ElementNotFoundError('artistImage'));
-    return;
-  }
-
-  if (!(artistDialog instanceof window.HTMLDialogElement)) {
-    handleError(new ElementNotFoundError('artistDialog'));
-    return;
-  }
-
-  if (typeof e.target.href !== 'string') {
-    handleError(new UnexpectedPropertyTypeError('string', typeof e.target.href));
-    return;
-  }
+  assertApplication(artistImage instanceof window.HTMLImageElement, 'Element artistImage not found.');
+  assertApplication(artistDialog instanceof window.HTMLDialogElement, 'Element artistDialog not found.');
+  assertApplication(typeof e.target.href === 'string', `Expected typeof e.target.href to be string, but got ${typeof e.target.href}`);
 
   artistImage.src = e.target.href;
 
@@ -126,22 +115,10 @@ async function channelAddressSubmitOnClick () {
 
   // TODO escape input
 
-  if (channelAddressInputs.length <= 0) {
-    handleError(new ElementNotFoundError(channelAddressInputsClassName));
-    return;
-  }
+  assertApplication(channelAddressInputs.length > 0, 'Element channelAddressInputs not found.');
+  assertApplication(resultsFoundMessage instanceof window.HTMLParagraphElement, 'Element resultsFoundMessage not found.');
 
-  if (!(resultsFoundMessage instanceof window.HTMLParagraphElement)) {
-    handleError(new ElementNotFoundError('resultsFoundMessage'));
-    return;
-  }
-
-  try {
-    getUntilLast = generateGetUntilLast();
-  } catch (e) {
-    handleError(e);
-    return;
-  }
+  getUntilLast = generateGetUntilLast();
 
   searchStatus.style.visibility = 'visible';
   searchStatus.innerHTML = 'Searching...';
@@ -150,33 +127,25 @@ async function channelAddressSubmitOnClick () {
     let channelAddress = channelAddressInputs[i].value;
     let identificator;
 
-    if (typeof channelAddress !== 'string') {
-      handleError(new UnexpectedPropertyTypeError(typeof channelAddress, 'string'));
-      return;
+    assertApplication(typeof channelAddress === 'string', `Expected typeof channelAddress to be string, but got ${typeof channelAddress}`);
+    
+    identificator = getChannelIdentificator(channelAddress);
+
+    if (identificator.type === 'username') {
+      
+      channelId = await getChannelId(identificator.value);
+    
+    } else if (identificator.type === 'channelId') {
+      
+      channelId = identificator.value;
+    
+    } else {
+
+      throw new UserError(`Sorry, "${channelAddress}" could not be recognised as a youtube channel address.`);
     }
 
-    try {
-      identificator = getChannelIdentificator(channelAddress);
-
-      if (identificator.type === 'username') {
-        try {
-          channelId = await getChannelId(identificator.value);
-        } catch (e) {
-          handleError(e);
-          return;
-        }
-      } else if (identificator.type === 'channelId') {
-        channelId = identificator.value;
-      } else {
-        handleError(new UserError(`Sorry, "${channelAddress}" could not be recognised as a youtube channel address.`));
-        return;
-      }
-
-      await getChannelVideos(channelId, getUntilLast);
-    } catch (e) {
-      handleError(e);
-      return;
-    }
+    await getChannelVideos(channelId, getUntilLast);
+  
   }
 
   searchStatus.style.visibility = 'visible';
@@ -195,33 +164,27 @@ function generateGetUntilLast () {
   const getUntilLastElements = document.getElementsByClassName(getUntilLastElementsClassName);
   let getUntilLast;
 
-  if (getUntilLastElements.length <= 0) {
-    throw new ElementNotFoundError(getUntilLastElementsClassName);
-  }
+  assertApplication(getUntilLastElements.length > 0, 'Element getUntilLastElements not found.');
 
   for (let i = 0; i < getUntilLastElements.length; i++) {
-    if (getUntilLastElements[i].checked) {
-      getUntilLast = getUntilLastElements[i].value;
+    
+    if (!getUntilLastElements[i].checked) {
       break;
     }
+
+    getUntilLast = getUntilLastElements[i].value;
   }
 
-  if (!getUntilLast) {
-    throw new UserError('Please select an option from "Get until last".');
-  }
+  assertUser(getUntilLast, 'Please select an option from "Get until last".');
 
   return getUntilLast;
 }
 
 function setGetUntilLast (getUntilLast) {
   const getUntilLastElementsClassName = 'get-until-last';
-
   const getUntilLastElements = document.getElementsByClassName(getUntilLastElementsClassName);
 
-  if (!getUntilLastElements) {
-    handleError(new ElementNotFoundError(getUntilLastElementsClassName));
-    return;
-  }
+  assertApplication(getUntilLastElements, 'Element getUntilLastElements not found.');
 
   for (let i = 0; i < getUntilLastElements.length; i++) {
     if (getUntilLastElements[i].value === getUntilLast) {
@@ -233,15 +196,12 @@ function setGetUntilLast (getUntilLast) {
 
 function addChannelAddressInput (value) {
   const channelAddressInputsId = 'channel-address-inputs';
-
   const channelAddressInputs = document.getElementById(channelAddressInputsId);
 
-  if (!channelAddressInputsId) {
-    handleError(new ElementNotFoundError(channelAddressInputsId));
-    return;
-  }
+  assertApplication(channelAddressInputs, 'Element channelAddressInputs not found.');
 
   const newInput = document.createElement('input');
+
   newInput.type = 'text';
   newInput.className = 'channel-address-input form-control';
   newInput.placeholder = 'Link to channel';
@@ -258,15 +218,8 @@ function clearChannelAddressInputs () {
 
   const channelAddressInputs = document.getElementById(channelAddressInputsId);
 
-  if (!channelAddressInputs) {
-    handleError(new ElementNotFoundError(channelAddressInputsId));
-    return;
-  }
-
-  if (!(searchStatus instanceof window.HTMLParagraphElement)) {
-    handleError(new ElementNotFoundError('searchStatus'));
-    return;
-  }
+  assertApplication(channelAddressInputs, 'Element channelAddressInputs not found.');
+  assertApplication(searchStatus instanceof window.HTMLParagraphElement, 'Element searchStatus not found.');
 
   searchStatus.style.visibility = 'hidden';
 
@@ -280,15 +233,8 @@ function clearTable () {
   resultsFound = 0;
   unsuccessfullyParsed = 0;
 
-  if (!(musicTable instanceof window.HTMLTableElement)) {
-    handleError(new ElementNotFoundError('musicTable'));
-    return;
-  }
-
-  if (!(resultsFoundMessage instanceof window.HTMLParagraphElement)) {
-    handleError(new ElementNotFoundError('resultsFoundMessage'));
-    return;
-  }
+  assertApplication(musicTable instanceof window.HTMLTableElement, 'Element musicTable not found.');
+  assertApplication(resultsFoundMessage instanceof window.HTMLParagraphElement, 'Element resultsFoundMessage not found.');
 
   musicTable.style.visibility = 'hidden';
   resultsFoundMessage.style.visibility = 'hidden';
@@ -299,10 +245,8 @@ function clearTable () {
 }
 
 function insertTableRow (data) {
-  if (!(musicTable instanceof window.HTMLTableElement)) {
-    handleError(new ElementNotFoundError('musicTable'));
-    return;
-  }
+
+  assertApplication(musicTable instanceof window.HTMLTableElement, 'Element musicTable not found.');
 
   musicTable.style.visibility = 'visible';
   resultsFoundMessage.style.visibility = 'visible';
@@ -331,18 +275,12 @@ function insertTableRow (data) {
 
   const artistPopUps = document.getElementsByClassName('artist-pop-up');
 
-  if (!(artistPopUps instanceof window.HTMLCollection)) {
-    handleError(new ElementNotFoundError('artistPopUps'));
-    return;
-  }
+  assertApplication(artistPopUps instanceof window.HTMLCollection, 'Element artistPopUps not found.');
 
   for (let i = 0; i < artistPopUps.length; i++) {
     const artistPopUp = artistPopUps[i];
 
-    if (!(artistPopUp instanceof window.HTMLAnchorElement)) {
-      handleError(new ElementNotFoundError('artistPopUp'));
-      return;
-    }
+    assertApplication(artistPopUp instanceof window.HTMLAnchorElement, 'Element artistPopUp, instance of HTMLAnchorElement, not found.');
 
     artistPopUp.onclick = showArtistDialog;
   }
@@ -351,9 +289,7 @@ function insertTableRow (data) {
 function getTableData () {
   const tableData = [];
 
-  if (!(musicTable instanceof window.HTMLTableElement)) {
-    throw new ElementNotFoundError('musicTable');
-  }
+  assertApplication(musicTable instanceof window.HTMLTableElement, 'Element musicTable, instance of HTMLTableElement, not found.');
 
   for (let i = 0; i < musicTable.rows.length; i++) {
     const rowData = [];
@@ -380,40 +316,33 @@ function saveStateToLocalStorage () {
   let getUntilLast;
   let stateStringified;
 
-  try {
-    if (channelAddressInputs.length <= 0) {
-      handleError(new ElementNotFoundError(channelAddressInputsClassName));
-      return;
-    }
 
-    getUntilLast = generateGetUntilLast();
+  assertApplication(channelAddressInputs.length > 0, 'Element channelAddressInputs not found.');
 
-    for (let i = 0; i < channelAddressInputs.length; i++) {
-      if (!(channelAddressInputs[i] instanceof window.HTMLInputElement)) {
-        handleError(new ElementNotFoundError(channelAddressInputsClassName));
-        return;
-      }
+  getUntilLast = generateGetUntilLast();
 
-      channelAddressInputValues.push(channelAddressInputs[i].value);
-    }
+  for (let i = 0; i < channelAddressInputs.length; i++) {
 
-    state.getUntilLast = getUntilLast;
+    assertApplication(channelAddressInputs[i] instanceof window.HTMLInputElement, 'Element channelAddressInput, instance of HTMLInputElement, not found.');
 
-    state.tableData = getTableData();
-  } catch (e) {
-    handleError(e);
-    return;
+    channelAddressInputValues.push(channelAddressInputs[i].value);
   }
+
+  state.getUntilLast = getUntilLast;
+  state.tableData = getTableData();
+
 
   state.channelAddressInputValues = channelAddressInputValues;
   state.resultsFound = resultsFound;
   state.unsuccessfullyParsed = unsuccessfullyParsed;
 
   try {
+
     stateStringified = JSON.stringify(state);
     window.localStorage.setItem('musicbox', stateStringified);
   } catch (e) {
-    handleError(new ApplicationError('Failed to save app state'));
+
+    throw new ApplicationError('Failed to save app state');
   }
 }
 
@@ -428,19 +357,17 @@ function restoreStateFromLocalStorage () {
     }
 
     state = JSON.parse(stateStringified);
+  
   } catch (e) {
-    handleError(new ApplicationError('Failed to restore app state'));
-    return;
+
+    throw new ApplicationError('Failed to restore app state');
   }
 
   if (!state) {
     return;
   }
 
-  if (!(resultsFoundMessage instanceof window.HTMLParagraphElement)) {
-    handleError(new ElementNotFoundError('resultsFoundMessage'));
-    return;
-  }
+  assertApplication(resultsFoundMessage instanceof window.HTMLParagraphElement, 'Element resultsFoundMessage, instance of HTMLParagraphElement, not found.');
 
   if (state.channelAddressInputValues) {
     clearChannelAddressInputs();
@@ -604,13 +531,14 @@ async function getChannelId (username) {
     part: 'id'
   });
 
-  if (
-    channelResponse === null ||
-    !(channelResponse.items instanceof Array) ||
-    channelResponse.items.length <= 0 ||
-    !(typeof channelResponse.items[0].id === 'string')) {
-    throw new DataError('channel id');
-  }
+  assertPeer(
+    channelResponse !== null &&
+    channelResponse.items instanceof Array &&
+    channelResponse.items.length > 0 &&
+    typeof channelResponse.items[0].id === 'string',
+
+    'Youtube could not provide channel data.'
+  );
 
   if (channelResponse.items.length !== 1) {
     warning(`Expected 1 for channelResponse.items.length but got ${channelResponse.items.length}.`);
@@ -629,7 +557,7 @@ async function getChannelVideos (channelId, getUntilLast, pageToken) {
   } else if (getUntilLast === 'year') {
     date.setFullYear(date.getFullYear() - 1);
   } else {
-    throw new UnexpectedValueError('getUntilLast', getUntilLast);
+    throw new ApplicationError(`Invalid value for "getUntilLast" - expected "week", "month" or "year", but got "${getUntilLast}".`);
   }
 
   const searchVideosResponse = await getJSONResponse(YT_SEARCH_API, {
@@ -643,27 +571,28 @@ async function getChannelVideos (channelId, getUntilLast, pageToken) {
     publishedAfter: date.toISOString()
   });
 
-  if (typeof searchVideosResponse !== 'object' ||
-    !(searchVideosResponse.items instanceof Array)) {
-    throw new DataError('videos search');
-  }
+  assertPeer(
+    typeof searchVideosResponse === 'object' &&
+    searchVideosResponse.items instanceof Array,
+
+    'Youtube could not provide videos.'
+  );
 
   for (let i = 0; i < searchVideosResponse.items.length; i++) {
     let item = searchVideosResponse.items[i];
     resultsFound++;
 
-    if (
-      typeof item !== 'object' ||
-      typeof item.id !== 'object' ||
-      typeof item.id.videoId !== 'string') {
-      throw new DataError('video id');
-    }
+    assertPeer(
+      typeof item === 'object' &&
+      typeof item.id === 'object' &&
+      typeof item.id.videoId === 'string',
+
+      'Youtube could not provide video data.'
+    );
 
     const musicVideoData = await getMusicVideoData(item.id.videoId);
 
-    if (musicVideoData === null) {
-      throw new DataError('music video');
-    } else if (Object.keys(musicVideoData).length === 0) {
+    if (Object.keys(musicVideoData).length === 0) {
       unsuccessfullyParsed++;
     } else {
       const artistNamesSeparated = separateArtists(musicVideoData.artist);
@@ -724,12 +653,8 @@ async function getResponse (url, queryParams) {
 }
 
 async function getJSONResponse (url, queryParams) {
-  try {
-    const response = await getResponse(url, queryParams);
-    return await response.json();
-  } catch (e) {
-    return null;
-  }
+  const response = await getResponse(url, queryParams);
+  return await response.json();
 }
 
 async function getMusicVideoData (videoId) {
@@ -743,16 +668,13 @@ async function getMusicVideoData (videoId) {
     id: videoId
   });
 
-  if (videoData === null) {
-    return null;
-  }
+  assertPeer (
+    typeof videoData === 'object' &&
+    videoData.items instanceof Array &&
+    videoData.items.length > 0,
 
-  if (
-    typeof videoData !== 'object' ||
-    !(videoData.items instanceof Array) ||
-    videoData.items.length <= 0) {
-    return null;
-  }
+    'Youtube could not provide video data.'
+  );
 
   if (videoData.items.length !== 1) {
     warning(`Expected 1 for videoData items but got ${videoData.items.length}.`);
@@ -760,16 +682,17 @@ async function getMusicVideoData (videoId) {
 
   video = videoData.items[0];
 
-  if (
-    typeof video !== 'object' ||
-    typeof video.snippet !== 'object' ||
-    typeof video.snippet.title !== 'string' ||
-    typeof video.snippet.publishedAt !== 'string' ||
-    typeof video.snippet.channelTitle !== 'string' ||
-    typeof video.contentDetails !== 'object' ||
-    typeof video.contentDetails.duration !== 'string') {
-    return null;
-  }
+  assertPeer (
+    typeof video === 'object' &&
+    typeof video.snippet === 'object' &&
+    typeof video.snippet.title === 'string' &&
+    typeof video.snippet.publishedAt === 'string' &&
+    typeof video.snippet.channelTitle === 'string' &&
+    typeof video.contentDetails === 'object' &&
+    typeof video.contentDetails.duration === 'string',
+
+    'Youtube could not provide video data.'
+  );
 
   const videoTitle = video.snippet.title;
 
@@ -826,11 +749,13 @@ function separateArtists (artistsString) {
 }
 
 async function getAlbum (musicVideoData) {
-  if (typeof musicVideoData !== 'object' ||
-    typeof musicVideoData.artist !== 'string' ||
-    typeof musicVideoData.songTitle !== 'string') {
-    return null;
-  }
+  assertApplication (
+    typeof musicVideoData === 'object' &&
+    typeof musicVideoData.artist === 'string' &&
+    typeof musicVideoData.songTitle === 'string',
+
+    'Invalid function argument object format.'
+  );
 
   const albumData = await getJSONResponse(LFM_API, {
     method: 'track.getInfo',
@@ -840,12 +765,14 @@ async function getAlbum (musicVideoData) {
     format: 'json'
   });
 
-  if (typeof albumData !== 'object' ||
-    typeof albumData.track !== 'object' ||
-    typeof albumData.track.album !== 'object' ||
-    typeof albumData.track.album.title !== 'string') {
-    return null;
-  }
+  assertPeer (
+    typeof albumData === 'object' &&
+    typeof albumData.track === 'object' &&
+    typeof albumData.track.album === 'object' &&
+    typeof albumData.track.album.title === 'string',
+
+    'LAST.FM could not provide album data.'
+  );
 
   return albumData.track.album.title;
 }
@@ -858,14 +785,16 @@ async function getArtistImage (artist) {
     format: 'json'
   });
 
-  if (typeof artistData !== 'object' ||
-    typeof artistData.artist !== 'object' ||
-    !(artistData.artist.image instanceof Array) ||
-    artistData.artist.image.length <= 0 ||
-    typeof artistData.artist.image[artistData.artist.image.length - 1] !== 'object' ||
-    typeof artistData.artist.image[artistData.artist.image.length - 1]['#text'] !== 'string') {
-    return null;
-  }
+  assertPeer (
+    typeof artistData === 'object' &&
+    typeof artistData.artist === 'object' &&
+    artistData.artist.image instanceof Array &&
+    artistData.artist.image.length > 0 &&
+    typeof artistData.artist.image[artistData.artist.image.length - 1] === 'object' &&
+    typeof artistData.artist.image[artistData.artist.image.length - 1]['#text'] === 'string',
+
+    'LAST.FM could not provide artist data.'
+  );
 
   const image = artistData.artist.image[artistData.artist.image.length - 1]['#text'];
 
@@ -886,3 +815,18 @@ musicTable.style.visibility = 'hidden';
 resultsFoundMessage.style.visibility = 'hidden';
 searchStatus.style.visibility = 'hidden';
 restoreStateFromLocalStorage();
+
+// window.onunhandledrejection = (event) => {
+//   console.log('test');
+// }
+
+window.addEventListener('error', (event) => handleError(error));
+window.addEventListener('unhandledrejection', (event) => { 
+  console.log('unhandledrejection');
+  // handleError(error);
+});
+
+window.addEventListener('rejectionhandled', (event) => { 
+  console.log('rejectionhandled');
+  // handleError(error);
+});
