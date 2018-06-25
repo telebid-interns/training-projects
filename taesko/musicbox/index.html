@@ -9,27 +9,41 @@
 
     <!-- Bootstrap -->
     <link href="bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <link href="style.css" rel="stylesheet">
 </head>
 <body>
 <div class="container">
     <header class="container">
-        <form id="url-form">
-            <label class="sr-only" for="urls-input"></label>
-            <input type="text" class="form-control" name="urls" id="urls-input" placeholder="Channel urls">
+        <form id="url-form" class="row">
+            <div class="col-lg-6">
+                <div class="input-group">
+                    <input id="urls-input" type="text" class="form-control" placeholder="Enter channel urls here...">
+                    <span class="input-group-btn">
+                        <button id="subscribe-btn" class="btn btn-primary" type="submit">Subscribe</button>
+                        <button id="unsubscribe-all-btn" class="btn btn-danger" type="button">Unsubscribe from all</button>
+                    </span>
+                </div><!-- /input-group -->
+            </div><!-- /.col-lg-6 -->
         </form>
-        <ul id="url-list">
-        </ul>
+        <div class="row" id="url-controls">
+            <ul id="url-list">
+                <li id="url-list-item-template">
+                    template text
+                    <button type="button" class="btn btn-xs btn-warning">✗</button>
+                </li>
+            </ul>
+        </div>
     </header>
     <main class="container">
         <table class="table table-stripped table-hover" style="display: none">
             <thead>
-                <tr>
-                    <th scope="col" id="channel">Channel</th>
-                    <th scope="col" id="artist">Artist</th>
-                    <th scope="col" id="album">Album</th>
-                    <th scope="col" id="track">Track</th>
-                    <th scope="col" id="length">Length</th>
-                </tr>
+            <tr>
+                <th scope="col" id="channel">Channel</th>
+                <th scope="col" id="artist">Artist</th>
+                <th scope="col" id="album">Album</th>
+                <th scope="col" id="track">Track</th>
+                <th scope="col" id="length">Length</th>
+            </tr>
             </thead>
             <tbody>
             </tbody>
@@ -40,8 +54,6 @@
 <script type="text/javascript" src="lib/lastfm.api.md5.js"></script>
 <script type="text/javascript" src="lib/lastfm.api.js"></script>
 <script src="https://apis.google.com/js/api.js" defer></script>
-<script src="interactive.js" defer></script>
-<script src="table.js" defer></script>
 <script src="main.js" defer></script>
 </body>
 </html>

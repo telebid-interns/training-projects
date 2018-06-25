@@ -311,18 +311,19 @@ const UrlList = {
     },
 
     newItem: url => {
-        let li = document.createElement('li');
-        let close_button = document.createElement('button');
+        let itemTemplate = document.getElementById('url-list-item-template');
+        let newItem = itemTemplate.cloneNode(true);
 
-        close_button.addEventListener("click", function (event) {
-            // TODO this is a promise
-            SubsAPI.unsubFromUrl(url);
-        });
+        newItem.childNodes[0].nodeValue = url;
+        newItem.childNodes[1]
+            .addEventListener("click", function (event) {
+                // TODO this is a promise
+                SubsAPI.unsubFromUrl(url);
+            });
+        newItem.style.display = 'block';
+        newItem.removeAttribute('id');
 
-        li.textContent = url;
-        li.appendChild(close_button);
-
-        return li;
+        return newItem;
     },
 
     display: url => {
@@ -333,9 +334,17 @@ const UrlList = {
 
     hide: url => {
         document.querySelectorAll('#url-list li').forEach(item => {
-            if (item.textContent !== url) return;
+            console.log(item.textContent, "vs", url);
+            if (item.childNodes[0].nodeValue !== url) return;
             item.remove();
         });
+    },
+
+    hideAll: () => {
+        for(let ele of document.querySelectorAll('#url-list li')) {
+            if(ele.getAttribute('id') !== "url-list-item-template")
+                ele.remove();
+        }
     }
 };
 
@@ -349,7 +358,7 @@ const SubsAPI = {
 
         console.log("Currently subscribed channels: ", loadedChannels);
 
-        if (loadedChannels.indexOf(channelUsername) !== -1) {
+        if (loadedChannels.indexOf(channelUsername.toLowerCase()) !== -1) {
             alert("Already subscribed to channel " + channelUsername);
             // TODO display error
             return
@@ -369,7 +378,7 @@ const SubsAPI = {
         console.log("Subscription to channel " + channelUsername + " successfully parsed these songs: ", successful);
         console.log("Subscription to channel " + channelUsername + " could not parse these videos: ", unsuccessful);
 
-        loadedChannels.push(channelUsername);
+        loadedChannels.push(channelUsername.toLowerCase());
         UrlList.display(url);
 
         let clean = {};
@@ -423,17 +432,29 @@ const SubsAPI = {
         let channelUsername = channelInfo.customUrl.toLowerCase();
         console.log("Unsubscribe from url " + url + " with channel name " + channelUsername);
         console.log("All subs: ", loadedChannels);
-        if (loadedChannels.indexOf(channelUsername) === -1) {
+        if (loadedChannels.indexOf(channelUsername.toLowerCase()) === -1) {
             alert("You are not subscribed to " + channelUsername);
             // TODO display errors
             return;
         }
         SubsAPI.canAddTo[channelUsername] = false;
         TableAPI.removeSongsByChannelTitle(channelInfo.title);
-        loadedChannels.splice(loadedChannels.indexOf(channelUsername), 1);
+        loadedChannels.splice(loadedChannels.indexOf(channelUsername.toLowerCase()), 1);
         UrlList.hide(url);
-        if (loadedChannels !== undefined || loadedChannels.length === 0)
+        if (loadedChannels === undefined || loadedChannels.length === 0)
             TableAPI.hideTable();
+    },
+
+    unsubFromAll: () => {
+        for(let key of Object.keys(SubsAPI.canAddTo)) {
+            SubsAPI.canAddTo[key] = false;
+        }
+        loadedChannels.length = 0;
+        TableAPI.clearTable();
+        UrlList.hideAll();
+        for(let key of Object.keys(SubsAPI.canAddTo)) {
+            SubsAPI.canAddTo[key] = true;
+        }
     }
 };
 
@@ -476,6 +497,9 @@ window.onload = function () {
     } else {
         form.addEventListener("submit", processForm);
     }
+
+    document.getElementById('unsubscribe-all-btn')
+        .addEventListener('click', SubsAPI.unsubFromAll);
 };
 
 
