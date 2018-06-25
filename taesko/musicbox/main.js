@@ -280,13 +280,13 @@ const TableAPI = {
     },
 
     showTable: () => {
-        TableAPI.table.style.display = 'block';
-        noContentParagraph.style.display = 'none';
+        TableAPI.table.classList.remove('hidden');
+        noContentParagraph.classList.add('hidden');
     },
 
     hideTable: () => {
-        TableAPI.table.style.display = 'none';
-        noContentParagraph.style.display = 'block';
+        TableAPI.table.classList.add('hidden');
+        noContentParagraph.classList.remove('hidden');
         noContentParagraph.textContent = '';
     },
 
@@ -320,7 +320,7 @@ const UrlList = {
                 // TODO this is a promise
                 SubsAPI.unsubFromUrl(url);
             });
-        newItem.style.display = 'block';
+        newItem.classList.remove('hidden');
         newItem.removeAttribute('id');
 
         return newItem;

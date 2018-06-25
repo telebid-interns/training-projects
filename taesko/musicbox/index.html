@@ -27,7 +27,7 @@
         </form>
         <div class="row" id="url-controls">
             <ul id="url-list">
-                <li id="url-list-item-template">
+                <li id="url-list-item-template" class="hidden">
                     template text
                     <button type="button" class="btn btn-xs btn-warning">✗</button>
                 </li>
@@ -35,19 +35,21 @@
         </div>
     </header>
     <main class="container">
-        <table class="table table-stripped table-hover" style="display: none">
-            <thead>
-            <tr>
-                <th scope="col" id="channel">Channel</th>
-                <th scope="col" id="artist">Artist</th>
-                <th scope="col" id="album">Album</th>
-                <th scope="col" id="track">Track</th>
-                <th scope="col" id="length">Length</th>
-            </tr>
-            </thead>
-            <tbody>
-            </tbody>
-        </table>
+        <div class="table-responsive">
+            <table class="table table-stripped table-hover hidden">
+                <thead>
+                <tr>
+                    <th scope="col" id="channel">Channel</th>
+                    <th scope="col" id="artist">Artist</th>
+                    <th scope="col" id="album">Album</th>
+                    <th scope="col" id="track">Track</th>
+                    <th scope="col" id="length">Length</th>
+                </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
         <p id="no-content-message">Please enter a url in the above input box.</p>
     </main>
 </div>
