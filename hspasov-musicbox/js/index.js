@@ -94,14 +94,14 @@ function closeArtistDialog () {
   artistDialog.close();
 }
 
-function showArtistDialog (e) {
+async function showArtistDialog (e) {
   e.preventDefault(); // to not open link, when clicked, as new page
 
   assertApp(artistImage instanceof window.HTMLImageElement, 'Element artistImage not found.');
   assertApp(artistDialog instanceof window.HTMLDialogElement, 'Element artistDialog not found.');
-  assertApp(typeof e.target.href === 'string', `Expected typeof e.target.href to be string, but got ${typeof e.target.href}`);
+  assertApp(typeof e.target.innerHTML === 'string', `Expected typeof e.target.innerHTML to be string, but got ${typeof e.target.innerHTML}`);
 
-  artistImage.src = e.target.href;
+  artistImage.src = await getArtistImage(e.target.innerHTML);
   artistDialog.showModal();
 }
 
@@ -239,47 +239,6 @@ function clearTable () {
   deleteAllTableRows();
 }
 
-function insertTableRow (data) {
-  assertApp(musicTable instanceof window.HTMLTableElement, 'Element musicTable not found.');
-
-  musicTable.style.visibility = 'visible';
-  resultsFoundMessage.style.visibility = 'visible';
-  resultsFoundMessage.innerHTML = `${resultsFound} results found.`;
-
-  if (unsuccessfullyParsed > 0) {
-    resultsFoundMessage.innerHTML += ` ${unsuccessfullyParsed} were not songs.`;
-  }
-
-  let newRow = musicTable.insertRow(musicTable.rows.length);
-  let artistCell = newRow.insertCell(0);
-  let songCell = newRow.insertCell(1);
-  let albumCell = newRow.insertCell(2);
-  let durationCell = newRow.insertCell(3);
-  let releasedCell = newRow.insertCell(4);
-  let channelCell = newRow.insertCell(5);
-
-  newRow.title = data.title;
-
-  artistCell.innerHTML = data.artists;
-  songCell.innerHTML = data.songTitle;
-  albumCell.innerHTML = data.album;
-  durationCell.innerHTML = data.duration;
-  releasedCell.innerHTML = data.publishedAt;
-  channelCell.innerHTML = data.channel;
-
-  const artistPopUps = document.getElementsByClassName('artist-pop-up');
-
-  assertApp(artistPopUps instanceof window.HTMLCollection, 'Element artistPopUps not found.');
-
-  for (let i = 0; i < artistPopUps.length; i++) {
-    const artistPopUp = artistPopUps[i];
-
-    assertApp(artistPopUp instanceof window.HTMLAnchorElement, 'Element artistPopUp, instance of HTMLAnchorElement, not found.');
-
-    artistPopUp.onclick = showArtistDialog;
-  }
-}
-
 function saveStateToLocalStorage () {
   const state = {};
   const channelAddressInputs = document.getElementsByClassName('channel-address-input');
@@ -342,7 +301,7 @@ function restoreStateFromLocalStorage () {
     setGetUntilLast(state.getUntilLast);
   }
 
-  if (state.tableData) {
+  if (state.tableData && state.tableData instanceof Array && state.tableData.length > 0) {
     tableData = state.tableData;
     updateTable();
   }
@@ -646,7 +605,7 @@ function generateArtistCellInnerHTML (artistNames) {
 
     const artistPopUp = document.createElement('a');
     artistPopUp.innerHTML = artistName;
-    // artistPopUp.setAttribute('href', await getArtistImage(artistName));
+    artistPopUp.href = "";
     artistPopUp.setAttribute('class', 'artist-pop-up');
 
     if (k !== 0 && k !== artistNames.length - 1) {

@@ -14,41 +14,43 @@
     <div class="container">
       <div class="row">
           <div class="col-md-2"></div>
-          <div class="col-md-8"><h1>Music box</h1></div>
+          <div class="col-md-6 col-xs-6"><h1>Music box</h1></div>
+          <div class="col-md-2 col-xs-2"><label>Get until last:</label></div>
           <div class="col-md-2"></div>
       </div>
       <div class="row">
         <div class="col-md-2"></div>
-        <div class="col-md-6 col-xs-6">
-          <div class="form-group">
+        <div class="form-group">
+          <div class="col-md-6 col-xs-6">
             <div id="channel-address-inputs">
               <input type="text" class="channel-address-input form-control" placeholder="Link to channel">
             </div>
-            <button id="add-channel-address-input" class="btn btn-default">Add another channel</button>
-            <button id="remove-all-channel-address-inputs" class="btn btn-danger">Remove all</button>
-            <button id="channel-address-submit" class="btn btn-primary">Submit</button>
+          </div>
+          <div class="col-md-2 col-xs-2">
+            <div>
+              <label>
+                <input type="radio" name="get-until-last" class="get-until-last" value="week" checked="checked">
+                week
+              </label>
+              <label>
+                <input type="radio" name="get-until-last" class="get-until-last" value="month">
+                month
+              </label>
+              <label>
+                <input type="radio" name="get-until-last" class="get-until-last" value="year">
+                year
+              </label>
+            </div>
           </div>
         </div>
-        <div class="col-md-2 col-xs-2">
-          <label>Get until last:</label>
-          <div class="radio">
-            <label>
-              <input type="radio" name="get-until-last" class="get-until-last" value="week" checked="checked">
-              week
-            </label>
-          </div>
-          <div class="radio">
-            <label>
-              <input type="radio" name="get-until-last" class="get-until-last" value="month">
-              month
-            </label>
-          </div>
-          <div class="radio">
-            <label>
-              <input type="radio" name="get-until-last" class="get-until-last" value="year">
-              year
-            </label>
-          </div>
+        <div class="col-md-2"></div>
+      </div>
+      <div class="row">
+        <div class="col-md-2"></div>
+        <div class="col-md-6 col-xs-6">
+          <button id="add-channel-address-input" class="btn btn-default">Add another channel</button>
+          <button id="remove-all-channel-address-inputs" class="btn btn-danger">Remove all</button>
+          <button id="channel-address-submit" class="btn btn-primary">Submit</button>
         </div>
         <div class="col-md-2"></div>
       </div>
