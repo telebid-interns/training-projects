@@ -1,0 +1,9 @@
+@media screen and (min-width: 400px) {
+    .fixed-form-height {
+        height:100px;
+    }
+
+    #bootstrap-overrides .form-group * {
+        height: 100%;
+    }
+}
