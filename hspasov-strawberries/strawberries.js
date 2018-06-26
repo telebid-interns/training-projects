@@ -8,48 +8,41 @@ const dayCountElement = document.getElementById('day-count');
 let strawberryCalculation;
 let dayCounter = 0;
 
-function* calculateStrawberries(input) { 
-
-  function parseInput(input) {
+function * calculateStrawberries (input) {
+  function parseInput (input) {
     const numbersRowPattern = /[\d ]+(?=\n|$)/g;
     const numberPattern = /\d+/g;
 
     if (typeof input !== 'string') {
-
-      throw "Invalid input";
+      throw new Error('Invalid input');
     }
 
     const numbersRowMatched = input.match(numbersRowPattern);
     const structured = numbersRowMatched.map(row => row.match(numberPattern).map(numberString => Number(numberString)));
 
     if (
-      structured.length <= 0 || 
+      structured.length <= 0 ||
       !(structured[0] instanceof Array) ||
       structured[0].length !== 3
-      ) {
-
-      throw "Invalid input";
+    ) {
+      throw new Error('Invalid input');
     }
 
     for (let i = 1; i < structured.length; i++) {
-
       if (
         !(structured[i] instanceof Array) ||
         structured[i].length !== 2
-        ) {
-
-        throw "Invalid input";
+      ) {
+        throw new Error('Invalid input');
       }
 
       for (let number of structured[i]) {
-
         if (typeof number !== 'number') {
-
-          throw "Invalid input";
+          throw new Error('Invalid input');
         }
       }
     }
-    
+
     return {
       k: structured[0][0],
       l: structured[0][1],
@@ -57,9 +50,9 @@ function* calculateStrawberries(input) {
       initRottenStrawberries: structured
         .filter((element, index) => index > 0)
         .map(element => {
-          return { row: element[0], col: element[1]};
+          return { row: element[0], col: element[1] };
         })
-    }
+    };
   }
 
   let strawberries = parseInput(input);
@@ -77,7 +70,6 @@ function* calculateStrawberries(input) {
   let isRottenNextDay = [];
 
   for (let row = 0; row < k; row++) {
-
     isRottenCurrentDay.push(new Array(l).fill(false));
     isRottenNextDay.push(new Array(l).fill(false));
   }
@@ -89,15 +81,10 @@ function* calculateStrawberries(input) {
     isRottenCurrentDay[initRottenStrawberry.row - 1][initRottenStrawberry.col - 1] = true;
   }
 
-
   for (let day = 0; day < r; day++) {
-
     for (let row = 0; row < k; row++) {
-      
       for (let col = 0; col < l; col++) {
-        
         if (isRottenCurrentDay[row][col] === true) {
-          
           isRottenNextDay[row][col] = true;
 
           if (row > 0) {
@@ -117,7 +104,6 @@ function* calculateStrawberries(input) {
     }
 
     for (let row = 0; row < k; row++) {
-      
       for (let col = 0; col < l; col++) {
         isRottenCurrentDay[row][col] = isRottenNextDay[row][col];
       }
@@ -128,9 +114,7 @@ function* calculateStrawberries(input) {
   }
 
   for (let row = 0; row < k; row++) {
-
     for (let col = 0; col < l; col++) {
-
       if (isRottenCurrentDay[row][col] === false) {
         goodStrawberries++;
       }
@@ -140,12 +124,12 @@ function* calculateStrawberries(input) {
   return goodStrawberries;
 }
 
-function visualize(strawberries) {
+function visualize (strawberries) {
   let visualized = '';
 
   for (let row = strawberries.length - 1; row >= 0; row--) {
     for (let col = 0; col < strawberries[row].length; col++) {
-      visualized += (strawberries[row][col])? 'X' : 'O';
+      visualized += (strawberries[row][col]) ? 'X' : 'O';
     }
     visualized += '\n';
   }
@@ -188,9 +172,7 @@ nextDayBtn.addEventListener('click', (event) => {
 
   let goodStrawberries = 0;
   for (let row = 0; row < strawberries.length; row++) {
-
     for (let col = 0; col < strawberries[row].length; col++) {
-
       if (strawberries[row][col] === false) {
         goodStrawberries++;
       }
