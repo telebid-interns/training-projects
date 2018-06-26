@@ -6,16 +6,19 @@ const LAST_YEAR_FILTER = document.getElementById('last-year-filter');
 const ETERNITY_FILTER = document.getElementById('eternity-filter');
 
 
-function getAPIKey() {
-    return 'AIzaSyAHhFtmNEo9TwEN90p6yyZg43_4MKCiyyQ'
-}
-
-
 const SongDataAPI = {
+    urlBase: "http://ws.audioscrobbler.com/2.0/?",
     apiObj: new LastFM({
         apiKey: 'c2933b27a78e04c4b094a1a094bc2c9c',
         apiSecret: '51305668ff35178ee80976315a52042'
     }),
+
+    queryParams: params => {
+        let query = "";
+        for(let [key, value] of Object.entries(params))
+            query += encodeURIComponent(key)+'&'+encodeURIComponent(value);
+        return query;
+    },
 
     getTrackInfo: ({artist, track}) => {
         return new Promise((resolve, reject) => {
@@ -603,7 +606,7 @@ window.onload = function () {
 function start() {
     // Initializes the client with the API key and the Translate API.
     gapi.client.init({
-        'apiKey': getAPIKey(),
+        'apiKey': 'AIzaSyAHhFtmNEo9TwEN90p6yyZg43_4MKCiyyQ',
         'discoveryDocs': ['https://www.googleapis.com/discovery/v1/apis/translate/v2/rest'],
     });
     gapi.client.load('youtube', 'v3', function () {
