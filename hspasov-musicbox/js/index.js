@@ -2,11 +2,13 @@
 
 const DEBUG_MODE = true;
 
-const YT_CHANNELS_API = 'https://www.googleapis.com/youtube/v3/channels';
-const YT_SEARCH_API = 'https://www.googleapis.com/youtube/v3/search';
-const YT_VIDEOS_API = 'https://www.googleapis.com/youtube/v3/videos';
+// YT = YouTube
+const YT_API_CHANNELS = 'https://www.googleapis.com/youtube/v3/channels';
+const YT_API_SEARCH = 'https://www.googleapis.com/youtube/v3/search';
+const YT_API_VIDEOS = 'https://www.googleapis.com/youtube/v3/videos';
 const YT_API_KEY = 'AIzaSyDe2NF-3q_aCIi1TIW0bIN44OqHQAPEc5w';
 
+// LFM = Last FM
 const LFM_API = 'http://ws.audioscrobbler.com/2.0/';
 const LFM_API_KEY = '545cfc729a150144d0834bf15b273835';
 
@@ -32,20 +34,19 @@ class ApplicationError extends Error {}
 class PeerError extends Error {}
 class UserError extends Error {}
 
-
-function assertPeer(assertion, errorMessage) {
+function assertPeer (assertion, errorMessage) {
   if (!assertion) {
     throw new PeerError(errorMessage);
   }
 }
 
-function assertApplication(assertion, errorMessage) {
+function assertApp (assertion, errorMessage) {
   if (!assertion) {
     throw new ApplicationError(errorMessage);
   }
 }
 
-function assertUser(assertion, errorMessage) {
+function assertUser (assertion, errorMessage) {
   if (!assertion) {
     throw new UserError(errorMessage);
   }
@@ -58,7 +59,6 @@ function warning (msg) {
 }
 
 function handleError (e) {
-
   console.log(e);
 
   console.log('inside handle error');
@@ -96,95 +96,87 @@ function closeArtistDialog () {
 function showArtistDialog (e) {
   e.preventDefault(); // to not open link, when clicked, as new page
 
-  assertApplication(artistImage instanceof window.HTMLImageElement, 'Element artistImage not found.');
-  assertApplication(artistDialog instanceof window.HTMLDialogElement, 'Element artistDialog not found.');
-  assertApplication(typeof e.target.href === 'string', `Expected typeof e.target.href to be string, but got ${typeof e.target.href}`);
+  assertApp(artistImage instanceof window.HTMLImageElement, 'Element artistImage not found.');
+  assertApp(artistDialog instanceof window.HTMLDialogElement, 'Element artistDialog not found.');
+  assertApp(typeof e.target.href === 'string', `Expected typeof e.target.href to be string, but got ${typeof e.target.href}`);
 
   artistImage.src = e.target.href;
 
   artistDialog.showModal();
 }
 
-async function channelAddressSubmitOnClick () {
-  const channelAddressInputsClassName = 'channel-address-input';
-  let getUntilLast, channelId;
+function channelAddressSubmitOnClick () {
+  let getUntilLast;
+  const channelAddressInputs = document.getElementsByClassName('channel-address-input');
 
   clearTable();
-
-  const channelAddressInputs = document.getElementsByClassName(channelAddressInputsClassName);
-
   // TODO escape input
 
-  assertApplication(channelAddressInputs.length > 0, 'Element channelAddressInputs not found.');
-  assertApplication(resultsFoundMessage instanceof window.HTMLParagraphElement, 'Element resultsFoundMessage not found.');
+  assertApp(channelAddressInputs.length > 0, 'Element channelAddressInputs not found.');
+  assertApp(resultsFoundMessage instanceof window.HTMLParagraphElement, 'Element resultsFoundMessage not found.');
 
   getUntilLast = generateGetUntilLast();
 
   searchStatus.style.visibility = 'visible';
   searchStatus.innerHTML = 'Searching...';
 
-  for (let i = 0; i < channelAddressInputs.length; i++) {
-    let channelAddress = channelAddressInputs[i].value;
-    let identificator;
+  const promises = Array.from(channelAddressInputs).map((channelAdressInput) => {
+    return identifyChannel(channelAdressInput.value)
+      .then((channelId) => getChannelVideos(channelId, getUntilLast));
+  });
 
-    assertApplication(typeof channelAddress === 'string', `Expected typeof channelAddress to be string, but got ${typeof channelAddress}`);
-    
-    identificator = getChannelIdentificator(channelAddress);
+  Promise.all(promises).then(() => {
+    searchStatus.style.visibility = 'visible';
+    searchStatus.innerHTML = 'Finished';
 
-    if (identificator.type === 'username') {
-      
-      channelId = await getChannelId(identificator.value);
-    
-    } else if (identificator.type === 'channelId') {
-      
-      channelId = identificator.value;
-    
-    } else {
-
-      throw new UserError(`Sorry, "${channelAddress}" could not be recognised as a youtube channel address.`);
+    if (musicTable.style.visibility === 'hidden') { // if no results
+      resultsFoundMessage.style.visibility = 'visible';
+      resultsFoundMessage.innerHTML = 'No results';
     }
 
-    await getChannelVideos(channelId, getUntilLast);
-  
+    saveStateToLocalStorage();
+  });
+}
+
+async function identifyChannel(channelAddress) {
+  assertApp(typeof channelAddress === 'string', `Expected typeof channelAddress to be string, but got ${typeof channelAddress}`);
+
+  let channelId;
+  let identificator = getChannelIdentificator(channelAddress);
+
+  if (identificator.type === 'username') {
+    channelId = await getChannelId(identificator.value);
+  } else if (identificator.type === 'channelId') {
+    channelId = identificator.value;
+  } else {
+    throw new UserError(`Sorry, "${channelAddress}" could not be recognised as a youtube channel address.`);
   }
 
-  searchStatus.style.visibility = 'visible';
-  searchStatus.innerHTML = 'Finished';
-
-  if (musicTable.style.visibility === 'hidden') { // if no results
-    resultsFoundMessage.style.visibility = 'visible';
-    resultsFoundMessage.innerHTML = 'No results';
-  }
-
-  saveStateToLocalStorage();
+  return channelId;
 }
 
 function generateGetUntilLast () {
-  const getUntilLastElementsClassName = 'get-until-last';
-  const getUntilLastElements = document.getElementsByClassName(getUntilLastElementsClassName);
+  const getUntilLastElements = document.getElementsByClassName('get-until-last');
   let getUntilLast;
 
-  assertApplication(getUntilLastElements.length > 0, 'Element getUntilLastElements not found.');
+  assertApp(getUntilLastElements.length > 0, 'Element getUntilLastElements not found.');
 
   for (let i = 0; i < getUntilLastElements.length; i++) {
-    
-    if (!getUntilLastElements[i].checked) {
+    if (getUntilLastElements[i].checked) {
+      getUntilLast = getUntilLastElements[i].value;
       break;
     }
-
-    getUntilLast = getUntilLastElements[i].value;
   }
 
-  assertUser(getUntilLast, 'Please select an option from "Get until last".');
 
+  assertUser(getUntilLast, 'Please select an option from "Get until last".');
   return getUntilLast;
 }
 
 function setGetUntilLast (getUntilLast) {
-  const getUntilLastElementsClassName = 'get-until-last';
-  const getUntilLastElements = document.getElementsByClassName(getUntilLastElementsClassName);
+  const getUntilLastElements = document.getElementsByClassName('get-until-last');
 
-  assertApplication(getUntilLastElements, 'Element getUntilLastElements not found.');
+  assertApp(getUntilLastElements, 'Element getUntilLastElements not found.');
 
   for (let i = 0; i < getUntilLastElements.length; i++) {
     if (getUntilLastElements[i].value === getUntilLast) {
@@ -195,10 +187,9 @@ function setGetUntilLast (getUntilLast) {
 }
 
 function addChannelAddressInput (value) {
-  const channelAddressInputsId = 'channel-address-inputs';
-  const channelAddressInputs = document.getElementById(channelAddressInputsId);
+  const channelAddressInputs = document.getElementById('channel-address-inputs');
 
-  assertApplication(channelAddressInputs, 'Element channelAddressInputs not found.');
+  assertApp(channelAddressInputs, 'Element channelAddressInputs not found.');
 
   const newInput = document.createElement('input');
 
@@ -212,14 +203,12 @@ function addChannelAddressInput (value) {
 }
 
 function clearChannelAddressInputs () {
-  const channelAddressInputsId = 'channel-address-inputs';
-
+  const channelAddressInputs = document.getElementById('channel-address-inputs');
+  
   clearTable();
 
-  const channelAddressInputs = document.getElementById(channelAddressInputsId);
-
-  assertApplication(channelAddressInputs, 'Element channelAddressInputs not found.');
-  assertApplication(searchStatus instanceof window.HTMLParagraphElement, 'Element searchStatus not found.');
+  assertApp(channelAddressInputs, 'Element channelAddressInputs not found.');
+  assertApp(searchStatus instanceof window.HTMLParagraphElement, 'Element searchStatus not found.');
 
   searchStatus.style.visibility = 'hidden';
 
@@ -233,8 +222,8 @@ function clearTable () {
   resultsFound = 0;
   unsuccessfullyParsed = 0;
 
-  assertApplication(musicTable instanceof window.HTMLTableElement, 'Element musicTable not found.');
-  assertApplication(resultsFoundMessage instanceof window.HTMLParagraphElement, 'Element resultsFoundMessage not found.');
+  assertApp(musicTable instanceof window.HTMLTableElement, 'Element musicTable not found.');
+  assertApp(resultsFoundMessage instanceof window.HTMLParagraphElement, 'Element resultsFoundMessage not found.');
 
   musicTable.style.visibility = 'hidden';
   resultsFoundMessage.style.visibility = 'hidden';
@@ -245,8 +234,7 @@ function clearTable () {
 }
 
 function insertTableRow (data) {
-
-  assertApplication(musicTable instanceof window.HTMLTableElement, 'Element musicTable not found.');
+  assertApp(musicTable instanceof window.HTMLTableElement, 'Element musicTable not found.');
 
   musicTable.style.visibility = 'visible';
   resultsFoundMessage.style.visibility = 'visible';
@@ -275,12 +263,12 @@ function insertTableRow (data) {
 
   const artistPopUps = document.getElementsByClassName('artist-pop-up');
 
-  assertApplication(artistPopUps instanceof window.HTMLCollection, 'Element artistPopUps not found.');
+  assertApp(artistPopUps instanceof window.HTMLCollection, 'Element artistPopUps not found.');
 
   for (let i = 0; i < artistPopUps.length; i++) {
     const artistPopUp = artistPopUps[i];
 
-    assertApplication(artistPopUp instanceof window.HTMLAnchorElement, 'Element artistPopUp, instance of HTMLAnchorElement, not found.');
+    assertApp(artistPopUp instanceof window.HTMLAnchorElement, 'Element artistPopUp, instance of HTMLAnchorElement, not found.');
 
     artistPopUp.onclick = showArtistDialog;
   }
@@ -289,7 +277,7 @@ function insertTableRow (data) {
 function getTableData () {
   const tableData = [];
 
-  assertApplication(musicTable instanceof window.HTMLTableElement, 'Element musicTable, instance of HTMLTableElement, not found.');
+  assertApp(musicTable instanceof window.HTMLTableElement, 'Element musicTable, instance of HTMLTableElement, not found.');
 
   for (let i = 0; i < musicTable.rows.length; i++) {
     const rowData = [];
@@ -310,20 +298,17 @@ function getTableData () {
 
 function saveStateToLocalStorage () {
   const state = {};
-  const channelAddressInputsClassName = 'channel-address-input';
-  const channelAddressInputs = document.getElementsByClassName(channelAddressInputsClassName);
+  const channelAddressInputs = document.getElementsByClassName('channel-address-input');
   const channelAddressInputValues = [];
   let getUntilLast;
   let stateStringified;
 
-
-  assertApplication(channelAddressInputs.length > 0, 'Element channelAddressInputs not found.');
+  assertApp(channelAddressInputs.length > 0, 'Element channelAddressInputs not found.');
 
   getUntilLast = generateGetUntilLast();
 
   for (let i = 0; i < channelAddressInputs.length; i++) {
-
-    assertApplication(channelAddressInputs[i] instanceof window.HTMLInputElement, 'Element channelAddressInput, instance of HTMLInputElement, not found.');
+    assertApp(channelAddressInputs[i] instanceof window.HTMLInputElement, 'Element channelAddressInput, instance of HTMLInputElement, not found.');
 
     channelAddressInputValues.push(channelAddressInputs[i].value);
   }
@@ -331,17 +316,14 @@ function saveStateToLocalStorage () {
   state.getUntilLast = getUntilLast;
   state.tableData = getTableData();
 
-
   state.channelAddressInputValues = channelAddressInputValues;
   state.resultsFound = resultsFound;
   state.unsuccessfullyParsed = unsuccessfullyParsed;
 
   try {
-
     stateStringified = JSON.stringify(state);
     window.localStorage.setItem('musicbox', stateStringified);
   } catch (e) {
-
     throw new ApplicationError('Failed to save app state');
   }
 }
@@ -357,9 +339,7 @@ function restoreStateFromLocalStorage () {
     }
 
     state = JSON.parse(stateStringified);
-  
   } catch (e) {
-
     throw new ApplicationError('Failed to restore app state');
   }
 
@@ -367,7 +347,7 @@ function restoreStateFromLocalStorage () {
     return;
   }
 
-  assertApplication(resultsFoundMessage instanceof window.HTMLParagraphElement, 'Element resultsFoundMessage, instance of HTMLParagraphElement, not found.');
+  assertApp(resultsFoundMessage instanceof window.HTMLParagraphElement, 'Element resultsFoundMessage, instance of HTMLParagraphElement, not found.');
 
   if (state.channelAddressInputValues) {
     clearChannelAddressInputs();
@@ -416,8 +396,7 @@ function getChannelIdentificator (channelAddress) {
     }
 
     const channelIdMatch = channelIdMatches[0];
-    const result = channelIdMatch.replace('/channel/', '')
-      .trim();
+    const result = channelIdMatch.replace('/channel/', '').trim();
 
     identificator = {
       type: 'channelId',
@@ -431,8 +410,7 @@ function getChannelIdentificator (channelAddress) {
     }
 
     const usernameMatch = usernameMatches[0];
-    const result = usernameMatch.replace('/user/', '')
-      .trim();
+    const result = usernameMatch.replace('/user/', '').trim();
 
     identificator = {
       type: 'username',
@@ -446,8 +424,7 @@ function getChannelIdentificator (channelAddress) {
     }
 
     const usernameMatch = usernameMatches[0];
-    const result = usernameMatch.replace('.com/', '')
-      .trim();
+    const result = usernameMatch.replace('.com/', '').trim();
 
     identificator = {
       type: 'username',
@@ -505,17 +482,23 @@ function parseDuration (duration) {
   const minutesMatches = duration.match(minutesPattern);
   const hoursMatches = duration.match(hoursPattern);
 
-  if (secondsMatches !== null && secondsMatches.length !== 1) {
-    warning(`Expected 1 match for seconds but got ${secondsMatches.length}.`);
-  }
+  assertPeer(
+    secondsMatches === null || 
+    secondsMatches.length === 1,
+    `Expected 1 match for seconds but got ${(secondsMatches instanceof Array) ? secondsMatches.length : secondsMatches}.`
+  );
 
-  if (minutesMatches !== null && minutesMatches.length !== 1) {
-    warning(`Expected 1 match for minutes but got ${minutesMatches.length}.`);
-  }
+  assertPeer(
+    minutesMatches === null || 
+    minutesMatches.length === 1,
+    `Expected 1 match for minutes or null but got ${(minutesMatches instanceof Array) ? minutesMatches.length: minutesMatches}.`
+  );
 
-  if (hoursMatches !== null && hoursMatches.length !== 1) {
-    warning(`Expected 1 match for hours but got ${hoursMatches.length}.`);
-  }
+  assertPeer(
+    hoursMatches === null ||
+    hoursMatches.length === 1,
+    `Expected 1 match for hours but got ${(hoursMatches instanceof Array) ? hoursMatches.length : hoursMatches}.`
+  );
 
   return {
     seconds: (secondsMatches === null) ? null : secondsMatches[0],
@@ -525,7 +508,7 @@ function parseDuration (duration) {
 }
 
 async function getChannelId (username) {
-  const channelResponse = await getJSONResponse(YT_CHANNELS_API, {
+  const channelResponse = await getJSONResponse(YT_API_CHANNELS, {
     key: YT_API_KEY,
     forUsername: username,
     part: 'id'
@@ -536,7 +519,6 @@ async function getChannelId (username) {
     channelResponse.items instanceof Array &&
     channelResponse.items.length > 0 &&
     typeof channelResponse.items[0].id === 'string',
-
     'Youtube could not provide channel data.'
   );
 
@@ -560,7 +542,7 @@ async function getChannelVideos (channelId, getUntilLast, pageToken) {
     throw new ApplicationError(`Invalid value for "getUntilLast" - expected "week", "month" or "year", but got "${getUntilLast}".`);
   }
 
-  const searchVideosResponse = await getJSONResponse(YT_SEARCH_API, {
+  const searchVideosResponse = await getJSONResponse(YT_API_SEARCH, {
     key: YT_API_KEY,
     channelId: channelId,
     type: 'video',
@@ -572,47 +554,50 @@ async function getChannelVideos (channelId, getUntilLast, pageToken) {
   });
 
   assertPeer(
-    typeof searchVideosResponse === 'object' &&
+    isObject(searchVideosResponse) &&
     searchVideosResponse.items instanceof Array,
-
     'Youtube could not provide videos.'
   );
 
-  for (let i = 0; i < searchVideosResponse.items.length; i++) {
-    let item = searchVideosResponse.items[i];
-    resultsFound++;
-
-    assertPeer(
-      typeof item === 'object' &&
-      typeof item.id === 'object' &&
-      typeof item.id.videoId === 'string',
-
-      'Youtube could not provide video data.'
-    );
-
-    const musicVideoData = await getMusicVideoData(item.id.videoId);
-
-    if (Object.keys(musicVideoData).length === 0) {
-      unsuccessfullyParsed++;
-    } else {
-      const artistNamesSeparated = separateArtists(musicVideoData.artist);
-      const artistCellInnerHTML = await generateArtistCellInnerHTML(artistNamesSeparated);
-
-      insertTableRow({
-        artists: artistCellInnerHTML,
-        songTitle: musicVideoData.songTitle,
-        album: await getAlbum(musicVideoData),
-        duration: durationToString(musicVideoData.duration),
-        publishedAt: new Date(musicVideoData.publishedAt).toDateString(),
-        channel: musicVideoData.channel,
-        title: musicVideoData.title
-      });
-    }
-  }
+  const promises = searchVideosResponse.items.map(generateItemData);
 
   if (searchVideosResponse.nextPageToken) {
-    return getChannelVideos(channelId, getUntilLast, searchVideosResponse.nextPageToken);
+    promises.push(getChannelVideos(channelId, getUntilLast, searchVideosResponse.nextPageToken));
   }
+
+  await Promise.all(promises);
+}
+
+async function generateItemData(item) {
+  resultsFound++;
+
+  assertPeer(
+    isObject(item) &&
+    isObject(item.id) &&
+    typeof item.id.videoId === 'string',
+    'Youtube could not provide video data.'
+  );
+
+  const musicVideoData = await getMusicVideoData(item.id.videoId);
+
+  if (Object.keys(musicVideoData).length === 0) {
+    unsuccessfullyParsed++;
+  } else {
+    const artistNamesSeparated = separateArtists(musicVideoData.artist);
+    const artistCellInnerHTML = await generateArtistCellInnerHTML(artistNamesSeparated);
+
+    insertTableRow({
+      artists: artistCellInnerHTML,
+      songTitle: musicVideoData.songTitle,
+      album: await getAlbum(musicVideoData),
+      duration: durationToString(musicVideoData.duration),
+      publishedAt: new Date(musicVideoData.publishedAt).toDateString(),
+      channel: musicVideoData.channel,
+      title: musicVideoData.title
+    });
+  }
+
+  return;
 }
 
 async function generateArtistCellInnerHTML (artistNames) {
@@ -623,7 +608,7 @@ async function generateArtistCellInnerHTML (artistNames) {
 
     const artistPopUp = document.createElement('a');
     artistPopUp.innerHTML = artistName;
-    artistPopUp.setAttribute('href', await getArtistImage(artistName));
+    // artistPopUp.setAttribute('href', await getArtistImage(artistName));
     artistPopUp.setAttribute('class', 'artist-pop-up');
 
     if (k !== 0 && k !== artistNames.length - 1) {
@@ -654,7 +639,7 @@ async function getResponse (url, queryParams) {
 
 async function getJSONResponse (url, queryParams) {
   const response = await getResponse(url, queryParams);
-  return await response.json();
+  return response.json();
 }
 
 async function getMusicVideoData (videoId) {
@@ -662,17 +647,16 @@ async function getMusicVideoData (videoId) {
   const titlePattern = / - [^()[\]]+/; // matches ' - Song name ' in 'Artist Name - Song name (remix)'
   let video;
 
-  const videoData = await getJSONResponse(YT_VIDEOS_API, {
+  const videoData = await getJSONResponse(YT_API_VIDEOS, {
     key: YT_API_KEY,
     part: 'contentDetails,snippet',
     id: videoId
   });
 
-  assertPeer (
-    typeof videoData === 'object' &&
+  assertPeer(
+    isObject(videoData) &&
     videoData.items instanceof Array &&
     videoData.items.length > 0,
-
     'Youtube could not provide video data.'
   );
 
@@ -682,23 +666,27 @@ async function getMusicVideoData (videoId) {
 
   video = videoData.items[0];
 
-  assertPeer (
-    typeof video === 'object' &&
-    typeof video.snippet === 'object' &&
+  assertPeer(
+    isObject(video) &&
+    isObject(video.snippet) &&
     typeof video.snippet.title === 'string' &&
     typeof video.snippet.publishedAt === 'string' &&
     typeof video.snippet.channelTitle === 'string' &&
-    typeof video.contentDetails === 'object' &&
+    isObject(video.contentDetails) &&
     typeof video.contentDetails.duration === 'string',
-
     'Youtube could not provide video data.'
   );
 
   const videoTitle = video.snippet.title;
-
   const artistMatches = videoTitle.match(artistPattern);
+  const songTitleMatches = videoTitle.match(titlePattern);
+  const duration = parseDuration(video.contentDetails.duration);
 
-  if (artistMatches === null) {
+  if (
+    artistMatches === null ||
+    songTitleMatches === null ||
+    duration === null
+    ) {
     return {};
   }
 
@@ -706,27 +694,12 @@ async function getMusicVideoData (videoId) {
     warning(`Expected 1 match for artist matches but got ${artistMatches.length}.`);
   }
 
-  const artist = artistMatches[0].trim();
-
-  const songTitleMatches = videoTitle.match(titlePattern);
-
-  if (songTitleMatches === null) {
-    return {};
-  }
-
   if (songTitleMatches.length !== 1) {
     warning(`Expected 1 match for song title matches but got ${songTitleMatches.length}.`);
   }
 
-  const songTitle = songTitleMatches[0].replace(' - ', '')
-    .trim();
-
-  const duration = parseDuration(video.contentDetails.duration);
-
-  if (duration === null) {
-    return {};
-  }
-
+  const artist = artistMatches[0].trim();
+  const songTitle = songTitleMatches[0].replace(' - ', '').trim();
   const publishedAt = video.snippet.publishedAt;
   const channel = video.snippet.channelTitle;
   const title = video.snippet.title;
@@ -749,11 +722,10 @@ function separateArtists (artistsString) {
 }
 
 async function getAlbum (musicVideoData) {
-  assertApplication (
-    typeof musicVideoData === 'object' &&
+  assertApp(
+    isObject(musicVideoData) &&
     typeof musicVideoData.artist === 'string' &&
     typeof musicVideoData.songTitle === 'string',
-
     'Invalid function argument object format.'
   );
 
@@ -765,14 +737,14 @@ async function getAlbum (musicVideoData) {
     format: 'json'
   });
 
-  assertPeer (
-    typeof albumData === 'object' &&
-    typeof albumData.track === 'object' &&
-    typeof albumData.track.album === 'object' &&
-    typeof albumData.track.album.title === 'string',
-
-    'LAST.FM could not provide album data.'
-  );
+  if (
+    !isObject(albumData) ||
+    !isObject(albumData.track) ||
+    !isObject(albumData.track.album) ||
+    typeof albumData.track.album.title !== 'string'
+  ) {
+    return 'LAST.FM could not provide album data.';
+  }
 
   return albumData.track.album.title;
 }
@@ -785,14 +757,13 @@ async function getArtistImage (artist) {
     format: 'json'
   });
 
-  assertPeer (
-    typeof artistData === 'object' &&
-    typeof artistData.artist === 'object' &&
+  assertPeer(
+    isObject(artistData) &&
+    isObject(artistData.artist) &&
     artistData.artist.image instanceof Array &&
     artistData.artist.image.length > 0 &&
-    typeof artistData.artist.image[artistData.artist.image.length - 1] === 'object' &&
+    isObject(artistData.artist.image[artistData.artist.image.length - 1]) &&
     typeof artistData.artist.image[artistData.artist.image.length - 1]['#text'] === 'string',
-
     'LAST.FM could not provide artist data.'
   );
 
@@ -801,7 +772,18 @@ async function getArtistImage (artist) {
   return image;
 }
 
-channelAddressSubmit.onclick = channelAddressSubmitOnClick;
+function isObject(value) {
+  return value !== null && typeof value === 'object';
+}
+
+channelAddressSubmit.onclick = async () => {
+  try {
+    await channelAddressSubmitOnClick();
+  } catch (error) {
+    console.log('caught');
+    console.log(error);
+  }
+};
 addChannelAddressInputButton.onclick = () => addChannelAddressInput();
 removeAllChannelAddressInputsButton.onclick = () => {
   clearChannelAddressInputs();
@@ -824,12 +806,12 @@ window.addEventListener('error', (event) => {
   console.log('error');
   // handleError(error)
 });
-window.addEventListener('unhandledrejection', (event) => { 
+window.addEventListener('unhandledrejection', (event) => {
   console.log('unhandledrejection');
   // handleError(error);
 });
 
-window.addEventListener('rejectionhandled', (event) => { 
+window.addEventListener('rejectionhandled', (event) => {
   console.log('rejectionhandled');
   // handleError(error);
 });
