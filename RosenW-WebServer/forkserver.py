@@ -9,15 +9,11 @@ from threading import Thread
 import psutil
 import ssl
 import signal
-import Cookie
 
 class Server:
     address_family = socket.AF_INET #IPv4 addresses
     socket_type = socket.SOCK_STREAM
     request_queue_size = 1
-
-    cur_user = ''
-    cur_pass = ''
 
     user = 'ros'
     password = '1234'
@@ -37,15 +33,14 @@ class Server:
     def start(self):
         counter = 0
         main_process = os.getpid()
-        monintor_process_id = os.fork()
-        if monintor_process_id == 0:
-            self.start_monitoring(main_process)
+        # monintor_process_id = os.fork()
+        # if monintor_process_id == 0:
+        #     self.start_monitoring(main_process)
         signal.signal(signal.SIGCHLD, self.kill_child)
 
         while True:
             try:
                 self.client_connection, self.client_address = self.listen_socket.accept()
-
                 pid = os.fork()
                 if pid == 0:
                     self.handle_request()
@@ -132,11 +127,11 @@ class Server:
     def call_post_function(self):
         try:
             func = {
-                '/file': self.post_file,
-                '/login': self.post_login
+                '/file': self.post_file
             }.get(self.path)
             return func()
         except Exception as e:
+            print e
             return "HTTP/1.1 404 NOT FOUND\n\n"
 
     def get_login(self):
@@ -146,62 +141,72 @@ class Server:
                     <head>
                     </head>
                     <body>
-                      </br>
-                      <form method='post' action='/login'>
-                          <label>User</label>
-                          <input id='user' type="text" name="user">
+                        <form action='/sum'>
+                          Username:
+                          <br>
+                          <input type="text" id='user' name='user'>
+                          <br>
+                          password:
+                          <br>
+                          <input type="text" id='pass' name='pass'>
+                          <br>
+                          <input id='submit' type='submit' value="Log In">
                           </br>
-                          <label>Password</label>
-                          <input id='pass' type="text" name="pass">
-                          </br>
-                          <input id='submit' type="submit" value="Log In">
-                          </br>
-                      </form>
+                        </form>
                     </body>
                 </html>
                 """
-
-    def post_login(self):
-        pairs = self.request.split('?')
-        for pair in pairs:
-            pass
-        print self.request
-        #CONTINUE
-        return self.get_sum()
 
     def get_sum(self):
         if not self.is_logged_in():
             return self.get_login()
 
         nums = []
+        user = ''
+        password = ''
         result = 0
         for pkv in self.param_values:
-            result += int(pkv[1])
+            if pkv[0] == 'first' or pkv[0] == 'second':
+                result += int(pkv[1])
+            if pkv[0] == 'user':
+                user = pkv[1]
+            if pkv[0] == 'pass':
+                password = pkv[1]
         return  """HTTP/1.1 200 OK
 
                 <html>
                     <head>
                     </head>
                     <body>
-                      <a href="/file"> Go to file </a>
+                      <a href="/file?user={0}&pass={1}"> Go to file </a>
                       </br>
                       <form method='get'>
+                          <input type="hidden" name="user" value="{0}">
+                          <input type="hidden" name="pass" value="{1}">
                           <input id='first' type="text" name="first">
                           </br>
                           <input id='second' type="text" name="second">
                           </br>
                           <input id='submit' type="submit">
                           </br>
-                          <input id='result' type="text" value="{0}" disabled>
+                          <input id='result' type="text" value="{2}" disabled>
                           </br>
                       </form>
                     </body>
                 </html>
-                """.format(result)
+                """.format(user, password, result)
 
     def get_file(self):
         if not self.is_logged_in():
             return self.get_login()
+
+        user = ''
+        password = ''
+        for pkv in self.param_values:
+            if pkv[0] == 'user':
+                user = pkv[1]
+            if pkv[0] == 'pass':
+                password = pkv[1]
 
         files = os.listdir('./received-files')
         filesAsParagraphs = ''
@@ -214,7 +219,7 @@ class Server:
                             <head>
                             </head>
                             <body>
-                              <a href="/sum"> Go to sum </a>
+                              <a href="/sum?user={0}&pass={1}"> Go to sum </a>
                               </br>
                               <form method="post" enctype="multipart/form-data">
                                 <input type='file' name='file'>
@@ -222,21 +227,24 @@ class Server:
                               </form>
                               <p>Uploaded Files: </p>
                               <ul>
-                              {0}
+                              {2}
                               </ul>
                             </body>
                         </html>"""
-            return returnStr.format(filesAsParagraphs)
+            return returnStr.format(user, password, filesAsParagraphs)
         except:
             return "HTTP/1.1 404 NOT FOUND\n\n"
 
     def post_file(self):
+        print 'hello ?'
         try:
+            print 'start'
             inside = False
             startAppending = 0
             fileName = ''
             fileContent = ''
             for line in self.request.split('\n'):
+                print 'spliting'
                 if inside == True:
                     startAppending+=1
                 if line[:6] == '------':
@@ -252,6 +260,7 @@ class Server:
 
 
             if fileName:
+                print 'opening'
                 file = open("./received-files/%s" % fileName,"w+")
                 file.write(fileContent)
                 file.close()
@@ -327,7 +336,18 @@ class Server:
                 return
 
     def is_logged_in(self):
-        if self.cur_user == self.user and self.cur_password == self.password:
+        print 'IS LOGGED INT'
+        c_user = ''
+        c_pass = ''
+        for kv in self.param_values:
+            if kv[0] == 'user':
+                c_user = kv[1]
+            if kv[0] == 'pass':
+                c_pass = kv[1]
+
+        print c_user
+        print c_pass
+        if c_user == self.user and c_pass == self.password:
             return True
         else:
             return False
@@ -345,3 +365,33 @@ if __name__ == '__main__':
 
     server = Server((address, port))
     server.start()
+
+
+
+#   POST LOGIN 
+
+    # def post_login(self):
+    #     params_str = self.request.split('\r\n\r\n')[1]
+
+    #     params = params_str.replace('&',' ').replace('=',' ').split()
+
+    #     test_user = ''
+    #     test_pass = ''
+
+    #     index = 0
+    #     for param in params:
+    #         if index%2 == 0:
+    #             if params[index] == 'user':
+    #                 test_user = params[index+1]
+    #             if params[index] == 'pass':
+    #                 test_pass = params[index+1]
+    #         index += 1
+
+#             # print test_user
+#             # print test_pass
+#             # print self.user
+#             # print self.password
+        # if test_user == self.user and test_pass == self.password:
+        #     return self.get_sum()
+        # else:
+        #     return self.get_login()
