@@ -106,15 +106,18 @@ module.exports = {
           }
         }
 
-        let codes = [];
 
-        cmd.get('echo "Кирилица" > kirilica.tmp', function(err, data, stderr){
+        cmd.get('echo "' + replacedText + '" | lp', function(err, data, stderr){
           console.log(err);
           console.log(data);
           console.log(stderr);
         });
+    }
+}
+
 
         // let cyrillicCompatibleText = '';
+        // let codes = [];        
         //17 - 11
         //28 - 1c - 1251
         //36 - 24
@@ -203,14 +206,3 @@ module.exports = {
         //   console.log(data);
         //   console.log(stderr);
         // });
-
-        // cmd.get('echo "' + p855 + '" | lp', function(err, data, stderr){
-        //   console.log(err);
-        //   console.log(data);
-        //   console.log(stderr);
-        // });
-    }
-    // formatString: function(){ // todo
-    //
-    // }
-}
