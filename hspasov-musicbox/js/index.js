@@ -26,6 +26,7 @@ const errorDialogMessage = document.getElementById('error-dialog-message');
 const artistDialog = document.getElementById('artist-dialog');
 const artistImage = document.getElementById('artist-image');
 const closeArtistDialogButton = document.getElementById('close-artist-dialog-button');
+let tableData = [];
 
 let resultsFound = 0;
 let unsuccessfullyParsed = 0;
@@ -101,7 +102,6 @@ function showArtistDialog (e) {
   assertApp(typeof e.target.href === 'string', `Expected typeof e.target.href to be string, but got ${typeof e.target.href}`);
 
   artistImage.src = e.target.href;
-
   artistDialog.showModal();
 }
 
@@ -217,10 +217,18 @@ function clearChannelAddressInputs () {
   }
 }
 
-function clearTable () {
+function deleteAllTableRows() {
   let tableHeaderRowCount = 1;
+
+  for (let i = musicTable.rows.length - 1; i >= tableHeaderRowCount; i--) {
+    musicTable.deleteRow(i);
+  }
+}
+
+function clearTable () {
   resultsFound = 0;
   unsuccessfullyParsed = 0;
+  tableData = [];
 
   assertApp(musicTable instanceof window.HTMLTableElement, 'Element musicTable not found.');
   assertApp(resultsFoundMessage instanceof window.HTMLParagraphElement, 'Element resultsFoundMessage not found.');
@@ -228,9 +236,7 @@ function clearTable () {
   musicTable.style.visibility = 'hidden';
   resultsFoundMessage.style.visibility = 'hidden';
 
-  for (let i = musicTable.rows.length - 1; i >= tableHeaderRowCount; i--) {
-    musicTable.deleteRow(i);
-  }
+  deleteAllTableRows();
 }
 
 function insertTableRow (data) {
@@ -274,28 +280,6 @@ function insertTableRow (data) {
   }
 }
 
-function getTableData () {
-  const tableData = [];
-
-  assertApp(musicTable instanceof window.HTMLTableElement, 'Element musicTable, instance of HTMLTableElement, not found.');
-
-  for (let i = 0; i < musicTable.rows.length; i++) {
-    const rowData = [];
-    const item = musicTable.rows.item(i);
-    const cells = item.cells;
-
-    for (let k = 0; k < cells.length; k++) {
-      rowData.push(cells.item(k).innerHTML);
-    }
-
-    rowData.push(item.title);
-
-    tableData.push(rowData);
-  }
-
-  return tableData;
-}
-
 function saveStateToLocalStorage () {
   const state = {};
   const channelAddressInputs = document.getElementsByClassName('channel-address-input');
@@ -314,7 +298,7 @@ function saveStateToLocalStorage () {
   }
 
   state.getUntilLast = getUntilLast;
-  state.tableData = getTableData();
+  state.tableData = tableData;
 
   state.channelAddressInputValues = channelAddressInputValues;
   state.resultsFound = resultsFound;
@@ -359,17 +343,8 @@ function restoreStateFromLocalStorage () {
   }
 
   if (state.tableData) {
-    for (let i = 1; i < state.tableData.length; i++) {
-      insertTableRow({
-        artists: state.tableData[i][0],
-        songTitle: state.tableData[i][1],
-        album: state.tableData[i][2],
-        duration: state.tableData[i][3],
-        publishedAt: state.tableData[i][4],
-        channel: state.tableData[i][5],
-        title: state.tableData[i][6]
-      });
-    }
+    tableData = state.tableData;
+    updateTable();
   }
 
   if (state.resultsFound) {
@@ -585,22 +560,85 @@ async function generateItemData(item) {
   } else {
     const artistNamesSeparated = separateArtists(musicVideoData.artist);
     const artistCellInnerHTML = await generateArtistCellInnerHTML(artistNamesSeparated);
-
-    insertTableRow({
-      artists: artistCellInnerHTML,
+    const rowData = {
+      artists: artistNamesSeparated,
       songTitle: musicVideoData.songTitle,
       album: await getAlbum(musicVideoData),
-      duration: durationToString(musicVideoData.duration),
+      duration: musicVideoData.duration,
       publishedAt: new Date(musicVideoData.publishedAt).toDateString(),
       channel: musicVideoData.channel,
       title: musicVideoData.title
-    });
+    };
+
+    tableData.push(rowData);
+    updateTable();
   }
 
   return;
 }
 
-async function generateArtistCellInnerHTML (artistNames) {
+function sortTableDataDescByDate() {
+  tableData.sort((a, b) => {
+    let dateA = new Date(a.publishedAt);
+    let dateB = new Date(b.publishedAt);
+    
+    if (dateA > dateB) {
+      return -1;
+    } else if (dateA < dateB) {
+      return 1;
+    } else {
+      return 0;
+    }
+  });
+}
+
+function updateTable() {
+  assertApp(musicTable instanceof window.HTMLTableElement, 'Element musicTable not found.');
+  assertApp(tableData instanceof Array, 'Table data not found');
+
+  musicTable.style.visibility = 'visible';
+  resultsFoundMessage.style.visibility = 'visible';
+  resultsFoundMessage.innerHTML = `${resultsFound} results found.`;
+
+  if (unsuccessfullyParsed > 0) {
+    resultsFoundMessage.innerHTML += ` ${unsuccessfullyParsed} were not songs.`;
+  }
+
+  deleteAllTableRows();
+  sortTableDataDescByDate();
+
+  for (let data of tableData) {
+    let newRow = musicTable.insertRow(musicTable.rows.length);
+    let artistCell = newRow.insertCell(0);
+    let songCell = newRow.insertCell(1);
+    let albumCell = newRow.insertCell(2);
+    let durationCell = newRow.insertCell(3);
+    let releasedCell = newRow.insertCell(4);
+    let channelCell = newRow.insertCell(5);
+
+    newRow.title = data.title;
+
+    artistCell.innerHTML = generateArtistCellInnerHTML(data.artists);
+    songCell.innerHTML = data.songTitle;
+    albumCell.innerHTML = data.album;
+    durationCell.innerHTML = durationToString(data.duration);
+    releasedCell.innerHTML = data.publishedAt;
+    channelCell.innerHTML = data.channel;
+  }
+  const artistPopUps = document.getElementsByClassName('artist-pop-up');
+  
+  assertApp(artistPopUps instanceof window.HTMLCollection, 'Element artistPopUps not found.');
+
+  for (let i = 0; i < artistPopUps.length; i++) {
+    const artistPopUp = artistPopUps[i];
+
+    assertApp(artistPopUp instanceof window.HTMLAnchorElement, 'Element artistPopUp, instance of HTMLAnchorElement, not found.');
+
+    artistPopUp.onclick = showArtistDialog;
+  }
+}
+
+function generateArtistCellInnerHTML (artistNames) {
   let artistCellInnerHTML = [];
 
   for (let k = 0; k < artistNames.length; k++) {
@@ -780,8 +818,7 @@ channelAddressSubmit.onclick = async () => {
   try {
     await channelAddressSubmitOnClick();
   } catch (error) {
-    console.log('caught');
-    console.log(error);
+    handleError(error);
   }
 };
 addChannelAddressInputButton.onclick = () => addChannelAddressInput();
