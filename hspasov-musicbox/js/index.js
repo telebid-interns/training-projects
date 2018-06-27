@@ -306,11 +306,11 @@ function removeChannelAddressInput (event) {
   channelAddressData = channelAddressData.filter(data => {
     assertApp(
       isObject(data) &&
-      typeof data.id === 'number',
+      typeof Number(data.id) === 'number',
       'Invalid channel address data.'
     );
 
-    return data.id === inputId;
+    return Number(data.id) !== Number(inputId);
   });
 
   if (channelAddressData.length <= 0) {
@@ -410,7 +410,7 @@ function restoreStateFromLocalStorage () {
   }
 
   assertApp(resultsFoundMessage instanceof window.HTMLParagraphElement, 'Element resultsFoundMessage, instance of HTMLParagraphElement, not found.');
-  
+
   if (state.channelAddressData) {
     for (const data of state.channelAddressData) {
       addChannelAddressInput(data);
