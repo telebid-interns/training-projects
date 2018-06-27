@@ -131,23 +131,17 @@ function channelAddressSubmitOnClick () {
   addChannelAddressInputButton.disabled = true;
 
   const promises = Array.from(channelAddressInputs).map((channelAddressInput) => {
-    const inputIdPattern = /input-\d+/g;
-    let input, getUntilLast;
-    
-    assertApp(channelAddressInput instanceof HTMLInputElement, `Element channelAddressInput not an input.`);
+    let getUntilLast, inputId;
 
-    const inputIdMatches = channelAddressInput.className.match(inputIdPattern);
-    assertApp(
-      inputIdMatches instanceof Array &&
-      inputIdMatches.length === 1,
-      `Unexpected element className ${channelAddressInput.className}. Expected to be of class "input-[*integer*]."`
-    );
+    assertApp(channelAddressInput instanceof window.HTMLInputElement, `Element channelAddressInput not an input.`);
 
-    inputId = inputIdMatches[0].replace('input-', '').trim();
+    inputId = getInputId(channelAddressInput.className);
+
     getUntilLast = generateGetUntilLast(inputId);
     channelAddressData.push({
       channelAddress: channelAddressInput.value,
-      getUntilLast: getUntilLast
+      getUntilLast: getUntilLast,
+      id: inputId
     });
 
     return identifyChannel(channelAddressInput.value)
@@ -170,7 +164,20 @@ function channelAddressSubmitOnClick () {
   });
 }
 
-async function identifyChannel(channelAddress) {
+function getInputId (className) {
+  const inputIdPattern = /input-\d+/g;
+  const inputIdMatches = className.match(inputIdPattern);
+
+  assertApp(
+    inputIdMatches instanceof Array &&
+    inputIdMatches.length === 1,
+    `Unexpected className ${className}. Expected to be "input-[*integer*]."`
+  );
+
+  return inputIdMatches[0].replace('input-', '').trim();
+}
+
+async function identifyChannel (channelAddress) {
   assertApp(typeof channelAddress === 'string', `Expected typeof channelAddress to be string, but got ${typeof channelAddress}`);
 
   let channelId;
@@ -209,24 +216,28 @@ function addChannelAddressInput (input) {
   const inputBlock = document.createElement('div');
   const channelAddressCol = document.createElement('div');
   const getUntilLastCol = document.createElement('div');
-  const marginBlock = document.createElement('div');
   const inputChannel = document.createElement('input');
+  const removeChannelBtn = document.createElement('button');
   const getUntilLastOptions = ['week', 'month', 'year'];
   let getUntilLast;
 
   assertApp(channelAddressInputs, 'Element channelAddressInputs not found.');
 
   inputBlock.className = `row input-${inputId.toString()}`;
-  channelAddressCol.className = `col-md-6 col-xs-6 input-${inputId.toString()}`;
-  getUntilLastCol.className = `col-md-2 col-xs-2 input-${inputId.toString()}`;
-  marginBlock.className = `col-md-2 col-xs-2 input-${inputId.toString()}`;
+  channelAddressCol.className = `col-md-9 col-xs-9 input-${inputId.toString()}`;
+  getUntilLastCol.className = `col-md-3 col-xs-3 input-${inputId.toString()}`;
+
   inputChannel.type = 'text';
   inputChannel.className = `channel-address-input form-control input-${inputId.toString()}`;
   inputChannel.placeholder = 'Link to channel';
-  
-  inputChannel.value = (isObject(input) && typeof input.channelAddress === 'string') ?
-    input.channelAddress : '';
+  inputChannel.value = (isObject(input) && typeof input.channelAddress === 'string') ? input.channelAddress : '';
+
+  removeChannelBtn.className = `btn btn-danger input-${inputId.toString()}`;
+  removeChannelBtn.innerHTML = 'Remove';
+  removeChannelBtn.onclick = onRemoveChannelAddressInput;
+
   channelAddressCol.appendChild(inputChannel);
+  channelAddressCol.appendChild(removeChannelBtn);
 
   for (let getUntilLastOption of getUntilLastOptions) {
     const label = document.createElement('label');
@@ -244,9 +255,8 @@ function addChannelAddressInput (input) {
     ) {
       radioInput.checked = 'checked';
       getUntilLast = input.getUntilLast;
-    
     } else if (getUntilLastOption === 'week') {
-      radioInput.checked = 'checked'
+      radioInput.checked = 'checked';
       getUntilLast = 'week';
     }
 
@@ -254,23 +264,55 @@ function addChannelAddressInput (input) {
     label.appendChild(document.createTextNode(getUntilLastOption));
     getUntilLastCol.appendChild(label);
   }
-  inputBlock.appendChild(marginBlock);
   inputBlock.appendChild(channelAddressCol);
   inputBlock.appendChild(getUntilLastCol);
-  inputBlock.appendChild(marginBlock);
   channelAddressInputs.appendChild(inputBlock);
 
   channelAddressData.push({
     channelAddress: inputChannel.value,
-    getUntilLast: getUntilLast
+    getUntilLast: getUntilLast,
+    id: inputId
   });
 
   inputId++;
 }
 
+function onRemoveChannelAddressInput (event) {
+  assertApp(
+    event instanceof window.Event &&
+    event.target instanceof window.HTMLButtonElement &&
+    typeof event.target.className === 'string',
+    'Invalid event.'
+  );
+
+  let inputId = getInputId(event.target.className);
+  const elements = document.getElementsByClassName(`row input-${inputId}`);
+
+  assertApp(
+    elements instanceof window.HTMLCollection &&
+    elements.length === 1 &&
+    elements[0] instanceof window.HTMLDivElement,
+    'Element channel address input not found or too many instances.'
+  );
+
+  let channelAddressRow = elements[0];
+  channelAddressRow.remove();
+  channelAddressData = channelAddressData.filter(data => {
+    assertApp(
+      isObject(data) &&
+      typeof data.id === 'number',
+      'Invalid channel address data.'
+    );
+
+    return data.id === inputId;
+  });
+
+  saveStateToLocalStorage();
+}
+
 function clearChannelAddressInputs () {
   const channelAddressInputs = document.getElementById('channel-address-inputs');
-  
+
   clearTable();
 
   assertApp(channelAddressInputs, 'Element channelAddressInputs not found.');
@@ -285,7 +327,7 @@ function clearChannelAddressInputs () {
   channelAddressData = [];
 }
 
-function deleteAllTableRows() {
+function deleteAllTableRows () {
   let tableHeaderRowCount = 1;
 
   for (let i = musicTable.rows.length - 1; i >= tableHeaderRowCount; i--) {
@@ -358,7 +400,10 @@ function restoreStateFromLocalStorage () {
 
   if (state.channelAddressData) {
     clearChannelAddressInputs();
-    state.channelAddressData.forEach(data => addChannelAddressInput(data));
+
+    for (const data of state.channelAddressData) {
+      addChannelAddressInput(data);
+    }
   }
 
   if (state.tableData && state.tableData instanceof Array && state.tableData.length > 0) {
@@ -477,15 +522,15 @@ function parseDuration (duration) {
   const hoursMatches = duration.match(hoursPattern);
 
   assertPeer(
-    secondsMatches === null || 
+    secondsMatches === null ||
     secondsMatches.length === 1,
     `Expected 1 match for seconds but got ${(secondsMatches instanceof Array) ? secondsMatches.length : secondsMatches}.`
   );
 
   assertPeer(
-    minutesMatches === null || 
+    minutesMatches === null ||
     minutesMatches.length === 1,
-    `Expected 1 match for minutes or null but got ${(minutesMatches instanceof Array) ? minutesMatches.length: minutesMatches}.`
+    `Expected 1 match for minutes or null but got ${(minutesMatches instanceof Array) ? minutesMatches.length : minutesMatches}.`
   );
 
   assertPeer(
@@ -562,7 +607,7 @@ async function getChannelVideos (channelId, getUntilLast, pageToken) {
   await Promise.all(promises);
 }
 
-async function generateItemData(item) {
+async function generateItemData (item) {
   resultsFound++;
 
   assertPeer(
@@ -578,7 +623,6 @@ async function generateItemData(item) {
     unsuccessfullyParsed++;
   } else {
     const artistNamesSeparated = separateArtists(musicVideoData.artist);
-    const artistCellInnerHTML = await generateArtistCellInnerHTML(artistNamesSeparated);
     const rowData = {
       artists: artistNamesSeparated,
       songTitle: musicVideoData.songTitle,
@@ -592,15 +636,13 @@ async function generateItemData(item) {
     tableData.push(rowData);
     updateTable();
   }
-
-  return;
 }
 
-function sortTableDataDescByDate() {
+function sortTableDataDescByDate () {
   tableData.sort((a, b) => {
     let dateA = new Date(a.publishedAt);
     let dateB = new Date(b.publishedAt);
-    
+
     if (dateA > dateB) {
       return -1;
     } else if (dateA < dateB) {
@@ -611,7 +653,7 @@ function sortTableDataDescByDate() {
   });
 }
 
-function updateTable() {
+function updateTable () {
   assertApp(musicTable instanceof window.HTMLTableElement, 'Element musicTable not found.');
   assertApp(tableData instanceof Array, 'Table data not found');
 
@@ -645,7 +687,7 @@ function updateTable() {
     channelCell.innerHTML = data.channel;
   }
   const artistPopUps = document.getElementsByClassName('artist-pop-up');
-  
+
   assertApp(artistPopUps instanceof window.HTMLCollection, 'Element artistPopUps not found.');
 
   for (let i = 0; i < artistPopUps.length; i++) {
@@ -665,7 +707,7 @@ function generateArtistCellInnerHTML (artistNames) {
 
     const artistPopUp = document.createElement('a');
     artistPopUp.innerHTML = artistName;
-    artistPopUp.href = "";
+    artistPopUp.href = '';
     artistPopUp.setAttribute('class', 'artist-pop-up');
 
     if (k !== 0 && k !== artistNames.length - 1) {
@@ -743,7 +785,7 @@ async function getMusicVideoData (videoId) {
     artistMatches === null ||
     songTitleMatches === null ||
     duration === null
-    ) {
+  ) {
     return {};
   }
 
@@ -829,7 +871,7 @@ async function getArtistImage (artist) {
   return image;
 }
 
-function isObject(value) {
+function isObject (value) {
   return value !== null && typeof value === 'object';
 }
 
