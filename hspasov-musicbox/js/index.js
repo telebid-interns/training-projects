@@ -27,9 +27,11 @@ const artistDialog = document.getElementById('artist-dialog');
 const artistImage = document.getElementById('artist-image');
 const closeArtistDialogButton = document.getElementById('close-artist-dialog-button');
 let tableData = [];
+let channelAddressData = [];
 
 let resultsFound = 0;
 let unsuccessfullyParsed = 0;
+let inputId = 0;
 
 class ApplicationError extends Error {}
 class PeerError extends Error {}
@@ -83,6 +85,11 @@ function fixAppState () {
   if (searchStatus instanceof window.HTMLParagraphElement) {
     searchStatus.style.visibility = 'hidden';
   }
+  if (channelAddressSubmit instanceof window.HTMLButtonElement) {
+    channelAddressSubmit.disabled = false;
+    removeAllChannelAddressInputsButton.disabled = false;
+    addChannelAddressInputButton.disabled = false;
+  }
 }
 
 function closeErrorDialog () {
@@ -106,28 +113,53 @@ async function showArtistDialog (e) {
 }
 
 function channelAddressSubmitOnClick () {
-  let getUntilLast;
   const channelAddressInputs = document.getElementsByClassName('channel-address-input');
 
   clearTable();
+  channelAddressData = [];
   // TODO escape input
 
   assertApp(channelAddressInputs.length > 0, 'Element channelAddressInputs not found.');
   assertApp(resultsFoundMessage instanceof window.HTMLParagraphElement, 'Element resultsFoundMessage not found.');
-
-  getUntilLast = generateGetUntilLast();
+  assertApp(channelAddressSubmit instanceof window.HTMLButtonElement, 'Element channelAddressSubmit not found.');
 
   searchStatus.style.visibility = 'visible';
   searchStatus.innerHTML = 'Searching...';
 
-  const promises = Array.from(channelAddressInputs).map((channelAdressInput) => {
-    return identifyChannel(channelAdressInput.value)
+  channelAddressSubmit.disabled = true;
+  removeAllChannelAddressInputsButton.disabled = true;
+  addChannelAddressInputButton.disabled = true;
+
+  const promises = Array.from(channelAddressInputs).map((channelAddressInput) => {
+    const inputIdPattern = /input-\d+/g;
+    let input, getUntilLast;
+    
+    assertApp(channelAddressInput instanceof HTMLInputElement, `Element channelAddressInput not an input.`);
+
+    const inputIdMatches = channelAddressInput.className.match(inputIdPattern);
+    assertApp(
+      inputIdMatches instanceof Array &&
+      inputIdMatches.length === 1,
+      `Unexpected element className ${channelAddressInput.className}. Expected to be of class "input-[*integer*]."`
+    );
+
+    inputId = inputIdMatches[0].replace('input-', '').trim();
+    getUntilLast = generateGetUntilLast(inputId);
+    channelAddressData.push({
+      channelAddress: channelAddressInput.value,
+      getUntilLast: getUntilLast
+    });
+
+    return identifyChannel(channelAddressInput.value)
       .then((channelId) => getChannelVideos(channelId, getUntilLast));
   });
 
   Promise.all(promises).then(() => {
     searchStatus.style.visibility = 'visible';
     searchStatus.innerHTML = 'Finished';
+    channelAddressSubmit.disabled = false;
+    removeAllChannelAddressInputsButton.disabled = false;
+    addChannelAddressInputButton.disabled = false;
 
     if (musicTable.style.visibility === 'hidden') { // if no results
       resultsFoundMessage.style.visibility = 'visible';
@@ -155,8 +187,8 @@ async function identifyChannel(channelAddress) {
   return channelId;
 }
 
-function generateGetUntilLast () {
-  const getUntilLastElements = document.getElementsByClassName('get-until-last');
+function generateGetUntilLast (inputId) {
+  const getUntilLastElements = document.getElementsByClassName(`get-until-last-${inputId}`);
   let getUntilLast;
 
   assertApp(getUntilLastElements.length > 0, 'Element getUntilLastElements not found.');
@@ -168,38 +200,72 @@ function generateGetUntilLast () {
     }
   }
 
-
   assertUser(getUntilLast, 'Please select an option from "Get until last".');
   return getUntilLast;
 }
 
-function setGetUntilLast (getUntilLast) {
-  const getUntilLastElements = document.getElementsByClassName('get-until-last');
-
-  assertApp(getUntilLastElements, 'Element getUntilLastElements not found.');
-
-  for (let i = 0; i < getUntilLastElements.length; i++) {
-    if (getUntilLastElements[i].value === getUntilLast) {
-      getUntilLastElements[i].checked = 'checked';
-      break;
-    }
-  }
-}
-
-function addChannelAddressInput (value) {
+function addChannelAddressInput (input) {
   const channelAddressInputs = document.getElementById('channel-address-inputs');
+  const inputBlock = document.createElement('div');
+  const channelAddressCol = document.createElement('div');
+  const getUntilLastCol = document.createElement('div');
+  const marginBlock = document.createElement('div');
+  const inputChannel = document.createElement('input');
+  const getUntilLastOptions = ['week', 'month', 'year'];
+  let getUntilLast;
 
   assertApp(channelAddressInputs, 'Element channelAddressInputs not found.');
 
-  const newInput = document.createElement('input');
+  inputBlock.className = `row input-${inputId.toString()}`;
+  channelAddressCol.className = `col-md-6 col-xs-6 input-${inputId.toString()}`;
+  getUntilLastCol.className = `col-md-2 col-xs-2 input-${inputId.toString()}`;
+  marginBlock.className = `col-md-2 col-xs-2 input-${inputId.toString()}`;
+  inputChannel.type = 'text';
+  inputChannel.className = `channel-address-input form-control input-${inputId.toString()}`;
+  inputChannel.placeholder = 'Link to channel';
+  
+  inputChannel.value = (isObject(input) && typeof input.channelAddress === 'string') ?
+    input.channelAddress : '';
+  channelAddressCol.appendChild(inputChannel);
 
-  newInput.type = 'text';
-  newInput.className = 'channel-address-input form-control';
-  newInput.placeholder = 'Link to channel';
-  if (value) {
-    newInput.value = value;
+  for (let getUntilLastOption of getUntilLastOptions) {
+    const label = document.createElement('label');
+    const radioInput = document.createElement('input');
+
+    radioInput.type = 'radio';
+    radioInput.name = `get-until-last-${inputId}`;
+    radioInput.className = `get-until-last-${inputId}`;
+    radioInput.value = getUntilLastOption;
+
+    if (
+      isObject(input) &&
+      typeof input.getUntilLast === 'string' &&
+      getUntilLastOption === input.getUntilLast
+    ) {
+      radioInput.checked = 'checked';
+      getUntilLast = input.getUntilLast;
+    
+    } else if (getUntilLastOption === 'week') {
+      radioInput.checked = 'checked'
+      getUntilLast = 'week';
+    }
+
+    label.appendChild(radioInput);
+    label.appendChild(document.createTextNode(getUntilLastOption));
+    getUntilLastCol.appendChild(label);
   }
-  channelAddressInputs.appendChild(newInput);
+  inputBlock.appendChild(marginBlock);
+  inputBlock.appendChild(channelAddressCol);
+  inputBlock.appendChild(getUntilLastCol);
+  inputBlock.appendChild(marginBlock);
+  channelAddressInputs.appendChild(inputBlock);
+
+  channelAddressData.push({
+    channelAddress: inputChannel.value,
+    getUntilLast: getUntilLast
+  });
+
+  inputId++;
 }
 
 function clearChannelAddressInputs () {
@@ -215,6 +281,8 @@ function clearChannelAddressInputs () {
   while (channelAddressInputs.firstChild) {
     channelAddressInputs.removeChild(channelAddressInputs.firstChild);
   }
+
+  channelAddressData = [];
 }
 
 function deleteAllTableRows() {
@@ -241,25 +309,21 @@ function clearTable () {
 
 function saveStateToLocalStorage () {
   const state = {};
-  const channelAddressInputs = document.getElementsByClassName('channel-address-input');
-  const channelAddressInputValues = [];
-  let getUntilLast;
   let stateStringified;
 
-  assertApp(channelAddressInputs.length > 0, 'Element channelAddressInputs not found.');
+  assertApp(channelAddressData instanceof Array, '"channelAddressData" not an array.');
 
-  getUntilLast = generateGetUntilLast();
-
-  for (let i = 0; i < channelAddressInputs.length; i++) {
-    assertApp(channelAddressInputs[i] instanceof window.HTMLInputElement, 'Element channelAddressInput, instance of HTMLInputElement, not found.');
-
-    channelAddressInputValues.push(channelAddressInputs[i].value);
+  for (let i = 0; i < channelAddressData.length; i++) {
+    assertApp(
+      isObject(channelAddressData[i]) &&
+      typeof channelAddressData[i].channelAddress === 'string' &&
+      typeof channelAddressData[i].getUntilLast === 'string',
+      'Invalid channelAddressData.'
+    );
   }
 
-  state.getUntilLast = getUntilLast;
   state.tableData = tableData;
-
-  state.channelAddressInputValues = channelAddressInputValues;
+  state.channelAddressData = channelAddressData;
   state.resultsFound = resultsFound;
   state.unsuccessfullyParsed = unsuccessfullyParsed;
 
@@ -292,13 +356,9 @@ function restoreStateFromLocalStorage () {
 
   assertApp(resultsFoundMessage instanceof window.HTMLParagraphElement, 'Element resultsFoundMessage, instance of HTMLParagraphElement, not found.');
 
-  if (state.channelAddressInputValues) {
+  if (state.channelAddressData) {
     clearChannelAddressInputs();
-    state.channelAddressInputValues.forEach(value => addChannelAddressInput(value));
-  }
-
-  if (state.getUntilLast) {
-    setGetUntilLast(state.getUntilLast);
+    state.channelAddressData.forEach(data => addChannelAddressInput(data));
   }
 
   if (state.tableData && state.tableData instanceof Array && state.tableData.length > 0) {
