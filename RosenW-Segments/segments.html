@@ -10,7 +10,7 @@
      <input type="text" id='c' placeholder="c">
      <button id='submit'> submit </button>
      <p id='result'> </p>
-     <canvas id="myCanvas" width="2000" height="100" style="border:1px solid #000000;">
+     <canvas id="myCanvas" width="20000" height="100">
      </canvas>
     </body>
 </html>
@@ -73,24 +73,25 @@
   }
 
   $('#submit').click(function(){
-    let a = $('#a').val()
-    let b = $('#b').val()
-    let c = $('#c').val()
-    let n = $('#n').val()
+    let a = Number($('#a').val());
+    let b = Number($('#b').val());
+    let c = Number($('#c').val());
+    let n = Number($('#n').val());
+
     let stop = false;
-    if(Number(n)>=100000 || Number(a)>=100000 || Number(b)>=100000 || Number(c)>=100000){
+    if(n>=100000 || a>=100000 || b>=100000 || c>=100000 || n<=0 || a<=0 || b<=0 || c<=0 || !Number.isInteger(a) || !Number.isInteger(b) || !Number.isInteger(c) || !Number.isInteger(n)){
       stop = true;
     }
     if(stop){
       $('#result').text('Invalid Values')
     }else{
-      let marks = []
+      let marks = [];
 
-      for(let i=0;i<=n;i+=Number(a)){
+      for(let i=0;i<=n;i+=a){
         marks.push(i);
       }
 
-      for(let i=Number(n);i>=0;i-=Number(b)){
+      for(let i=n;i>=0;i-=b){
         marks.push(i);
       }
 
@@ -101,7 +102,7 @@
       let drawPoints = [];
 
       for (let i=0; i<marks.length; i++) {
-        if(marks.includes(Number(marks[i])+Number(c))){
+        if(marks.includes(marks[i]+c)){
             drawPoints.push(marks[i]);
         }
       }
