@@ -8,7 +8,7 @@
      <button id='submit'> submit </button>
      <p id='stacks'> </p>
      <p id='paths'> </p>
-     <canvas id="myCanvas" width="500" height="500" style="border:1px solid #000000;">
+     <canvas id="myCanvas" width="5000" height="5000">
      </canvas>
     </body>
 </html>
@@ -127,15 +127,20 @@
 	}
 
   $('#submit').click(function(){
+  	console.log('working')
     let matrixString = $('#matrix').val();
     let matrix = JSON.parse(matrixString);
     let n = matrix.length;
-
-    let paths = countVertLines(matrix, n) + countHorLines(matrix, n);
-    draw(matrix);
-    let items = countDifferentIsles(matrix, n);
-    $('#stacks').text("Different Stacks: " + items);
-    $('#paths').text("Paths: " + paths);
+    console.log(n);
+    if(n<1 || n>100){
+    	$('#stacks').text("Matrix Length out of range.");
+    }else{
+	    let paths = countVertLines(matrix, n) + countHorLines(matrix, n);
+	    draw(matrix);
+	    let items = countDifferentIsles(matrix, n);
+	    $('#stacks').text("Different Stacks: " + items);
+	    $('#paths').text("Paths: " + paths);
+    }
   });
 </script>
 
