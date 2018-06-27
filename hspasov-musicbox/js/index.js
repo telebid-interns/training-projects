@@ -64,8 +64,6 @@ function warning (msg) {
 function handleError (e) {
   console.log(e);
 
-  console.log('inside handle error');
-
   fixAppState();
 
   if (e instanceof UserError) {
@@ -218,13 +216,14 @@ function addChannelAddressInput (input) {
   const getUntilLastCol = document.createElement('div');
   const inputChannel = document.createElement('input');
   const removeChannelBtn = document.createElement('button');
+  const removeChannelBtnSpan = document.createElement('span');
   const getUntilLastOptions = ['week', 'month', 'year'];
   let getUntilLast;
 
   assertApp(channelAddressInputs, 'Element channelAddressInputs not found.');
 
   inputBlock.className = `row input-${inputId.toString()}`;
-  channelAddressCol.className = `col-md-9 col-xs-9 input-${inputId.toString()}`;
+  channelAddressCol.className = `col-md-12 col-xs-12 input-group input-${inputId.toString()}`;
   getUntilLastCol.className = `col-md-3 col-xs-3 input-${inputId.toString()}`;
 
   inputChannel.type = 'text';
@@ -232,12 +231,14 @@ function addChannelAddressInput (input) {
   inputChannel.placeholder = 'Link to channel';
   inputChannel.value = (isObject(input) && typeof input.channelAddress === 'string') ? input.channelAddress : '';
 
+  removeChannelBtnSpan.className = 'input-group-btn';
   removeChannelBtn.className = `btn btn-danger input-${inputId.toString()}`;
-  removeChannelBtn.innerHTML = 'Remove';
-  removeChannelBtn.onclick = onRemoveChannelAddressInput;
+  removeChannelBtn.innerHTML = 'X';
+  removeChannelBtn.onclick = removeChannelAddressInput;
 
+  removeChannelBtnSpan.appendChild(removeChannelBtn);
   channelAddressCol.appendChild(inputChannel);
-  channelAddressCol.appendChild(removeChannelBtn);
+  channelAddressCol.appendChild(removeChannelBtnSpan);
 
   for (let getUntilLastOption of getUntilLastOptions) {
     const label = document.createElement('label');
@@ -277,7 +278,7 @@ function addChannelAddressInput (input) {
   inputId++;
 }
 
-function onRemoveChannelAddressInput (event) {
+function removeChannelAddressInput (event) {
   assertApp(
     event instanceof window.Event &&
     event.target instanceof window.HTMLButtonElement &&
@@ -295,6 +296,11 @@ function onRemoveChannelAddressInput (event) {
     'Element channel address input not found or too many instances.'
   );
 
+  assertApp(
+    channelAddressData instanceof Array,
+    'Channel address data not found'
+  );
+
   let channelAddressRow = elements[0];
   channelAddressRow.remove();
   channelAddressData = channelAddressData.filter(data => {
@@ -306,6 +312,10 @@ function onRemoveChannelAddressInput (event) {
 
     return data.id === inputId;
   });
+
+  if (channelAddressData.length <= 0) {
+    addChannelAddressInput();
+  }
 
   saveStateToLocalStorage();
 }
@@ -384,23 +394,24 @@ function restoreStateFromLocalStorage () {
     let stateStringified = window.localStorage.getItem('musicbox');
 
     if (!stateStringified) {
+      addChannelAddressInput();
       return;
     }
-
     state = JSON.parse(stateStringified);
   } catch (e) {
     throw new ApplicationError('Failed to restore app state');
   }
 
+  clearChannelAddressInputs();
+
   if (!state) {
+    addChannelAddressInput();
     return;
   }
 
   assertApp(resultsFoundMessage instanceof window.HTMLParagraphElement, 'Element resultsFoundMessage, instance of HTMLParagraphElement, not found.');
-
+  
   if (state.channelAddressData) {
-    clearChannelAddressInputs();
-
     for (const data of state.channelAddressData) {
       addChannelAddressInput(data);
     }
