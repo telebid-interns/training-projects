@@ -177,7 +177,7 @@ const parsers = {
         let regex = /([^-]+) - ([^-]+)/;
         let result = regex.exec(videoTitle);
         if (!result) {
-            alert("Could not parse title + " + videoTitle);
+            console.log("Could not parse title + " + videoTitle);
             return {};
         }
         return {'artist': result[1], 'track': result[2]};
@@ -188,7 +188,7 @@ const parsers = {
         let result = regex.exec(videoTitle);
 
         if (!result) {
-            alert("Could not parse title + " + videoTitle);
+            console.log("Could not parse title + " + videoTitle);
             return {};
         }
         return {'artist': 'Taylor Swift', 'track': result[1]};
@@ -199,7 +199,7 @@ const parsers = {
         let result = regex.exec(url);
 
         if (!result) {
-            alert("Could not parse url " + url);
+            console.log("Could not parse url " + url);
             return {};
         }
         return {id: undefined, name: result[1]};
@@ -272,12 +272,20 @@ const TableAPI = {
         let newRow = TableAPI.tableItemTemplate.cloneNode(true);
         newRow.classList.remove('hidden');
         newRow.removeAttribute('id');
+        let duration = (song.track.duration / 1000 / 60).toString();
+        if (duration !== '0') {
+            duration = duration.slice(0, 4)
+                .replace('.', ':')
+                .padStart(5, '0');
+        } else {
+            duration = '';
+        }
         const SONG_DATA = [
             song.channel.title,
             song.track.artist.name,
             song.track.album.title,
             song.track.name,
-            song.track.duration
+            duration
         ];
 
         for(let k=0; k<newRow.cells.length; k++) {
@@ -422,7 +430,7 @@ const SubsAPI = {
         console.log("Currently subscribed channels: ", loadedChannels);
 
         if (loadedChannels.indexOf(channelUsername.toLowerCase()) !== -1) {
-            alert("Already subscribed to channel " + channelUsername);
+            //alert("Already subscribed to channel " + channelUsername);
             // TODO display error
             return
         }
@@ -474,12 +482,13 @@ const SubsAPI = {
                         song.track.artist = newData.track.artist || {};
                     if (newData.track.hasOwnProperty('name'))
                         song.track.name = newData.track.name;
-                    if (newData.track.hasOwnProperty('durattion'))
+                    if (newData.track.hasOwnProperty('duration'))
                         song.track.duration = newData.track.duration;
                     if (newData.track.hasOwnProperty('album') && newData.track.album.hasOwnProperty('title'))
                         // not every track has an album (singles for e.g.)
                         song.track.album = newData.track.album || {};
                 }
+                console.log(song);
                 if (SubsAPI.canAddTo[channelUsername]) {
                     TableAPI.addSong(song);
                 }
