@@ -83,6 +83,8 @@
           console.log(channelList);
           channelList = channelList.filter(e => e !== chName);
           removeElement = document.getElementById("name-" + chName);
+          let rowsToRemove = document.getElementsByClassName(chName);
+          console.log(rowsToRemove);
           //get all rows by class and remove
           removeElement.remove();
           console.log(channelList);
@@ -113,6 +115,7 @@ function addVideoToTable(table, title, channel) {
 
   if(titleTokens.length == 2){
     let row = table.insertRow(-1);
+    row.setAttribute('class', channel);
     let channelCell = row.insertCell(0);
     let artistCell = row.insertCell(1);
     let songCell = row.insertCell(2);
