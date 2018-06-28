@@ -98,7 +98,7 @@ const ChannelDataAPI = {
     },
 
     getDataFromUrl: async url => {
-        let userName = parsers.parseYoutubeUrl(url).name;
+        let userName = parseChannelFromYTUrl(url).name;
         let channelMeta = await ChannelDataAPI.getChannelMeta({userName});
 
         return await ChannelDataAPI.getData({
@@ -168,101 +168,66 @@ const ChannelDataAPI = {
     },
 };
 
-const parsers = {
-    parseFunctions: {},
 
-    forChannelName: (name) => parsers.parseFunctions[name] || parsers.parseVevo,
+function parseUrlsFromString(str) {
+    // taken from https://stackoverflow.com/questions/6038061/regular-expression-to-find-urls-within-a-string
+    let regex = new RegExp(
+      '(http|ftp|https)://([\\w_-]+(?:(?:\\.[\\w_-]+)+))([\\w.,@?^=%&:/~+#-]*[\\w@?^=%&/~+#-])?',
+      'g');
+    let urls = [];
+    let match = regex.exec(str);
 
-    // TODO display titles which can't be parsed
-    parseLiquicity: videoTitle => {
-        let regex = /([^-]+) - ([^-]+)/;
-        let result = regex.exec(videoTitle);
-
-        if (!result) {
-            console.log('Could not parse title + ' + videoTitle);
-
-            return {};
-        }
-
-        return {'artist': result[1], 'track': result[2]};
-    },
-
-    parseTaylorSwift: videoTitle => {
-        let regex = /Taylor Swift - ([^-]+)/;
-        let result = regex.exec(videoTitle);
-
-        if (!result) {
-            console.log('Could not parse title + ' + videoTitle);
-
-            return {};
-        }
-        return {'artist': 'Taylor Swift', 'track': result[1]};
-    },
-
-    parseYoutubeUrl: url => {
-        let regex = new RegExp('www.youtube.com/user/([^/]+).*');
-        let result = regex.exec(url);
-
-        if (!result) {
-            console.log('Could not parse url ' + url);
-
-            return {};
-        }
-
-        return {id: undefined, name: result[1]};
-    },
-
-    parseVevo: videoTitle => {
-        let regex = /\s*([^_]+)\s+-\s+([^()]+)\s*/;
-        let featuringRegex = /(?:ft\.|feat\.)\s*(.*)/;
-        let featMatch = featuringRegex.exec(videoTitle);
-        let feat;
-
-        if (featMatch) {
-            videoTitle = videoTitle.replace(featMatch[0], '');
-            feat = featMatch[1];
-        }
-
-        let result = regex.exec(videoTitle);
-
-        if (!result) {
-            console.log('Could not parse title ' + videoTitle);
-            return {};
-        }
-
-        result = result.map(ele => {
-            if (ele)
-                return ele.trim();
-            return ele;
-        });
-
-        return {artist: result[1], track: result[2], feat};
-    },
-
-    parseInputUrls: str => {
-        // taken from https://stackoverflow.com/questions/6038061/regular-expression-to-find-urls-within-a-string
-        let regex = new RegExp(
-          '(http|ftp|https)://([\\w_-]+(?:(?:\\.[\\w_-]+)+))([\\w.,@?^=%&:/~+#-]*[\\w@?^=%&/~+#-])?',
-          'g');
-        let urls = [];
-        let match = regex.exec(str);
-
-        while(match) {
-            urls.push(match[0]);
-            match = regex.exec(str);
-        }
-
-        return urls;
-    },
-
-    // TODO find out how to do this
-    _initialize: () => {
-        parsers.parseFunctions['liquicity'] = parsers.parseLiquicity;
-        parsers.parseFunctions['taylorswift'] = parsers.parseTaylorSwift;
+    while(match) {
+        urls.push(match[0]);
+        match = regex.exec(str);
     }
 
-};
-parsers._initialize();
+    return urls;
+}
+
+
+function parseChannelFromYTUrl(url) {
+    let regex = new RegExp('www.youtube.com/user/([^/]+).*');
+    let result = regex.exec(url);
+
+    if (!result) {
+        console.log('Could not parse url ' + url);
+
+        return {};
+    }
+
+    return {id: undefined, name: result[1]};
+}
+
+
+function parseTrackFromVideoTitle(videoTitle) {
+    let regex = /\s*([^_]+)\s+-\s+([^()]+)\s*/;
+    let featuringRegex = /(?:ft\.|feat\.)\s*(.*)/;
+    let featMatch = featuringRegex.exec(videoTitle);
+    let feat;
+
+    if (featMatch) {
+        videoTitle = videoTitle.replace(featMatch[0], '');
+        feat = featMatch[1];
+    }
+
+    let result = regex.exec(videoTitle);
+
+    if (!result) {
+        console.log('Could not parse title ' + videoTitle);
+        return {};
+    }
+
+    result = result.map(ele => {
+        if (ele)
+            return ele.trim();
+
+        return ele;
+    });
+
+    return {artist: result[1], track: result[2], feat};
+}
+
 
 const TableAPI = {
     table: document.getElementsByClassName('table')[0],
@@ -454,7 +419,7 @@ const SubsAPI = {
     canAddTo: {'liquicity': true, 'maroon5': true, 'taylorswift': true},
 
     subToUrl: async url => {
-        let channelUsername = parsers.parseYoutubeUrl(url).name;
+        let channelUsername = parseChannelFromYTUrl(url).name;
 
         console.log('Currently subscribed channels: ', loadedChannels);
 
@@ -532,7 +497,7 @@ const SubsAPI = {
     unsubFromUrl: async url => {
         // TODO will break if url has an id instead of user name.
         // TODO don't use an API call.
-        let channelInfo = await ChannelDataAPI.getChannelMeta({userName: parsers.parseYoutubeUrl(url).name});
+        let channelInfo = await ChannelDataAPI.getChannelMeta({userName: parseChannelFromYTUrl(url).name});
         let channelUsername = channelInfo.customUrl.toLowerCase();
 
         console.log('Unsubscribe from url ' + url + ' with channel name ' + channelUsername);
@@ -595,7 +560,7 @@ function extractSongs (videos) {
     let unsuccessful = [];
 
     for(let vid of videos) {
-        let titleInfo = parsers.forChannelName(vid.customUrl)(vid.track.name);
+        let titleInfo = parseTrackFromVideoTitle(vid.track.name);
 
         if (titleInfo) {
             let obj = Object.assign({}, vid);
@@ -614,7 +579,7 @@ function extractSongs (videos) {
 async function processForm (e) {
     if (e.preventDefault) e.preventDefault();
 
-    parsers.parseInputUrls(
+    parseUrlsFromString(
       document.getElementById('urls-input').value
     ).forEach(async url => {
         await SubsAPI.subToUrl(url);
