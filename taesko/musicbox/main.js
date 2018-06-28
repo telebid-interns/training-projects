@@ -1,5 +1,5 @@
+const MAX_VIDEO_RESULTS = 25;
 const YOUTUBE_CHANNEL_URL = 'https://www.youtube.com/user/';
-const loadedChannels = [];
 
 const noContentParagraph = document.getElementById('no-content-message');
 const lastWeekFilter = document.getElementById('last-week-filter');
@@ -7,177 +7,235 @@ const lastMonthFilter = document.getElementById('last-month-filter');
 const lastYearFilter = document.getElementById('last-year-filter');
 const eternityFilter = document.getElementById('eternity-filter');
 
-const SongDataAPI = {
-    urlBase: 'http://ws.audioscrobbler.com/2.0/?',
-    apiObj: new LastFM({
-        apiKey: 'c2933b27a78e04c4b094a1a094bc2c9c',
-        apiSecret: '51305668ff35178ee80976315a52042'
-    }),
+const subscriptions = {};
 
-    queryParams: params => {
-        let query = '';
-
-        for (let [key, value] of Object.entries(params)) {
-            query += encodeURIComponent(key) + '&' + encodeURIComponent(value);
-        }
-
-        return query;
-    },
-
-    getTrackInfo: ({artist, track}) => {
-        return new Promise((resolve, reject) => {
-
-            SongDataAPI.apiObj.track.getInfo(
-              {artist, track},
-              {
-                  success: resolve,
-                  error: (code, message) => {
-                      reject(message);
-                  }
-              }
-            );
-        });
+class ApplicationError extends Error {
+    constructor (message) {
+        super(message);
     }
-};
+}
 
-const ChannelDataAPI = {
-    playlistMaps: {taylorswift: 'PL1CbxROoA2JivSW3W3hN9OZPMnnRphoLY'},
+class ExternalError extends Error {
+    constructor (message) {
+        super(message);
+    }
+}
 
-    args: (type, identifier) => {
-        let obj = {part: 'snippet,contentDetails'};
+class PeerError extends ExternalError {
+    constructor (message) {
+        super(message);
+    }
+}
 
-        obj[type] = identifier;
+class UserError extends ExternalError {
+    constructor (message) {
+        super(message);
+    }
+}
 
-        return obj;
-    },
+class Subscription {
+    constructor(url) {
+        this.originalUrl = url;
 
-    _getChannelMetaFromResponseItem: item => {
-        let resultObject = {id: item.id};
+        let identifiers = parseChannelFromYTUrl(url);
+        let params = {};
 
-        if (item.hasOwnProperty('snippet')) {
-            resultObject.title = item.snippet.title;
-            resultObject.customUrl = item.snippet.customUrl;
+        if (identifiers.hasOwnProperty('id') && identifiers.id.length !== 0) {
+            params = {
+                part: 'snippet, contentDetails',
+                id: identifiers.id,
+            };
+        } else if (identifiers.hasOwnProperty('name') &&
+            identifiers.name.length !== 0) {
+            params = {
+                part: 'snippet, contentDetails',
+                forUsername: identifiers.name,
+            };
+        } else {
+            throw new UserError(
+                `Youtube url - ${url} is not a link to a channel.`);
         }
 
-        return resultObject;
-    },
+        if (!hasChainedProperties(['client.youtube.channels.list'], gapi)) {
+            throw new PeerError(
+                `Youtube API is not behaving correctly. Missing gapi.client.youtube.channels.list`);
+        }
 
-    getChannelMeta: async ({id, userName}) => {
-        let params = {part: 'snippet'};
-        let resultObject = {};
+        gapi.client.youtube.channels.list(params).then(response => {
+            if (
+                !hasChainedProperties(['result.items'], response) &&
+                !hasChainedProperties([
+                        'snippet.title',
+                        'snippet.customUrl',
+                        'id',
+                        'contentDetails.relatedPlaylists.upload',],
+                    response.result.items[0])
+            )
+                throw new PeerError(
+                    'Youtube API didn\'t properly provide information about channel');
+
+            let item = response.result.items[0];
+            this.id = item.id;
+            this.title = item.snippet.title;
+            this.customUrl = item.snippet.customUrl;
+            this.playlistId = item.contentDetails.relatedPlaylists.uploads;
+            this.fetchTracks().then(response => {
+                this.tracks = response.tracks;
+                this.failedToParse = response.failures;
+            });
+            // let errors propagate to the caller.
+        }).catch(reason => {
+            throw new PeerError('Youtube API failed to provide information about channel. Reason: ' +
+                reason);
+        });
+
+    }
+
+    async fetchTracks () {
+        if (!hasChainedProperties(['playlistItems.list'], gapi.client.youtube))
+            throw new PeerError(
+                'Youtube API failed to provide information about channel uploads. Reason: renamed properties of gapi.client.youtube');
+
         let response;
 
-        if (id) {
-            params['id'] = id;
-        } else if (userName) {
-            params['forUsername'] = userName;
-        } else {
-            throw 'Constructor requires either an id or an userName parameter to be provided';
-        }
-
         try {
-            response = await gapi.client.youtube.channels.list(params);
-        } catch {
-            console.log('Youtube API failed to get channel information for params: ' + params);
-            resultObject.id = resultObject.id || '';
-            resultObject.title = resultObject.title || '';
-            resultObject.customUrl = resultObject.customUrl || '';
-
-            return resultObject;
-        }
-
-        let meta = response.result.items[0];
-        resultObject.id = meta.id;
-
-        if (meta.hasOwnProperty('snippet')) {
-            resultObject.title = meta.snippet.title;
-            resultObject.customUrl = meta.snippet.customUrl;
-        }
-
-        return resultObject;
-    },
-
-    getDataFromUrl: async url => {
-        let userName = parseChannelFromYTUrl(url).name;
-        let channelMeta = await ChannelDataAPI.getChannelMeta({userName});
-
-        return await ChannelDataAPI.getData({
-            type: 'id',
-            identifier: channelMeta.id
-        });
-    },
-
-    getData: async function ({type = 'forUsername', identifier}) {
-        // TODO handle errors
-        let channelResponse;
-        let params = ChannelDataAPI.args(type, identifier);
-
-        try {
-            channelResponse = await gapi.client.youtube.channels.list(params);
-        } catch (e) {
-            console.log('Failed to get youtube data for params: ');
-            console.log(params);
-            throw 'Youtube API can\'t get channel data';
-        }
-
-        let customUrl = channelResponse.result.items[0].snippet.customUrl;
-        let playlistId;
-        let playlistResponse;
-
-        if (ChannelDataAPI.playlistMaps[customUrl]) {
-            playlistId = ChannelDataAPI.playlistMaps[customUrl];
-        } else {
-            playlistId = channelResponse.result.items[0].contentDetails.relatedPlaylists.uploads;
-
-        }
-
-        try {
-            playlistResponse = await gapi.client.youtube.playlistItems.list({
-                maxResults: 25,
+            response = await gapi.client.youtube.playlistItems.list({
+                maxResults: MAX_VIDEO_RESULTS,
                 part: 'snippet,contentDetails',
-                playlistId
+                playlistId: this.playlistId,
             });
-        } catch (e) {
-            console.log('error occurred - ', e);
-            throw e;
+        } catch (reason) {
+            console.log('Youtube API failed. Reason', reason);
+
+            throw new PeerError(
+                'Youtube API failed to provide information about channel uploads. Reason: API call failed');
         }
 
-        return playlistResponse.result.items.map(
-          item => {
-              return {
-                  id: identifier,
-                  track: {
-                      name: item.snippet.title,
-                      artist: {
-                          name: undefined,
-                          lastFmUrl: undefined
-                      },
-                      duration: -1,
-                      album: {
-                          title: undefined,
-                          lastFmUrl: undefined,
-                          images: []
-                      }
-                  },
-                  customUrl: customUrl,
-                  publishedAt: new Date(item.snippet.publishedAt),
-                  channel: ChannelDataAPI._getChannelMetaFromResponseItem(channelResponse.result.items[0])
-              };
-          });
+        let tracks = [];
+        let failures = [];
 
-    },
-};
+        for (let item of response.result.items) {
+            if (!hasChainedProperties(
+                ['snippet.title', 'snippet.publishedAt'], item))
+                throw new PeerError(
+                    'Youtube API failed to provide information about channel uploads. Reason: renamed properties of response.result.items');
+
+            let parsed = parseTrackFromVideoTitle(item.snippet.title);
+            console.log('parsed', parsed);
+            if(parsed.artist && parsed.track) {
+                tracks.push(
+                    new Track({
+                        artist: parsed.artist,
+                        title: parsed.track,
+                        featuring: parsed.feat,
+                        publishedAt: item.snippet.publishedAt,
+                    })
+                );
+            } else {
+                failures.push(item.snippet.title);
+            }
+        }
+
+        return {tracks, failures};
+    }
+
+    fetchTrackInfo () {
+        let failures = {};
+        for (let track of this.tracks) {
+            track.loadData().
+                then(response => {}).
+                catch(reason => { failures[track.name] = reason; });
+        }
+        return {tracks: this.tracks, failures};
+    }
+}
+
+class Track {
+    constructor ({artist, title, featuring, publishedAt}) {
+        // url, duration, artistUrl, album properties are loaded and attached through the loadData async method
+        this.name = title;
+        this.artistName = artist;
+        this.featuring = featuring;
+        this.publishedAt = publishedAt;
+    }
+
+    async loadData () {
+        let populateThis = (data) => {
+            if (!data.track)
+                throw PeerError(
+                    'last.fm API did not provide track information');
+            this.name = data.track.name;
+            this.duration = data.track.duration;
+            this.url = data.track.url;
+            this.artistUrl = data.track.artist.url;
+            this.album = data.track.album;
+        };
+        return new Promise(
+            (resolve, reject) => {
+                SongDataAPI.apiObj.track.getInfo(
+                    {artist: this.artistName, track: this.name},
+                    {
+                        success: data => {
+                            populateThis(data);
+                            resolve(this);
+                        },
+                        error: (code, message) => {
+                            reject(
+                                `Can't fetch track information from last.fm API. Reason: ${message}.<br> Error code:${code}`);
+                        },
+                    },
+                );
+            },
+        );
+    }
+}
 
 
-function parseUrlsFromString(str) {
+function hasChainedProperties (chainedProperties, object) {
+    for (let chainedProp of chainedProperties) {
+        let properties = chainedProp.split('.');
+        let chainedObject = object;
+
+        for (let prop of properties) {
+            if (chainedObject[prop] === undefined)
+                return false;
+
+            chainedObject = chainedObject[prop];
+        }
+    }
+    return true;
+}
+
+
+function subscribe(url) {
+    let sub = new Subscription(url);
+    subscriptions[sub.id] = sub;
+    UrlList.display(sub);
+}
+
+function unsubscribe(url) {
+    let sub = new Subscription(url);
+    delete subscriptions[sub.id];
+    UrlList.hide(sub);
+}
+
+function clearSubs() {
+    for(let key of Object.keys(this.subs)) {
+        delete subscriptions[key];
+    }
+    UrlList.hideAll();
+}
+
+
+function parseUrlsFromString (str) {
     // taken from https://stackoverflow.com/questions/6038061/regular-expression-to-find-urls-within-a-string
     let regex = new RegExp(
-      '(http|ftp|https)://([\\w_-]+(?:(?:\\.[\\w_-]+)+))([\\w.,@?^=%&:/~+#-]*[\\w@?^=%&/~+#-])?',
-      'g');
+        '(http|ftp|https)://([\\w_-]+(?:(?:\\.[\\w_-]+)+))([\\w.,@?^=%&:/~+#-]*[\\w@?^=%&/~+#-])?',
+        'g');
     let urls = [];
     let match = regex.exec(str);
 
-    while(match) {
+    while (match) {
         urls.push(match[0]);
         match = regex.exec(str);
     }
@@ -185,22 +243,31 @@ function parseUrlsFromString(str) {
     return urls;
 }
 
+function parseChannelFromYTUrl (url) {
+    let id;
+    let name;
+    let idResult = new RegExp('www.youtube.com/channel/([^/]+)').exec(url); // TODO parses query params incorrectly
+    let userResult = new RegExp('www.youtube.com/user/([^/]+)').exec(url);
 
-function parseChannelFromYTUrl(url) {
-    let regex = new RegExp('www.youtube.com/user/([^/]+).*');
-    let result = regex.exec(url);
-
-    if (!result) {
-        console.log('Could not parse url ' + url);
-
+    if (idResult) {
+        return {
+            id: idResult[1],
+            type: 'id',
+        };
+    }
+    else if (userResult) {
+        return {
+            name: userResult[1],
+            type: 'username',
+        };
+    }
+    else {
         return {};
     }
 
-    return {id: undefined, name: result[1]};
 }
 
-
-function parseTrackFromVideoTitle(videoTitle) {
+function parseTrackFromVideoTitle (videoTitle) {
     let regex = /\s*([^_]+)\s+-\s+([^()]+)\s*/;
     let featuringRegex = /(?:ft\.|feat\.)\s*(.*)/;
     let featMatch = featuringRegex.exec(videoTitle);
@@ -228,7 +295,6 @@ function parseTrackFromVideoTitle(videoTitle) {
     return {artist: result[1], track: result[2], feat};
 }
 
-
 const TableAPI = {
     table: document.getElementsByClassName('table')[0],
     tableBody: document.querySelector('table tbody'),
@@ -236,8 +302,10 @@ const TableAPI = {
     allSongs: {},
 
     prepareChannelDialog: (dialog, songData) => {
-        dialog.getElementsByTagName('p')[0].textContent = songData.channel.title;
-        dialog.getElementsByTagName('a')[0].setAttribute('href', YOUTUBE_CHANNEL_URL + songData.channel.customUrl);
+        dialog.getElementsByTagName(
+            'p')[0].textContent = songData.channel.title;
+        dialog.getElementsByTagName('a')[0].setAttribute(
+            'href', YOUTUBE_CHANNEL_URL + songData.channel.customUrl);
     },
 
     addSong: song => {
@@ -251,9 +319,7 @@ const TableAPI = {
         newRow.removeAttribute('id');
 
         if (duration !== '0') {
-            duration = duration.slice(0, 4)
-              .replace('.', ':')
-              .padStart(5, '0');
+            duration = duration.slice(0, 4).replace('.', ':').padStart(5, '0');
         } else {
             duration = '';
         }
@@ -263,12 +329,12 @@ const TableAPI = {
             song.track.artist.name,
             song.track.album.title,
             song.track.name,
-            duration
+            duration,
         ];
 
         for (let k = 0; k < newRow.cells.length; k++) {
             newRow.cells[k].appendChild(
-              document.createTextNode(SONG_DATA[k])
+                document.createTextNode(SONG_DATA[k]),
             );
         }
 
@@ -276,7 +342,7 @@ const TableAPI = {
 
         dialog.setAttribute('id', 'dialog-' + songId(song));
         TableAPI.prepareChannelDialog(dialog, song);
-        newRow.cells[0].addEventListener('click', event => {
+        newRow.cells[0].addEventListener('click', () => {
             // does not work in firefox 60.0.2 for Ubunutu
             dialog.showModal();
         });
@@ -288,7 +354,7 @@ const TableAPI = {
     },
 
     removeSongsByChannelTitle: name => {
-        console.log('Removing songs from', name);
+        console.log('Removing tracks from', name);
 
         let rows = document.querySelectorAll('table tbody tr');
 
@@ -304,10 +370,10 @@ const TableAPI = {
     },
 
     filterSongs: (func) => {
-        console.log('TABLE API is filtering songs.');
+        console.log('TABLE API is filtering tracks.');
 
-        let filtered = Object.values(TableAPI.allSongs)
-          .filter(ele => func(ele));
+        let filtered = Object.values(TableAPI.allSongs).
+            filter(ele => func(ele));
 
         TableAPI.showAllSongs();
         console.log('HIDING SONGS', filtered);
@@ -317,8 +383,8 @@ const TableAPI = {
     showAllSongs: () => {
         for (let row of TableAPI.table.rows) {
             if (
-              row.classList.contains('hidden') &&
-              row.getAttribute('id') !== 'table-row-template'
+                row.classList.contains('hidden') &&
+                row.getAttribute('id') !== 'table-row-template'
             ) {
                 row.classList.remove('hidden');
             }
@@ -329,8 +395,8 @@ const TableAPI = {
         for (let song of songs) {
             for (let row of TableAPI.table.rows) {
                 if (
-                  row.getAttribute('data-song-id') === songId(song) &&
-                  !row.classList.contains('hidden')
+                    row.getAttribute('data-song-id') === songId(song) &&
+                    !row.classList.contains('hidden')
                 ) {
                     row.classList.add('hidden');
                 }
@@ -350,7 +416,7 @@ const TableAPI = {
     },
 
     clearTable: () => {
-        for(let row of document.querySelectorAll('table tbody tr')) {
+        for (let row of document.querySelectorAll('table tbody tr')) {
             row.remove();
         }
 
@@ -361,180 +427,47 @@ const TableAPI = {
 };
 
 const UrlList = {
-    isDisplayed: url => {
-        let lis = document.querySelectorAll('#url-list li');
 
-        for (let k = 0; k < lis.length; k++) {
-            if (lis[k].textContent === url) {
-                return true;
-            }
-        }
+    listElements: new WeakMap(),
 
-        return false;
-    },
+    isDisplayed: sub => !!UrlList.listElements[sub],
 
-    newItem: url => {
+    newItem: sub => {
         let itemTemplate = document.getElementById('url-list-item-template');
         let newItem = itemTemplate.cloneNode(true);
 
-        newItem.childNodes[0].nodeValue = url;
-        newItem.childNodes[1]
-          .addEventListener('click', function (event) {
-              // TODO this is a promise
-              SubsAPI.unsubFromUrl(url);
-          });
+        newItem.childNodes[0].nodeValue = sub.title;
+        newItem.childNodes[1].addEventListener('click', function (event) {
+            unsubscribe(sub.originalUrl);
+
+        });
         newItem.classList.remove('hidden');
         newItem.removeAttribute('id');
 
         return newItem;
     },
 
-    display: url => {
-        if (UrlList.isDisplayed(url))
+    display: sub => {
+        if (UrlList.isDisplayed(sub))
             return;
 
-        document.getElementById('url-list').appendChild(UrlList.newItem(url));
+        let listItem = UrlList.newItem(sub);
+        document.getElementById('url-list').appendChild(listItem);
+        UrlList.listElements[sub] = listItem;
     },
 
-    hide: url => {
-        for(let item of document.querySelectorAll('#url-list li')) {
-            console.log(item.textContent, 'vs', url);
-
-            if (item.childNodes[0].nodeValue === url)
-                item.remove();
-
-        }
+    hide: sub => {
+        UrlList.listElements[sub].remove();
     },
 
     hideAll: () => {
-        for (let ele of document.querySelectorAll('#url-list li')) {
-            if (ele.getAttribute('id') !== 'url-list-item-template')
-                ele.remove();
+        for (let [key, element] of Object.entries(UrlList.listElements)) {
+            element.remove();
+            delete UrlList.listElements[key];
         }
-    }
+    },
 };
 
-const SubsAPI = {
-    // TODO fix bad hack
-    canAddTo: {'liquicity': true, 'maroon5': true, 'taylorswift': true},
-
-    subToUrl: async url => {
-        let channelUsername = parseChannelFromYTUrl(url).name;
-
-        console.log('Currently subscribed channels: ', loadedChannels);
-
-        if (loadedChannels.indexOf(channelUsername.toLowerCase()) !== -1) {
-            //alert("Already subscribed to channel " + channelUsername);
-            // TODO display error
-            return;
-        }
-
-        console.log('Subscribing to url ' + url + ' with channel name = ' + channelUsername);
-
-        let videoData = await ChannelDataAPI.getDataFromUrl(url);
-        let extracted = extractSongs(videoData);
-        let successful = extracted['successful'];
-        let unsuccessful = extracted['unsuccessful'];
-
-        if (unsuccessful) {
-            // TODO display error
-        }
-
-        console.log('Subscription to channel ' + channelUsername + ' successfully parsed these songs: ', successful);
-        console.log('Subscription to channel ' + channelUsername + ' could not parse these videos: ', unsuccessful);
-
-        loadedChannels.push(channelUsername.toLowerCase());
-        UrlList.display(url);
-
-        let clean = {};
-        for (let ele of successful)
-            clean[ele.track.artist.name + ele.track.name] = ele;
-        successful = Object.values(clean);
-        console.log('Filtered: ', successful.filter(songIsInDateRange));
-
-        successful.forEach(
-          async song => {
-              let newData;
-              // sending undefined track
-              // actually finds an undefined track on the artist page
-              // similarly for artist
-              let params = {artist: song.track.artist.name, track: song.track.name};
-
-              try {
-                  newData = await SongDataAPI.getTrackInfo(params);
-              } catch (e) {
-                  // TODO handle
-                  console.log("lastFM API couldn't get data for params ", params);
-                  return;
-              }
-
-              // TODO refactor this
-              if (newData.hasOwnProperty('track')) {
-                  if (newData.track.hasOwnProperty('name'))
-                      song.track.name = newData.track.name;
-                  if (newData.track.hasOwnProperty('artist') && newData.track.artist.hasOwnProperty('name'))
-                      song.track.artist = newData.track.artist || {};
-                  if (newData.track.hasOwnProperty('name'))
-                      song.track.name = newData.track.name;
-                  if (newData.track.hasOwnProperty('duration'))
-                      song.track.duration = newData.track.duration;
-                  if (newData.track.hasOwnProperty('album') && newData.track.album.hasOwnProperty('title'))
-                  // not every track has an album (singles for e.g.)
-                      song.track.album = newData.track.album || {};
-              }
-
-              if (SubsAPI.canAddTo[channelUsername])
-                  TableAPI.addSong(song);
-          }
-        );
-
-        SubsAPI.canAddTo[channelUsername] = true;
-        TableAPI.showTable();
-        // TODO this doesn't work right from the start because of async
-        TableAPI.filterSongs(songIsInDateRange);
-    },
-
-    unsubFromUrl: async url => {
-        // TODO will break if url has an id instead of user name.
-        // TODO don't use an API call.
-        let channelInfo = await ChannelDataAPI.getChannelMeta({userName: parseChannelFromYTUrl(url).name});
-        let channelUsername = channelInfo.customUrl.toLowerCase();
-
-        console.log('Unsubscribe from url ' + url + ' with channel name ' + channelUsername);
-        console.log('All subs: ', loadedChannels);
-
-        if (loadedChannels.indexOf(channelUsername.toLowerCase()) === -1) {
-            alert('You are not subscribed to ' + channelUsername);
-            // TODO display errors
-            return;
-        }
-
-        SubsAPI.canAddTo[channelUsername] = false;
-        TableAPI.removeSongsByChannelTitle(channelInfo.title);
-        loadedChannels.splice(loadedChannels.indexOf(channelUsername.toLowerCase()), 1);
-        UrlList.hide(url);
-        if (loadedChannels === undefined || loadedChannels.length === 0)
-            TableAPI.hideTable();
-    },
-
-    unsubFromAll: () => {
-        for (let key of Object.keys(SubsAPI.canAddTo)) {
-            SubsAPI.canAddTo[key] = false;
-        }
-
-        loadedChannels.length = 0;
-        TableAPI.clearTable();
-        UrlList.hideAll();
-
-        for (let key of Object.keys(SubsAPI.canAddTo)) {
-            SubsAPI.canAddTo[key] = true;
-        }
-    }
-};
-
-function songId (song) {
-    return encodeURIComponent(song.track.artist.name) + '&' + encodeURIComponent(song.track.name);
-}
 
 function songIsInDateRange (song) {
     let songDate = song.publishedAt;
@@ -554,64 +487,46 @@ function songIsInDateRange (song) {
     return songDate.getTime() <= dateRange.getTime();
 }
 
-function extractSongs (videos) {
-    // TODO rename
-    let successful = [];
-    let unsuccessful = [];
 
-    for(let vid of videos) {
-        let titleInfo = parseTrackFromVideoTitle(vid.track.name);
+function setupFormProcessing(form) {
+    function processForm (e) {
+        if (e.preventDefault) e.preventDefault();
 
-        if (titleInfo) {
-            let obj = Object.assign({}, vid);
+        let urls = parseUrlsFromString(document.getElementById('urls-input').value);
 
-            obj.track.artist.name = titleInfo.artist;
-            obj.track.name = titleInfo.track;
-            successful.push(obj);
-        } else {
-            unsuccessful.push(vid);
+        for (let url of urls) {
+            subscribe(url);
         }
+
+        // return false to prevent the default form behavior
+        return false;
     }
-
-    return {successful, unsuccessful};
-}
-
-async function processForm (e) {
-    if (e.preventDefault) e.preventDefault();
-
-    parseUrlsFromString(
-      document.getElementById('urls-input').value
-    ).forEach(async url => {
-        await SubsAPI.subToUrl(url);
-    });
-
-    // return false to prevent the default form behavior
-    return false;
-}
-
-window.onload = function () {
-    gapi.load('client', start);
-
-    function selectedFilter (event) {
-        console.log('Filtering songs');
-        TableAPI.filterSongs(songIsInDateRange);
-    }
-
-    let form = document.getElementById('url-form');
 
     if (form.attachEvent) {
         form.attachEvent('submit', processForm);
     } else {
         form.addEventListener('submit', processForm);
     }
+}
+
+window.onload = function () {
+    gapi.load('client', start);
+
+    let form = document.getElementById('url-form');
+    setupFormProcessing(form);
 
     document.getElementById('unsubscribe-all-btn')
-      .addEventListener('click', SubsAPI.unsubFromAll);
+        .addEventListener('click', subscriptions.clear);
 
-    lastWeekFilter.addEventListener('click', selectedFilter);
-    lastMonthFilter.addEventListener('click', selectedFilter);
-    lastYearFilter.addEventListener('click', selectedFilter);
-    eternityFilter.addEventListener('click', selectedFilter);
+    // function selectedFilter (event) {
+    //     console.log('Filtering tracks');
+    //     TableAPI.filterSongs(songIsInDateRange);
+    // }
+    //
+    // lastWeekFilter.addEventListener('click', selectedFilter);
+    // lastMonthFilter.addEventListener('click', selectedFilter);
+    // lastYearFilter.addEventListener('click', selectedFilter);
+    // eternityFilter.addEventListener('click', selectedFilter);
 };
 
 function start () {
