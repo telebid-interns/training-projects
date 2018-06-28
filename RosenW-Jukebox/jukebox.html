@@ -24,6 +24,7 @@
      <button id='subBtn'> Subscribe </button>
      <br>
      <br>
+     <p>Channels subscribed to:</p>
      <ul id='channels'>
        
      </ul>
@@ -42,22 +43,57 @@
 
   let table = document.getElementById('infoTable');
   let button = document.getElementById('subBtn');
+  let channelList = [];
   
   button.addEventListener('click', function(){
     let xhr = new XMLHttpRequest();
     let linkTextbox = document.getElementById('channel');
     let link = linkTextbox.value;
+    linkTextbox.value = "";
     let channelId = link.split('/channel/')[1];
     let reqLink = 'https://www.googleapis.com/youtube/v3/search?channelId=' + channelId + '&key=' + API_KEY + '&part=snippet&type=video&maxResults=50&videoCategoryId=10';
 
     makeGetRequest(reqLink, function(response){
       let data = JSON.parse(response);
       let channelName = data.items[0].snippet.channelTitle;
-      let listElement = document.createElement("li");
-      listElement.appendChild(document.createTextNode(channelName));
-      document.getElementById('channels').appendChild(listElement);
+      for(let i in channelList){
+        if(channelList[i] == channelName){
+          return;
+        }
+      }
+      channelList.push(channelName);
+      let channelsElement = document.getElementById('channels');
+      channelsElement.innerHTML = "";
+
+      for(let i in channelList){
+        curChannel = channelList[i];
+
+        let pElement = document.createElement("p");
+        pElement.setAttribute("id", "name-" + curChannel);
+
+        let aElement = document.createElement("a");
+        aElement.setAttribute("href", link);
+        aElement.appendChild(document.createTextNode(curChannel + " "));
+        
+        let unsubBtn = document.createElement("button");
+        unsubBtn.setAttribute("id", "unsub-" + curChannel);
+        unsubBtn.innerHTML = "Unsub"
+        unsubBtn.addEventListener("click", function(event){
+          let chName = event.target.id.substr(6,);
+          console.log(channelList);
+          channelList = channelList.filter(e => e !== chName);
+          removeElement = document.getElementById("name-" + chName);
+          //get all rows by class and remove
+          removeElement.remove();
+          console.log(channelList);
+        });
+
+        pElement.appendChild(aElement);
+        pElement.appendChild(unsubBtn);
+        channelsElement.appendChild(pElement);
+      }
+
       let videos = data.items;
-      console.log(videos);
       
       for(let index in videos){
         let currentTitle = videos[index].snippet.title;
@@ -66,13 +102,12 @@
         addVideoToTable(table, currentTitle, currentChannel);
       }
     });
-
   });
 
 function addVideoToTable(table, title, channel) {
   let regex = RegExp('^([0-9a-zA-Z\s\.&]*) - (.*)','gm');
-  console.log(title);
-  console.log(regex.test(title)); //todo use regex to filter
+  // console.log(title);
+  // console.log(regex.test(title)); //todo use regex to filter
 
   let titleTokens = title.split(' - ');
 
@@ -93,10 +128,6 @@ function addVideoToTable(table, title, channel) {
     songCell.appendChild(songText);
     channelCell.appendChild(channelText);
   }
-}
-
-function removeBrackets(str){
-
 }
 
 function makeGetRequest(url, callback) {
