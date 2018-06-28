@@ -1,0 +1,5 @@
+libs -> fetch
+organaize subscriptions into objects
+organize each song to an object part of subscription
+remove all forEach that use async.
+make filters operate on the subscription level
