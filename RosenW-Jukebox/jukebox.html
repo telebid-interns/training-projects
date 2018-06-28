@@ -1,0 +1,112 @@
+<html lang="en">
+  <head>
+    <!-- <script src="lodash.js"></script> -->
+    <style>
+      table {
+          font-family: arial, sans-serif;
+          border-collapse: collapse;
+          width: 100%;
+      }
+
+      td, th {
+          border: 1px solid #dddddd;
+          text-align: left;
+          padding: 8px;
+      }
+
+      tr:nth-child(even) {
+          background-color: #dddddd;
+      }
+    </style>
+  </head>
+   <body>
+     <input type="text" id='channel' placeholder="Enter Youtube Channel link">
+     <button id='subBtn'> Subscribe </button>
+     <br>
+     <br>
+     <ul id='channels'>
+       
+     </ul>
+     <table id="infoTable">
+        <tr>
+          <th>Channel</th>
+          <th>Artist</th>
+          <th>Song</th>
+        </tr>
+     </table>
+    </body>
+</html>
+
+<script>
+  let API_KEY = 'AIzaSyDrLczSe8MEo3k5FAwo1Kc3fkn26NB-VUQ';
+
+  let table = document.getElementById('infoTable');
+  let button = document.getElementById('subBtn');
+  
+  button.addEventListener('click', function(){
+    let xhr = new XMLHttpRequest();
+    let linkTextbox = document.getElementById('channel');
+    let link = linkTextbox.value;
+    let channelId = link.split('/channel/')[1];
+    let reqLink = 'https://www.googleapis.com/youtube/v3/search?channelId=' + channelId + '&key=' + API_KEY + '&part=snippet&type=video&maxResults=50&videoCategoryId=10';
+
+    makeGetRequest(reqLink, function(response){
+      let data = JSON.parse(response);
+      let channelName = data.items[0].snippet.channelTitle;
+      let listElement = document.createElement("li");
+      listElement.appendChild(document.createTextNode(channelName));
+      document.getElementById('channels').appendChild(listElement);
+      let videos = data.items;
+      console.log(videos);
+      
+      for(let index in videos){
+        let currentTitle = videos[index].snippet.title;
+        let currentChannel = videos[index].snippet.channelTitle;
+
+        addVideoToTable(table, currentTitle, currentChannel);
+      }
+    });
+
+  });
+
+function addVideoToTable(table, title, channel) {
+  let regex = RegExp('^([0-9a-zA-Z\s\.&]*) - (.*)','gm');
+  console.log(title);
+  console.log(regex.test(title)); //todo use regex to filter
+
+  let titleTokens = title.split(' - ');
+
+  if(titleTokens.length == 2){
+    let row = table.insertRow(-1);
+    let channelCell = row.insertCell(0);
+    let artistCell = row.insertCell(1);
+    let songCell = row.insertCell(2);
+
+    let artist = titleTokens[0];
+    let song = titleTokens[1];
+
+    let artistText = document.createTextNode(artist);
+    let songText = document.createTextNode(song);
+    let channelText = document.createTextNode(channel);
+
+    artistCell.appendChild(artistText);
+    songCell.appendChild(songText);
+    channelCell.appendChild(channelText);
+  }
+}
+
+function removeBrackets(str){
+
+}
+
+function makeGetRequest(url, callback) {
+  let xmlHttp = new XMLHttpRequest();
+  xmlHttp.onreadystatechange = function() { 
+      if (xmlHttp.readyState == 4 && xmlHttp.status == 200){
+          callback(xmlHttp.responseText);
+      }
+  }
+  xmlHttp.open("GET", url, true);
+  xmlHttp.send(null);
+}
+</script>
