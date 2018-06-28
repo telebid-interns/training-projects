@@ -1,0 +1,27 @@
+{
+  "name": "freefall-server",
+  "version": "0.0.0",
+  "description": "FreeFall app backend",
+  "main": "index.js",
+  "scripts": {
+    "start": "",
+    "fetch": "semistandard && node fetch-data.js"
+  },
+  "repository": "https://github.com/hspasov/training-projects/tree/master/hspasov-freefall",
+  "author": "Hristo Spasov",
+  "license": "MIT",
+  "dependencies": {
+    "js-yaml": "^3.12.0",
+    "moment": "^2.22.2",
+    "node-fetch": "^2.1.2",
+    "sqlite": "^2.9.2"
+  },
+  "devDependencies": {
+    "semistandard": "^12.0.1"
+  },
+  "semistandard": {
+    "ignore": [
+      "all_flight_params.js"
+    ]
+  }
+}
