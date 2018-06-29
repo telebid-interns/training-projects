@@ -31,7 +31,7 @@
      <table id="infoTable">
         <tr>
           <th>Channel</th>
-          <th>Artist</th>
+          <th>Artist(s)</th>
           <th>Song</th>
         </tr>
      </table>
@@ -107,30 +107,103 @@
   });
 
 function addVideoToTable(table, title, channel) {
-  let regex = RegExp('^([0-9a-zA-Z\s\.&]*) - (.*)','gm');
-  // console.log(title);
-  // console.log(regex.test(title)); //todo use regex to filter
+  let artAndSong = getArtistsAndSong(title);
 
-  let titleTokens = title.split(' - ');
-
-  if(titleTokens.length == 2){
-    let row = table.insertRow(-1);
-    row.setAttribute('class', channel);
-    let channelCell = row.insertCell(0);
-    let artistCell = row.insertCell(1);
-    let songCell = row.insertCell(2);
-
-    let artist = titleTokens[0];
-    let song = titleTokens[1];
-
-    let artistText = document.createTextNode(artist);
-    let songText = document.createTextNode(song);
-    let channelText = document.createTextNode(channel);
-
-    artistCell.appendChild(artistText);
-    songCell.appendChild(songText);
-    channelCell.appendChild(channelText);
+  if(artAndSong.artists.length == 0){
+    return;
   }
+
+  let row = table.insertRow(-1);
+  row.setAttribute('class', channel);
+  let channelCell = row.insertCell(0);
+  let artistCell = row.insertCell(1);
+  let songCell = row.insertCell(2);
+
+  let artistText = document.createTextNode(artAndSong.artists.join(', '));
+  let songText = document.createTextNode(artAndSong.song);
+  let channelText = document.createTextNode(channel);
+
+  artistCell.appendChild(artistText);
+  songCell.appendChild(songText);
+  channelCell.appendChild(channelText);
+}
+
+
+
+function getArtistsAndSong(title){
+  let regex = /^([0-9a-zA-Z\s\.&']*) [-|] ([0-9a-zA-Z\s\.&"']*)/g;
+  let match = regex.exec(title);
+  
+  let artistsAndSong = {};
+  let artists = [];
+  let song;
+
+
+  let artistGroup = match[1];
+  let songGroup = match[2];
+
+  let checkOne = checkGroupForFt(artistGroup, ' Feat. ', true);
+  let checkTwo = checkGroupForFt(artistGroup, ' ft. ', true);
+  let checkThree = checkGroupForFt(songGroup, ' Feat. ', false);
+  let checkFour = checkGroupForFt(songGroup, ' ft. ', false);
+
+
+  artists = artists.concat(checkOne.artists);
+  artists = artists.concat(checkTwo.artists);
+  artists = artists.concat(checkThree.artists);
+  artists = artists.concat(checkFour.artists);
+
+  if(checkOne.song != undefined) song = checkOne.song;
+  if(checkTwo.song != undefined) song = checkTwo.song;
+  if(checkThree.song != undefined) song = checkThree.song;
+  if(checkFour.song != undefined) song = checkFour.song;
+
+  artists = artists.filter(function(item, index) {
+    if (artists.indexOf(item) == index){
+      return item;
+    }
+  });
+
+  song = song.replace(/"/g,"");
+
+  return {artists: artists, song: song};
+}
+
+function checkGroupForFt(group, featString, isArtistGroup){
+  let foundArtists = [];
+  let song;
+
+  if(group.includes(featString)){
+    let groupTokens = group.split(featString);
+    
+    if(isArtistGroup){
+      foundArtists.push(groupTokens[0]); //add original singer
+    }else{
+      song = groupTokens[0];
+    }
+    let feat = groupTokens[1];
+
+    if(feat.includes(' & ')){
+      let featArtists = feat.split(' & ');
+      for(let i in featArtists){
+        foundArtists.push(featArtists[i]);
+      }
+    }else{
+      foundArtists.push(feat); // if feat artist is only one person whole group is the feat artist
+    }
+  }else if(isArtistGroup && !group.toLowerCase().includes(' ft. ')){
+      foundArtists.push(group); //if there isnt a feat artist whole group is the artist
+  }else{
+    if(group.includes(' Feat. ')){
+      song = group.split(' Feat. ')[0];
+    }else if(group.includes(' ft. ')){
+      song = group.split(' ft. ')[0];
+    }else{
+      song = group;
+    }
+  }
+
+  return {artists: foundArtists, song: song};
 }
 
 function makeGetRequest(url, callback) {
