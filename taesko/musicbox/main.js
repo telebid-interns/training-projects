@@ -13,6 +13,43 @@ const global_subscriptions = {};
 let modifyingSubscriptions = false;
 
 
+const lockDecorator = (wrapped) => {
+    const decorated = (...args) => {
+        if (modifyingSubscriptions) {
+            throw ("already modifying subscriptions");
+        } else {
+            modifyingSubscriptions = true;
+            try {
+                wrapped(...args);
+            } finally {
+                modifyingSubscriptions = false;
+            }
+        }
+    };
+
+    return decorated;
+};
+
+const asyncLockDecorator = (wrapped) => {
+    const decorated = (...args) => {
+        let promise;
+        if (modifyingSubscriptions) {
+            promise = Promise.reject("already modifying subscriptions.");
+        } else {
+            modifyingSubscriptions = true;
+            promise = wrapped(...args);
+            promise.then(unlock, unlock);
+        }
+        return promise;
+    };
+
+    const unlock = () => {
+        modifyingSubscriptions = false;
+    };
+
+    return decorated;
+};
+
 
 class SystemError extends Error {
     constructor (message) {
@@ -562,9 +599,11 @@ const UrlList = {
         let newItem = itemTemplate.cloneNode(true);
 
         newItem.childNodes[0].nodeValue = sub.title;
-        newItem.childNodes[1].addEventListener('click', function (event) {
-            unsubscribe(sub.originalUrl);
-        });
+        newItem.childNodes[1].addEventListener('click',
+            lockDecorator(() => {
+                unsubscribe(sub.originalUrl);
+            }
+        ));
 
         newItem.classList.remove('hidden');
         newItem.removeAttribute('id');
@@ -612,26 +651,22 @@ function songIsInDateRange (song) {
 function setupSubEvents (form, button) {
     let modifyingSubscriptions = false;
 
-    async function processForm (e) {
-        console.log('form submit state', modifyingSubscriptions);
-        if (e.preventDefault)
-            e.preventDefault();
-        if (modifyingSubscriptions) {
-            return;
-        } else {
-            modifyingSubscriptions = true;
-        }
-
-        console.log('submitting form RIGHT NOW');
+    const submitUrls = asyncLockDecorator(async () => {
         let urls = parseUrlsFromString(
             document.getElementById('urls-input').value);
 
         for (let url of urls) {
             await subscribe(url);
         }
+    });
+
+    async function processForm (e) {
+        if (e.preventDefault)
+            e.preventDefault();
+
+        await submitUrls();
 
         // return false to prevent the default form behavior
-        modifyingSubscriptions = false;
         return false;
     }
 
@@ -641,18 +676,7 @@ function setupSubEvents (form, button) {
         form.addEventListener('submit', processForm);
     }
 
-    button.addEventListener('click',
-        () => {
-            console.log("current handling state", modifyingSubscriptions);
-            if (modifyingSubscriptions) {
-                return;
-            } else {
-                modifyingSubscriptions = true;
-                clearSubs();
-            }
-            modifyingSubscriptions = false;
-        },
-    );
+    button.addEventListener('click', lockDecorator(clearSubs));
 }
 
 window.onload = function () {
