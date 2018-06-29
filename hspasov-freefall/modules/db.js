@@ -1,8 +1,11 @@
-module.exports = (async () => {
+module.exports = (() => {
   const sqlite = require('sqlite');
   const { assertApp } = require('./error-handling');
+  let db;
 
-  const db = await sqlite.open('./freefall.db');
+  async function dbConnect () {
+    db = await sqlite.open('./freefall.db');
+  }
 
   function stringifyColumns (columns) {
     assertApp(
@@ -10,18 +13,21 @@ module.exports = (async () => {
       columns.length > 0,
       'Invalid argument columns.'
     );
+
     return columns.join(', ');
   }
 
   function select (columns, table) {
     assertApp(
-      table instanceof 'string',
+      typeof table === 'string',
       'Expected string for a name of table'
     );
+
     return db.all(`SELECT ${stringifyColumns(columns)} FROM ${table};`);
   }
 
   return {
-    select
+    select,
+    dbConnect
   };
 })();
