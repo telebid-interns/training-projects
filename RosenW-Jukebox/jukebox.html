@@ -113,12 +113,16 @@
                         album: '',
                         duration: '',
                         date: ''};
-        let artAndSong = extractArtistsAndSongFromTitle(videos[i].snippet.title);
+
+        let artAndSong = extractArtistsAndSongFromTitle(videos[i].snippet.title); //setting song and artsts
         videoObj.channelFoundOn = videos[i].snippet.channelTitle;
         videoObj.artists = artAndSong.artists;
         videoObj.song = artAndSong.song;
 
-        if(videoObj.artists.length > 0 && videoObj.song.length > 0){
+        let vidDate = videos[i].snippet.publishedAt;
+        videoObj.date = Date.parse(vidDate);
+
+        if(videoObj.artists.length > 0 && videoObj.song.length > 0){ //pushing valid data to array
           allVids.push(videoObj);
         }
       }
@@ -127,11 +131,49 @@
     });
   });
 
+function getLastWeek() {
+  let lastWeek = new Date();
+  lastWeek.setDate(lastWeek.getDate() - lastWeek.getDay());
+  return Date.parse(lastWeek);
+}
+function getLastMonth() {
+  let lastMonth = new Date();
+  lastMonth.setDate(1);
+  lastMonth.setMonth(lastMonth.getMonth()-1);
+  return Date.parse(lastMonth);
+}
+function getLastYear() {
+  let lastYear = new Date();
+  lastYear.setDate(1);
+  lastYear.setYear(lastYear.getYear()-1);
+  return Date.parse(lastYear);
+}
 
 function displayVideos(){
   cleanTable(); // use async await
   for(let i in allVids){
-    addVideoToTable(allVids[i]);
+    if(checkFilter(allVids[i].date)){
+      addVideoToTable(allVids[i]);
+    }
+  }
+}
+
+function checkFilter(checkDate){
+  let filterElement = document.getElementById('select-time');
+  let filterValue = filterElement.options[filterElement.selectedIndex].value;
+  console.log(filterValue);
+
+  if(filterValue == 'week'){
+    console.log('checking week');
+    return checkDate - getLastWeek() > 0;
+  }else if(filterValue == 'month'){
+    console.log('checking month');
+    return checkDate - getLastMonth() > 0;
+  }else if(filterValue == 'year'){
+    console.log('checking year');
+    return checkDate - getLastYear() > 0;
+  }else{
+    return true;
   }
 }
 
