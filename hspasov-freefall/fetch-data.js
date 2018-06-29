@@ -1,13 +1,25 @@
 (async () => {
   const { fromUnixTimestamp, toKiwiAPIDateFormat, today, dateMonthsFromNow } = require('./modules/date-format');
-  const { dbConnect, select } = require('./modules/db');
+  const { dbConnect, select, createNewDataFetch } = require('./modules/db');
   const { requestJSON } = require('./modules/request');
   const { assertApp, assertPeer } = require('./modules/error-handling');
   const isObject = require('./modules/is-object');
 
   await dbConnect();
-  const subscriptions = await select(['id', 'fly_from', 'fly_to'], 'subscriptions');
+  const subscriptions = await select('subscriptions', ['id', 'fly_from', 'fly_to']);
   console.log('subscriptions:', subscriptions);
+
+  // const result = await insert(
+  //   'airports',
+  //   ['iata_code', 'name', 'data_fetch_id'],
+  //   [
+  //     ['HND', 'Haneda', 1],
+  //     ['PAR', 'Paris', 1]
+  //   ]
+  // );
+
+  const newFetchResult = await createNewDataFetch();
+  console.log(newFetchResult.stmt.lastID);
 
   // TODO use JSON validator
 
