@@ -13,6 +13,8 @@ const global_subscriptions = {};
 let modifyingSubscriptions = false;
 
 
+// TODO put this at the subscribe/unsubscribe functions instead of closures around their usages
+// TODO fix nesting of lock decorators ?
 const lockDecorator = (wrapped) => {
     const decorated = (...args) => {
         if (modifyingSubscriptions) {
@@ -655,9 +657,9 @@ function setupSubEvents (form, button) {
         let urls = parseUrlsFromString(
             document.getElementById('urls-input').value);
 
-        for (let url of urls) {
-            await subscribe(url);
-        }
+        let promises = urls.map(subscribe);
+        
+        await Promise.all(promises);
     });
 
     async function processForm (e) {
