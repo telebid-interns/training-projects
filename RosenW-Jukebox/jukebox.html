@@ -24,6 +24,15 @@
      <button id='subBtn'> Subscribe </button>
      <br>
      <br>
+     <label>Show songs from: </label>
+     <select id="select-time">
+        <option value="week">Last Week</option>
+        <option value="month">Last Month</option>
+        <option value="year">Last Year</option>
+        <option value="all" selected>Whenever</option>
+     </select>
+     <br>
+     <br>
      <p>Channels subscribed to:</p>
      <ul id='channels'>
        
@@ -44,6 +53,7 @@
   let table = document.getElementById('infoTable');
   let button = document.getElementById('subBtn');
   let channelList = [];
+  let allVids = []
   
   button.addEventListener('click', function(){
     let xhr = new XMLHttpRequest();
@@ -80,14 +90,13 @@
         unsubBtn.innerHTML = "Unsub"
         unsubBtn.addEventListener("click", function(event){
           let chName = event.target.id.substr(6,);
-          console.log(channelList);
+
           channelList = channelList.filter(e => e !== chName);
           removeElement = document.getElementById("name-" + chName);
-          let rowsToRemove = document.getElementsByClassName(chName);
-          console.log(rowsToRemove);
-          //get all rows by class and remove
           removeElement.remove();
-          console.log(channelList);
+          
+          allVids = allVids.filter(e => e.channelFoundOn !== chName);
+          displayVideos();
         });
 
         pElement.appendChild(aElement);
@@ -96,41 +105,60 @@
       }
 
       let videos = data.items;
-      
-      for(let index in videos){
-        let currentTitle = videos[index].snippet.title;
-        let currentChannel = videos[index].snippet.channelTitle;
 
-        addVideoToTable(table, currentTitle, currentChannel);
+      for(let i in videos) {
+        let videoObj = {artists: [],
+                        channelFoundOn: '',
+                        song: '',
+                        album: '',
+                        duration: '',
+                        date: ''};
+        let artAndSong = extractArtistsAndSongFromTitle(videos[i].snippet.title);
+        videoObj.channelFoundOn = videos[i].snippet.channelTitle;
+        videoObj.artists = artAndSong.artists;
+        videoObj.song = artAndSong.song;
+
+        if(videoObj.artists.length > 0 && videoObj.song.length > 0){
+          allVids.push(videoObj);
+        }
       }
+
+      displayVideos();
     });
   });
 
-function addVideoToTable(table, title, channel) {
-  let artAndSong = getArtistsAndSong(title);
 
-  if(artAndSong.artists.length == 0){
-    return;
+function displayVideos(){
+  cleanTable(); // use async await
+  for(let i in allVids){
+    addVideoToTable(allVids[i]);
   }
+}
 
+function cleanTable(){
+  while (document.getElementsByTagName('tr')[1]) {
+    document.getElementsByTagName('tr')[1].remove();
+  }
+}
+
+function addVideoToTable(video) {
   let row = table.insertRow(-1);
   row.setAttribute('class', channel);
+
   let channelCell = row.insertCell(0);
   let artistCell = row.insertCell(1);
   let songCell = row.insertCell(2);
 
-  let artistText = document.createTextNode(artAndSong.artists.join(', '));
-  let songText = document.createTextNode(artAndSong.song);
-  let channelText = document.createTextNode(channel);
+  let artistText = document.createTextNode(video.artists.join(', '));
+  let songText = document.createTextNode(video.song);
+  let channelText = document.createTextNode(video.channelFoundOn);
 
   artistCell.appendChild(artistText);
   songCell.appendChild(songText);
   channelCell.appendChild(channelText);
 }
 
-
-
-function getArtistsAndSong(title){
+function extractArtistsAndSongFromTitle(title){
   let regex = /^([0-9a-zA-Z\s\.&']*) [-|] ([0-9a-zA-Z\s\.&"']*)/g;
   let match = regex.exec(title);
   
