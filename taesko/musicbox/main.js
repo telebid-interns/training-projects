@@ -1,17 +1,43 @@
 const MAX_VIDEO_RESULTS = 25;
 const YOUTUBE_CHANNEL_URL = 'https://www.youtube.com/user/';
 const LASTFM_API_URL = 'http://ws.audioscrobbler.com/2.0/';
+const LASTFM_API_KEY = 'c2933b27a78e04c4b094a1a094bc2c9c';
 
 const noContentParagraph = document.getElementById('no-content-message');
 const lastWeekFilter = document.getElementById('last-week-filter');
 const lastMonthFilter = document.getElementById('last-month-filter');
 const lastYearFilter = document.getElementById('last-year-filter');
 const eternityFilter = document.getElementById('eternity-filter');
-
 const global_subscriptions = {};
-
 let modifyingSubscriptions = false;
+let jsonpCounter = 0;
 
+
+function queryString(params) {
+    let string = '?';
+    for (let [key, entry] of Object.entries(params))
+        string += `${encodeURIComponent(key)}=${encodeURIComponent(entry)}&`;
+    return string;
+}
+
+
+function fetchJSONP(url, params) {
+    return new Promise((resolve, reject) => {
+        let callbackName = 'jsonp' + new Date().getTime() + jsonpCounter;
+
+        jsonpCounter += 1;
+        params['callback'] = callbackName;
+
+       // TODO reject bad jsondata
+       window[callbackName] = jsonData => {
+           resolve(jsonData);
+       };
+
+       let script = document.createElement('script');
+       script.src = url + queryString(params);
+       document.getElementsByTagName('head')[0].appendChild(script);
+    });
+}
 
 // TODO put this at the subscribe/unsubscribe functions instead of closures around their usages
 // TODO fix nesting of lock decorators ?
@@ -32,6 +58,7 @@ const lockDecorator = (wrapped) => {
     return decorated;
 };
 
+
 const asyncLockDecorator = (wrapped) => {
     const decorated = (...args) => {
         let promise;
@@ -51,6 +78,9 @@ const asyncLockDecorator = (wrapped) => {
 
     return decorated;
 };
+
+
+// TODO differentiate between messages that must be seen from an user and from a developer
 
 
 class SystemError extends Error {
@@ -86,10 +116,10 @@ class UserError extends ExternalError {
 async function getSubscription (url) {
     async function fetchChannel (url) {
         let channelInformation = {};
-        channelInformation.originalUrl = url;
-
         let identifiers = parseChannelFromYTUrl(url);
         let params = {};
+
+        channelInformation.originalUrl = url;
 
         if (identifiers.hasOwnProperty('id') && identifiers.id.length !== 0) {
             params = {
@@ -129,9 +159,10 @@ async function getSubscription (url) {
                     'id',
                     'contentDetails.relatedPlaylists.upload'],
                 response.result.items[0])
-        )
+        ) {
             throw new PeerError(
                 'Youtube API didn\'t properly provide information about channel');
+        }
 
         let item = response.result.items[0];
 
@@ -146,7 +177,9 @@ async function getSubscription (url) {
     async function fetchTracks (playlistId) {
         if (!hasChainedProperties(['playlistItems.list'], gapi.client.youtube))
             throw new PeerError(
-                'Youtube API failed to provide information about channel uploads. Reason: renamed properties of gapi.client.youtube');
+                `Youtube API failed to provide information about channel 
+                uploads. Reason: renamed properties of gapi.client.youtube`
+            );
 
         let response;
 
@@ -160,20 +193,24 @@ async function getSubscription (url) {
             console.log('Youtube API failed. Reason', reason);
 
             throw new PeerError(
-                'Youtube API failed to provide information about channel uploads. Reason: API call failed');
+                `Youtube API failed to provide information 
+                about channel uploads. Reason: API call failed`
+            );
         }
 
         let tracks = [];
         let failures = [];
 
         for (let item of response.result.items) {
-            if (!hasChainedProperties(
-                ['snippet.title', 'snippet.publishedAt'], item))
+            if (!hasChainedProperties(['snippet.title', 'snippet.publishedAt'], item)) {
                 throw new PeerError(
-                    'Youtube API failed to provide information about channel uploads. Reason: renamed properties of response.result.items');
+                    `Youtube API failed to provide information about channel uploads. 
+                    Reason: renamed properties of response.result.items`
+                );
+            }
 
             let parsed = parseTrackFromVideoTitle(item.snippet.title);
-            console.log('parsed', parsed);
+
             if (parsed.artist && parsed.track) {
                 tracks.push(
                     new Track({
@@ -187,6 +224,7 @@ async function getSubscription (url) {
                 failures.push(item.snippet.title);
             }
         }
+
         return {tracks, failures};
     }
 
@@ -256,56 +294,36 @@ class Track {
         this.publishedAt = publishedAt;
     }
 
-    trackInfoUrl () {
-        let params = {
+    trackInfoUrlParams () {
+        return {
             method: 'track.getInfo',
             format: 'json',
-            api_key: 'c2933b27a78e04c4b094a1a094bc2c9c',
+            api_key: LASTFM_API_KEY,
             artist: this.artistName,
             track: this.name,
         };
-        let string = 'http://ws.audioscrobbler.com/2.0/?';
-        for (let [key, entry] of Object.entries(params))
-            string += `${encodeURIComponent(key)}=${encodeURIComponent(
-                entry)}&`;
-        return string;
     }
 
     async loadData () {
+        console.log("loading data");
         let response;
 
         try {
-            response = await fetch(this.trackInfoUrl());
+            response = await fetchJSONP(LASTFM_API_URL, this.trackInfoUrlParams());
         } catch (error) {
-            throw PeerError('Couldn\'t fetch from LastFM API for track: ' +
-                this.name);
+            throw PeerError("there was a problem with the LastFM api for track " + this.name);
         }
+        console.log("response", response);
 
-        if (!response.ok) {
-            throw PeerError('LastFM api response is not OK for track: ' +
-                this.name);
-        }
-
-        let responseData;
-
-        try {
-            responseData = await response.json();
-        } catch {
-            throw new PeerError('LastFM api didn\'t provide valid json in it\'s response for track: ' +
-                this.name);
-        }
-
-        console.log('Last fm response', responseData);
-
-        if (!responseData.track)
+        if (!response.track)
             throw new PeerError('last.fm api doesn\'t have a track property in it\'s response for track: ' +
                 this.name);
 
-        this.name = responseData.track.name;
-        this.duration = responseData.track.duration;
-        this.url = responseData.track.url;
-        this.artistUrl = responseData.track.artist.url;
-        this.album = responseData.track.album;
+        this.name = response.track.name;
+        this.duration = response.track.duration;
+        this.url = response.track.url;
+        this.artistUrl = response.track.artist.url;
+        this.album = response.track.album;
     }
 }
 
@@ -333,6 +351,7 @@ function getProp (chainedProp, object, default_) {
             return default_;
         }
     }
+
     return object;
 }
 
@@ -345,6 +364,7 @@ async function subscribe (url) {
     if (global_subscriptions[sub.id]) {
         return;
     }
+
     global_subscriptions[sub.id] = sub;
     UrlList.display(sub);
 
@@ -352,9 +372,10 @@ async function subscribe (url) {
         try {
             await track.loadData();
         } catch (error) {
-            console.warn(error);
+            //console.warn(error);
             continue;
         }
+
         TableAPI.displayTrack(sub, track);
         TableAPI.showTable();
     }
@@ -380,7 +401,6 @@ function clearSubs () {
         delete global_subscriptions[key];
         UrlList.hide(sub);
     }
-    console.log("clearing subs finished");
 }
 
 function parseUrlsFromString (str) {
@@ -400,8 +420,6 @@ function parseUrlsFromString (str) {
 }
 
 function parseChannelFromYTUrl (url) {
-    let id;
-    let name;
     let idResult = new RegExp('www.youtube.com/channel/([^/]+)').exec(url); // TODO parses query params incorrectly
     let userResult = new RegExp('www.youtube.com/user/([^/]+)').exec(url);
 
@@ -410,17 +428,14 @@ function parseChannelFromYTUrl (url) {
             id: idResult[1],
             type: 'id',
         };
-    }
-    else if (userResult) {
+    } else if (userResult) {
         return {
             name: userResult[1],
             type: 'username',
         };
-    }
-    else {
+    } else {
         return {};
     }
-
 }
 
 function parseTrackFromVideoTitle (videoTitle) {
@@ -521,16 +536,16 @@ const TableAPI = {
         if (!TableAPI.rowElements[id]) {
             console.warn(
                 'Tried to hide a track that is already hidden. Track id: ', id);
+
             return;
         }
-        console.log("trying to remove track with id", id);
+
         TableAPI.rowElements[id].remove();
         delete TableAPI.rowElements[id];
     },
 
     hideSubscription: sub => {
         for (let track of sub.tracks) {
-            console.log("hiding track", track);
             TableAPI.hideTrackById(track.id);
         }
     },
@@ -614,19 +629,16 @@ const UrlList = {
     },
 
     display: sub => {
-        console.log('is displayed', UrlList.isDisplayed(sub));
         if (UrlList.isDisplayed(sub))
             return;
 
         let listItem = UrlList.newItem(sub);
-        console.log('item', listItem);
 
         document.getElementById('url-list').appendChild(listItem);
         UrlList.listElements.set(sub, listItem);
     },
 
     hide: sub => {
-        console.log('unsubscribing ', sub, ' from', UrlList.listElements);
         UrlList.listElements.get(sub).remove();
         UrlList.listElements.delete(sub);
     },
@@ -651,14 +663,11 @@ function songIsInDateRange (song) {
 }
 
 function setupSubEvents (form, button) {
-    let modifyingSubscriptions = false;
-
     const submitUrls = asyncLockDecorator(async () => {
         let urls = parseUrlsFromString(
             document.getElementById('urls-input').value);
-
         let promises = urls.map(subscribe);
-        
+
         await Promise.all(promises);
     });
 
@@ -681,6 +690,18 @@ function setupSubEvents (form, button) {
     button.addEventListener('click', lockDecorator(clearSubs));
 }
 
+function start () {
+    // Initializes the client with the API key and the Translate API.
+    gapi.client.init({
+        'apiKey': 'AIzaSyAHhFtmNEo9TwEN90p6yyZg43_4MKCiyyQ',
+        'discoveryDocs': ['https://www.googleapis.com/discovery/v1/apis/translate/v2/rest'],
+    });
+
+    gapi.client.load('youtube', 'v3', function () {
+        console.log('youtube loaded');
+    });
+}
+
 window.onload = function () {
     gapi.load('client', start);
 
@@ -699,15 +720,3 @@ window.onload = function () {
     // lastYearFilter.addEventListener('click', selectedFilter);
     // eternityFilter.addEventListener('click', selectedFilter);
 };
-
-function start () {
-    // Initializes the client with the API key and the Translate API.
-    gapi.client.init({
-        'apiKey': 'AIzaSyAHhFtmNEo9TwEN90p6yyZg43_4MKCiyyQ',
-        'discoveryDocs': ['https://www.googleapis.com/discovery/v1/apis/translate/v2/rest'],
-    });
-
-    gapi.client.load('youtube', 'v3', function () {
-        console.log('youtube loaded');
-    });
-}
