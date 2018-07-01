@@ -13,6 +13,14 @@ let modifyingSubscriptions = false;
 let jsonpCounter = 0;
 
 
+function hideElement(element) {
+    element.style.display = 'none';
+}
+
+function showElement(element) {
+    element.style.display = 'block';
+}
+
 function queryString(params) {
     let string = '?';
     for (let [key, entry] of Object.entries(params))
@@ -391,7 +399,7 @@ function unsubscribe (url) {
         alert('Already unsubscribed from ' + url);
     }
 
-    TableAPI.hideSubscription(sub);
+    TableAPI.removeSubscription(sub);
 }
 
 function clearSubs () {
@@ -471,12 +479,22 @@ const TableAPI = {
     tableBody: document.querySelector('table tbody'),
     tableItemTemplate: document.getElementById('table-row-template'),
     rowElements: {},
+    subFilterFuncs: {},
 
-    prepareChannelDialog: (dialog, songData) => {
-        dialog.getElementsByTagName(
-            'p')[0].textContent = songData.channel.title;
-        dialog.getElementsByTagName('a')[0].setAttribute(
-            'href', YOUTUBE_CHANNEL_URL + songData.channel.customUrl);
+    prepareChannelDialog: (dialog, sub) => {
+        dialog.getElementsByTagName('p')[0]
+            .textContent = sub.title;
+        dialog.getElementsByTagName('a')[0]
+            .setAttribute('href', YOUTUBE_CHANNEL_URL + sub.customUrl);
+    },
+
+    prepareArtistDialog: (dialog, track) => {
+        dialog.getElementsByTagName('p')[0]
+            .textContent = track.artistName + "'s last.fm page";
+        dialog.getElementsByTagName('a')[0]
+            .setAttribute('href', track.artistUrl);
+        dialog.getElementsByTagName('img')[0]
+            .setAttribute('src', track.artistImageUrl)
     },
 
     isTrackDisplayed: track => !!TableAPI.rowElements[track.id],
@@ -501,7 +519,6 @@ const TableAPI = {
         duration = (duration / 1000 / 60).toFixed(2).
             replace('.', ':').
             padStart(5, '0');
-        // duration = duration.slice(0, 4).replace('.', ':').padStart(5, '0');
 
         const rowData = [
             title,
@@ -519,20 +536,31 @@ const TableAPI = {
 
         let dialog = newRow.cells[0].getElementsByTagName('dialog')[0];
 
-        // TableAPI.prepareChannelDialog(dialog, song);
-        // newRow.cells[0].addEventListener('click', () => {
-        //     // does not work in firefox 60.0.2 for Ubunutu
-        //     if(dialog.showModal === undefined) {
-        //         throw SystemError("Dialog's are not supported in your browser");
-        //     }
-        //     dialog.showModal();
-        // });
+        TableAPI.prepareChannelDialog(dialog, sub);
+        TableAPI.prepareArtistDialog(dialog, track);
+
+        function dialogHook() {
+            let dialogs = this.getElementsByTagName('dialog');
+
+            if (dialogs === undefined || dialogs.length === 0)
+                throw new ApplicationError("Couldn't find dialog element for " + this);
+
+            // does not work in firefox 60.0.2 for Ubunutu
+            if(dialog.showModal === undefined) {
+                throw new SystemError("Dialog's are not supported in your browser");
+            }
+            dialog.showModal();
+        }
+        for(let k=0; k<2; k++) {
+            newRow.cells[k].addEventListener('click', dialogHook);
+        }
 
         TableAPI.rowElements[track.id] = newRow;
         TableAPI.tableBody.appendChild(newRow);
+        TableAPI.filterSongs();
     },
 
-    hideTrackById: id => {
+    removeTrackById: id => {
         if (!TableAPI.rowElements[id]) {
             console.warn(
                 'Tried to hide a track that is already hidden. Track id: ', id);
@@ -544,46 +572,26 @@ const TableAPI = {
         delete TableAPI.rowElements[id];
     },
 
-    hideSubscription: sub => {
+    removeSubscription: sub => {
         for (let track of sub.tracks) {
-            TableAPI.hideTrackById(track.id);
+            TableAPI.removeTrackById(track.id);
         }
     },
 
-    // filterSongs: (func) => {
-    //     console.log('TABLE API is filtering tracks.');
-    //
-    //     let filtered = Object.values(TableAPI.allSongs).
-    //         filter(ele => func(ele));
-    //
-    //     TableAPI.showAllSongs();
-    //     console.log('HIDING SONGS', filtered);
-    //     TableAPI.hideSongs(filtered);
-    // },
-    //
-    // showAllSongs: () => {
-    //     for (let row of TableAPI.table.rows) {
-    //         if (
-    //             row.classList.contains('hidden') &&
-    //             row.getAttribute('id') !== 'table-row-template'
-    //         ) {
-    //             row.classList.remove('hidden');
-    //         }
-    //     }
-    // },
-    //
-    // hideSongs: (songs) => {
-    //     for (let song of songs) {
-    //         for (let row of TableAPI.table.rows) {
-    //             if (
-    //                 row.getAttribute('data-song-id') === songId(song) &&
-    //                 !row.classList.contains('hidden')
-    //             ) {
-    //                 row.classList.add('hidden');
-    //             }
-    //         }
-    //     }
-    // },
+    filterSongs: () => {
+        for (let sub of Object.keys(TableAPI.subFilterFuncs)) {
+            let filterFunc = TableAPI.subFilterFuncs[sub];
+            for (let track of Object.keys(sub.tracks)) {
+                let element = TableAPI.rowElements[track.id];
+
+                if(filterFunc(track)) {
+                    showElement(element);
+                } else {
+                    hideElement(element);
+                }
+            }
+        }
+    },
 
     showTable: () => {
         TableAPI.table.classList.remove('hidden');
@@ -598,7 +606,7 @@ const TableAPI = {
 
     clearTable: () => {
         for (let trackId of Object.keys(TableAPI.rowElements))
-            TableAPI.hideTrackById(trackId);
+            TableAPI.removeTrackById(trackId);
 
         TableAPI.hideTable();
     },
