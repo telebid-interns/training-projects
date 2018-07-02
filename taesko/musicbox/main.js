@@ -237,15 +237,15 @@ async function getSubscription (url) {
         return {tracks, failures};
     }
 
-    async function fetchTrackInfo (tracks) {
-        let failures = {};
-        for (let track of tracks) {
-            track.loadData().
-                then(response => {}).
-                catch(reason => { failures[track.name] = reason; });
-        }
-        return {tracks: tracks, failures};
-    }
+    // async function fetchTrackInfo (tracks) {
+    //     let failures = {};
+    //     for (let track of tracks) {
+    //         track.loadData().
+    //             then(response => {}).
+    //             catch(reason => { failures[track.name] = reason; });
+    //     }
+    //     return {tracks: tracks, failures};
+    // }
 
     let subscription = getSubByFullUrl(url);
 
@@ -260,6 +260,8 @@ async function getSubscription (url) {
 
     subscription.tracks = trackResponse.tracks;
     subscription.failedToParse = trackResponse.failures;
+    subscription.filterFunc = (track => true);
+    subscription.filterElement = eternityFilter;
 
     // let {tracks, failures} = await fetchTrackInfo(subscription.tracks);
     //
@@ -300,7 +302,7 @@ class Track {
         this.name = title;
         this.artistName = artist;
         this.featuring = featuring;
-        this.publishedAt = publishedAt;
+        this.publishedAt = new Date(publishedAt);
     }
 
     trackInfoUrlParams () {
@@ -386,7 +388,7 @@ async function subscribe (url) {
         try {
             await track.loadData();
         } catch (error) {
-            //console.warn(error);
+            console.warn(error);
             continue;
         }
 
@@ -403,6 +405,7 @@ function unsubscribe (url) {
 
         if (option.value.toLowerCase() === url.toLowerCase()) {
             option.remove();
+            break;
         }
     }
 
@@ -424,8 +427,8 @@ function clearSubs () {
         UrlList.hide(sub);
     }
 
-    for (let k=0; k<subscriptionSelect.children.length; k++) {
-        subscriptionSelect.children[k].remove();
+    while(subscriptionSelect.firstChild) {
+        subscriptionSelect.removeChild(subscriptionSelect.firstChild);
     }
 }
 
@@ -497,7 +500,6 @@ const TableAPI = {
     tableBody: document.querySelector('table tbody'),
     tableItemTemplate: document.getElementById('table-row-template'),
     rowElements: {},
-    subFilterFuncs: {},
 
     prepareChannelDialog: (dialog, sub) => {
         dialog.getElementsByTagName('p')[0]
@@ -507,7 +509,6 @@ const TableAPI = {
     },
 
     prepareArtistDialog: (dialog, track) => {
-        dial = dialog;
         dialog.getElementsByTagName('p')[0]
             .textContent = track.artistName + "'s last.fm page";
         dialog.getElementsByTagName('a')[0]
@@ -523,6 +524,8 @@ const TableAPI = {
             console.warn(
                 'Track is already displayed but tried to display it again. Track: ',
                 track);
+            return;
+        } else if(!sub.filterFunc(track)) {
             return;
         }
 
@@ -576,7 +579,6 @@ const TableAPI = {
 
         TableAPI.rowElements[track.id] = newRow;
         TableAPI.tableBody.appendChild(newRow);
-        TableAPI.filterSongs();
     },
 
     removeTrackById: id => {
@@ -594,21 +596,6 @@ const TableAPI = {
     removeSubscription: sub => {
         for (let track of sub.tracks) {
             TableAPI.removeTrackById(track.id);
-        }
-    },
-
-    filterSongs: () => {
-        for (let sub of Object.keys(TableAPI.subFilterFuncs)) {
-            let filterFunc = TableAPI.subFilterFuncs[sub];
-            for (let track of Object.keys(sub.tracks)) {
-                let element = TableAPI.rowElements[track.id];
-
-                if(filterFunc(track)) {
-                    showElement(element);
-                } else {
-                    hideElement(element);
-                }
-            }
         }
     },
 
@@ -671,6 +658,10 @@ const UrlList = {
     },
 };
 
+function dateFilter(until) {
+    return track => track.publishedAt.getTime() <= until;
+}
+
 function songIsInDateRange (song) {
     let songDate = song.publishedAt;
     let dateRange = new Date();
@@ -690,15 +681,42 @@ function songIsInDateRange (song) {
 }
 
 function setupFiltering() {
+    const lastWeek = new Date();
+    const lastMonth = new Date();
+    const lastYear = new Date();
+
+    lastWeek.setDate(lastWeek.getDate() - 7);
+    lastMonth.setMonth(lastMonth.getMonth() - 1);
+    lastYear.setFullYear(lastYear.getFullYear() - 1);
+
+    filterFuncHash = {
+        'last-week-filter': dateFilter(lastWeek),
+        'last-month-filter': dateFilter(lastMonth),
+        'last-year-filter': dateFilter(lastYear),
+        'eternity-filter': (track => true)
+    };
+
     function selectedFilter (event) {
-        console.log('Filtering tracks');
+        if(!subscriptionSelect.options || subscriptionSelect.options.length === 0)
+            return;
+
         let sub_url = subscriptionSelect.options[subscriptionSelect.selectedIndex].value;
         let sub = getSubByFullUrl(sub_url);
-        sub.filter = event.target;
-        console.log("Selected sub");
-        // TableAPI.filterSongs(songIsInDateRange);
+        sub.filterFunc = filterFuncHash[event.target.getAttribute('id')];
+        sub.filterElement = event.target;
+    }
+    function selectedSubscription (event) {
+        if(!subscriptionSelect.options || subscriptionSelect.options.length === 0)
+            return;
+
+        let sub_url = subscriptionSelect.options[subscriptionSelect.selectedIndex].value;
+        let sub = getSubByFullUrl(sub_url);
+        if(sub.filterElement !== undefined) {
+            sub.filterElement.checked = true;
+        }
     }
 
+    subscriptionSelect.addEventListener('change', selectedSubscription);
     lastWeekFilter.addEventListener('click', selectedFilter);
     lastMonthFilter.addEventListener('click', selectedFilter);
     lastYearFilter.addEventListener('click', selectedFilter);
