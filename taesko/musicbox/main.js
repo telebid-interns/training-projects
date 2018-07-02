@@ -29,7 +29,6 @@ function fetchJSONP (url, params) {
         jsonpCounter += 1;
         params['callback'] = callbackName;
 
-        // TODO reject bad jsondata
         window[callbackName] = jsonData => {
             if (jsonData.error) {
                 reject(jsonData.message);
@@ -46,7 +45,7 @@ function fetchJSONP (url, params) {
 
 // TODO put this at the subscribe/unsubscribe functions instead of closures around their usages
 // TODO fix nesting of lock decorators ?
-const lockDecorator = (wrapped) => {
+function lockDecorator (wrapped) {
     return (...args) => {
         if (modifyingSubscriptions) {
             throw new BasicError('Please wait for subscriptions to load.',
@@ -62,11 +61,12 @@ const lockDecorator = (wrapped) => {
             modifyingSubscriptions = false;
         }
     };
-};
+}
 
-const asyncLockDecorator = (wrapped) => {
-    const decorated = (...args) => {
+function asyncLockDecorator (wrapped) {
+    function decorated (...args) {
         let promise;
+
         if (modifyingSubscriptions) {
             promise = Promise.reject('Please wait for subscriptions to load');
         } else {
@@ -74,15 +74,16 @@ const asyncLockDecorator = (wrapped) => {
             promise = wrapped(...args);
             promise.then(unlock, unlock);
         }
-        return promise;
-    };
 
-    const unlock = () => {
+        return promise;
+    }
+
+    function unlock () {
         modifyingSubscriptions = false;
-    };
+    }
 
     return decorated;
-};
+}
 
 function displayMessage (msg) {
     if (statusParagraph.timeout)
@@ -90,10 +91,10 @@ function displayMessage (msg) {
 
     statusParagraph.textContent = msg;
 
-    statusParagraph.timeout = setTimeout(() => {
-            statusParagraph.textContent = '';
-        },
-        5000);
+    statusParagraph.timeout = setTimeout(
+        () => statusParagraph.textContent = '',
+        5000,
+    );
 }
 
 class BasicError extends Error {
@@ -102,13 +103,6 @@ class BasicError extends Error {
 
         console.warn(...logArguments);
         displayMessage(userMessage);
-    }
-}
-
-class ApplicationError extends BasicError {
-    constructor (userMessage, ...logArguments) {
-        super(userMessage, ...logArguments);
-        alert(userMessage);
     }
 }
 
@@ -138,8 +132,9 @@ async function getSubscription (url) {
         }
 
         if (!hasChainedProperties(['client.youtube.channels.list'], gapi)) {
-            throw new BasicError(`We're sorry, but the applicaiton cannot download information about
-            your channels because Youtube broke their API contract`,
+            throw new BasicError(
+                `We're sorry, but the application cannot download information about
+                 ${url} because Youtube broke their API contract`,
                 'Missing client.youtube.channels.list property from gapi:',
                 gapi);
         }
@@ -149,8 +144,10 @@ async function getSubscription (url) {
         try {
             response = await gapi.client.youtube.channels.list(params);
         } catch (reason) {
-            throw new BasicError('Youtube API failed to provide information about channel. Reason: ' +
-                reason);
+            throw new BasicError(
+                `Couldn't download information about 
+                channel ${url} from the Youtube API.`,
+            );
         }
 
         if (
@@ -235,6 +232,7 @@ async function getSubscription (url) {
     async function fetchTrackInfo (tracks) {
         let failures = {};
         let successfulTracks = [];
+
         for (let track of tracks) {
             try {
                 await track.loadData();
@@ -243,17 +241,18 @@ async function getSubscription (url) {
                 failures[track.id] = error;
             }
         }
+
         return {tracks: successfulTracks, failures};
     }
 
     let subscription = getSubByFullURL(url);
 
-    if (subscription) {
+    if (subscription !== undefined)
         return subscription;
-    }
 
     // let errors propagate to the caller.
     subscription = await fetchChannel(url);
+
     let trackResponse = await fetchTracks(subscription.playlistId);
 
     subscription.tracks = trackResponse.tracks;
@@ -325,8 +324,10 @@ class Track {
         let response;
 
         try {
-            response = await fetchJSONP(LAST_FM_API_URL,
-                this.trackInfoUrlParams());
+            response = await fetchJSONP(
+                LAST_FM_API_URL,
+                this.trackInfoUrlParams(),
+            );
         } catch (error) {
             throw BasicError(
                 `Couldn't download data from last.fm for track: ${this.name}`,
@@ -342,7 +343,6 @@ class Track {
         this.duration = response.track.duration;
         this.url = response.track.url;
         this.artistUrl = response.track.artist.url;
-        this.artistImageUrl = '';
         this.album = response.track.album;
     }
 }
@@ -392,7 +392,6 @@ async function subscribe (url) {
     subscriptionSelect.appendChild(option);
     global_subscriptions[sub.id] = sub;
     UrlList.display(sub);
-
     TableAPI.displaySub(sub);
     TableAPI.showTable();
 }
@@ -413,15 +412,15 @@ function unsubscribe (url) {
         delete global_subscriptions[sub.id];
         UrlList.hide(sub);
     } else {
-        alert('Already unsubscribed from ' + url);
+        console.warn('Already unsubscribed from ', url);
     }
 
     TableAPI.removeSub(sub);
 }
 
 function clearSubs () {
-    console.log('clearing subs');
     TableAPI.clearTable();
+
     for (let [key, sub] of Object.entries(global_subscriptions)) {
         delete global_subscriptions[key];
         UrlList.hide(sub);
@@ -482,6 +481,7 @@ function parseTrackFromVideoTitle (videoTitle) {
 
     if (!result) {
         console.log('Could not parse title ' + videoTitle);
+
         return {};
     }
 
@@ -501,21 +501,6 @@ const TableAPI = {
     tableItemTemplate: document.getElementById('table-row-template'),
     rowElements: {},
 
-    prepareChannelDialog: (dialog, sub) => {
-        dialog.getElementsByTagName('p')[0].textContent = sub.title;
-        dialog.getElementsByTagName('a')[0].setAttribute(
-            'href', YOUTUBE_CHANNEL_URL + sub.customUrl);
-    },
-
-    prepareArtistDialog: (dialog, track) => {
-        dialog.getElementsByTagName('p')[0].textContent = track.artistName +
-            '\'s last.fm page';
-        dialog.getElementsByTagName('a')[0].setAttribute('href',
-            track.artistUrl);
-        dialog.getElementsByTagName('img')[0].setAttribute('src',
-            track.artistImageUrl);
-    },
-
     isSubDisplayed: sub => !!TableAPI.rowElements[sub.id],
 
     displaySub: sub => {
@@ -523,14 +508,14 @@ const TableAPI = {
             console.warn(
                 'Sub is already displayed but tried to display it again. Sub: ',
                 sub);
+
             return;
         }
 
         TableAPI.rowElements[sub.id] = [];
         for (let track of sub.tracks) {
-            if (!sub.filterFunc(track)) {
+            if (!sub.filterFunc(track))
                 continue;
-            }
 
             let row = trackToRow(sub, track);
 
@@ -538,18 +523,77 @@ const TableAPI = {
             TableAPI.tableBody.appendChild(row);
         }
 
-        function trackToRow (sub, track) {
-            let newRow = TableAPI.tableItemTemplate.cloneNode(true);
-            let title = getProp('title', sub, '');
-            let artistName = getProp('artistName', track, '');
-            let albumTitle = getProp('album.title', track, '');
-            let trackName = getProp('name', track);
-            let publishedAt = getProp('publishedAt', track);
-            let duration = parseInt(getProp('duration', track, '0'));
+        function hookDialogEvents (cell) {
+            let dialog = cell.getElementsByTagName('dialog')[0];
 
-            newRow.classList.remove('hidden');
-            newRow.removeAttribute('id');
+            if (!dialog)
+                return;
+
+            cell.addEventListener('click', () => {
+                // does not work in firefox 60.0.2 for Ubunutu
+                if (dialog.showModal === undefined) {
+                    throw new BasicError(`We're sorry but displaying extra 
+                    information is not supported in your browser. 
+                    Please use another (chrome).`);
+                }
+
+                dialog.showModal();
+            });
+        }
+
+        function prepareChannelCell (sub, track, cell) {
+            let link = cell.getElementsByTagName('a')[0];
+
+            link.textContent = getProp('title', sub, '');
+            link.setAttribute('href', YOUTUBE_CHANNEL_URL + sub.customUrl);
+        }
+
+        function prepareArtistCell (sub, track, cell) {
+            let link = cell.getElementsByTagName('a')[0];
+
+            link.textContent = track.artistName;
+            link.setAttribute('href', track.artistUrl);
+        }
+
+        function prepareAlbumCell (sub, track, cell) {
+            let title = getProp('album.title', track, '');
+            let titleElement = cell.getElementsByTagName('p')[0];
+            let dialog = cell.getElementsByTagName('dialog')[0];
+
+            titleElement.textContent = title;
+
+            if (hasChainedProperties(['album.image'], track)) {
+                let imageSrc = '';
+
+                for (let image of track.album.image) {
+                    if (image['#text'])
+                        imageSrc = image['#text'];
+                }
+
+                dialog.getElementsByTagName('img')[0].setAttribute('src',
+                    imageSrc);
+
+                hookDialogEvents(cell);
+            }
+        }
+
+        function prepareTrackCell (sub, track, cell) {
+            cell.appendChild(
+                document.createTextNode(getProp('name', track, '')),
+            );
+        }
+
+        function preparePublishedAtCell (sub, track, cell) {
+            let publishedAt = getProp('publishedAt', track, '');
             publishedAt = `${publishedAt.getFullYear()}-${publishedAt.getMonth()}-${publishedAt.getDate()}`;
+
+            cell.appendChild(
+                document.createTextNode(publishedAt),
+            );
+        }
+
+        function prepareDurationCell (sub, track, cell) {
+            let duration = parseInt(getProp('duration', track, '0'));
 
             if (duration !== 0) {
                 duration = (duration / 1000 / 60).toFixed(2).
@@ -559,48 +603,28 @@ const TableAPI = {
                 duration = '';
             }
 
-            const rowData = [
-                title,
-                artistName,
-                albumTitle,
-                trackName,
-                publishedAt,
-                duration,
+            cell.appendChild(
+                document.createTextNode(duration),
+            );
+        }
+
+        function trackToRow (sub, track) {
+            let newRow = TableAPI.tableItemTemplate.cloneNode(true);
+            const preparations = [
+                prepareChannelCell,
+                prepareArtistCell,
+                prepareAlbumCell,
+                prepareTrackCell,
+                preparePublishedAtCell,
+                prepareDurationCell,
             ];
 
             for (let k = 0; k < newRow.cells.length; k++) {
-                newRow.cells[k].appendChild(
-                    document.createTextNode(rowData[k]),
-                );
+                preparations[k](sub, track, newRow.cells[k]);
             }
 
-            let dialog = newRow.cells[0].getElementsByTagName('dialog')[0];
-
-            TableAPI.prepareChannelDialog(dialog, sub);
-            TableAPI.prepareArtistDialog(
-                newRow.cells[1].getElementsByTagName('dialog')[0], track);
-
-            function dialogHook () {
-                let dialogs = this.getElementsByTagName('dialog');
-
-                if (dialogs === undefined || dialogs.length === 0)
-                    throw new ApplicationError(
-                        `Oops, something really bad happened with the 
-                        application. You are free to refresh the page.`,
-                        'Missing dialog DOM elements from: ', this);
-
-                // does not work in firefox 60.0.2 for Ubunutu
-                if (dialog.showModal === undefined) {
-                    throw new BasicError(`We're sorry but displaying extra 
-                    information is not supported in your browser. 
-                    Please use another (chrome).`);
-                }
-                dialog.showModal();
-            }
-
-            for (let k = 0; k < 2; k++) {
-                newRow.cells[k].addEventListener('click', dialogHook);
-            }
+            newRow.classList.remove('hidden');
+            newRow.removeAttribute('id');
 
             return newRow;
         }
@@ -610,9 +634,8 @@ const TableAPI = {
         if (!TableAPI.rowElements[sub.id])
             return;
 
-        for (let row of TableAPI.rowElements[sub.id]) {
+        for (let row of TableAPI.rowElements[sub.id])
             row.remove();
-        }
 
         delete TableAPI.rowElements[sub.id];
     },
@@ -634,9 +657,9 @@ const TableAPI = {
     },
 
     clearTable: () => {
-        for (let sub of Object.keys(TableAPI.rowElements)) {
+        for (let sub of Object.keys(TableAPI.rowElements))
             TableAPI.removeSub(sub);
-        }
+
         TableAPI.hideTable();
     },
 
@@ -681,7 +704,7 @@ const UrlList = {
     },
 };
 
-function dateFilter (until) {
+function dateFilterUntil (until) {
     return track => {
         return track.publishedAt.getTime() >= until.getTime();
     };
@@ -697,9 +720,9 @@ function setupFiltering () {
     lastYear.setFullYear(lastYear.getFullYear() - 1);
 
     const filterFuncHash = {
-        'last-week-filter': dateFilter(lastWeek),
-        'last-month-filter': dateFilter(lastMonth),
-        'last-year-filter': dateFilter(lastYear),
+        'last-week-filter': dateFilterUntil(lastWeek),
+        'last-month-filter': dateFilterUntil(lastMonth),
+        'last-year-filter': dateFilterUntil(lastYear),
         'eternity-filter': (track => true),
     };
 
@@ -741,22 +764,6 @@ function setupSubEvents (form, button) {
         let promises = urls.map(subscribe);
 
         loadingParagraph.textContent = 'Loading...';
-        // Too slow
-        //
-        // let loading = true;
-        // let i = 0;
-        //
-        // let interval = setInterval(() => {
-        //     console.log("inside interval loading is", loading);
-        //     if (!loading) {
-        //         clearInterval(interval);
-        //         loadingParagraph.textContent = ("Done.");
-        //         return;
-        //     }
-        //     i = ++i % 4;
-        //     loadingParagraph.textContent = "Loading " + Array(i+1).join('.');
-        // },
-        //     2000);
 
         await Promise.all(promises);
 
