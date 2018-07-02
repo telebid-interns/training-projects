@@ -3,6 +3,8 @@ const YOUTUBE_CHANNEL_URL = 'https://www.youtube.com/user/';
 const LAST_FM_API_URL = 'http://ws.audioscrobbler.com/2.0/';
 const LAST_FM_API_KEY = 'c2933b27a78e04c4b094a1a094bc2c9c';
 
+const loadingParagraph = document.getElementById('loading-bar');
+const statusParagraph = document.getElementById('status-bar');
 const noContentParagraph = document.getElementById('no-content-message');
 const lastWeekFilter = document.getElementById('last-week-filter');
 const lastMonthFilter = document.getElementById('last-month-filter');
@@ -13,34 +15,32 @@ const global_subscriptions = {};
 let modifyingSubscriptions = false;
 let jsonpCounter = 0;
 
-
-function queryString(params) {
+function queryString (params) {
     let string = '?';
     for (let [key, entry] of Object.entries(params))
         string += `${encodeURIComponent(key)}=${encodeURIComponent(entry)}&`;
     return string;
 }
 
-
-function fetchJSONP(url, params) {
+function fetchJSONP (url, params) {
     return new Promise((resolve, reject) => {
         let callbackName = 'jsonp' + new Date().getTime() + jsonpCounter;
 
         jsonpCounter += 1;
         params['callback'] = callbackName;
 
-       // TODO reject bad jsondata
-       window[callbackName] = jsonData => {
-           if (jsonData.error) {
-               reject(jsonData.message);
-           } else {
-               resolve(jsonData);
-           }
-       };
+        // TODO reject bad jsondata
+        window[callbackName] = jsonData => {
+            if (jsonData.error) {
+                reject(jsonData.message);
+            } else {
+                resolve(jsonData);
+            }
+        };
 
-       let script = document.createElement('script');
-       script.src = url + queryString(params);
-       document.getElementsByTagName('head')[0].appendChild(script);
+        let script = document.createElement('script');
+        script.src = url + queryString(params);
+        document.getElementsByTagName('head')[0].appendChild(script);
     });
 }
 
@@ -49,7 +49,9 @@ function fetchJSONP(url, params) {
 const lockDecorator = (wrapped) => {
     return (...args) => {
         if (modifyingSubscriptions) {
-            throw ("already modifying subscriptions");
+            throw new BasicError('Please wait for subscriptions to load.',
+                'Attempted to modify subscriptions while they are locked.',
+                'Wrapped function:', wrapped);
         }
 
         modifyingSubscriptions = true;
@@ -62,12 +64,11 @@ const lockDecorator = (wrapped) => {
     };
 };
 
-
 const asyncLockDecorator = (wrapped) => {
     const decorated = (...args) => {
         let promise;
         if (modifyingSubscriptions) {
-            promise = Promise.reject("already modifying subscriptions.");
+            promise = Promise.reject('Please wait for subscriptions to load');
         } else {
             modifyingSubscriptions = true;
             promise = wrapped(...args);
@@ -83,37 +84,31 @@ const asyncLockDecorator = (wrapped) => {
     return decorated;
 };
 
+function displayMessage (msg) {
+    if (statusParagraph.timeout)
+        clearTimeout(statusParagraph.timeout);
 
-// TODO differentiate between messages that must be seen from an user and from a developer
+    statusParagraph.textContent = msg;
 
+    statusParagraph.timeout = setTimeout(() => {
+            statusParagraph.textContent = '';
+        },
+        5000);
+}
 
-class SystemError extends Error {
-    constructor (message) {
-        super(message);
+class BasicError extends Error {
+    constructor (userMessage, ...logArguments) {
+        super(userMessage);
+
+        console.warn(...logArguments);
+        displayMessage(userMessage);
     }
 }
 
-class ApplicationError extends Error {
-    constructor (message) {
-        super(message);
-    }
-}
-
-class ExternalError extends Error {
-    constructor (message) {
-        super(message);
-    }
-}
-
-class PeerError extends ExternalError {
-    constructor (message) {
-        super(message);
-    }
-}
-
-class UserError extends ExternalError {
-    constructor (message) {
-        super(message);
+class ApplicationError extends BasicError {
+    constructor (userMessage, ...logArguments) {
+        super(userMessage, ...logArguments);
+        alert(userMessage);
     }
 }
 
@@ -137,13 +132,16 @@ async function getSubscription (url) {
                 forUsername: identifiers.name,
             };
         } else {
-            throw new UserError(
-                `Youtube url - ${url} is not a link to a channel.`);
+            throw new BasicError(
+                `Youtube url - ${url} is not a link to a channel.`,
+                'User tried to subscribe to incorrect url:', url);
         }
 
         if (!hasChainedProperties(['client.youtube.channels.list'], gapi)) {
-            throw new PeerError(
-                `Youtube API is not behaving correctly. Missing gapi.client.youtube.channels.list`);
+            throw new BasicError(`We're sorry, but the applicaiton cannot download information about
+            your channels because Youtube broke their API contract`,
+                'Missing client.youtube.channels.list property from gapi:',
+                gapi);
         }
 
         let response;
@@ -151,7 +149,7 @@ async function getSubscription (url) {
         try {
             response = await gapi.client.youtube.channels.list(params);
         } catch (reason) {
-            throw new PeerError('Youtube API failed to provide information about channel. Reason: ' +
+            throw new BasicError('Youtube API failed to provide information about channel. Reason: ' +
                 reason);
         }
 
@@ -164,8 +162,9 @@ async function getSubscription (url) {
                     'contentDetails.relatedPlaylists.upload'],
                 response.result.items[0])
         ) {
-            throw new PeerError(
-                'Youtube API didn\'t properly provide information about channel');
+            throw new BasicError(`We're sorry but the app cannot provide information about this channel
+            because the Youtube broke their API contract.`,
+                'Missing properties in channels.list response.');
         }
 
         let item = response.result.items[0];
@@ -180,9 +179,11 @@ async function getSubscription (url) {
 
     async function fetchTracks (playlistId) {
         if (!hasChainedProperties(['playlistItems.list'], gapi.client.youtube))
-            throw new PeerError(
-                `Youtube API failed to provide information about channel 
-                uploads. Reason: renamed properties of gapi.client.youtube`
+            throw new BasicError(
+                `We're sorry but Youtube broke their API contract and our
+            application cannot function at the moment.`,
+                'Missing properties of playlistItems.list of gapi.client.youtube: ',
+                gapi.client.youtube,
             );
 
         let response;
@@ -194,11 +195,9 @@ async function getSubscription (url) {
                 playlistId: playlistId,
             });
         } catch (reason) {
-            console.log('Youtube API failed. Reason', reason);
-
-            throw new PeerError(
-                `Youtube API failed to provide information 
-                about channel uploads. Reason: API call failed`
+            throw new BasicError(
+                `We're but we cannot provide you with a list of tracks for this 
+                channel because Youtube's API is not running correctly.`,
             );
         }
 
@@ -206,10 +205,11 @@ async function getSubscription (url) {
         let failures = [];
 
         for (let item of response.result.items) {
-            if (!hasChainedProperties(['snippet.title', 'snippet.publishedAt'], item)) {
-                throw new PeerError(
-                    `Youtube API failed to provide information about channel uploads. 
-                    Reason: renamed properties of response.result.items`
+            if (!hasChainedProperties(['snippet.title', 'snippet.publishedAt'],
+                item)) {
+                throw new BasicError(
+                    `We're but we cannot provide you with a list of tracks for this 
+                channel because Youtube's API is not running correctly.`,
                 );
             }
 
@@ -249,7 +249,6 @@ async function getSubscription (url) {
     let subscription = getSubByFullURL(url);
 
     if (subscription) {
-        console.log('found existing sub', subscription);
         return subscription;
     }
 
@@ -268,10 +267,10 @@ async function getSubscription (url) {
         tracks.reduce(
             (prev, current) => {
                 prev[current.name] = current;
-                return prev
+                return prev;
             },
-            {}
-        )
+            {},
+        ),
     );
     subscription.failedToLoad = failures;
 
@@ -326,14 +325,18 @@ class Track {
         let response;
 
         try {
-            response = await fetchJSONP(LAST_FM_API_URL, this.trackInfoUrlParams());
+            response = await fetchJSONP(LAST_FM_API_URL,
+                this.trackInfoUrlParams());
         } catch (error) {
-            throw PeerError("there was a problem with the LastFM api for track " + this.name);
+            throw BasicError(
+                `Couldn't download data from last.fm for track: ${this.name}`,
+                'fetchJSONP raised error: ', error);
         }
 
         if (!response.track)
-            throw new PeerError('last.fm api doesn\'t have a track property in it\'s response for track: ' +
-                this.name);
+            throw new BasicError(`Couldn't download information for track 
+            ${this.name} because last.fm broke their API contract.`,
+                'Missing track property from response: ', response);
 
         this.name = response.track.name;
         this.duration = response.track.duration;
@@ -382,11 +385,12 @@ async function subscribe (url) {
         return;
     }
 
-    global_subscriptions[sub.id] = sub;
     let option = document.createElement('option');
+
     option.value = url;
     option.innerHTML = sub.title;
     subscriptionSelect.appendChild(option);
+    global_subscriptions[sub.id] = sub;
     UrlList.display(sub);
 
     TableAPI.displaySub(sub);
@@ -396,7 +400,7 @@ async function subscribe (url) {
 function unsubscribe (url) {
     let sub = getSubByFullURL(url);
 
-    for (let k=0; k < subscriptionSelect.children.length; k++) {
+    for (let k = 0; k < subscriptionSelect.children.length; k++) {
         let option = subscriptionSelect.children[k];
 
         if (option.value.toLowerCase() === url.toLowerCase()) {
@@ -416,14 +420,14 @@ function unsubscribe (url) {
 }
 
 function clearSubs () {
-    console.log("clearing subs");
+    console.log('clearing subs');
     TableAPI.clearTable();
     for (let [key, sub] of Object.entries(global_subscriptions)) {
         delete global_subscriptions[key];
         UrlList.hide(sub);
     }
 
-    while(subscriptionSelect.firstChild) {
+    while (subscriptionSelect.firstChild) {
         subscriptionSelect.removeChild(subscriptionSelect.firstChild);
     }
 }
@@ -498,33 +502,34 @@ const TableAPI = {
     rowElements: {},
 
     prepareChannelDialog: (dialog, sub) => {
-        dialog.getElementsByTagName('p')[0]
-            .textContent = sub.title;
-        dialog.getElementsByTagName('a')[0]
-            .setAttribute('href', YOUTUBE_CHANNEL_URL + sub.customUrl);
+        dialog.getElementsByTagName('p')[0].textContent = sub.title;
+        dialog.getElementsByTagName('a')[0].setAttribute(
+            'href', YOUTUBE_CHANNEL_URL + sub.customUrl);
     },
 
     prepareArtistDialog: (dialog, track) => {
-        dialog.getElementsByTagName('p')[0]
-            .textContent = track.artistName + "'s last.fm page";
-        dialog.getElementsByTagName('a')[0]
-            .setAttribute('href', track.artistUrl);
-        dialog.getElementsByTagName('img')[0]
-            .setAttribute('src', track.artistImageUrl)
+        dialog.getElementsByTagName('p')[0].textContent = track.artistName +
+            '\'s last.fm page';
+        dialog.getElementsByTagName('a')[0].setAttribute('href',
+            track.artistUrl);
+        dialog.getElementsByTagName('img')[0].setAttribute('src',
+            track.artistImageUrl);
     },
 
     isSubDisplayed: sub => !!TableAPI.rowElements[sub.id],
 
     displaySub: sub => {
         if (TableAPI.isSubDisplayed(sub)) {
-            console.warn('Sub is already displayed but tried to display it again. Sub: ', sub);
+            console.warn(
+                'Sub is already displayed but tried to display it again. Sub: ',
+                sub);
             return;
         }
 
         TableAPI.rowElements[sub.id] = [];
         for (let track of sub.tracks) {
-            if(!sub.filterFunc(track)) {
-                continue
+            if (!sub.filterFunc(track)) {
+                continue;
             }
 
             let row = trackToRow(sub, track);
@@ -533,7 +538,7 @@ const TableAPI = {
             TableAPI.tableBody.appendChild(row);
         }
 
-        function trackToRow(sub, track) {
+        function trackToRow (sub, track) {
             let newRow = TableAPI.tableItemTemplate.cloneNode(true);
             let title = getProp('title', sub, '');
             let artistName = getProp('artistName', track, '');
@@ -546,14 +551,13 @@ const TableAPI = {
             newRow.removeAttribute('id');
             publishedAt = `${publishedAt.getFullYear()}-${publishedAt.getMonth()}-${publishedAt.getDate()}`;
 
-            if(duration !== 0) {
-                duration = (duration / 1000 / 60).toFixed(2)
-                    .replace('.', ':')
-                    .padStart(5, '0');
+            if (duration !== 0) {
+                duration = (duration / 1000 / 60).toFixed(2).
+                    replace('.', ':').
+                    padStart(5, '0');
             } else {
-                duration = ''
+                duration = '';
             }
-
 
             const rowData = [
                 title,
@@ -573,21 +577,28 @@ const TableAPI = {
             let dialog = newRow.cells[0].getElementsByTagName('dialog')[0];
 
             TableAPI.prepareChannelDialog(dialog, sub);
-            TableAPI.prepareArtistDialog(newRow.cells[1].getElementsByTagName('dialog')[0], track);
+            TableAPI.prepareArtistDialog(
+                newRow.cells[1].getElementsByTagName('dialog')[0], track);
 
-            function dialogHook() {
+            function dialogHook () {
                 let dialogs = this.getElementsByTagName('dialog');
 
                 if (dialogs === undefined || dialogs.length === 0)
-                    throw new ApplicationError("Couldn't find dialog element for " + this);
+                    throw new ApplicationError(
+                        `Oops, something really bad happened with the 
+                        application. You are free to refresh the page.`,
+                        'Missing dialog DOM elements from: ', this);
 
                 // does not work in firefox 60.0.2 for Ubunutu
-                if(dialog.showModal === undefined) {
-                    throw new SystemError("Dialog's are not supported in your browser");
+                if (dialog.showModal === undefined) {
+                    throw new BasicError(`We're sorry but displaying extra 
+                    information is not supported in your browser. 
+                    Please use another (chrome).`);
                 }
                 dialog.showModal();
             }
-            for(let k=0; k<2; k++) {
+
+            for (let k = 0; k < 2; k++) {
                 newRow.cells[k].addEventListener('click', dialogHook);
             }
 
@@ -644,9 +655,9 @@ const UrlList = {
         newItem.childNodes[0].nodeValue = sub.title;
         newItem.childNodes[1].addEventListener('click',
             lockDecorator(() => {
-                unsubscribe(sub.originalUrl);
-            }
-        ));
+                    unsubscribe(sub.originalUrl);
+                },
+            ));
 
         newItem.classList.remove('hidden');
         newItem.removeAttribute('id');
@@ -670,13 +681,13 @@ const UrlList = {
     },
 };
 
-function dateFilter(until) {
+function dateFilter (until) {
     return track => {
-        return track.publishedAt.getTime() >= until.getTime()
-    }
+        return track.publishedAt.getTime() >= until.getTime();
+    };
 }
 
-function setupFiltering() {
+function setupFiltering () {
     const lastWeek = new Date();
     const lastMonth = new Date();
     const lastYear = new Date();
@@ -689,11 +700,12 @@ function setupFiltering() {
         'last-week-filter': dateFilter(lastWeek),
         'last-month-filter': dateFilter(lastMonth),
         'last-year-filter': dateFilter(lastYear),
-        'eternity-filter': (track => true)
+        'eternity-filter': (track => true),
     };
 
     function selectedFilter (event) {
-        if(!subscriptionSelect.options || subscriptionSelect.options.length === 0)
+        if (!subscriptionSelect.options || subscriptionSelect.options.length ===
+            0)
             return;
 
         let sub_url = subscriptionSelect.options[subscriptionSelect.selectedIndex].value;
@@ -702,13 +714,15 @@ function setupFiltering() {
         sub.filterElement = event.target;
         TableAPI.refresh(sub);
     }
+
     function selectedSubscription (event) {
-        if(!subscriptionSelect.options || subscriptionSelect.options.length === 0)
+        if (!subscriptionSelect.options || subscriptionSelect.options.length ===
+            0)
             return;
 
         let sub_url = subscriptionSelect.options[subscriptionSelect.selectedIndex].value;
         let sub = getSubByFullURL(sub_url);
-        if(sub.filterElement !== undefined) {
+        if (sub.filterElement !== undefined) {
             sub.filterElement.checked = true;
         }
     }
@@ -720,21 +734,45 @@ function setupFiltering() {
     eternityFilter.addEventListener('click', selectedFilter);
 }
 
-
 function setupSubEvents (form, button) {
     const submitUrls = asyncLockDecorator(async () => {
         let urls = parseUrlsFromString(
             document.getElementById('urls-input').value);
         let promises = urls.map(subscribe);
 
+        loadingParagraph.textContent = 'Loading...';
+        // Too slow
+        //
+        // let loading = true;
+        // let i = 0;
+        //
+        // let interval = setInterval(() => {
+        //     console.log("inside interval loading is", loading);
+        //     if (!loading) {
+        //         clearInterval(interval);
+        //         loadingParagraph.textContent = ("Done.");
+        //         return;
+        //     }
+        //     i = ++i % 4;
+        //     loadingParagraph.textContent = "Loading " + Array(i+1).join('.');
+        // },
+        //     2000);
+
         await Promise.all(promises);
+
+        loadingParagraph.textContent = '';
     });
 
     async function processForm (e) {
         if (e.preventDefault)
             e.preventDefault();
 
-        await submitUrls();
+        try {
+            await submitUrls();
+        } catch (reason) {
+            throw new BasicError(reason,
+                'Failed to submit urls while processing form');
+        }
 
         // return false to prevent the default form behavior
         return false;
