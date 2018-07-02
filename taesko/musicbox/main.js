@@ -1,7 +1,7 @@
 const MAX_VIDEO_RESULTS = 25;
 const YOUTUBE_CHANNEL_URL = 'https://www.youtube.com/user/';
-const LASTFM_API_URL = 'http://ws.audioscrobbler.com/2.0/';
-const LASTFM_API_KEY = 'c2933b27a78e04c4b094a1a094bc2c9c';
+const LAST_FM_API_URL = 'http://ws.audioscrobbler.com/2.0/';
+const LAST_FM_API_KEY = 'c2933b27a78e04c4b094a1a094bc2c9c';
 
 const noContentParagraph = document.getElementById('no-content-message');
 const lastWeekFilter = document.getElementById('last-week-filter');
@@ -13,14 +13,6 @@ const global_subscriptions = {};
 let modifyingSubscriptions = false;
 let jsonpCounter = 0;
 
-
-function hideElement(element) {
-    element.style.display = 'none';
-}
-
-function showElement(element) {
-    element.style.display = 'block';
-}
 
 function queryString(params) {
     let string = '?';
@@ -39,7 +31,11 @@ function fetchJSONP(url, params) {
 
        // TODO reject bad jsondata
        window[callbackName] = jsonData => {
-           resolve(jsonData);
+           if (jsonData.error) {
+               reject(jsonData.message);
+           } else {
+               resolve(jsonData);
+           }
        };
 
        let script = document.createElement('script');
@@ -51,20 +47,19 @@ function fetchJSONP(url, params) {
 // TODO put this at the subscribe/unsubscribe functions instead of closures around their usages
 // TODO fix nesting of lock decorators ?
 const lockDecorator = (wrapped) => {
-    const decorated = (...args) => {
+    return (...args) => {
         if (modifyingSubscriptions) {
             throw ("already modifying subscriptions");
-        } else {
-            modifyingSubscriptions = true;
-            try {
-                wrapped(...args);
-            } finally {
-                modifyingSubscriptions = false;
-            }
+        }
+
+        modifyingSubscriptions = true;
+
+        try {
+            wrapped(...args);
+        } finally {
+            modifyingSubscriptions = false;
         }
     };
-
-    return decorated;
 };
 
 
@@ -269,7 +264,15 @@ async function getSubscription (url) {
 
     let {tracks, failures} = await fetchTrackInfo(subscription.tracks);
 
-    subscription.tracks = tracks;
+    subscription.tracks = Object.values(
+        tracks.reduce(
+            (prev, current) => {
+                prev[current.name] = current;
+                return prev
+            },
+            {}
+        )
+    );
     subscription.failedToLoad = failures;
 
     return subscription;
@@ -313,22 +316,20 @@ class Track {
         return {
             method: 'track.getInfo',
             format: 'json',
-            api_key: LASTFM_API_KEY,
+            api_key: LAST_FM_API_KEY,
             artist: this.artistName,
             track: this.name,
         };
     }
 
     async loadData () {
-        console.log("loading data");
         let response;
 
         try {
-            response = await fetchJSONP(LASTFM_API_URL, this.trackInfoUrlParams());
+            response = await fetchJSONP(LAST_FM_API_URL, this.trackInfoUrlParams());
         } catch (error) {
             throw PeerError("there was a problem with the LastFM api for track " + this.name);
         }
-        console.log("response", response);
 
         if (!response.track)
             throw new PeerError('last.fm api doesn\'t have a track property in it\'s response for track: ' +
@@ -522,34 +523,44 @@ const TableAPI = {
 
         TableAPI.rowElements[sub.id] = [];
         for (let track of sub.tracks) {
+            if(!sub.filterFunc(track)) {
+                continue
+            }
+
             let row = trackToRow(sub, track);
+
             TableAPI.rowElements[sub.id].push(row);
             TableAPI.tableBody.appendChild(row);
         }
 
         function trackToRow(sub, track) {
-            if(!sub.filterFunc(track)) {
-                return undefined;
-            }
-
             let newRow = TableAPI.tableItemTemplate.cloneNode(true);
             let title = getProp('title', sub, '');
             let artistName = getProp('artistName', track, '');
             let albumTitle = getProp('album.title', track, '');
             let trackName = getProp('name', track);
-            let duration = getProp('duration', track, 0);
+            let publishedAt = getProp('publishedAt', track);
+            let duration = parseInt(getProp('duration', track, '0'));
 
             newRow.classList.remove('hidden');
             newRow.removeAttribute('id');
-            duration = (duration / 1000 / 60).toFixed(2).
-            replace('.', ':').
-            padStart(5, '0');
+            publishedAt = `${publishedAt.getFullYear()}-${publishedAt.getMonth()}-${publishedAt.getDate()}`;
+
+            if(duration !== 0) {
+                duration = (duration / 1000 / 60).toFixed(2)
+                    .replace('.', ':')
+                    .padStart(5, '0');
+            } else {
+                duration = ''
+            }
+
 
             const rowData = [
                 title,
                 artistName,
                 albumTitle,
                 trackName,
+                publishedAt,
                 duration,
             ];
 
@@ -585,7 +596,6 @@ const TableAPI = {
     },
 
     removeSub: sub => {
-        console.log("removing subscription", sub);
         if (!TableAPI.rowElements[sub.id])
             return;
 
@@ -594,6 +604,11 @@ const TableAPI = {
         }
 
         delete TableAPI.rowElements[sub.id];
+    },
+
+    refresh: sub => {
+        TableAPI.removeSub(sub);
+        TableAPI.displaySub(sub);
     },
 
     showTable: () => {
@@ -656,25 +671,9 @@ const UrlList = {
 };
 
 function dateFilter(until) {
-    return track => track.publishedAt.getTime() <= until;
-}
-
-function songIsInDateRange (song) {
-    let songDate = song.publishedAt;
-    let dateRange = new Date();
-
-    if (lastWeekFilter.checked) {
-        dateRange.setDate(dateRange.getDate() - 7);
-    } else if (lastMonthFilter.checked) {
-        dateRange.setMonth(dateRange.getMonth() - 1);
-    } else if (lastYearFilter.checked) {
-        dateRange.setFullYear(dateRange.getFullYear() - 1);
-    } else {
-        // TODO assert
-        return false;
+    return track => {
+        return track.publishedAt.getTime() >= until.getTime()
     }
-
-    return songDate.getTime() <= dateRange.getTime();
 }
 
 function setupFiltering() {
@@ -686,7 +685,7 @@ function setupFiltering() {
     lastMonth.setMonth(lastMonth.getMonth() - 1);
     lastYear.setFullYear(lastYear.getFullYear() - 1);
 
-    filterFuncHash = {
+    const filterFuncHash = {
         'last-week-filter': dateFilter(lastWeek),
         'last-month-filter': dateFilter(lastMonth),
         'last-year-filter': dateFilter(lastYear),
@@ -701,6 +700,7 @@ function setupFiltering() {
         let sub = getSubByFullURL(sub_url);
         sub.filterFunc = filterFuncHash[event.target.getAttribute('id')];
         sub.filterElement = event.target;
+        TableAPI.refresh(sub);
     }
     function selectedSubscription (event) {
         if(!subscriptionSelect.options || subscriptionSelect.options.length === 0)
