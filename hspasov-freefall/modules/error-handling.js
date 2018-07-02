@@ -24,5 +24,6 @@ function assertPeer (assert, errMsg) {
 module.exports = {
   assertApp,
   assertPeer,
-  assertUser
+  assertUser,
+  UserError
 };

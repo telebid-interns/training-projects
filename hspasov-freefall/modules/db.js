@@ -1,11 +1,12 @@
 module.exports = (() => {
+  const path = require('path');
   const sqlite = require('sqlite');
   const { assertApp } = require('./error-handling');
   const isObject = require('./is-object');
   let db;
 
   async function dbConnect () {
-    db = await sqlite.open('./freefall.db');
+    db = await sqlite.open(path.join(__dirname, '../freefall.db'));
   }
 
   function assertDB () {

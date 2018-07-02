@@ -86,7 +86,7 @@
       xml: '0',
       locale: 'en',
       offset: '0',
-      limit: '30'
+      limit: '30' // TODO get not just 30 but the data for the next 3 months
     });
 
     assertPeer(

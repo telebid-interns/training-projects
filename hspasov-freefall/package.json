@@ -4,7 +4,7 @@
   "description": "FreeFall app backend",
   "main": "index.js",
   "scripts": {
-    "start": "",
+    "server": "semistandard && node server.js",
     "fetch": "semistandard && node fetch-data.js"
   },
   "repository": "https://github.com/hspasov/training-projects/tree/master/hspasov-freefall",
@@ -12,6 +12,10 @@
   "license": "MIT",
   "dependencies": {
     "js-yaml": "^3.12.0",
+    "koa": "^2.5.1",
+    "koa-bodyparser": "^4.2.1",
+    "koa-logger": "^3.2.0",
+    "koa-router": "^7.4.0",
     "moment": "^2.22.2",
     "node-fetch": "^2.1.2",
     "sqlite": "^2.9.2"
