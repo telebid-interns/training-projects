@@ -43,6 +43,10 @@
                     <input type="radio" name="uploaded-filters" id="eternity-filter" value="eternity" checked>
                     <label for="eternity-filter">Eternity</label>
                 </div>
+                <div class="">
+                    <label for="sub-select">For subscription: </label>
+                    <select id="sub-select"></select>
+                </div>
             </div>
         </form>
         <div class="row" id="url-controls">
@@ -69,9 +73,12 @@
                 <tbody>
                     <tr id="table-row-template" class="hidden">
                         <td scope="col"><dialog><a target="_blank"><p>Channel Name</p></a></dialog></td>
-                        <td scope="col"><dialog>
+                        <td scope="col">
+                            <dialog>
                             <a target="_blank"><p>Artist Last FM page</p></a>
-                            <img src="" alt="Image of artist"></dialog></td>
+                            <img src="" alt="Image of artist">
+                            </dialog>
+                        </td>
                         <td scope="col"><dialog></dialog></td>
                         <td scope="col"><dialog></dialog></td>
                         <td scope="col"></td>

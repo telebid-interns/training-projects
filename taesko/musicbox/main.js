@@ -8,6 +8,7 @@ const lastWeekFilter = document.getElementById('last-week-filter');
 const lastMonthFilter = document.getElementById('last-month-filter');
 const lastYearFilter = document.getElementById('last-year-filter');
 const eternityFilter = document.getElementById('eternity-filter');
+const subscriptionSelect = document.getElementById('sub-select');
 const global_subscriptions = {};
 let modifyingSubscriptions = false;
 let jsonpCounter = 0;
@@ -331,6 +332,7 @@ class Track {
         this.duration = response.track.duration;
         this.url = response.track.url;
         this.artistUrl = response.track.artist.url;
+        this.artistImageUrl = '';
         this.album = response.track.album;
     }
 }
@@ -374,6 +376,10 @@ async function subscribe (url) {
     }
 
     global_subscriptions[sub.id] = sub;
+    let option = document.createElement('option');
+    option.value = url;
+    option.innerHTML = sub.title;
+    subscriptionSelect.appendChild(option);
     UrlList.display(sub);
 
     for (let track of sub.tracks) {
@@ -392,6 +398,14 @@ async function subscribe (url) {
 function unsubscribe (url) {
     let sub = getSubByFullUrl(url);
 
+    for (let k=0; k < subscriptionSelect.children.length; k++) {
+        let option = subscriptionSelect.children[k];
+
+        if (option.value.toLowerCase() === url.toLowerCase()) {
+            option.remove();
+        }
+    }
+
     if (sub) {
         delete global_subscriptions[sub.id];
         UrlList.hide(sub);
@@ -408,6 +422,10 @@ function clearSubs () {
     for (let [key, sub] of Object.entries(global_subscriptions)) {
         delete global_subscriptions[key];
         UrlList.hide(sub);
+    }
+
+    for (let k=0; k<subscriptionSelect.children.length; k++) {
+        subscriptionSelect.children[k].remove();
     }
 }
 
@@ -489,6 +507,7 @@ const TableAPI = {
     },
 
     prepareArtistDialog: (dialog, track) => {
+        dial = dialog;
         dialog.getElementsByTagName('p')[0]
             .textContent = track.artistName + "'s last.fm page";
         dialog.getElementsByTagName('a')[0]
@@ -537,7 +556,7 @@ const TableAPI = {
         let dialog = newRow.cells[0].getElementsByTagName('dialog')[0];
 
         TableAPI.prepareChannelDialog(dialog, sub);
-        TableAPI.prepareArtistDialog(dialog, track);
+        TableAPI.prepareArtistDialog(newRow.cells[1].getElementsByTagName('dialog')[0], track);
 
         function dialogHook() {
             let dialogs = this.getElementsByTagName('dialog');
@@ -670,6 +689,23 @@ function songIsInDateRange (song) {
     return songDate.getTime() <= dateRange.getTime();
 }
 
+function setupFiltering() {
+    function selectedFilter (event) {
+        console.log('Filtering tracks');
+        let sub_url = subscriptionSelect.options[subscriptionSelect.selectedIndex].value;
+        let sub = getSubByFullUrl(sub_url);
+        sub.filter = event.target;
+        console.log("Selected sub");
+        // TableAPI.filterSongs(songIsInDateRange);
+    }
+
+    lastWeekFilter.addEventListener('click', selectedFilter);
+    lastMonthFilter.addEventListener('click', selectedFilter);
+    lastYearFilter.addEventListener('click', selectedFilter);
+    eternityFilter.addEventListener('click', selectedFilter);
+}
+
+
 function setupSubEvents (form, button) {
     const submitUrls = asyncLockDecorator(async () => {
         let urls = parseUrlsFromString(
@@ -717,14 +753,6 @@ window.onload = function () {
     let button = document.getElementById('unsubscribe-all-btn');
 
     setupSubEvents(form, button);
+    setupFiltering();
 
-    // function selectedFilter (event) {
-    //     console.log('Filtering tracks');
-    //     TableAPI.filterSongs(songIsInDateRange);
-    // }
-    //
-    // lastWeekFilter.addEventListener('click', selectedFilter);
-    // lastMonthFilter.addEventListener('click', selectedFilter);
-    // lastYearFilter.addEventListener('click', selectedFilter);
-    // eternityFilter.addEventListener('click', selectedFilter);
 };
