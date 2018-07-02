@@ -1,6 +1,6 @@
 @media screen and (min-width: 400px) {
     .fixed-form-height {
-        height:100px;
+        height: 50px;
     }
 
     #bootstrap-overrides .form-group * {

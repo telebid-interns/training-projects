@@ -48,39 +48,45 @@
         </div>
     </form>
     <div id="routes-container" class="row text-center">
-        <ul class="list-unstyled col-sm-12">
-            <li id="route-item-template" class="row hidden text-center centered-row">
-                <div class="col-sm-1">
-                    <span class="flight-price"></span>
+        <ul class="list-unstyled col-sm-12" id="all-routes-list">
+            <li id="flights-list-item-template" class="hidden">
+                <hr>
+                <div class="row">
+                    <span class="route-price"></span>
                 </div>
-                <div class="col-sm-2">
-                    <img class="airline-logo img-responsive center-block"
-                         src="https://www.designevo.com/res/templates/thumb_small/glorious-sunrise-aviation.png">
-                    <p class="airline-name text-center"></p>
-                </div>
-                <div class="col-sm-2 center-block text-center">
-                    <div class="row">
-                        <time class="departure-time"></time>
-                        <span class="middle-dash">-</span>
-                        <time class="arrival-time"></time>
-                        <span class="timezone"></span>
-                    </div>
-                    <div class="row">
-                        <time class="flight-date"></time>
-                    </div>
-                </div>
-                <div class="col-sm-8">
-                    <div>
-                        <div class="duration"></div>
-                        <div class="from-to-display"></div>
-                    </div>
-                </div>
+                <ul class="row">
+                    <li id="flight-item-template" class="row hidden text-center centered-row">
+                        <div class="col-sm-2">
+                            <img class="airline-logo img-responsive center-block"
+                                 src="https://www.designevo.com/res/templates/thumb_small/glorious-sunrise-aviation.png">
+                            <p class="airline-name text-center"></p>
+                        </div>
+                        <div class="col-sm-2 center-block text-center">
+                            <div class="row">
+                                <time class="departure-time"></time>
+                                <span class="middle-dash">-</span>
+                                <time class="arrival-time"></time>
+                                <span class="timezone"></span>
+                            </div>
+                            <div class="row">
+                                <time class="flight-date"></time>
+                            </div>
+                        </div>
+                        <div class="col-sm-8">
+                            <div>
+                                <div class="duration"></div>
+                                <div class="from-to-display"></div>
+                            </div>
+                        </div>
+                    </li>
+                </ul>
             </li>
         </ul>
     </div>
 </div>
 
 <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+<script src="https://cdn.jsdelivr.net/g/lodash@4(lodash.min.js)"></script>
 <script src="js/jquery-2.2.4.js"></script>
 <!-- Include all compiled plugins (below), or include individual files as needed -->
 <script src="css/bootstrap/js/bootstrap.min.js"></script>
