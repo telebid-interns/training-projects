@@ -237,17 +237,21 @@ async function getSubscription (url) {
         return {tracks, failures};
     }
 
-    // async function fetchTrackInfo (tracks) {
-    //     let failures = {};
-    //     for (let track of tracks) {
-    //         track.loadData().
-    //             then(response => {}).
-    //             catch(reason => { failures[track.name] = reason; });
-    //     }
-    //     return {tracks: tracks, failures};
-    // }
+    async function fetchTrackInfo (tracks) {
+        let failures = {};
+        let successfulTracks = [];
+        for (let track of tracks) {
+            try {
+                await track.loadData();
+                successfulTracks.push(track);
+            } catch (error) {
+                failures[track.id] = error;
+            }
+        }
+        return {tracks: successfulTracks, failures};
+    }
 
-    let subscription = getSubByFullUrl(url);
+    let subscription = getSubByFullURL(url);
 
     if (subscription) {
         console.log('found existing sub', subscription);
@@ -263,15 +267,15 @@ async function getSubscription (url) {
     subscription.filterFunc = (track => true);
     subscription.filterElement = eternityFilter;
 
-    // let {tracks, failures} = await fetchTrackInfo(subscription.tracks);
-    //
-    // subscription.tracks = tracks;
-    // subscription.failedToLoad = failures;
+    let {tracks, failures} = await fetchTrackInfo(subscription.tracks);
+
+    subscription.tracks = tracks;
+    subscription.failedToLoad = failures;
 
     return subscription;
 }
 
-function getSubByCustomurl (customUrl) {
+function getSubByCustomURL (customUrl) {
     customUrl = customUrl.toLowerCase();
 
     for (let sub of Object.values(global_subscriptions)) {
@@ -281,13 +285,13 @@ function getSubByCustomurl (customUrl) {
     }
 }
 
-function getSubByFullUrl (url) {
+function getSubByFullURL (url) {
     let parsed = parseChannelFromYTUrl(url);
 
     if (parsed.id && global_subscriptions[parsed.id]) {
         return global_subscriptions[parsed.id];
     } else if (parsed.name) {
-        let sub = getSubByCustomurl(parsed.name);
+        let sub = getSubByCustomURL(parsed.name);
 
         if (sub) {
             return sub;
@@ -384,21 +388,12 @@ async function subscribe (url) {
     subscriptionSelect.appendChild(option);
     UrlList.display(sub);
 
-    for (let track of sub.tracks) {
-        try {
-            await track.loadData();
-        } catch (error) {
-            console.warn(error);
-            continue;
-        }
-
-        TableAPI.displayTrack(sub, track);
-        TableAPI.showTable();
-    }
+    TableAPI.displaySub(sub);
+    TableAPI.showTable();
 }
 
 function unsubscribe (url) {
-    let sub = getSubByFullUrl(url);
+    let sub = getSubByFullURL(url);
 
     for (let k=0; k < subscriptionSelect.children.length; k++) {
         let option = subscriptionSelect.children[k];
@@ -416,7 +411,7 @@ function unsubscribe (url) {
         alert('Already unsubscribed from ' + url);
     }
 
-    TableAPI.removeSubscription(sub);
+    TableAPI.removeSub(sub);
 }
 
 function clearSubs () {
@@ -517,86 +512,88 @@ const TableAPI = {
             .setAttribute('src', track.artistImageUrl)
     },
 
-    isTrackDisplayed: track => !!TableAPI.rowElements[track.id],
+    isSubDisplayed: sub => !!TableAPI.rowElements[sub.id],
 
-    displayTrack: (sub, track) => {
-        if (TableAPI.isTrackDisplayed(track)) {
-            console.warn(
-                'Track is already displayed but tried to display it again. Track: ',
-                track);
-            return;
-        } else if(!sub.filterFunc(track)) {
+    displaySub: sub => {
+        if (TableAPI.isSubDisplayed(sub)) {
+            console.warn('Sub is already displayed but tried to display it again. Sub: ', sub);
             return;
         }
 
-        let newRow = TableAPI.tableItemTemplate.cloneNode(true);
-        let title = getProp('title', sub, '');
-        let artistName = getProp('artistName', track, '');
-        let albumTitle = getProp('album.title', track, '');
-        let trackName = getProp('name', track);
-        let duration = getProp('duration', track, 0);
+        TableAPI.rowElements[sub.id] = [];
+        for (let track of sub.tracks) {
+            let row = trackToRow(sub, track);
+            TableAPI.rowElements[sub.id].push(row);
+            TableAPI.tableBody.appendChild(row);
+        }
 
-        newRow.classList.remove('hidden');
-        newRow.removeAttribute('id');
-        duration = (duration / 1000 / 60).toFixed(2).
+        function trackToRow(sub, track) {
+            if(!sub.filterFunc(track)) {
+                return undefined;
+            }
+
+            let newRow = TableAPI.tableItemTemplate.cloneNode(true);
+            let title = getProp('title', sub, '');
+            let artistName = getProp('artistName', track, '');
+            let albumTitle = getProp('album.title', track, '');
+            let trackName = getProp('name', track);
+            let duration = getProp('duration', track, 0);
+
+            newRow.classList.remove('hidden');
+            newRow.removeAttribute('id');
+            duration = (duration / 1000 / 60).toFixed(2).
             replace('.', ':').
             padStart(5, '0');
 
-        const rowData = [
-            title,
-            artistName,
-            albumTitle,
-            trackName,
-            duration,
-        ];
+            const rowData = [
+                title,
+                artistName,
+                albumTitle,
+                trackName,
+                duration,
+            ];
 
-        for (let k = 0; k < newRow.cells.length; k++) {
-            newRow.cells[k].appendChild(
-                document.createTextNode(rowData[k]),
-            );
-        }
-
-        let dialog = newRow.cells[0].getElementsByTagName('dialog')[0];
-
-        TableAPI.prepareChannelDialog(dialog, sub);
-        TableAPI.prepareArtistDialog(newRow.cells[1].getElementsByTagName('dialog')[0], track);
-
-        function dialogHook() {
-            let dialogs = this.getElementsByTagName('dialog');
-
-            if (dialogs === undefined || dialogs.length === 0)
-                throw new ApplicationError("Couldn't find dialog element for " + this);
-
-            // does not work in firefox 60.0.2 for Ubunutu
-            if(dialog.showModal === undefined) {
-                throw new SystemError("Dialog's are not supported in your browser");
+            for (let k = 0; k < newRow.cells.length; k++) {
+                newRow.cells[k].appendChild(
+                    document.createTextNode(rowData[k]),
+                );
             }
-            dialog.showModal();
-        }
-        for(let k=0; k<2; k++) {
-            newRow.cells[k].addEventListener('click', dialogHook);
-        }
 
-        TableAPI.rowElements[track.id] = newRow;
-        TableAPI.tableBody.appendChild(newRow);
+            let dialog = newRow.cells[0].getElementsByTagName('dialog')[0];
+
+            TableAPI.prepareChannelDialog(dialog, sub);
+            TableAPI.prepareArtistDialog(newRow.cells[1].getElementsByTagName('dialog')[0], track);
+
+            function dialogHook() {
+                let dialogs = this.getElementsByTagName('dialog');
+
+                if (dialogs === undefined || dialogs.length === 0)
+                    throw new ApplicationError("Couldn't find dialog element for " + this);
+
+                // does not work in firefox 60.0.2 for Ubunutu
+                if(dialog.showModal === undefined) {
+                    throw new SystemError("Dialog's are not supported in your browser");
+                }
+                dialog.showModal();
+            }
+            for(let k=0; k<2; k++) {
+                newRow.cells[k].addEventListener('click', dialogHook);
+            }
+
+            return newRow;
+        }
     },
 
-    removeTrackById: id => {
-        if (!TableAPI.rowElements[id]) {
-            console.warn(
-                'Tried to hide a track that is already hidden. Track id: ', id);
-
+    removeSub: sub => {
+        console.log("removing subscription", sub);
+        if (!TableAPI.rowElements[sub.id])
             return;
+
+        for (let row of TableAPI.rowElements[sub.id]) {
+            row.remove();
         }
 
-        TableAPI.rowElements[id].remove();
-        delete TableAPI.rowElements[id];
-    },
-
-    removeSubscription: sub => {
-        for (let track of sub.tracks) {
-            TableAPI.removeTrackById(track.id);
-        }
+        delete TableAPI.rowElements[sub.id];
     },
 
     showTable: () => {
@@ -611,9 +608,9 @@ const TableAPI = {
     },
 
     clearTable: () => {
-        for (let trackId of Object.keys(TableAPI.rowElements))
-            TableAPI.removeTrackById(trackId);
-
+        for (let sub of Object.keys(TableAPI.rowElements)) {
+            TableAPI.removeSub(sub);
+        }
         TableAPI.hideTable();
     },
 
@@ -701,7 +698,7 @@ function setupFiltering() {
             return;
 
         let sub_url = subscriptionSelect.options[subscriptionSelect.selectedIndex].value;
-        let sub = getSubByFullUrl(sub_url);
+        let sub = getSubByFullURL(sub_url);
         sub.filterFunc = filterFuncHash[event.target.getAttribute('id')];
         sub.filterElement = event.target;
     }
@@ -710,7 +707,7 @@ function setupFiltering() {
             return;
 
         let sub_url = subscriptionSelect.options[subscriptionSelect.selectedIndex].value;
-        let sub = getSubByFullUrl(sub_url);
+        let sub = getSubByFullURL(sub_url);
         if(sub.filterElement !== undefined) {
             sub.filterElement.checked = true;
         }
