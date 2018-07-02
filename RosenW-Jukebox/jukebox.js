@@ -1,7 +1,8 @@
-  let API_KEY = 'AIzaSyDrLczSe8MEo3k5FAwo1Kc3fkn26NB-VUQ';
+  const YT_API_KEY = 'AIzaSyDrLczSe8MEo3k5FAwo1Kc3fkn26NB-VUQ';
+  const LAST_FM_API_KEY = '93c3430d5a7c70eb83e5f3b1ccdc71dd';
 
   let table = document.getElementById('infoTable');
-  let button = document.getElementById('subBtn');
+  let subBtn = document.getElementById('subBtn');
   let timeSelect = document.getElementById('select-time');
 
   let channelList = [];
@@ -13,8 +14,6 @@
     allVids = JSON.parse(localStorage.getItem('vids'));
     showChannels();
     displayVideos();
-    console.log(channelList);
-    console.log(allVids);
   }else{
     console.log('storage is not set, setting storage');
     updateLocalStorage();
@@ -24,13 +23,13 @@
     displayVideos();
   });
   
-  button.addEventListener('click', function(){
+  subBtn.addEventListener('click', function(){
     let xhr = new XMLHttpRequest();
     let linkTextbox = document.getElementById('channel');
     let link = linkTextbox.value;
     linkTextbox.value = "";
     let channelId = link.split('/channel/')[1];
-    let reqLink = 'https://www.googleapis.com/youtube/v3/search?channelId=' + channelId + '&key=' + API_KEY + '&part=snippet&type=video&maxResults=50&videoCategoryId=10';
+    let reqLink = 'https://www.googleapis.com/youtube/v3/search?channelId=' + channelId + '&key=' + YT_API_KEY + '&part=snippet&type=video&maxResults=50&videoCategoryId=10';
 
     makeGetRequest(reqLink, function(response){
       let data = JSON.parse(response);
@@ -47,14 +46,11 @@
 
       let videos = data.items;
 
-      saveVideosAsObj(videos);
-      updateLocalStorage();
-      showChannels();
-      displayVideos();
+      saveAndDisplayVids(videos);
     });
   });
 
-function saveVideosAsObj(videos){
+function saveAndDisplayVids(videos){
   for(let i in videos) {
     let videoObj = {artists: [],
                     channelFoundOn: '',
@@ -66,14 +62,45 @@ function saveVideosAsObj(videos){
     let artAndSong = extractArtistsAndSongFromTitle(videos[i].snippet.title); //setting song and artsts
     videoObj.channelFoundOn = videos[i].snippet.channelTitle;
     videoObj.artists = artAndSong.artists;
-    videoObj.song = artAndSong.song;
+    videoObj.song = artAndSong.song.trim();
 
-    let vidDate = videos[i].snippet.publishedAt;
-    videoObj.date = Date.parse(vidDate);
+    let lastfmReqLink = 'http://ws.audioscrobbler.com/2.0/?method=track.getInfo&api_key=' + LAST_FM_API_KEY + '&artist=' + videoObj.artists[0] + '&track=' + videoObj.song + '&format=json';
 
-    if(videoObj.artists.length > 0 && videoObj.song.length > 0){ //pushing valid data to array
-      allVids.push(videoObj);
-    }
+    makeGetRequest(lastfmReqLink, function(response){
+      let data = JSON.parse(response);
+      let album;
+      let duration;
+
+      if(data.message == "Track not found"){
+        album = "No information";
+        duration = "No information";
+      }else{
+        if(typeof data.track.album == "undefined"){
+          album = 'No information';
+        }else{
+          album = data.track.album.title;
+        }
+
+        if(typeof data.track.duration == "undefined" || data.track.duration == 0){
+          duration = 'No information';
+        }else{
+          duration = data.track.duration;
+        }
+      }
+
+      videoObj.album = album;
+      videoObj.duration = isNaN(duration) ? duration : millisToMinutesAndSeconds(duration);
+
+      let vidDate = videos[i].snippet.publishedAt;
+      videoObj.date = Date.parse(vidDate);
+
+      if(videoObj.artists.length > 0 && videoObj.song.length > 0){ //pushing valid data to array
+        allVids.push(videoObj);
+        updateLocalStorage();
+        showChannels();
+        displayVideos();
+      }
+    });
   }
 }
 
@@ -173,16 +200,22 @@ function addVideoToTable(video) {
   row.setAttribute('class', channel);
 
   let channelCell = row.insertCell(0);
-  let artistCell = row.insertCell(1);
-  let songCell = row.insertCell(2);
+  let songCell = row.insertCell(1);
+  let durationCell = row.insertCell(2);
+  let albumCell = row.insertCell(3);
+  let artistCell = row.insertCell(4);
 
   let artistText = document.createTextNode(video.artists.join(', '));
   let songText = document.createTextNode(video.song);
   let channelText = document.createTextNode(video.channelFoundOn);
+  let albumText = document.createTextNode(video.album);
+  let durationText = document.createTextNode(video.duration);
 
   artistCell.appendChild(artistText);
   songCell.appendChild(songText);
   channelCell.appendChild(channelText);
+  albumCell.appendChild(albumText);
+  durationCell.appendChild(durationText);
 }
 
 function extractArtistsAndSongFromTitle(title){
@@ -270,4 +303,10 @@ function makeGetRequest(url, callback) {
   }
   xmlHttp.open("GET", url, true);
   xmlHttp.send(null);
+}
+
+function millisToMinutesAndSeconds(millis) {
+  let minutes = Math.floor(millis / 60000);
+  let seconds = ((millis % 60000) / 1000).toFixed(0);
+  return minutes + ":" + (seconds < 10 ? '0' : '') + seconds;
 }
