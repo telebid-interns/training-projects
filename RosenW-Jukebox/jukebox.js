@@ -60,13 +60,15 @@ function saveAndDisplayVids (videos) {
 
     let artAndSong = extractArtistsAndSongFromTitle(videos[i].snippet.title); // setting song and artsts
 
-    if (typeof artAndSong === 'undefined') {
+    if (typeof artAndSong === 'undefined' || artAndSong.artists.length === 0) {
       continue;
     }
 
     videoObj.channelFoundOn = videos[i].snippet.channelTitle;
     videoObj.artists = artAndSong.artists;
     videoObj.song = artAndSong.song.trim();
+
+    console.log(videoObj);
 
     let lastfmReqLink = 'http://ws.audioscrobbler.com/2.0/?method=track.getInfo&api_key=' + LAST_FM_API_KEY + '&artist=' + videoObj.artists[0].trim() + '&track=' + videoObj.song + '&format=json';
 
