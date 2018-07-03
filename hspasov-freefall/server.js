@@ -9,6 +9,8 @@ const db = require('./modules/db.js');
 const app = new Koa();
 const router = new Router();
 
+db.dbConnect();
+
 app.use(logger());
 app.use(bodyParser({
   extendTypes: {
@@ -19,11 +21,11 @@ app.use(bodyParser({
 
 app.context.db = db;
 
-router.post('/', (ctx, next) => {
+router.post('/', async (ctx, next) => {
   const normalized = normalize(ctx.request.body, ctx.headers['content-type'], ctx.query.format);
   const method = resolveMethod(normalized);
 
-  method.execute(normalized.params, ctx.db);
+  await method.execute(normalized.params, ctx.db);
 });
 
 router.get('/', (ctx, next) => {

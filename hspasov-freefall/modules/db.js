@@ -80,6 +80,75 @@ module.exports = (() => {
     return selectWhereColEquals('airlines', ['id'], 'code', airlineCode);
   }
 
+  async function selectRoutesFlights (fetchId) {
+    assertDB();
+    assertApp(
+      Number.isInteger(fetchId),
+      'Invalid fetch id.'
+    );
+
+    const routesFlights = await db.all(`
+
+      SELECT
+      routes.id AS routeId,
+      routes.booking_token AS bookingToken,
+      routes.price,
+      airlines.name AS airlineName,
+      airlines.logo_url AS logoURL,
+      afrom.name AS afromName,
+      ato.name AS atoName,
+      flights.dtime,
+      flights.atime,
+      flights.flight_number AS flightNumber,
+      routes_flights.is_return AS isReturn
+      FROM routes
+      LEFT JOIN routes_flights ON routes_flights.route_id = routes.id
+      LEFT JOIN flights ON routes_flights.flight_id = flights.id
+      LEFT JOIN airports as afrom ON afrom.id = flights.airport_from_id
+      LEFT JOIN airports as ato ON ato.id = flights.airport_to_id
+      LEFT JOIN airlines ON airlines.id = flights.airline_id
+      WHERE routes.fetch_id = ?;
+
+    `, [fetchId]);
+
+    assertApp(
+      Array.isArray(routesFlights),
+      'Invalid db routes and flights response.'
+    );
+
+    return routesFlights;
+  }
+
+  async function selectSubscription (airportFromId, airportToId) {
+    assertDB();
+    assertApp(
+      Number.isInteger(airportFromId) &&
+      Number.isInteger(airportToId),
+      'Invalid airport ids.'
+    );
+
+    const subscriptions = await db.all(`
+
+      SELECT fetches.id AS fetchId, fetches.timestamp FROM fetches
+      LEFT JOIN subscriptions ON fetches.subscription_id = subscriptions.id
+      WHERE subscriptions.airport_from_id = ? AND subscriptions.airport_to_id = ?
+      GROUP BY subscriptions.airport_from_id, subscriptions.airport_to_id
+      HAVING MAX(fetches.timestamp);
+
+    `, [airportFromId, airportToId]);
+
+    assertApp(
+      Array.isArray(subscriptions) &&
+      subscriptions.length === 1 &&
+      isObject(subscriptions[0]) &&
+      Number.isInteger(subscriptions[0].fetchId) &&
+      typeof subscriptions[0].timestamp === 'string',
+      'Invalid db select fetch response.'
+    );
+
+    return subscriptions[0];
+  }
+
   async function insert (table, columns, row) {
     assertDB();
     assertApp(
@@ -195,6 +264,8 @@ module.exports = (() => {
     insertRouteFlight,
     insertIfNotExistsAirline,
     selectAirport,
+    selectSubscription,
+    selectRoutesFlights,
     dbConnect
   };
 })();
