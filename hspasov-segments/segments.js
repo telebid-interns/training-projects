@@ -5,9 +5,9 @@ function assert(assertion, errMsg) {
 }
 
 const n = 20;
-const a = 2;
-const b = 5;
-const c = 2;
+const a = 3;
+const b = 2;
+const c = 1;
 
 assert(
   Number.isInteger(n) &&
@@ -41,14 +41,9 @@ for (let i = 0; i < points.length; i++) {
   }
 }
 
-let beginning = 0;
-
-for (let i = 1; i < points.length; i++) {
-  if (points[i]) {
-    if (i - beginning === c) {
-      redPaths.fill(true, beginning, i);
-    }
-    beginning = i;
+for (let i = 0; i < points.length - c; i++) {
+  if (points[i] && points[i + c]) {
+    redPaths.fill(true, i, i + c);
   }
 }
 
