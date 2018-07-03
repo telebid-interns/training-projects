@@ -1,6 +1,6 @@
 const MONTH_NAMES = [
     'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
+    'July', 'August', 'September', 'Octomber', 'November', 'December',
 ];
 const WEEK_DAYS = [
     'Monday',
@@ -12,11 +12,17 @@ const WEEK_DAYS = [
     'Sunday',
 ];
 
+let $errorBar;
+
+function displayErrorMessage (errMsg) {
+    $errorBar.text(errMsg);
+}
 
 class BaseError extends Error {
     constructor (userMessage, ...logs) {
         super(userMessage);
         console.warn(...logs);
+        displayErrorMessage(userMessage);
     }
 }
 
@@ -33,20 +39,23 @@ class PeerError extends BaseError {
     }
 }
 
-AIRPORT_MAP = {
-    'SOF': {
+AIRPORT_HASH = {
+    'SOF-airport-database-id': {
+        dbsID: 'SOF-airport-database-id',
         iataID: 'SOF',
         latinName: 'Sofia Airport',
         nationalName: 'Летище София',
         location: {latinName: 'Sofia'},
     },
-    'BBU': {
+    'BBU-airport-database-id': {
+        dbsID: 'BBU-airport-database-id',
         iataID: 'BBU',
         latinName: 'Aurel Vlaicu',
         nationalName: 'Aurel Vlaicu National',
         location: {latinName: 'Bucurest'},
     },
-    'HND': {
+    'HND-airport-database-id': {
+        dbsID: 'HND-airport-database-id',
         iataID: 'HND',
         latinName: 'Tokyo Haneda International Airport',
         nationalName: '',
@@ -55,7 +64,10 @@ AIRPORT_MAP = {
 };
 
 function getAirportByString (string) {
-    return string;
+    for (let airport of Object.values(AIRPORT_HASH)) {
+        if (string.toLowerCase() === airport.iataID.toLowerCase())
+            return airport;
+    }
 }
 
 const EXAMPLE_ROUTES = {
@@ -67,25 +79,25 @@ const EXAMPLE_ROUTES = {
             price: 170,
             route: [
                 {
-                    airpot_from: 'SOF',
-                    airport_to: 'BBU',
+                    airport_from: 'SOF-airport-database-id',
+                    airport_to: 'BBU-airport-database-id',
                     city_from: 'Sofia',
                     city_to: 'Bucarest',
                     dtime: '2018-06-28T16:30',
                     atime: '2018-06-28T17:00',
                     airline_logo: 'https://www.designevo.com/res/templates/thumb_small/glorious-sunrise-aviation.png',
-                    airline_name: 'International bureo of investigation of plane crashes',
+                    airline_name: 'International bureau of investigation of plane crashes',
                     flight_number: '414HU4KB4R',
                 },
                 {
-                    airport_from: 'BBU',
-                    airport_to: 'HND',
+                    airport_from: 'BBU-airport-database-id',
+                    airport_to: 'HND-airport-database-id',
                     city_from: 'Bucarest',
                     city_to: 'Tokyo',
                     dtime: '2018-07-01T06:30',
                     atime: '2018-07-01T12:30',
                     airline_logo: 'https://www.designevo.com/res/templates/thumb_small/glorious-sunrise-aviation.png',
-                    airline_name: 'International bureo of investigation of plane crashes',
+                    airline_name: 'International bureau of investigation of plane crashes',
                     flight_number: 'NAN1',
                 },
             ],
@@ -93,7 +105,7 @@ const EXAMPLE_ROUTES = {
     ],
 };
 
-function snakeToCamel(string) {
+function snakeToCamel (string) {
     let words = string.split('_');
     let top = words[0];
 
@@ -102,17 +114,16 @@ function snakeToCamel(string) {
     return top + words.map(_.capitalize).join('');
 }
 
-
-function switchStyle(json, converter) {
-    function switchHash(hash) {
-        return _.mapKeys(hash, (value, key) => converter(key))
+function switchStyle (json, converter) {
+    function switchHash (hash) {
+        return _.mapKeys(hash, (value, key) => converter(key));
     }
 
-    function switcher(json) {
+    function switcher (json) {
         let converted = switchHash(json);
 
         for (let [key, value] of Object.entries(converted)) {
-            if($.isPlainObject(value)) {
+            if ($.isPlainObject(value)) {
                 value = switcher(value);
             } else if (Array.isArray(value)) {
                 value = value.map(switcher);
@@ -129,6 +140,12 @@ function switchStyle(json, converter) {
 
 let jsonRPCRequestId = 1;
 
+/**
+ *
+ * @param {string} method
+ * @param {object} params
+ * @returns {Promise<*>}
+ */
 async function jsonRPCRequest (method, params) {
     let url = '10.20.1.155:3000/?format=json';
     let request = {
@@ -175,7 +192,13 @@ async function jsonRPCRequest (method, params) {
     return response;
 }
 
-async function fetchRoutes (
+/**
+ * Make a search method call to the server and retrieve possible routes
+ * All parameters must be JS primitives with their corresponding type in
+ * the API docs.
+ *
+ **/
+async function search (
     {
         flyFrom,
         flyTo,
@@ -186,49 +209,56 @@ async function fetchRoutes (
         sort,
         maxFlyDuration,
     }) {
-    let params = {
-        fly_from: flyFrom,
-        fly_to: flyTo,
-        price_to: priceTo,
-        currency: currency,
-        date_from: dateFrom,
-        date_to: dateTo,
-        sort: sort,
-        max_fly_duration: maxFlyDuration,
-    };
-    const requiredParams = ['fly_from', 'fly_to'];
-    const fixedParams = {sort: ['price', 'duration'], currency: ['USD', 'BGN']};
+    function validateParams (params) {
+        const required = ['fly_from', 'fly_to'];
+        const fixed = {sort: ['price', 'duration'], currency: ['USD', 'BGN']};
 
-    for (let requiredParam of requiredParams) {
-        if (Object.keys(params).indexOf(requiredParam) === -1 ||
-            params[requiredParam] === undefined)
-            throw new ApplicationError(
-                'An unexpected behaviour occurred. Please refresh the page.',
-                'Missing required keyword argument: ', requiredParam,
-                'to call of', fetchRoutes);
-    }
-
-    for (let [fixedParam, possibleStates] of Object.entries(fixedParams)) {
-        if (
-            Object.keys(params).indexOf(fixedParam) !== -1 &&
-            possibleStates.indexOf(params[fixedParam]) === -1
-        ) {
-            throw new ApplicationError(
-                'An unexpected behaviour occurred. Please refresh the page.',
-                'Paramater', fixedParam,
-                'is not one of:', fixedParams[fixedParam],
-                'instead got -', params[fixedParam]);
+        // TODO this might not be needed if the API can accept undefined values
+        for (let [key, value] of Object.entries(params)) {
+            if (value === undefined) {
+                delete params[key];
+            }
         }
-    }
 
-    // TODO is this needed ?
-    for (let [key, value] of Object.entries(params)) {
-        if (value === undefined) {
-            delete params[key];
+        for (let requiredParam of required) {
+            if (Object.keys(params).indexOf(requiredParam) === -1)
+                throw new ApplicationError(
+                    'An unexpected behaviour occurred. Please refresh the page.',
+                    'Missing required keyword argument: ', requiredParam,
+                    'to call of', search);
         }
+
+        for (let [fixedParam, possibleStates] of Object.entries(fixed)) {
+            if (
+                Object.keys(params).indexOf(fixedParam) !== -1 &&
+                possibleStates.indexOf(params[fixedParam]) === -1
+            ) {
+                throw new ApplicationError(
+                    'An unexpected behaviour occurred. Please refresh the page.',
+                    'Paramater', fixedParam,
+                    'is not one of:', fixed[fixedParam],
+                    'instead got -', params[fixedParam]);
+            }
+        }
+
+        return params;
     }
 
-    console.log("request paramaters are: ", params);
+    const params = validateParams(
+        {
+            fly_from: flyFrom,
+            fly_to: flyTo,
+            price_to: priceTo,
+            currency: currency,
+            date_from: dateFrom,
+            date_to: dateTo,
+            sort: sort,
+            max_fly_duration: maxFlyDuration,
+        },
+    );
+
+    console.log('request paramaters are: ', params);
+
     // let response = await jsonRPCRequest('search', params);
     let response = switchStyle(EXAMPLE_ROUTES, snakeToCamel);
 
@@ -240,52 +270,57 @@ async function fetchRoutes (
             flight.atime = new Date(flight.atime);
         }
     }
+
     return response;
 }
 
+function displayRoutes (
+    routes, $routesList, $routeItemTemplate, $flightItemTemplate,
+) {
+    $routesList.find('li:not(:first)').remove();
 
-function displayRoutes (routes, routesList, routeItemTemplate, flightItemTemplate) {
-    routesList.find('li:not(:first)').remove();
+    for (let route of routes.routes) {
+        let $clone = $routeItemTemplate.clone().
+            removeAttr('id').
+            removeClass('hidden');
+        let $routeList = $clone.find('ul');
+        let $newRoute = makeFlightList(route.route, $routeList,
+            $flightItemTemplate);
 
-    for(let route of routes.routes) {
-        let clone = routeItemTemplate.clone()
-            .removeAttr('id')
-            .removeClass('hidden');
-        let routeList = clone.find('ul');
-        let newRoute = makeFlightList(route.route, routeList, flightItemTemplate);
-
-        clone.find('.route-price').text(route.price);
-        routesList.append(clone.append(newRoute));
+        $clone.find('.route-price').text(route.price);
+        $routesList.append($clone.append($newRoute));
     }
 
-    function makeFlightList (route, list, flightItemTemplate) {
-        list.find('li:not(:first)').remove();
+    function makeFlightList (route, $list, $flightItemTemplate) {
+        $list.find('li:not(:first)').remove();
 
         for (let flight of route) {
-            list.append(makeListItem(flight, flightItemTemplate));
+            $list.append(makeListItem(flight, $flightItemTemplate));
         }
 
-        list.show();
+        $list.show();
 
-        return list;
+        return $list;
 
-        function makeListItem (flight, itemTemplate) {
-            let clone = itemTemplate.clone().
+        function makeListItem (flight, $itemTemplate) {
+            let $clone = $itemTemplate.clone().
                 removeAttr('id').
                 removeClass('hidden');
 
             let duration = flight.atime.getTime() - flight.dtime.getTime();
 
-            clone.find('.airline-logo').text(); // TODO fill
-            clone.find('.airline-name').text('example airline name');
-            clone.find('.departure-time').text(timeStringFromDate(flight.dtime));
-            clone.find('.arrival-time').text(timeStringFromDate(flight.atime));
-            clone.find('.flight-date').text(weeklyDateString(flight.dtime));
-            clone.find('.timezone').text('UTC');
-            clone.find('.duration').text(duration / 1000 / 60 / 60 + ' hours');
-            clone.find('.from-to-display').text(`${flight.cityFrom} -----> ${flight.cityTo}`);
+            $clone.find('.airline-logo').text(); // TODO fill
+            $clone.find('.airline-name').text('example airline name');
+            $clone.find('.departure-time').
+                text(timeStringFromDate(flight.dtime));
+            $clone.find('.arrival-time').text(timeStringFromDate(flight.atime));
+            $clone.find('.flight-date').text(weeklyDateString(flight.dtime));
+            $clone.find('.timezone').text('UTC');
+            $clone.find('.duration').text(duration / 1000 / 60 / 60 + ' hours');
+            $clone.find('.from-to-display').
+                text(`${flight.cityFrom} -----> ${flight.cityTo}`);
 
-            return clone;
+            return $clone;
         }
 
         function timeStringFromDate (date) {
@@ -301,41 +336,41 @@ function displayRoutes (routes, routesList, routeItemTemplate, flightItemTemplat
     }
 }
 
-function watchInputField (inputField, callback) {
+function watchInputField ($inputField, callback) {
     let lastValue = '';
 
     function callbackOnChange (event) {
-        let newVal = inputField.serialize();
+        let newVal = $inputField.serialize();
         if (newVal !== lastValue) {
             lastValue = newVal;
             callback(event);
         }
     }
 
-    inputField.on('keyup', callbackOnChange);
+    $inputField.on('keyup', callbackOnChange);
 }
 
-function setupAutoComplete ({hash, textInput, dataList}) {
+function setupAutoComplete ({hash, $textInput: $textInput, $dataList: $dataList}) {
     let keys = Object.keys(hash).sort();
-    watchInputField(textInput, hinter);
+    watchInputField($textInput, hinter);
 
     function hinter () {
         let minCharacters = 1;
         let maxSuggestions = 100;
 
-        if (textInput.val().length < minCharacters) {
+        if ($textInput.val().length < minCharacters) {
             return;
         }
 
-        dataList.empty();
+        $dataList.empty();
         let suggestionsCount = 0;
         for (let key of keys) {
             if (suggestionsCount === maxSuggestions)
                 break;
-            if (key.indexOf(textInput.val()) !== -1) {
+            if (key.indexOf($textInput.val()) !== -1) {
                 suggestionsCount += 1;
                 let newOption = `<option value="${key}">`;
-                dataList.append(newOption);
+                $dataList.append(newOption);
                 console.log('appended option');
             }
         }
@@ -344,48 +379,63 @@ function setupAutoComplete ({hash, textInput, dataList}) {
 }
 
 $(document).ready(() => {
-        let allRoutesList = $('#all-routes-list');
-        let flightsListTemplate = $('#flights-list-item-template');
-        let flightItemTemplate = $('#flight-item-template');
+    $errorBar = $('#errorBar');
+    let $allRoutesList = $('#all-routes-list');
+    let $flightsListTemplate = $('#flights-list-item-template');
+    let $flightItemTemplate = $('#flight-item-template');
 
-        let flightForm = $('#flight-form-input');
-        let flightFormData = '';
+    let $flightForm = $('#flight-form-input');
+    let flightFormData = '';
 
-        flightForm.on('submit',
-            async event => {
-                event.preventDefault();
+    $flightForm.on('submit',
+        async event => {
+            event.preventDefault();
 
-                if (flightForm.serialize() === flightFormData) {
-                    return;
-                }
+            if ($flightForm.serialize() === flightFormData) {
+                return;
+            }
 
-                flightFormData = flightForm.serialize();
+            flightFormData = $flightForm.serialize();
 
-                let flyFrom = getAirportByString($('#departure-input').val());
-                let flyTo = getAirportByString($('#arrival-input').val());
+            let flyFromString = $('#from-input').val();
+            let flyToString = $('#to-input').val();
+            let flyFrom = getAirportByString(flyFromString) || '';
+            let flyTo = getAirportByString(flyToString) || '';
 
-                displayRoutes(await fetchRoutes({flyFrom, flyTo}), allRoutesList, flightsListTemplate, flightItemTemplate);
+            if (!flyFrom) {
+                throw new BaseError(
+                    `${flyFrom} is not a location that has an airport!`,
+                    'User entered an invalid string in #departure-input - ',
+                    flyFrom);
+            } else if (!flyTo) {
+                throw new BaseError(
+                    `${flyTo} is not a location that has an airport!`,
+                    'User entered an invalid string in #arrival-input - ',
+                    flyTo);
+            }
 
-                return false;
-            });
+            displayRoutes(await search({flyFrom, flyTo}), $allRoutesList,
+                $flightsListTemplate, $flightItemTemplate);
 
-        let byNames = Object.values(AIRPORT_MAP).reduce((hash, airport) => {
-                hash[airport.latinName] = airport;
-                hash[airport.nationalName] = airport;
-                hash[airport.location.latinName] = airport;
-                return hash;
-            },
-            {});
-
-        setupAutoComplete({
-            hash: byNames,
-            textInput: $('#from-input'),
-            dataList: $('#from-airports'),
+            return false;
         });
-        setupAutoComplete({
-            hash: byNames,
-            textInput: $('#to-input'),
-            dataList: $('#to-airports'),
-        });
-    },
-);
+
+    let byNames = Object.values(AIRPORT_HASH).reduce((hash, airport) => {
+            hash[airport.latinName] = airport;
+            hash[airport.nationalName] = airport;
+            hash[airport.location.latinName] = airport;
+            return hash;
+        },
+        {});
+
+    setupAutoComplete({
+        hash: byNames,
+        $textInput: $('#from-input'),
+        $dataList: $('#from-airports'),
+    });
+    setupAutoComplete({
+        hash: byNames,
+        $textInput: $('#to-input'),
+        $dataList: $('#to-airports'),
+    });
+});
