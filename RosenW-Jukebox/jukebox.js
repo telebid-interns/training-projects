@@ -69,8 +69,6 @@ function saveAndDisplayVids (videos) {
     videoObj.artists = artAndSong.artists;
     videoObj.song = artAndSong.song.trim();
 
-    console.log(videoObj);
-
     let lastfmReqLink = 'http://ws.audioscrobbler.com/2.0/?method=track.getInfo&api_key=' + LAST_FM_API_KEY + '&artist=' + videoObj.artists[0].trim() + '&track=' + videoObj.song + '&format=json';
 
     makeGetRequest(lastfmReqLink, function (response) {
@@ -104,14 +102,15 @@ function saveAndDisplayVids (videos) {
       if (videoObj.artists.length > 0 && videoObj.song.length > 0) { // pushing valid data to array
         allVids.push(videoObj);
         updateLocalStorage();
-        showChannels();
         displayVideos();
       }
+      showChannels();
     });
   }
 }
 
 function showChannels () {
+  // in for fix ?
   let channelsElement = document.getElementById('channels');
   channelsElement.innerHTML = '';
 
@@ -317,7 +316,11 @@ function makeGetRequest (url, callback) {
   };
 
   xmlHttp.open('GET', url, true);
-  xmlHttp.send(null);
+  try {
+    xmlHttp.send(null);
+  } catch (err) {
+    console.log(err);
+  }
 }
 
 function millisToMinutesAndSeconds (millis) {
