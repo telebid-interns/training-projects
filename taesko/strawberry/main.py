@@ -1,4 +1,5 @@
-from pprint import pprint
+#!/usr/bin/python3
+import argparse
 
 
 class Berry:
@@ -66,12 +67,14 @@ def parse_input(string):
     garden = [[False] * columns] * rows
     garden = Berry.from_bitmap(garden)
 
+    print("Garden dimensions: ", rows, columns)
+
     for line in lines:
         row, col = line.split()
-        row = int(row)
-        col = int(col)
-        print("Infected: ", row, col)
+        row = int(row) - 1
+        col = int(col) - 1
         garden[row][col].infected = True
+        print("Infected: ", row, col)
 
     return garden, days
 
@@ -80,22 +83,21 @@ def print_garden(garden):
     for berries in garden:
         print([b.infected for b in berries])
 
+
 def healthy(garden):
     return sum(1 for berries in garden for berry in berries if not berry.infected)
 
 
 def main():
-    input_string = """8 10 2
-    4 8
-    2 7
-    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument('file', help="file with input")
+    args = parser.parse_args()
+    with open(args.file) as f:
+        input_string = f.read()
     garden, days = parse_input(input_string)
-    print_garden(garden)
     for day in range(days):
         garden = advance_day(garden)
-        # print("After {} days".format(day + 1))
-        # print_garden(garden)
-    print("Healthy are - ", healthy(garden))
+    print("After {} days healthy are - {}".format(days, healthy(garden)))
 
 
 if __name__ == '__main__':
