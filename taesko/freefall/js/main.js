@@ -98,7 +98,24 @@ const EXAMPLE_ROUTES = {
                     atime: '2018-07-01T12:30',
                     airline_logo: 'https://www.designevo.com/res/templates/thumb_small/glorious-sunrise-aviation.png',
                     airline_name: 'International bureau of investigation of plane crashes',
-                    flight_number: 'NAN1',
+                    flight_number: 'N4N1',
+                },
+            ],
+        },
+        {
+            booking_token: 'Solid booking token. Number two.',
+            price: 1700,
+            route: [
+                {
+                    airport_from: 'SOF-airport-database-id',
+                    airport_to: 'HND-airport-database-id',
+                    city_from: 'Sofia',
+                    city_to: 'Tokyo',
+                    dtime: '2018-06-28T18:30',
+                    atime: '2018-06-29T00:00',
+                    airline_logo: 'https://www.designevo.com/res/templates/thumb_small/glorious-sunrise-aviation.png',
+                    airline_name: 'International bureau of investigation of plane crashes',
+                    flight_number: 'SONIC',
                 },
             ],
         },
@@ -269,9 +286,23 @@ async function search (
             flight.dtime = new Date(flight.dtime);
             flight.atime = new Date(flight.atime);
         }
+
+        routeObj.dtime = routeObj.route[0].dtime;
+        routeObj.atime = routeObj.route[routeObj.route.length - 1].atime;
     }
 
     return response;
+}
+
+function timeStringFromDate (date) {
+    return `${date.getUTCHours()}:${date.getUTCMinutes()}`;
+}
+
+function weeklyDateString (date) {
+    let monthName = MONTH_NAMES[date.getMonth()];
+    let dayName = WEEK_DAYS[date.getDay()];
+
+    return `${dayName} ${date.getDate()} ${monthName}`;
 }
 
 function displayRoutes (
@@ -289,6 +320,18 @@ function displayRoutes (
 
         $clone.find('.route-price').text(route.price);
         $routesList.append($clone.append($newRoute));
+
+        let $timeElements = $clone.find('time');
+
+        $($timeElements[0]).attr('datetime', route.dtime).
+            text(weeklyDateString(route.dtime) + ' ' +
+                timeStringFromDate(route.dtime)
+            );
+        $($timeElements[1]).attr('datetime', route.dtime).
+            text(weeklyDateString(route.atime) + ' ' +
+                timeStringFromDate(route.atime)
+            );
+
     }
 
     function makeFlightList (route, $list, $flightItemTemplate) {
@@ -321,17 +364,6 @@ function displayRoutes (
                 text(`${flight.cityFrom} -----> ${flight.cityTo}`);
 
             return $clone;
-        }
-
-        function timeStringFromDate (date) {
-            return `${date.getUTCHours()}:${date.getUTCMinutes()}`;
-        }
-
-        function weeklyDateString (date) {
-            let monthName = MONTH_NAMES[date.getMonth()];
-            let dayName = WEEK_DAYS[date.getDay()];
-
-            return `${dayName} ${date.getDate()} ${monthName}`;
         }
     }
 }
