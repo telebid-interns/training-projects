@@ -1,4 +1,9 @@
 const MAX_VIDEO_RESULTS = 25;
+const YOUTUBE_API_URLS = {
+    'channels': 'https://www.googleapis.com/youtube/v3/channels',
+    'playlistItems': 'https://www.googleapis.com/youtube/v3/playlistItems',
+};
+const YOUTUBE_API_KEY = 'AIzaSyAHhFtmNEo9TwEN90p6yyZg43_4MKCiyyQ';
 const YOUTUBE_CHANNEL_URL = 'https://www.youtube.com/user/';
 const LAST_FM_API_URL = 'http://ws.audioscrobbler.com/2.0/';
 const LAST_FM_API_KEY = 'c2933b27a78e04c4b094a1a094bc2c9c';
@@ -17,8 +22,10 @@ let jsonpCounter = 0;
 
 function queryString (params) {
     let string = '?';
+
     for (let [key, entry] of Object.entries(params))
         string += `${encodeURIComponent(key)}=${encodeURIComponent(entry)}&`;
+
     return string;
 }
 
@@ -101,7 +108,7 @@ class BasicError extends Error {
     constructor (userMessage, ...logArguments) {
         super(userMessage);
 
-        console.warn(...logArguments);
+        console.warn(userMessage, ...logArguments);
         displayMessage(userMessage);
     }
 }
@@ -131,40 +138,59 @@ async function getSubscription (url) {
                 'User tried to subscribe to incorrect url:', url);
         }
 
-        if (!hasChainedProperties(['client.youtube.channels.list'], gapi)) {
+        params.key = YOUTUBE_API_KEY;
+
+        let raw_response;
+
+        try {
+            raw_response = await fetch(YOUTUBE_API_URLS.channels +
+                queryString(params));
+        } catch (reason) {
             throw new BasicError(
-                `We're sorry, but the application cannot download information about
-                 ${url} because Youtube broke their API contract`,
-                'Missing client.youtube.channels.list property from gapi:',
-                gapi);
+                `Couldn't download information about 
+                channel ${url} from the Youtube API.`,
+                'Youtube API raised error: ', reason,
+            );
+        }
+        if (!raw_response.ok) {
+            throw new BasicError(
+                `Couldn't download information about 
+                channel ${url} from the Youtube API.`,
+                'Youtube API response for fetch of params: ', params,
+                'Is not ok', 'Actual response code: ', raw_response.status,
+            );
         }
 
         let response;
 
         try {
-            response = await gapi.client.youtube.channels.list(params);
+            response = await raw_response.json();
         } catch (reason) {
             throw new BasicError(
                 `Couldn't download information about 
                 channel ${url} from the Youtube API.`,
+                'Couldn\'t get json body from response: ', response,
+                'While fetching data for url', url,
             );
         }
 
+        LATEST_RESPONSE = response;
         if (
-            !hasChainedProperties(['result.items'], response) &&
+            !hasChainedProperties(['items'], response) ||
+            response.items.length === 0 ||
             !hasChainedProperties([
                     'snippet.title',
                     'snippet.customUrl',
                     'id',
-                    'contentDetails.relatedPlaylists.upload'],
-                response.result.items[0])
+                    'contentDetails.relatedPlaylists.uploads'],
+                response.items[0])
         ) {
-            throw new BasicError(`We're sorry but the app cannot provide information about this channel
-            because the Youtube broke their API contract.`,
-                'Missing properties in channels.list response.');
+            throw new BasicError(
+                `We're sorry but the app cannot provide information about channel ${url}`,
+                'Missing properties in channels.list response:', response);
         }
 
-        let item = response.result.items[0];
+        let item = response.items[0];
 
         channelInformation.id = item.id;
         channelInformation.title = item.snippet.title;
@@ -175,33 +201,41 @@ async function getSubscription (url) {
     }
 
     async function fetchTracks (playlistId) {
-        if (!hasChainedProperties(['playlistItems.list'], gapi.client.youtube))
-            throw new BasicError(
-                `We're sorry but Youtube broke their API contract and our
-            application cannot function at the moment.`,
-                'Missing properties of playlistItems.list of gapi.client.youtube: ',
-                gapi.client.youtube,
-            );
-
-        let response;
+        let raw_response;
 
         try {
-            response = await gapi.client.youtube.playlistItems.list({
-                maxResults: MAX_VIDEO_RESULTS,
-                part: 'snippet,contentDetails',
-                playlistId: playlistId,
-            });
+            raw_response = await fetch(YOUTUBE_API_URLS.playlistItems
+                + queryString({
+                    key: YOUTUBE_API_KEY,
+                    maxResults: MAX_VIDEO_RESULTS,
+                    part: 'snippet,contentDetails',
+                    playlistId: playlistId,
+                }),
+            );
         } catch (reason) {
             throw new BasicError(
                 `We're but we cannot provide you with a list of tracks for this 
                 channel because Youtube's API is not running correctly.`,
+                'Youtube API for playlistItems failed. Reason: ', reason,
             );
+        }
+
+        let response;
+
+        try {
+            response = await raw_response.json();
+        } catch (reason) {
+            throw new BasicError(
+                `We're but we cannot provide you with a list of tracks for this 
+                channel because Youtube's API is not running correctly.`,
+                'Failed to decode json from Youtube API for playlistItems.',
+                'Reason: ', reason);
         }
 
         let tracks = [];
         let failures = [];
 
-        for (let item of response.result.items) {
+        for (let item of response.items) {
             if (!hasChainedProperties(['snippet.title', 'snippet.publishedAt'],
                 item)) {
                 throw new BasicError(
@@ -758,28 +792,32 @@ function setupFiltering () {
 }
 
 function setupSubEvents (form, button) {
-    const submitUrls = asyncLockDecorator(async () => {
-        let urls = parseUrlsFromString(
-            document.getElementById('urls-input').value);
+    const submitUrls = asyncLockDecorator(async (urls) => {
         let promises = urls.map(subscribe);
 
         loadingParagraph.textContent = 'Loading...';
 
-        await Promise.all(promises);
+        try {
+            await Promise.all(promises);
+        } finally {
+            loadingParagraph.textContent = '';
+        }
 
-        loadingParagraph.textContent = '';
     });
 
     async function processForm (e) {
         if (e.preventDefault)
             e.preventDefault();
 
-        try {
-            await submitUrls();
-        } catch (reason) {
-            throw new BasicError(reason,
-                'Failed to submit urls while processing form');
+        let urls = parseUrlsFromString(
+            document.getElementById('urls-input').value);
+
+        if (!Array.isArray(urls) || urls.length === 0) {
+            displayMessage('Please enter valid youtube channel urls.');
+            return false;
         }
+
+        await submitUrls(urls);
 
         // return false to prevent the default form behavior
         return false;
@@ -794,25 +832,17 @@ function setupSubEvents (form, button) {
     button.addEventListener('click', lockDecorator(clearSubs));
 }
 
-function start () {
-    // Initializes the client with the API key and the Translate API.
-    gapi.client.init({
-        'apiKey': 'AIzaSyAHhFtmNEo9TwEN90p6yyZg43_4MKCiyyQ',
-        'discoveryDocs': ['https://www.googleapis.com/discovery/v1/apis/translate/v2/rest'],
-    });
+window.addEventListener('error', function (event) {
+    console.log('Error reached the top level: ', event.error);
 
-    gapi.client.load('youtube', 'v3', function () {
-        console.log('youtube loaded');
-    });
-}
+    return true;
+});
 
-window.onload = function () {
-    gapi.load('client', start);
-
+window.addEventListener('load', function () {
     let form = document.getElementById('url-form');
     let button = document.getElementById('unsubscribe-all-btn');
 
     setupSubEvents(form, button);
     setupFiltering();
 
-};
+});
