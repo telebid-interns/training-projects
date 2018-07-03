@@ -51,7 +51,8 @@ subBtn.addEventListener('click', function () {
 
 function saveAndDisplayVids (videos) {
   for (let i in videos) {
-    let videoObj = {artists: [],
+    let videoObj = {
+      artists: [],
       channelFoundOn: '',
       song: '',
       album: '',
@@ -118,14 +119,20 @@ function showChannels () {
     let curChannel = channelList[i].name;
     let link = channelList[i].url;
 
+    let divWrapper = document.createElement('li');
+    divWrapper.setAttribute('class', 'list-group-item clearfix');
+    divWrapper.setAttribute('style', 'width:20%');
+
     let pElement = document.createElement('p');
     pElement.setAttribute('id', 'name-' + curChannel);
 
     let aElement = document.createElement('a');
     aElement.setAttribute('href', link);
+    aElement.setAttribute('class', 'pull-left');
     aElement.appendChild(document.createTextNode(curChannel + ' '));
 
     let unsubBtn = document.createElement('button');
+    unsubBtn.setAttribute('class', 'btn btn-default pull-right');
     unsubBtn.setAttribute('id', 'unsub-' + curChannel);
     unsubBtn.innerHTML = 'Unsub';
     unsubBtn.addEventListener('click', function (event) {
@@ -142,7 +149,8 @@ function showChannels () {
 
     pElement.appendChild(aElement);
     pElement.appendChild(unsubBtn);
-    channelsElement.appendChild(pElement);
+    divWrapper.appendChild(pElement);
+    channelsElement.appendChild(divWrapper);
   }
 }
 

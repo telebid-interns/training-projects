@@ -1,36 +1,36 @@
 <html lang="en">
   <head>
-    <!-- <script src="lodash.js"></script> -->
-    <link rel="stylesheet" type="text/css" href="./jukebox.css">
+    <link rel="stylesheet" type="text/css" href="./bootstrap.css">
   </head>
    <body>
-     <input type="text" id='channel' placeholder="Enter Youtube Channel link">
-     <button id='subBtn'> Subscribe </button>
-     <br>
-     <br>
-     <label>Show songs from: </label>
-     <select id="select-time">
+    <div class="form-inline">
+      <input type="text" id='channel' placeholder="Enter Youtube Channel link" class="form-control">
+      <button id='subBtn' class='btn btn-default'> Subscribe </button>
+      <br>
+      <br>
+      <label>Show songs from: </label>
+      <select id="select-time" class="form-control">
         <option value="week">Last Week</option>
         <option value="month">Last Month</option>
         <option value="year">Last Year</option>
         <option value="all" selected>Whenever</option>
-     </select>
-     <br>
-     <br>
-     <p>Channels subscribed to:</p>
-     <ul id='channels'>
-       
-     </ul>
-     <table id="infoTable">
-        <tr>
-          <th>Channel</th>
-          <th>Artist</th>
-          <th>Song</th>
-          <th>Duration</th>
-          <th>Album</th>
+      </select>
+    </div>
+    <br>
+    <p>Channels subscribed to:</p>
+    <ul id='channels' class="list-group">
+      
+    </ul>
+    <table id="infoTable" class="table table-hover">
+      <tr>
+        <th>Channel</th>
+        <th>Artist</th>
+        <th>Song</th>
+        <th>Duration</th>
+        <th>Album</th>
         </tr>
-     </table>
-    </body>
+    </table>
+  </body>
 </html>
 
 <script src="./jukebox.js"></script>
