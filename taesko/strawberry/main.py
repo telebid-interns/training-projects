@@ -35,20 +35,23 @@ def neighbours(garden, row, col):
               (row, col - 1)]
 
     for new_row, new_col in list(result):
-        if not 0 < new_row < len(garden) or not 0 < new_col < len(garden[0]):
+        if not 0 <= new_row < len(garden) or not 0 <= new_col < len(garden[0]):
             result.remove((new_row, new_col))
 
     return result
 
 
 def advance_day(garden):
-    for row, berries in enumerate(garden):
-        for col, berry in enumerate(berries):
+    for row in range(len(garden)):
+        for col in range(len(garden[0])):
+            berry = garden[row][col]
             if berry.infected and not berry.infected_now:
                 for neigh_row, neigh_col in neighbours(garden, row, col):
-                    berry = garden[neigh_row][neigh_col]
-                    berry.infected = True
-                    berry.infected_now = True
+                    other_berry = garden[neigh_row][neigh_col]
+                    if other_berry.infected:
+                        continue
+                    other_berry.infected = True
+                    other_berry.infected_now = True
 
     for berries in garden:
         for berry in berries:
@@ -57,16 +60,43 @@ def advance_day(garden):
     return garden
 
 
+def parse_input(string):
+    lines = iter(l.strip() for l in string.splitlines() if l.strip())
+    rows, columns, days = list(map(int, next(lines).split()))
+    garden = [[False] * columns] * rows
+    garden = Berry.from_bitmap(garden)
+
+    for line in lines:
+        row, col = line.split()
+        row = int(row)
+        col = int(col)
+        print("Infected: ", row, col)
+        garden[row][col].infected = True
+
+    return garden, days
+
+
+def print_garden(garden):
+    for berries in garden:
+        print([b.infected for b in berries])
+
+def healthy(garden):
+    return sum(1 for berries in garden for berry in berries if not berry.infected)
+
+
+def main():
+    input_string = """8 10 2
+    4 8
+    2 7
+    """
+    garden, days = parse_input(input_string)
+    print_garden(garden)
+    for day in range(days):
+        garden = advance_day(garden)
+        # print("After {} days".format(day + 1))
+        # print_garden(garden)
+    print("Healthy are - ", healthy(garden))
+
+
 if __name__ == '__main__':
-    garden = Berry.from_bitmap(
-        [[True, False, False],
-        [False, False, True],
-        [False, False, True]]
-    )
-    days = 2
-    pprint(garden)
-
-    # print("Next day:")
-    # pprint(advance_day(garden))
-
-
+    main()
