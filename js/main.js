@@ -1,3 +1,4 @@
+const MAX_DISPLAYED_ROUTES = 5;
 const SERVER_URL = '/';
 const MONTH_NAMES = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -349,7 +350,13 @@ function displayRoutes (
         return;
     }
 
+    let routeCount = 0;
+
     for (let route of routes.routes) {
+        if (routeCount === MAX_DISPLAYED_ROUTES) {
+            break;
+        }
+
         let $clone = $routeItemTemplate.clone().
             removeAttr('id').
             removeClass('hidden');
@@ -390,6 +397,8 @@ function displayRoutes (
                 removeClass('hidden');
 
             let duration = flight.atime.getTime() - flight.dtime.getTime();
+            duration = (duration / 1000 / 60 / 60).toFixed(2);
+            duration = (duration + ' hours').replace(':');
 
             $clone.find('.airline-logo').attr('src', flight.airlineLogo);
             $clone.find('.airline-name').text(flight.airlineName);
@@ -398,7 +407,7 @@ function displayRoutes (
             $clone.find('.arrival-time').text(timeStringFromDate(flight.atime));
             $clone.find('.flight-date').text(weeklyDateString(flight.dtime));
             $clone.find('.timezone').text('UTC');
-            $clone.find('.duration').text(duration / 1000 / 60 / 60 + ' hours');
+            $clone.find('.duration').text(duration);
             // TODO later change to city when server implements the field
             $clone.find('.from-to-display').
                 text(`${flight.airportFrom} -----> ${flight.airportTo}`);
