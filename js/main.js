@@ -300,7 +300,7 @@ async function search (
     );
 
     let jsonRPCResponse = await jsonRPCRequest('search', params);
-    let response = switchStyle(EXAMPLE_ROUTES, snakeToCamel);
+    let response = switchStyle(jsonRPCResponse, snakeToCamel);
 
     for (let routeObj of response.routes) {
         routeObj.price += response.currency;
