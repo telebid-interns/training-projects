@@ -1,7 +1,7 @@
 module.exports = (() => {
   const path = require('path');
   const sqlite = require('sqlite');
-  const { assertApp } = require('./error-handling');
+  const { assertApp, assertPeer } = require('./error-handling');
   const isObject = require('./is-object');
   let db;
 
@@ -84,14 +84,16 @@ module.exports = (() => {
     return selectWhereColEquals('airlines', ['id'], 'code', airlineCode);
   }
 
-  async function selectRoutesFlights (fetchId) {
+  async function selectRoutesFlights (fetchId, params) {
     assertDB();
     assertApp(
       Number.isInteger(fetchId),
       'Invalid fetch id.'
     );
 
-    const routesFlights = await db.all(`
+    const queryParams = [fetchId];
+
+    let query = `
 
       SELECT
       routes.id AS routeId,
@@ -111,9 +113,49 @@ module.exports = (() => {
       LEFT JOIN airports as afrom ON afrom.id = flights.airport_from_id
       LEFT JOIN airports as ato ON ato.id = flights.airport_to_id
       LEFT JOIN airlines ON airlines.id = flights.airline_id
-      WHERE routes.fetch_id = ?;
+      WHERE routes.fetch_id = ?
 
-    `, [fetchId]);
+    `;
+
+    if (params.price_to) {
+      assertPeer(Number.isInteger(params.price_to), 'Invalid price in search request.');
+      query += ' AND routes.price <= ? ';
+      queryParams.push(params.price_to);
+    }
+
+    // if (params.currency) {
+    //   assertPeer(typeof params.currency === 'string', 'Invalid currency in search request.');
+    //   query += ' AND '
+    //   queryParams.push(params.curreny);
+    // }
+
+    // if (params.date_from) {
+    //   assertPeer(typeof params.date_from === 'string', 'Invalid date_from in search request.');
+    //   query += ' AND '
+    //   queryParams.push(params.date_from);
+    // }
+
+    // if (params.date_to) {
+    //   assertPeer(typeof params.date_to === 'string', 'Invalid date_to in search request.');
+
+    //   queryParams.push(params.date_to);
+    // }
+
+    // if (params.sort) {
+    //   assertPeer(typeof params.sort === 'string', 'Invalid sort in search request.');
+
+    //   queryParams.push(params.sort);
+    // }
+
+    // if (params.max_fly_duration) {
+    //   assertPeer(Number.isInteger(params.max_fly_duration), 'Invalid max_fly_duration in search request.');
+
+    //   queryParams.push(params.max_fly_duration);
+    // }
+
+    query += ';';
+
+    const routesFlights = await db.all(query, queryParams);
 
     assertApp(
       Array.isArray(routesFlights),
@@ -303,6 +345,7 @@ module.exports = (() => {
     selectAirport,
     selectSubscription,
     selectRoutesFlights,
+    selectWhereColEquals,
     deleteIfNotExistsSubscription,
     dbConnect
   };

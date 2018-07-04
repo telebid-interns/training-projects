@@ -1,5 +1,6 @@
 // This server works with ISO 8601 time standard.
 const SERVER_DATE_FORMAT = 'Y-MM-DD';
+const SERVER_TIME_FORMAT = 'Y-MM-DDTHH:mm:ssZ';
 const KIWI_API_DATE_FORMAT = 'DD/MM/Y';
 const moment = require('moment');
 const { assertPeer, assertApp } = require('./error-handling');
@@ -35,7 +36,7 @@ function fromUnixTimestamp (date) {
 
   assertPeer(dateParsed.isValid(), 'Invalid date format.');
 
-  return dateParsed.format(SERVER_DATE_FORMAT);
+  return dateParsed.format(SERVER_TIME_FORMAT);
 }
 
 module.exports = {

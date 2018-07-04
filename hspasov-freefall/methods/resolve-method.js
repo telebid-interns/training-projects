@@ -33,12 +33,12 @@ async function search (params, db) {
     typeof params.v === 'string' &&
     Number.isInteger(Number(params.fly_from)) &&
     Number.isInteger(Number(params.fly_to)) &&
-    Number.isInteger(params.price_to) &&
-    typeof params.currency === 'string' &&
-    typeof params.date_from === 'string' &&
-    typeof params.date_to === 'string' &&
-    typeof params.sort === 'string' &&
-    Number.isInteger(params.max_fly_duration),
+    (!params.price_to || Number.isInteger(params.price_to)) &&
+    (!params.currency || typeof params.currency === 'string') &&
+    (!params.date_from || typeof params.date_from === 'string') &&
+    (!params.date_to || typeof params.date_to === 'string') &&
+    (!params.sort || typeof params.sort === 'string') &&
+    (!params.max_fly_duration || Number.isInteger(params.max_fly_duration)),
     'Invalid search request.'
   );
 
@@ -64,7 +64,7 @@ async function search (params, db) {
   );
 
   const fetchId = subscriptions[0].fetchId;
-  const routesAndFlights = await db.selectRoutesFlights(fetchId);
+  const routesAndFlights = await db.selectRoutesFlights(fetchId, params);
 
   assertApp(
     Array.isArray(routesAndFlights),
