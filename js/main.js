@@ -293,7 +293,7 @@ async function search (
     const params = validateParams(
         {
             v: '1.0',
-            fly_from: '2',
+            fly_from: '2', // TODO remove hardcoded values
             fly_to: '3',
             price_to: priceTo,
             currency: currency,
@@ -623,4 +623,9 @@ $(document).ready(() => {
         $textInput: $('#to-input'),
         $dataList: $('#to-airports'),
     });
+});
+
+window.addEventListener('error', (event) => {
+    // suppress
+    return true;
 });
