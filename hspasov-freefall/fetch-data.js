@@ -127,102 +127,14 @@
           'API sent invalid flight response.'
         );
 
-        console.log(flight);
+        const airportCodes = [flight.flyFrom, flight.flyTo];
 
-        let airportFromId, airportToId;
-
-        const airportsFrom = await selectWhereColEquals('airports', ['id'], 'iata_code', flight.flyFrom);
-        assertApp(
-          Array.isArray(airportsFrom),
-          'Invalid database airport response.'
-        );
-
-        if (airportsFrom.length > 0) {
-          assertApp(
-            airportsFrom.length === 1 &&
-            Number.isInteger(airportsFrom[0].id),
-            'Invalid database airport response.'
-          );
-          airportFromId = airportsFrom[0].id;
-        } else {
-          const response = await requestJSON('https://api.skypicker.com/locations', {
-            term: flight.flyFrom,
-            locale: 'en-US',
-            location_types: 'airport',
-            limit: '1'
-          });
-
-          assertPeer(
-            isObject(response) &&
-            Array.isArray(response.locations) &&
-            response.locations.length === 1 &&
-            isObject(response.locations[0]) &&
-            typeof response.locations[0].code === 'string' &&
-            typeof response.locations[0].name === 'string' &&
-            'API sent invalid airport data response.'
-          );
-
-          const insertResult = await insert('airports', ['iata_code', 'name'], [response.locations[0].code, `${response.locations[0].name} ${response.locations[0].code}`]);
-
-          assertApp(
-            isObject(insertResult) &&
-            isObject(insertResult.stmt) &&
-            Number.isInteger(insertResult.stmt.lastID),
-            'Incorrect db response.'
-          );
-
-          airportFromId = insertResult.stmt.lastID;
-        }
-
-        const airportsTo = await selectWhereColEquals('airports', ['id'], 'iata_code', flight.flyTo);
-
-        assertApp(
-          Array.isArray(airportsTo),
-          'Invalid database airport response.'
-        );
-
-        if (airportsTo.length > 0) {
-          assertApp(
-            airportsTo.length === 1 &&
-            Number.isInteger(airportsTo[0].id),
-            'Invalid database airport response.'
-          );
-
-          airportToId = airportsTo[0].id;
-        } else {
-          const response = await requestJSON('https://api.skypicker.com/locations', {
-            term: flight.flyTo,
-            locale: 'en-US',
-            location_types: 'airport',
-            limit: '1'
-          });
-
-          assertPeer(
-            isObject(response) &&
-            Array.isArray(response.locations) &&
-            response.locations.length === 1 &&
-            isObject(response.locations[0]) &&
-            typeof response.locations[0].code === 'string' &&
-            typeof response.locations[0].name === 'string' &&
-            'API sent invalid airport data response.'
-          );
-
-          const insertResult = await insert('airports', ['iata_code', 'name'], [response.locations[0].code, `${response.locations[0].name} ${response.locations[0].code}`]);
-
-          assertApp(
-            isObject(insertResult) &&
-            isObject(insertResult.stmt) &&
-            Number.isInteger(insertResult.stmt.lastID),
-            'Incorrect db response.'
-          );
-
-          airportToId = insertResult.stmt.lastID;
-        }
+        const airportIds = await Promise.all(airportCodes.map((IATACode) => insertAirportInDBIfNotExists(IATACode)));
 
         const flightId = await insertOrGetFlight({
           airlineCode: flight.airline,
-          airportFromId: airportFromId,
-          airportToId: airportToId,
+          airportFromId: airportIds[0],
+          airportToId: airportIds[1],
           dtime: fromUnixTimestamp(flight.dTimeUTC),
           atime: fromUnixTimestamp(flight.aTimeUTC),
           flightNumber: flight.flight_no,
@@ -246,4 +158,55 @@
 
   await Promise.all(subscriptionsPromises);
   console.log(`Checked ${subscriptionsPromises.length} subscriptions.`);
+
+  async function insertAirportInDBIfNotExists (IATACode) {
+    const airports = await selectWhereColEquals('airports', ['id'], 'iata_code', IATACode);
+
+    assertApp(
+      Array.isArray(airports),
+      'Invalid database airport response.'
+    );
+
+    if (airports.length > 0) {
+      assertApp(
+        airports.length === 1 &&
+        Number.isInteger(airports[0].id),
+        'Invalid database airport response.'
+      );
+
+      return airports[0].id;
+    } else {
+      const response = await requestJSON('https://api.skypicker.com/locations', {
+        term: IATACode,
+        locale: 'en-US',
+        location_types: 'airport',
+        limit: '1'
+      });
+
+      assertPeer(
+        isObject(response) &&
+        Array.isArray(response.locations) &&
+        response.locations.length === 1 &&
+        isObject(response.locations[0]) &&
+        typeof response.locations[0].code === 'string' &&
+        typeof response.locations[0].name === 'string' &&
+        'API sent invalid airport data response.'
+      );
+
+      const insertResult = await insert(
+        'airports',
+        ['iata_code', 'name'],
+        [response.locations[0].code, `${response.locations[0].name} ${response.locations[0].code}`]
+      );
+
+      assertApp(
+        isObject(insertResult) &&
+        isObject(insertResult.stmt) &&
+        Number.isInteger(insertResult.stmt.lastID),
+        'Incorrect db response.'
+      );
+
+      return insertResult.stmt.lastID;
+    }
+  }
 })();
