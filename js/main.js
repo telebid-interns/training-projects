@@ -1,4 +1,4 @@
-const TESTING_LOCALLY = false;
+const TESTING_LOCALLY = true;
 const MAX_DISPLAYED_ROUTES = 5;
 const SERVER_URL = '/';
 const MONTH_NAMES = [
@@ -16,24 +16,27 @@ const WEEK_DAYS = [
 ];
 
 let $errorBar;
+let errorTimeout = undefined;
 
 function displayErrorMessage (errMsg) {
-    if ($errorBar.errorTimeoutFF)
-        clearTimeout($errorBar.errorTimeoutFF);
+    if (errorTimeout) {
+        clearTimeout(errorTimeout);
+        errorTimeout = undefined;
+    }
 
     $errorBar.text(errMsg);
-
-    $errorBar.errorTimeoutFF = setTimeout(
+    errorTimeout = setTimeout(
         () => {
             $errorBar.text('');
         },
-        5000
-    )
+        5000,
+    );
 }
 
 class BaseError extends Error {
     constructor (userMessage, ...logs) {
         super(userMessage);
+
         console.warn(...logs);
         displayErrorMessage(userMessage);
     }
@@ -42,6 +45,7 @@ class BaseError extends Error {
 class ApplicationError extends BaseError {
     constructor (userMessage, ...logs) {
         super(userMessage, ...logs);
+
         alert(userMessage);
     }
 }
@@ -169,8 +173,6 @@ function switchStyle (json, converter) {
 }
 
 $.postJSON = async function (url, data, callback) {
-    console.log('data only', data);
-    console.log('JSON data', JSON.stringify(data));
     return await jQuery.ajax({
         type: 'POST',
         url: url,
@@ -184,12 +186,6 @@ $.postJSON = async function (url, data, callback) {
 
 let jsonRPCRequestId = 1;
 
-/**
- *
- * @param {string} method
- * @param {object} params
- * @returns {Promise<*>}
- */
 async function jsonRPCRequest (method, params) {
     let request = {
         jsonrpc: '2.0',
@@ -235,12 +231,12 @@ async function jsonRPCRequest (method, params) {
         console.warn(
             'Ignoring because server always returns id = 1 at the moment.');
 
-        throw new ApplicationError(
-            'An unexpected behaviour occurred. Please refresh the page.',
-            'json rpc response and request id are out of sync',
-            'request id =', request.id,
-            'response id =', response.id,
-        );
+        // throw new ApplicationError(
+        //     'An unexpected behaviour occurred. Please refresh the page.',
+        //     'json rpc response and request id are out of sync',
+        //     'request id =', request.id,
+        //     'response id =', response.id,
+        // );
     }
 
     return response.result;
@@ -268,11 +264,7 @@ async function search (
         const fixed = {sort: ['price', 'duration'], currency: ['USD', 'BGN']};
 
         // TODO this might not be needed if the API can accept undefined values
-        for (let [key, value] of Object.entries(params)) {
-            if (value === undefined) {
-                delete params[key];
-            }
-        }
+        params = cleanUndefinedFromObject(params);
 
         for (let requiredParam of required) {
             if (Object.keys(params).indexOf(requiredParam) === -1)
@@ -300,9 +292,9 @@ async function search (
 
     const params = validateParams(
         {
-            v: "1.0",
-            fly_from: "2",
-            fly_to: "3",
+            v: '1.0',
+            fly_from: '2',
+            fly_to: '3',
             price_to: priceTo,
             currency: currency,
             date_from: dateFrom,
@@ -313,19 +305,21 @@ async function search (
     );
 
     let response;
+
     if (TESTING_LOCALLY) {
         response = switchStyle(EXAMPLE_ROUTES, snakeToCamel);
     } else {
         let jsonRPCResponse = await jsonRPCRequest('search', params);
+
         response = switchStyle(jsonRPCResponse, snakeToCamel);
     }
 
     for (let routeObj of response.routes) {
         // server doesn't provide currency yet
         if (response.currency) {
-            routeObj.price += response.currency;
+            routeObj.price += ' ' + response.currency;
         } else {
-            routeObj.price += '$';
+            routeObj.price += ' $';
         }
 
         for (let flight of routeObj.route) {
@@ -338,7 +332,6 @@ async function search (
         }
 
         routeObj.route = sortRoute(routeObj.route);
-
         routeObj.dtime = routeObj.route[0].dtime;
         routeObj.atime = routeObj.route[routeObj.route.length - 1].atime;
     }
@@ -369,6 +362,21 @@ function weeklyDateString (date) {
     return `${dayName} ${date.getDate()} ${monthName}`;
 }
 
+function cleanUndefinedFromObject (obj) {
+    return Object.entries(obj).reduce(
+        (newObj, entry) => {
+            let [key, value] = entry;
+
+            if (obj[key] !== undefined) {
+                newObj[key] = value;
+            }
+
+            return newObj;
+        },
+        {},
+    );
+}
+
 function displayRoutes (
     routes, $routesList, $routeItemTemplate, $flightItemTemplate,
 ) {
@@ -381,10 +389,8 @@ function displayRoutes (
         return;
     }
 
-    let routeCount = 0;
-
-    for (let route of routes.routes) {
-        if (routeCount === MAX_DISPLAYED_ROUTES) {
+    for (let [index, route] of routes.routes.entries()) {
+        if (index === MAX_DISPLAYED_ROUTES) {
             break;
         }
 
@@ -402,13 +408,12 @@ function displayRoutes (
 
         $($timeElements[0]).attr('datetime', route.dtime).
             text(weeklyDateString(route.dtime) + ' ' +
-                timeStringFromDate(route.dtime)
+                timeStringFromDate(route.dtime),
             );
         $($timeElements[1]).attr('datetime', route.dtime).
             text(weeklyDateString(route.atime) + ' ' +
-                timeStringFromDate(route.atime)
+                timeStringFromDate(route.atime),
             );
-
     }
 
     function makeFlightList (route, $list, $flightItemTemplate) {
@@ -428,6 +433,7 @@ function displayRoutes (
                 removeClass('hidden');
 
             let duration = flight.atime.getTime() - flight.dtime.getTime();
+
             duration = (duration / 1000 / 60 / 60).toFixed(2);
             duration = (duration + ' hours').replace(':');
 
@@ -464,6 +470,7 @@ function watchInputField ($inputField, callback) {
 
 function setupAutoComplete ({hash, $textInput: $textInput, $dataList: $dataList}) {
     let keys = Object.keys(hash).sort();
+
     watchInputField($textInput, hinter);
 
     function hinter () {
@@ -490,23 +497,8 @@ function setupAutoComplete ({hash, $textInput: $textInput, $dataList: $dataList}
     }
 }
 
-function cleanObject(obj) {
-    return Object.entries(obj).reduce(
-        (newObj, entry) => {
-            let [key, value] = entry;
-
-            if (obj[key] !== undefined){
-                newObj[key] = value;
-            }
-
-            return newObj;
-        },
-        {}
-    )
-}
-
-function searchFormParams($searchForm) {
-    function objectifyForm(formArray) {
+function searchFormParams ($searchForm) {
+    function objectifyForm (formArray) {
         return formArray.reduce(
             (obj, entry) => {
                 if (entry.value !== undefined && entry.value !== '') {
@@ -536,7 +528,7 @@ function searchFormParams($searchForm) {
             formData.to);
     }
 
-    function dateFromFields({yearField, monthField, dayField}) {
+    function dateFromFields ({yearField, monthField, dayField}) {
         let date = new Date();
 
         // TODO problematic when not all of the fields are set
@@ -559,26 +551,27 @@ function searchFormParams($searchForm) {
 
     dateFrom = dateFromFields({
         monthField: formData.departureMonth,
-        dayField: formData.departureDay
+        dayField: formData.departureDay,
     });
 
     if (formData.arrivalMonth || formData.arrivalDay) {
         dateTo = dateFromFields({
             monthField: formData.arrivalMonth,
-            dayField: formData.arrivalDay
+            dayField: formData.arrivalDay,
         });
     }
 
-    return cleanObject({
+    return cleanUndefinedFromObject({
         flyFrom: flyFrom,
         flyTo: flyTo,
         dateFrom: dateFrom,
-        dateTo: dateTo
+        dateTo: dateTo,
     });
 }
 
 $(document).ready(() => {
     $errorBar = $('#errorBar');
+
     let $allRoutesList = $('#all-routes-list');
     let $flightsListTemplate = $('#flights-list-item-template');
     let $flightItemTemplate = $('#flight-item-template');
@@ -603,18 +596,22 @@ $(document).ready(() => {
             } catch (e) {
                 routes = {};
             }
-            displayRoutes(routes, $allRoutesList, $flightsListTemplate, $flightItemTemplate);
+            displayRoutes(routes, $allRoutesList, $flightsListTemplate,
+                $flightItemTemplate);
 
             return false;
         });
 
-    let byNames = Object.values(AIRPORT_HASH).reduce((hash, airport) => {
-            hash[airport.latinName] = airport;
-            hash[airport.nationalName] = airport;
-            hash[airport.location.latinName] = airport;
-            return hash;
-        },
-        {});
+    let byNames = Object.values(AIRPORT_HASH).
+        reduce(
+            (hash, airport) => {
+                hash[airport.latinName] = airport;
+                hash[airport.nationalName] = airport;
+                hash[airport.location.latinName] = airport;
+                return hash;
+            },
+            {},
+        );
 
     setupAutoComplete({
         hash: byNames,
