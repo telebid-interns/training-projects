@@ -24,27 +24,39 @@
     <div class="row">
         <h1 class="text-center">Freefall - fast travel for your convenience</h1>
     </div>
-    <form id="flight-form-input" class="form-horizontal">
-        <div class="form-group fixed-form-height text-center">
-            <label for="from-input" class="sr-only">From</labeL>
-            <input id="from-input" name="from" class="col-md-2 col-md-offset-3" type="text" placeholder="From" list="from-airports">
-
-            <label for="to-input" class="sr-only">To</label>
-            <input id="to-input" name="to" class="col-md-2 col-md-offset-1" type="text" placeholder="To" list="to-airports">
-
+    <form id="flight-form-input">
+        <div class="form-group fixed-form-height">
+            <label for="from-input" class="col-md-1 col-md-offset-4 text-center">From</labeL>
+            <input id="from-input" name="from" type="text" placeholder="From" list="from-airports">
             <datalist id="from-airports">
             </datalist>
+        </div>
+        <div class="form-group fixed-form-height">
+            <label for="to-input" class="col-md-1 col-md-offset-4 text-center">To</label>
+            <input id="to-input" name="to" type="text" placeholder="To" list="to-airports">
             <datalist id="to-airports">
             </datalist>
         </div>
         <div class="form-group fixed-form-height">
-            <label for="departure-input" class="sr-only">Departure</label>
-            <input id="departure-input" name="departure" class="col-md-2 col-md-offset-3" type="datetime-local" placeholder="Departure">
-
-            <button type="submit" class="btn btn-primary col-md-1">Jump</button>
-
-            <label for="arrival-input" class="sr-only">Arrival</label>
-            <input id="arrival-input" name="arrival" class="col-md-2" type="datetime-local" placeholder="Arrival">
+            <div class="col-md-1 col-md-offset-4 text-center">
+                <label class="text-center">Departure</label>
+            </div>
+            <div class="col-md-2">
+                <input id="departure-month" class="col-md-6" name="departure-month" type="number" placeholder="mm">
+                <input id="departure-day" class="col-md-6" name="departure-day" type="number" placeholder="dd">
+            </div>
+        </div>
+        <div class="form-group fixed-form-height">
+            <div class="col-md-1 col-md-offset-4 text-center">
+                <label class="text-center">Arrival</label>
+            </div>
+            <div class="col-md-2">
+                <input id="arrival-month" class="col-md-6" name="arrival-month" type="number" placeholder="mm">
+                <input id="arrival-day" class="col-md-6" name="arrival-day" type="number" placeholder="dd">
+            </div>
+        </div>
+        <div class="form-group text-center">
+            <button type="submit" class="btn btn-primary col-md-3 col-md-offset-4">Jump</button>
         </div>
     </form>
     <div id="messages-row" class="row text-center">
