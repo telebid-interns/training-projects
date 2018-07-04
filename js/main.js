@@ -1,3 +1,4 @@
+const TESTING_LOCALLY = true;
 const MAX_DISPLAYED_ROUTES = 5;
 const SERVER_URL = '/';
 const MONTH_NAMES = [
@@ -311,8 +312,13 @@ async function search (
         },
     );
 
-    let jsonRPCResponse = await jsonRPCRequest('search', params);
-    let response = switchStyle(jsonRPCResponse, snakeToCamel);
+    let response;
+    if (TESTING_LOCALLY) {
+        response = switchStyle(EXAMPLE_ROUTES, snakeToCamel);
+    } else {
+        let jsonRPCResponse = await jsonRPCRequest('search', params);
+        response = switchStyle(jsonRPCResponse, snakeToCamel);
+    }
 
     for (let routeObj of response.routes) {
         // server doesn't provide currency yet
@@ -331,6 +337,8 @@ async function search (
             flight.cityTo = flight.cityTo || '';
         }
 
+        routeObj.route = sortRoute(routeObj.route);
+
         routeObj.dtime = routeObj.route[0].dtime;
         routeObj.atime = routeObj.route[routeObj.route.length - 1].atime;
     }
@@ -343,7 +351,11 @@ function sortRoute (route) {
         return flight_a.dtime - flight_b.dtime;
     }
 
-    route.sort(comparison);
+    let result = route.slice(0);
+
+    result.sort(comparison);
+
+    return result;
 }
 
 function timeStringFromDate (date) {
@@ -375,8 +387,6 @@ function displayRoutes (
         if (routeCount === MAX_DISPLAYED_ROUTES) {
             break;
         }
-
-        sortRoute(route.route);
 
         let $clone = $routeItemTemplate.clone().
             removeAttr('id').
