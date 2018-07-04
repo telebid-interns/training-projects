@@ -8,6 +8,8 @@
   await dbConnect();
   const subscriptions = await select('subscriptions', ['id', 'airport_from_id', 'airport_to_id']);
 
+  assertApp(Array.isArray(subscriptions), 'Invalid select subscriptions response.');
+
   // TODO use JSON validator
 
   // GET airlines

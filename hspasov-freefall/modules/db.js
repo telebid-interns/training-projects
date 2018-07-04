@@ -6,7 +6,11 @@ module.exports = (() => {
   let db;
 
   async function dbConnect () {
+    console.log('Connecting to freefall.db...');
     db = await sqlite.open(path.join(__dirname, '../freefall.db'));
+    await db.run('PRAGMA foreign_keys = ON;');
+    await db.run('PRAGMA integrity_check;');
+    console.log('freefall.db OK');
   }
 
   function assertDB () {
@@ -138,15 +142,11 @@ module.exports = (() => {
     `, [airportFromId, airportToId]);
 
     assertApp(
-      Array.isArray(subscriptions) &&
-      subscriptions.length === 1 &&
-      isObject(subscriptions[0]) &&
-      Number.isInteger(subscriptions[0].fetchId) &&
-      typeof subscriptions[0].timestamp === 'string',
-      'Invalid db select fetch response.'
+      Array.isArray(subscriptions),
+      'Invalid db select subscription response.'
     );
 
-    return subscriptions[0];
+    return subscriptions;
   }
 
   async function insert (table, columns, row) {
@@ -174,7 +174,7 @@ module.exports = (() => {
   async function insertRoute (route) {
     assertDB();
 
-    const routeResult = await db.run('INSERT INTO routes(booking_token, price, fetch_id) VALUES (?, ?, ?);', [route.bookingToken, route.price, route.fetchId]);
+    const routeResult = await insert('routes', ['booking_token', 'price', 'fetch_id'], [route.bookingToken, route.price, route.fetchId]);
 
     assertApp(
       isObject(routeResult) &&
@@ -198,21 +198,14 @@ module.exports = (() => {
 
       console.log(`Airline with code ${airline.code} already exists`);
 
-      return airlineIdResult[0].id;
+      return false;
     }
 
-    await db.run(`
-
-      INSERT INTO airlines
-        (name, code, logo_url)
-      VALUES
-        (?, ?, ?);
-
-    `,
-    [airline.name, airline.code, airline.logoURL]
-    );
+    await insert('airlines', ['name', 'code', 'logo_url'], [airline.name, airline.code, airline.logoURL]);
 
     console.log(`Inserted airline with code ${airline.code}`);
+
+    return true;
   }
 
   async function insertOrGetFlight (flight) {
@@ -255,6 +248,49 @@ module.exports = (() => {
     return db.run('INSERT OR IGNORE INTO routes_flights(flight_id, route_id, is_return) VALUES (?, ?, ?);', [routeFlight.flightId, routeFlight.routeId, routeFlight.isReturn]);
   }
 
+  async function insertIfNotExistsSubscription (flyFrom, flyTo) {
+    assertDB();
+
+    const flyFromParsed = Number(flyFrom);
+    const flyToParsed = Number(flyTo);
+    const subscriptions = await select('subscriptions', ['id']);
+
+    assertApp(Array.isArray(subscriptions), 'Invalid select subscriptions response.');
+
+    if (subscriptions.length > 0) {
+      assertApp(subscriptions.length === 1, `Unexpected subscriptions length of ${subscriptions.length}.`);
+
+      return false;
+    } else {
+      await insert('subscriptions', ['airport_from_id', 'airport_to_id'], [flyFromParsed, flyToParsed]);
+
+      return true;
+    }
+  }
+
+  async function deleteIfNotExistsSubscription (flyFrom, flyTo) {
+    assertDB();
+
+    const flyFromParsed = Number(flyFrom);
+    const flyToParsed = Number(flyTo);
+
+    const deleteResult = await db.run(`
+
+      DELETE FROM subscriptions
+      WHERE airport_from_id = ? AND airport_to_id = ?;
+
+    `, [flyFromParsed, flyToParsed]);
+
+    assertApp(
+      isObject(deleteResult) &&
+      isObject(deleteResult.stmt) &&
+      Number.isInteger(deleteResult.stmt.changes),
+      'Incorrect db response.'
+    );
+
+    return deleteResult.stmt.changes > 0;
+  }
+
   return {
     select,
     insert,
@@ -263,9 +299,11 @@ module.exports = (() => {
     insertOrGetFlight,
     insertRouteFlight,
     insertIfNotExistsAirline,
+    insertIfNotExistsSubscription,
     selectAirport,
     selectSubscription,
     selectRoutesFlights,
+    deleteIfNotExistsSubscription,
     dbConnect
   };
 })();

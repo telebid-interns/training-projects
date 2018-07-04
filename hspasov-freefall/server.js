@@ -25,7 +25,8 @@ router.post('/', async (ctx, next) => {
   const normalized = normalize(ctx.request.body, ctx.headers['content-type'], ctx.query.format);
   const method = resolveMethod(normalized);
 
-  await method.execute(normalized.params, ctx.db);
+  ctx.status = 200;
+  ctx.body = await method.execute(normalized.params, ctx.db);
 });
 
 router.get('/', (ctx, next) => {

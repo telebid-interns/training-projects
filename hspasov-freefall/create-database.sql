@@ -1,10 +1,12 @@
-DROP TABLE IF EXISTS fetches;
-DROP TABLE IF EXISTS routes;
-DROP TABLE IF EXISTS airports;
-DROP TABLE IF EXISTS airlines;
-DROP TABLE IF EXISTS flights;
+PRAGMA foreign_keys = ON;
+
 DROP TABLE IF EXISTS routes_flights;
+DROP TABLE IF EXISTS flights;
+DROP TABLE IF EXISTS routes;
+DROP TABLE IF EXISTS fetches;
+DROP TABLE IF EXISTS airlines;
 DROP TABLE IF EXISTS subscriptions;
+DROP TABLE IF EXISTS airports;
 
 CREATE TABLE airports (
 	id integer PRIMARY KEY,
@@ -34,7 +36,7 @@ CREATE TABLE fetches (
 	id integer PRIMARY KEY,
 	timestamp text NOT NULL,
 	subscription_id integer NOT NULL,
-	FOREIGN KEY(subscription_id) REFERENCES subscriptions(id)
+	FOREIGN KEY(subscription_id) REFERENCES subscriptions(id) ON DELETE CASCADE
 );
 
 CREATE TABLE routes (
@@ -42,7 +44,7 @@ CREATE TABLE routes (
 	booking_token text NOT NULL UNIQUE,
 	fetch_id integer NOT NULL,
 	price integer NOT NULL, -- stored as cents
-	FOREIGN KEY(fetch_id) REFERENCES fetches(id)
+	FOREIGN KEY(fetch_id) REFERENCES fetches(id) ON DELETE CASCADE
 );
 
 CREATE TABLE flights (
@@ -65,7 +67,7 @@ CREATE TABLE routes_flights (
 	route_id integer NOT NULL,
 	flight_id integer NOT NULL,
 	is_return integer NOT NULL DEFAULT 0,
-	FOREIGN KEY (route_id) REFERENCES routes(id),
+	FOREIGN KEY (route_id) REFERENCES routes(id) ON DELETE CASCADE,
 	FOREIGN KEY (flight_id) REFERENCES flights(id),
 	UNIQUE(flight_id, route_id, is_return)
 );

@@ -51,10 +51,10 @@ module.exports = function normalize (body, contentType, format) {
     } else if (format === 'yaml') {
       normalized = normalizeYAML(parseYAML(body));
     } else {
-      throw UserError('Unknown content type.');
+      throw new UserError('Unknown content type.');
     }
   } else {
-    throw UserError('Unknown content type.');
+    throw new UserError('Unknown content type.');
   }
 
   assertUser(
