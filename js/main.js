@@ -91,17 +91,6 @@ const EXAMPLE_ROUTES = {
             price: 170,
             route: [
                 {
-                    airport_from: '1',
-                    airport_to: '2',
-                    city_from: 'Sofia',
-                    city_to: 'Bucarest',
-                    dtime: '2018-06-28T16:30',
-                    atime: '2018-06-28T17:00',
-                    airline_logo: 'https://www.designevo.com/res/templates/thumb_small/glorious-sunrise-aviation.png',
-                    airline_name: 'International bureau of investigation of plane crashes',
-                    flight_number: '414HU4KB4R',
-                },
-                {
                     airport_from: '2',
                     airport_to: '3',
                     city_from: 'Bucarest',
@@ -111,6 +100,17 @@ const EXAMPLE_ROUTES = {
                     airline_logo: 'https://www.designevo.com/res/templates/thumb_small/glorious-sunrise-aviation.png',
                     airline_name: 'International bureau of investigation of plane crashes',
                     flight_number: 'N4N1',
+                },
+                {
+                    airport_from: '1',
+                    airport_to: '2',
+                    city_from: 'Sofia',
+                    city_to: 'Bucarest',
+                    dtime: '2018-06-28T16:30',
+                    atime: '2018-06-28T17:00',
+                    airline_logo: 'https://www.designevo.com/res/templates/thumb_small/glorious-sunrise-aviation.png',
+                    airline_name: 'International bureau of investigation of plane crashes',
+                    flight_number: '414HU4KB4R',
                 },
             ],
         },
@@ -338,6 +338,14 @@ async function search (
     return response;
 }
 
+function sortRoute (route) {
+    function comparison (flight_a, flight_b) {
+        return flight_a.dtime - flight_b.dtime;
+    }
+
+    route.sort(comparison);
+}
+
 function timeStringFromDate (date) {
     return `${date.getUTCHours()}:${date.getUTCMinutes()}`;
 }
@@ -367,6 +375,8 @@ function displayRoutes (
         if (routeCount === MAX_DISPLAYED_ROUTES) {
             break;
         }
+
+        sortRoute(route.route);
 
         let $clone = $routeItemTemplate.clone().
             removeAttr('id').
