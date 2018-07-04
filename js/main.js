@@ -1,3 +1,4 @@
+const MAX_DISPLAYED_ROUTES = 5;
 const SERVER_URL = '/';
 const MONTH_NAMES = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -207,6 +208,7 @@ async function jsonRPCRequest (method, params) {
             'error raised: ', error);
     }
 
+    // increment id only on successful requests
     jsonRPCRequestId++;
 
     if (!['jsonrpc', 'id'].every(prop => _.has(response, prop))) {
@@ -222,12 +224,22 @@ async function jsonRPCRequest (method, params) {
             'jsonrpc request failed - response has neither \'error\' nor \'result\' properties',
             'sent data: ', request,
             'got response: ', response);
+    } else if (response.id === null) {
+        throw new ApplicationError(
+            'An unexpected behaviour occurred. Please refresh the page.',
+            'Server sent back a null id for request: ', request,
+            'Full response is: ', response);
     } else if (response.id !== request.id) {
+        console.warn('Different id between response and request.');
+        console.warn(
+            'Ignoring because server always returns id = 1 at the moment.');
+
         throw new ApplicationError(
             'An unexpected behaviour occurred. Please refresh the page.',
             'json rpc response and request id are out of sync',
             'request id =', request.id,
-            'response id =', response.id);
+            'response id =', response.id,
+        );
     }
 
     return response.result;
@@ -349,7 +361,13 @@ function displayRoutes (
         return;
     }
 
+    let routeCount = 0;
+
     for (let route of routes.routes) {
+        if (routeCount === MAX_DISPLAYED_ROUTES) {
+            break;
+        }
+
         let $clone = $routeItemTemplate.clone().
             removeAttr('id').
             removeClass('hidden');
@@ -390,6 +408,8 @@ function displayRoutes (
                 removeClass('hidden');
 
             let duration = flight.atime.getTime() - flight.dtime.getTime();
+            duration = (duration / 1000 / 60 / 60).toFixed(2);
+            duration = (duration + ' hours').replace(':');
 
             $clone.find('.airline-logo').attr('src', flight.airlineLogo);
             $clone.find('.airline-name').text(flight.airlineName);
@@ -398,7 +418,7 @@ function displayRoutes (
             $clone.find('.arrival-time').text(timeStringFromDate(flight.atime));
             $clone.find('.flight-date').text(weeklyDateString(flight.dtime));
             $clone.find('.timezone').text('UTC');
-            $clone.find('.duration').text(duration / 1000 / 60 / 60 + ' hours');
+            $clone.find('.duration').text(duration);
             // TODO later change to city when server implements the field
             $clone.find('.from-to-display').
                 text(`${flight.airportFrom} -----> ${flight.airportTo}`);
