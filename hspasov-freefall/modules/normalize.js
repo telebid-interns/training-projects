@@ -10,6 +10,13 @@ function parseYAML (yaml) {
   }
 }
 
+function stringifyYAML (yaml) {
+  console.log(yaml);
+  const parsed = yamlParser.safeDump(yaml);
+  console.log(parsed);
+  return parsed;
+}
+
 function normalizeYAML (yaml) {
   assertUser(
     isObject(yaml) &&
@@ -22,11 +29,28 @@ function normalizeYAML (yaml) {
   return {
     yamlrpc: yaml.yamlrpc,
     method: yaml.action,
-    params: yaml.parameters
+    params: yaml.parameters,
+    id: yaml.id
   };
 }
 
-module.exports = function normalize (body, contentType, format) {
+function formYAMLResponse (normalized, result) {
+  return {
+    yamlrpc: normalized.yamlrpc,
+    id: normalized.id,
+    result: result
+  };
+}
+
+function formJSONResponse (normalized, result) {
+  return {
+    jsonrpc: normalized.jsonrpc,
+    id: normalized.id,
+    result: result
+  };
+}
+
+function normalize (body, contentType, format) {
   let normalized;
 
   if (contentType === 'application/json') {
@@ -65,4 +89,39 @@ module.exports = function normalize (body, contentType, format) {
   );
 
   return normalized;
+}
+
+function denormalize (normalized, result, contentType, format) {
+  if (contentType === 'application/json') {
+    assertUser(
+      format === 'json' ||
+      !format,
+      'Ambiguous content type.'
+    );
+
+    return JSON.stringify(formJSONResponse(normalized, result));
+  } else if (contentType === 'text/yaml') {
+    assertUser(
+      format === 'yaml' ||
+      !format,
+      'Ambiguous content type.'
+    );
+
+    return stringifyYAML(formYAMLResponse(normalized, result));
+  } else if (!contentType) {
+    if (format === 'json') {
+      return JSON.stringify(formJSONResponse(normalized, result));
+    } else if (format === 'yaml') {
+      return stringifyYAML(formYAMLResponse(normalized, result));
+    } else {
+      throw new UserError('Unknown content type.');
+    }
+  } else {
+    throw new UserError('Unknown content type.');
+  }
+}
+
+module.exports = {
+  normalize,
+  denormalize
 };

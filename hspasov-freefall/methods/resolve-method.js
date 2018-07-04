@@ -27,6 +27,7 @@ function dbToAPIRouteFlight (routeFlight) {
 }
 
 async function search (params, db) {
+  console.log(params);
   assertUser(
     isObject(params) &&
     typeof params.v === 'string' &&
