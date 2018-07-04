@@ -304,12 +304,19 @@ async function search (
 
     for (let routeObj of response.routes) {
         // server doesn't provide currency yet
-        if (response.currency)
+        if (response.currency) {
             routeObj.price += response.currency;
+        } else {
+            routeObj.price += '$';
+        }
 
         for (let flight of routeObj.route) {
             flight.dtime = new Date(flight.dtime);
             flight.atime = new Date(flight.atime);
+
+            // server doesn't provide city_from and city_to yet
+            flight.cityFrom = flight.cityFrom || '';
+            flight.cityTo = flight.cityTo || '';
         }
 
         routeObj.dtime = routeObj.route[0].dtime;
@@ -384,16 +391,17 @@ function displayRoutes (
 
             let duration = flight.atime.getTime() - flight.dtime.getTime();
 
-            $clone.find('.airline-logo').text(); // TODO fill
-            $clone.find('.airline-name').text('example airline name');
+            $clone.find('.airline-logo').text(flight.airlineLogo);
+            $clone.find('.airline-name').text(flight.airlineName);
             $clone.find('.departure-time').
                 text(timeStringFromDate(flight.dtime));
             $clone.find('.arrival-time').text(timeStringFromDate(flight.atime));
             $clone.find('.flight-date').text(weeklyDateString(flight.dtime));
             $clone.find('.timezone').text('UTC');
             $clone.find('.duration').text(duration / 1000 / 60 / 60 + ' hours');
+            // TODO later change to city when server implements the field
             $clone.find('.from-to-display').
-                text(`${flight.cityFrom} -----> ${flight.cityTo}`);
+                text(`${flight.airportFrom} -----> ${flight.airportTo}`);
 
             return $clone;
         }
