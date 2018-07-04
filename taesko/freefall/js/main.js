@@ -155,6 +155,20 @@ function switchStyle (json, converter) {
     return switcher(json);
 }
 
+$.postJSON = async function (url, data, callback) {
+    console.log('data only', data);
+    console.log('JSON data', JSON.stringify(data));
+    return await jQuery.ajax({
+        type: 'POST',
+        url: url,
+        crossDomain: true,
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        dataType: 'json',
+        success: callback,
+    });
+};
+
 let jsonRPCRequestId = 1;
 
 /**
@@ -164,9 +178,9 @@ let jsonRPCRequestId = 1;
  * @returns {Promise<*>}
  */
 async function jsonRPCRequest (method, params) {
-    let url = '10.20.1.155:3000/?format=json';
+    let url = '/';
     let request = {
-        jsonrpc: 2.0,
+        jsonrpc: '2.0',
         method,
         params,
         id: jsonRPCRequestId,
@@ -174,7 +188,7 @@ async function jsonRPCRequest (method, params) {
     let response;
 
     try {
-        response = await $.post(url, request, null, 'json');
+        response = await $.postJSON(url, request);
     } catch (error) {
         throw new PeerError('Service is not available at the moment',
             'failed to make a post request to server API',
@@ -220,7 +234,7 @@ async function search (
         flyFrom,
         flyTo,
         priceTo,
-        currency = 'USD',
+        currency,
         dateFrom,
         dateTo,
         sort,
@@ -276,8 +290,7 @@ async function search (
 
     console.log('request paramaters are: ', params);
 
-    // let response = await jsonRPCRequest('search', params);
-    let response = switchStyle(EXAMPLE_ROUTES, snakeToCamel);
+    let response = await jsonRPCRequest('search', params);
 
     for (let routeObj of response.routes) {
         routeObj.price += response.currency;
@@ -410,6 +423,9 @@ function setupAutoComplete ({hash, $textInput: $textInput, $dataList: $dataList}
     }
 }
 
+function processForm (searchForm) {
+
+}
 $(document).ready(() => {
     $errorBar = $('#errorBar');
     let $allRoutesList = $('#all-routes-list');
@@ -431,8 +447,9 @@ $(document).ready(() => {
 
             let flyFromString = $('#from-input').val();
             let flyToString = $('#to-input').val();
-            let flyFrom = getAirportByString(flyFromString) || '';
-            let flyTo = getAirportByString(flyToString) || '';
+            let flyFrom = flyFromString || getAirportByString(flyFromString) ||
+                '';
+            let flyTo = flyToString || getAirportByString(flyToString) || '';
 
             if (!flyFrom) {
                 throw new BaseError(
