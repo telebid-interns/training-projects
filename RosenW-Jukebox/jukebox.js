@@ -1,65 +1,113 @@
 const YT_API_KEY = 'AIzaSyDrLczSe8MEo3k5FAwo1Kc3fkn26NB-VUQ';
 const LAST_FM_API_KEY = '93c3430d5a7c70eb83e5f3b1ccdc71dd';
 
-let table = document.getElementById('infoTable');
-let subBtn = document.getElementById('subBtn');
-let timeSelect = document.getElementById('select-time');
+const table = document.getElementById('infoTable');
+const subBtn = document.getElementById('subBtn');
+const timeSelect = document.getElementById('select-time');
 
 let channelList = [];
 let allVids = [];
 
-if (window.localStorage.getItem('channels') != null && window.localStorage.getItem('vids') != null) {
-  console.log('storage is set, getting saved data');
-  channelList = JSON.parse(window.localStorage.getItem('channels'));
-  allVids = JSON.parse(window.localStorage.getItem('vids'));
-  showChannels();
-  displayVideos();
-} else {
-  console.log('storage is not set, setting storage');
-  updateLocalStorage();
+loadLocalStorage();
+
+timeSelect.addEventListener('change', displayVideos);
+
+subBtn.addEventListener('click', subscribe);
+
+function loadLocalStorage () {
+  if (window.localStorage.getItem('channels') == null || window.localStorage.getItem('vids') == null) {
+    console.log('storage is not set, setting storage');
+    updateLocalStorage();
+  } else {
+    console.log('storage is set, getting saved data');
+    channelList = JSON.parse(window.localStorage.getItem('channels'));
+    allVids = JSON.parse(window.localStorage.getItem('vids'));
+    showChannels();
+    displayVideos();
+  }
 }
 
-timeSelect.addEventListener('change', function () {
-  displayVideos();
-});
-
-subBtn.addEventListener('click', function () {
+function subscribe () {
   let linkTextbox = document.getElementById('channel');
   let link = linkTextbox.value;
+
   linkTextbox.value = '';
-  let channelId = link.split('/channel/')[1];
+
+  let channelId = link.split('/channel/')[1]; // user error
   let reqLink = 'https://www.googleapis.com/youtube/v3/search?channelId=' + channelId + '&key=' + YT_API_KEY + '&part=snippet&type=video&maxResults=50&videoCategoryId=10';
 
+  class CustomError extends Error {}
+  class UserError extends CustomError {}
+  class PerrError extends CustomError {}
+  class AppError extends CustomError {}
+
+  window.addEventListener('error', (event) => {
+    // event.error;
+  });
+
+  const assert = (condition, msg) => {
+    if(!IS_ASSERTS_ENABLED) return;
+    if(condition) return;
+
+    throw new AppError(msg);
+  }
+
+
+  const assertPeer = (condition, msg) => {
+    if(condition) return;
+
+    throw new PerrError(msg);
+  }
+
+  
+
   fetch(reqLink)
-    .then(function (response) {
-      return response.json();
-    }).then((data) => {
+    .then((response) => response.json())
+    .then((data) => {
       let channelName = data.items[0].snippet.channelTitle;
 
-      for (let i in channelList) {
-        if (channelList[i].name === channelName) {
+      for (const channel of channelList) {
+        if (channel.name === channelName) {
           return;
         }
       }
 
-      let channelObj = {name: channelName, url: link};
+      let channelObj = {
+        name: channelName,
+        url: link
+      };
+      let videos = data.items;
+
       channelList.push(channelObj);
 
-      let videos = data.items;
       saveAndDisplayVids(videos);
+    }).catch((err) => {
+      console.log(err);
     });
-});
+}
+
+function customEscapeURI (params) { // check type
+  const result = [];
+
+  for (const param of Object.keys(params)) {
+    result.push(`${encodeURIComponent(param)}=${encodeURIComponent(params[param])}`);
+  }
+
+  return result.join('&');
+}
 
 function saveAndDisplayVids (videos) {
   let promises = [];
-  for (let i in videos) {
+
+  for (let i in videos) { // change for in
     let videoObj = {
       artists: [],
       channelFoundOn: '',
       song: '',
       album: '',
       duration: '',
-      date: ''};
+      date: ''
+    };
 
     let artAndSong = extractArtistsAndSongFromTitle(videos[i].snippet.title); // setting song and artsts
 
@@ -67,37 +115,38 @@ function saveAndDisplayVids (videos) {
       continue;
     }
 
-    videoObj.channelFoundOn = videos[i].snippet.channelTitle;
+    videoObj.channelFoundOn = videos[i].snippet.channelTitle; // todo assert peer
     videoObj.artists = artAndSong.artists;
     videoObj.song = artAndSong.song.trim();
 
+    // escape link
     let lastfmReqLink = 'http://ws.audioscrobbler.com/2.0/?method=track.getInfo&api_key=' + LAST_FM_API_KEY + '&artist=' + videoObj.artists[0].trim() + '&track=' + videoObj.song + '&format=json';
 
     let currentPromise = fetch(lastfmReqLink)
-      .then(function (response) {
+      .then((response) => {
         return response.json();
-      }).then(function (data) {
+      }).then((data) => {
         let album;
         let duration;
 
-        if (data.message === 'Track not found') {
+        if (data.message === 'Track not found') { // const string
           album = 'No information';
           duration = 'No information';
         } else {
-          if (typeof data.track.album === 'undefined') {
+          if (data.track.album === undefined) {
             album = 'No information';
           } else {
             album = data.track.album.title;
           }
 
-          if (typeof data.track.duration === 'undefined' || data.track.duration === '0') {
+          if (typeof data.track.duration === 'undefined' || data.track.duration === '0') { //undef ===
             duration = 'No information';
           } else {
             duration = data.track.duration;
           }
         }
 
-        videoObj.album = album;
+        videoObj.album = album; // remove para variables
         videoObj.duration = isNaN(duration) ? duration : millisToMinutesAndSeconds(duration);
 
         let vidDate = videos[i].snippet.publishedAt;
@@ -121,34 +170,34 @@ function showChannels () {
   channelsElement.innerHTML = '';
 
   for (let i in channelList) {
-    console.log('asdasd');
-    let curChannel = channelList[i].name;
+    let currChannel = channelList[i].name;
     let link = channelList[i].url;
 
     let divWrapper = document.createElement('li');
     divWrapper.setAttribute('class', 'list-group-item clearfix');
-    divWrapper.setAttribute('style', 'width:20%');
+    divWrapper.setAttribute('style', 'width:20%'); // use bootstrap
 
     let pElement = document.createElement('p');
-    pElement.setAttribute('id', 'name-' + curChannel);
+    pElement.setAttribute('id', 'name-' + currChannel);
 
     let aElement = document.createElement('a');
     aElement.setAttribute('href', link);
     aElement.setAttribute('class', 'pull-left');
-    aElement.appendChild(document.createTextNode(curChannel + ' '));
+    aElement.appendChild(document.createTextNode(currChannel + ' ')); // curr
 
     let unsubBtn = document.createElement('button');
     unsubBtn.setAttribute('class', 'btn btn-default pull-right');
-    unsubBtn.setAttribute('id', 'unsub-' + curChannel);
+    unsubBtn.setAttribute('id', 'unsub-' + currChannel);
     unsubBtn.innerHTML = 'Unsub';
     unsubBtn.addEventListener('click', function (event) {
       let chName = event.target.id.substr(6, event.target.id.length);
+      let removeElement = document.getElementById('name-' + chName);
 
       channelList = channelList.filter(e => e.name !== chName);
-      let removeElement = document.getElementById('name-' + chName);
       removeElement.remove();
 
       allVids = allVids.filter(e => e.channelFoundOn !== chName);
+
       updateLocalStorage();
       showChannels();
       displayVideos();
@@ -211,7 +260,7 @@ function checkFilter (checkDate) {
 }
 
 function cleanTable () {
-  while (document.getElementsByTagName('tr')[1]) {
+  while (document.getElementsByTagName('tr')[1]) { // use for
     document.getElementsByTagName('tr')[1].remove();
   }
 }
@@ -239,20 +288,20 @@ function addVideoToTable (video) {
 }
 
 function extractArtistsAndSongFromTitle (title) {
-  let regex = /^([0-9a-zA-Z\s.&']*) [-|] ([0-9a-zA-Z\s.&"'=-]*)/g;
+  let regex = /^([0-9a-zA-Z\s.&']*) [-|] ([0-9a-zA-Z\s.&"'=-]*)/g; // simplify
   let match = regex.exec(title);
 
   let artists = [];
   let song;
 
-  if (match == null) {
+  if (match == null) { // notify for skip
     return;
   }
 
   let artistGroup = match[1];
   let songGroup = match[2];
 
-  let checkOne = checkGroupForFt(artistGroup, ' Feat. ', true);
+  let checkOne = checkGroupForFt(artistGroup, ' Feat. ', true); // make case insenstitive
   let checkTwo = checkGroupForFt(artistGroup, ' ft. ', true);
   let checkThree = checkGroupForFt(songGroup, ' Feat. ', false);
   let checkFour = checkGroupForFt(songGroup, ' ft. ', false);
