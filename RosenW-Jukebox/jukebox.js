@@ -30,26 +30,28 @@ subBtn.addEventListener('click', function () {
   let channelId = link.split('/channel/')[1];
   let reqLink = 'https://www.googleapis.com/youtube/v3/search?channelId=' + channelId + '&key=' + YT_API_KEY + '&part=snippet&type=video&maxResults=50&videoCategoryId=10';
 
-  makeGetRequest(reqLink, function (response) {
-    let data = JSON.parse(response);
-    let channelName = data.items[0].snippet.channelTitle;
+  fetch(reqLink)
+    .then(function (response) {
+      return response.json();
+    }).then((data) => {
+      let channelName = data.items[0].snippet.channelTitle;
 
-    for (let i in channelList) {
-      if (channelList[i].name === channelName) {
-        return;
+      for (let i in channelList) {
+        if (channelList[i].name === channelName) {
+          return;
+        }
       }
-    }
 
-    let channelObj = {name: channelName, url: link};
-    channelList.push(channelObj);
+      let channelObj = {name: channelName, url: link};
+      channelList.push(channelObj);
 
-    let videos = data.items;
-
-    saveAndDisplayVids(videos);
-  });
+      let videos = data.items;
+      saveAndDisplayVids(videos);
+    });
 });
 
 function saveAndDisplayVids (videos) {
+  let promises = [];
   for (let i in videos) {
     let videoObj = {
       artists: [],
@@ -71,48 +73,55 @@ function saveAndDisplayVids (videos) {
 
     let lastfmReqLink = 'http://ws.audioscrobbler.com/2.0/?method=track.getInfo&api_key=' + LAST_FM_API_KEY + '&artist=' + videoObj.artists[0].trim() + '&track=' + videoObj.song + '&format=json';
 
-    makeGetRequest(lastfmReqLink, function (response) {
-      let data = JSON.parse(response);
-      let album;
-      let duration;
+    let currentPromise = fetch(lastfmReqLink)
+      .then(function (response) {
+        return response.json();
+      }).then(function (data) {
+        let album;
+        let duration;
 
-      if (data.message === 'Track not found') {
-        album = 'No information';
-        duration = 'No information';
-      } else {
-        if (typeof data.track.album === 'undefined') {
+        if (data.message === 'Track not found') {
           album = 'No information';
-        } else {
-          album = data.track.album.title;
-        }
-
-        if (typeof data.track.duration === 'undefined' || data.track.duration === '0') {
           duration = 'No information';
         } else {
-          duration = data.track.duration;
+          if (typeof data.track.album === 'undefined') {
+            album = 'No information';
+          } else {
+            album = data.track.album.title;
+          }
+
+          if (typeof data.track.duration === 'undefined' || data.track.duration === '0') {
+            duration = 'No information';
+          } else {
+            duration = data.track.duration;
+          }
         }
-      }
 
-      videoObj.album = album;
-      videoObj.duration = isNaN(duration) ? duration : millisToMinutesAndSeconds(duration);
+        videoObj.album = album;
+        videoObj.duration = isNaN(duration) ? duration : millisToMinutesAndSeconds(duration);
 
-      let vidDate = videos[i].snippet.publishedAt;
-      videoObj.date = Date.parse(vidDate);
+        let vidDate = videos[i].snippet.publishedAt;
+        videoObj.date = Date.parse(vidDate);
 
-      if (videoObj.artists.length > 0 && videoObj.song.length > 0) { // pushing valid data to array
-        allVids.push(videoObj);
-        updateLocalStorage();
-        displayVideos();
-      }
-      showChannels();
-    });
+        if (videoObj.artists.length > 0 && videoObj.song.length > 0) { // pushing valid data to array
+          allVids.push(videoObj);
+          updateLocalStorage();
+          displayVideos();
+        }
+      });
+
+    promises.push(currentPromise);
   }
+
+  Promise.all(promises).then(showChannels);
 }
 
 function showChannels () {
   // in for fix ?
+  console.log('showing');
   let channelsElement = document.getElementById('channels');
   channelsElement.innerHTML = '';
+  // return;
 
   for (let i in channelList) {
     let curChannel = channelList[i].name;
@@ -316,11 +325,7 @@ function makeGetRequest (url, callback) {
   };
 
   xmlHttp.open('GET', url, true);
-  try {
-    xmlHttp.send(null);
-  } catch (err) {
-    console.log(err);
-  }
+  xmlHttp.send(null);
 }
 
 function millisToMinutesAndSeconds (millis) {
