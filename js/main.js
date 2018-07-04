@@ -391,7 +391,7 @@ function displayRoutes (
 
             let duration = flight.atime.getTime() - flight.dtime.getTime();
 
-            $clone.find('.airline-logo').text(flight.airlineLogo);
+            $clone.find('.airline-logo').attr('src', flight.airlineLogo);
             $clone.find('.airline-name').text(flight.airlineName);
             $clone.find('.departure-time').
                 text(timeStringFromDate(flight.dtime));
