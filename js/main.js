@@ -287,6 +287,7 @@ async function search (
 
     const params = validateParams(
         {
+            v: "1.0",
             fly_from: "2",
             fly_to: "3",
             price_to: priceTo,
