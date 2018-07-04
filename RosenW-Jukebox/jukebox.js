@@ -117,13 +117,11 @@ function saveAndDisplayVids (videos) {
 }
 
 function showChannels () {
-  // in for fix ?
-  console.log('showing');
   let channelsElement = document.getElementById('channels');
   channelsElement.innerHTML = '';
-  // return;
 
   for (let i in channelList) {
+    console.log('asdasd');
     let curChannel = channelList[i].name;
     let link = channelList[i].url;
 
@@ -152,6 +150,7 @@ function showChannels () {
 
       allVids = allVids.filter(e => e.channelFoundOn !== chName);
       updateLocalStorage();
+      showChannels();
       displayVideos();
     });
 
@@ -314,18 +313,6 @@ function checkGroupForFt (group, featString, isArtistGroup) {
   }
 
   return {artists: foundArtists, song: song};
-}
-
-function makeGetRequest (url, callback) {
-  let xmlHttp = new XMLHttpRequest();
-  xmlHttp.onreadystatechange = function () {
-    if (xmlHttp.readyState === 4 && xmlHttp.status === 200) {
-      callback(xmlHttp.responseText);
-    }
-  };
-
-  xmlHttp.open('GET', url, true);
-  xmlHttp.send(null);
 }
 
 function millisToMinutesAndSeconds (millis) {
