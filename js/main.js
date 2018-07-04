@@ -1,4 +1,4 @@
-const TESTING_LOCALLY = true;
+const TESTING_LOCALLY = false;
 const MAX_DISPLAYED_ROUTES = 5;
 const SERVER_URL = '/';
 const MONTH_NAMES = [
