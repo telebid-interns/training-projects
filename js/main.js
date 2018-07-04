@@ -1,3 +1,4 @@
+const SERVER_URL = '/';
 const MONTH_NAMES = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'Octomber', 'November', 'December',
@@ -15,7 +16,17 @@ const WEEK_DAYS = [
 let $errorBar;
 
 function displayErrorMessage (errMsg) {
+    if ($errorBar.errorTimeoutFF)
+        clearTimeout($errorBar.errorTimeoutFF);
+
     $errorBar.text(errMsg);
+
+    $errorBar.errorTimeoutFF = setTimeout(
+        () => {
+            $errorBar.text('');
+        },
+        5000
+    )
 }
 
 class BaseError extends Error {
@@ -40,22 +51,22 @@ class PeerError extends BaseError {
 }
 
 AIRPORT_HASH = {
-    'SOF-airport-database-id': {
-        dbsID: 'SOF-airport-database-id',
+    '1': {
+        id: '1',
         iataID: 'SOF',
         latinName: 'Sofia Airport',
         nationalName: 'Летище София',
         location: {latinName: 'Sofia'},
     },
-    'BBU-airport-database-id': {
-        dbsID: 'BBU-airport-database-id',
+    '2': {
+        id: '2',
         iataID: 'BBU',
         latinName: 'Aurel Vlaicu',
         nationalName: 'Aurel Vlaicu National',
         location: {latinName: 'Bucurest'},
     },
-    'HND-airport-database-id': {
-        dbsID: 'HND-airport-database-id',
+    '3': {
+        id: '3',
         iataID: 'HND',
         latinName: 'Tokyo Haneda International Airport',
         nationalName: '',
@@ -79,8 +90,8 @@ const EXAMPLE_ROUTES = {
             price: 170,
             route: [
                 {
-                    airport_from: 'SOF-airport-database-id',
-                    airport_to: 'BBU-airport-database-id',
+                    airport_from: '1',
+                    airport_to: '2',
                     city_from: 'Sofia',
                     city_to: 'Bucarest',
                     dtime: '2018-06-28T16:30',
@@ -90,8 +101,8 @@ const EXAMPLE_ROUTES = {
                     flight_number: '414HU4KB4R',
                 },
                 {
-                    airport_from: 'BBU-airport-database-id',
-                    airport_to: 'HND-airport-database-id',
+                    airport_from: '2',
+                    airport_to: '3',
                     city_from: 'Bucarest',
                     city_to: 'Tokyo',
                     dtime: '2018-07-01T06:30',
@@ -107,8 +118,8 @@ const EXAMPLE_ROUTES = {
             price: 1700,
             route: [
                 {
-                    airport_from: 'SOF-airport-database-id',
-                    airport_to: 'HND-airport-database-id',
+                    airport_from: '1',
+                    airport_to: '3',
                     city_from: 'Sofia',
                     city_to: 'Tokyo',
                     dtime: '2018-06-28T18:30',
@@ -178,7 +189,6 @@ let jsonRPCRequestId = 1;
  * @returns {Promise<*>}
  */
 async function jsonRPCRequest (method, params) {
-    let url = '/';
     let request = {
         jsonrpc: '2.0',
         method,
@@ -188,16 +198,16 @@ async function jsonRPCRequest (method, params) {
     let response;
 
     try {
-        response = await $.postJSON(url, request);
+        response = await $.postJSON(SERVER_URL, request);
     } catch (error) {
         throw new PeerError('Service is not available at the moment',
             'failed to make a post request to server API',
-            'url: ', url,
+            'url: ', SERVER_URL,
             'request data: ', request,
             'error raised: ', error);
-    } finally {
-        jsonRPCRequestId++;
     }
+
+    jsonRPCRequestId++;
 
     if (!['jsonrpc', 'id'].every(prop => _.has(response, prop))) {
         throw new PeerError('Service is not available at the moment',
@@ -277,8 +287,8 @@ async function search (
 
     const params = validateParams(
         {
-            fly_from: flyFrom,
-            fly_to: flyTo,
+            fly_from: "2",
+            fly_to: "3",
             price_to: priceTo,
             currency: currency,
             date_from: dateFrom,
@@ -288,9 +298,8 @@ async function search (
         },
     );
 
-    console.log('request paramaters are: ', params);
-
-    let response = await jsonRPCRequest('search', params);
+    let jsonRPCResponse = await jsonRPCRequest('search', params);
+    let response = switchStyle(EXAMPLE_ROUTES, snakeToCamel);
 
     for (let routeObj of response.routes) {
         routeObj.price += response.currency;
@@ -322,6 +331,13 @@ function displayRoutes (
     routes, $routesList, $routeItemTemplate, $flightItemTemplate,
 ) {
     $routesList.find('li:not(:first)').remove();
+
+    if (
+        routes === undefined ||
+        (Object.keys(routes).length === 0 && routes.constructor === Object)
+    ) {
+        return;
+    }
 
     for (let route of routes.routes) {
         let $clone = $routeItemTemplate.clone().
@@ -423,9 +439,93 @@ function setupAutoComplete ({hash, $textInput: $textInput, $dataList: $dataList}
     }
 }
 
-function processForm (searchForm) {
+function cleanObject(obj) {
+    return Object.entries(obj).reduce(
+        (newObj, entry) => {
+            let [key, value] = entry;
 
+            if (obj[key] !== undefined){
+                newObj[key] = value;
+            }
+
+            return newObj;
+        },
+        {}
+    )
 }
+
+function searchFormParams($searchForm) {
+    function objectifyForm(formArray) {
+        return formArray.reduce(
+            (obj, entry) => {
+                if (entry.value !== undefined && entry.value !== '') {
+                    obj[entry.name] = entry.value;
+                }
+                return obj;
+            },
+            {});
+    }
+
+    let formData = objectifyForm($searchForm.serializeArray());
+    // variables for paramaters
+    let flyFrom = getAirportByString(formData.from);
+    let flyTo = getAirportByString(formData.to);
+    let dateFrom;
+    let dateTo;
+
+    if (!flyFrom) {
+        throw new BaseError(
+            `${formData.from} is not a location that has an airport!`,
+            'User entered an invalid string in #departure-input - ',
+            formData.from);
+    } else if (!flyTo) {
+        throw new BaseError(
+            `${formData.to} is not a location that has an airport!`,
+            'User entered an invalid string in #arrival-input - ',
+            formData.to);
+    }
+
+    function dateFromFields({yearField, monthField, dayField}) {
+        let date = new Date();
+
+        // TODO problematic when not all of the fields are set
+        if (formData[yearField]) {
+            dateFrom.setFullYear(formData[yearField]);
+        }
+        if (formData[monthField]) {
+            dateFrom.setMonth(formData[monthField]);
+        }
+        if (formData[dayField]) {
+            dateFrom.setDate(formData[dayField]);
+        }
+
+        date.setHours(0);
+        date.setMinutes(0);
+        date.setSeconds(0);
+
+        return date;
+    }
+
+    dateFrom = dateFromFields({
+        monthField: formData.departureMonth,
+        dayField: formData.departureDay
+    });
+
+    if (formData.arrivalMonth || formData.arrivalDay) {
+        dateTo = dateFromFields({
+            monthField: formData.arrivalMonth,
+            dayField: formData.arrivalDay
+        });
+    }
+
+    return cleanObject({
+        flyFrom: flyFrom,
+        flyTo: flyTo,
+        dateFrom: dateFrom,
+        dateTo: dateTo
+    });
+}
+
 $(document).ready(() => {
     $errorBar = $('#errorBar');
     let $allRoutesList = $('#all-routes-list');
@@ -440,31 +540,19 @@ $(document).ready(() => {
             event.preventDefault();
 
             if ($flightForm.serialize() === flightFormData) {
-                return;
+                return false;
             }
 
             flightFormData = $flightForm.serialize();
 
-            let flyFromString = $('#from-input').val();
-            let flyToString = $('#to-input').val();
-            let flyFrom = flyFromString || getAirportByString(flyFromString) ||
-                '';
-            let flyTo = flyToString || getAirportByString(flyToString) || '';
+            let routes;
 
-            if (!flyFrom) {
-                throw new BaseError(
-                    `${flyFrom} is not a location that has an airport!`,
-                    'User entered an invalid string in #departure-input - ',
-                    flyFrom);
-            } else if (!flyTo) {
-                throw new BaseError(
-                    `${flyTo} is not a location that has an airport!`,
-                    'User entered an invalid string in #arrival-input - ',
-                    flyTo);
+            try {
+                routes = await search(searchFormParams($flightForm));
+            } catch (e) {
+                routes = {};
             }
-
-            displayRoutes(await search({flyFrom, flyTo}), $allRoutesList,
-                $flightsListTemplate, $flightItemTemplate);
+            displayRoutes(routes, $allRoutesList, $flightsListTemplate, $flightItemTemplate);
 
             return false;
         });
