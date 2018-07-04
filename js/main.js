@@ -230,7 +230,7 @@ async function jsonRPCRequest (method, params) {
             'response id =', response.id);
     }
 
-    return response;
+    return response.result;
 }
 
 /**
@@ -303,7 +303,9 @@ async function search (
     let response = switchStyle(jsonRPCResponse, snakeToCamel);
 
     for (let routeObj of response.routes) {
-        routeObj.price += response.currency;
+        // server doesn't provide currency yet
+        if (response.currency)
+            routeObj.price += response.currency;
 
         for (let flight of routeObj.route) {
             flight.dtime = new Date(flight.dtime);
