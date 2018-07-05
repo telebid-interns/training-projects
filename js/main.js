@@ -1,5 +1,5 @@
 /* global $, _ */
-const MAX_DISPLAYED_ROUTES = 5;
+const MAX_ROUTES_PER_PAGE = 5;
 const SERVER_URL = 'http://10.20.1.155:3000';
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -103,9 +103,9 @@ const AIRPORT_HASH = {
   }
 };
 
-function getAirportByString (string) {
+function getAirportByString (term) {
   for (let airport of Object.values(AIRPORT_HASH)) {
-    if (string.toLowerCase() === airport.iataID.toLowerCase()) {
+    if (term.toLowerCase() === airport.iataID.toLowerCase()) {
       return airport;
     }
   }
@@ -271,16 +271,16 @@ async function search ({
   }
 
   const params = validateParams({
-      v: '1.0',
-      fly_from: '2', // TODO remove hardcoded values
-      fly_to: '3',
-      price_to: priceTo,
-      currency: currency,
-      date_from: dateFrom,
-      date_to: dateTo,
-      sort: sort,
-      max_fly_duration: maxFlyDuration
-    }
+    v: '1.0',
+    fly_from: '2', // TODO remove hardcoded values
+    fly_to: '3',
+    price_to: priceTo,
+    currency: currency,
+    date_from: dateFrom,
+    date_to: dateTo,
+    sort: sort,
+    max_fly_duration: maxFlyDuration
+  }
   );
 
   let jsonRPCResponse = await jsonRPCRequest('search', params);
@@ -337,42 +337,50 @@ function weeklyDateString (date) {
 function cleanUndefinedFromObject (obj) {
   return Object.entries(obj)
     .reduce((newObj, entry) => {
-        let [key, value] = entry;
+      let [key, value] = entry;
 
-        if (obj[key] !== undefined) {
-          newObj[key] = value;
-        }
+      if (obj[key] !== undefined) {
+        newObj[key] = value;
+      }
 
-        return newObj;
-      },
-      {}
+      return newObj;
+    },
+    {}
     );
 }
 
-function displayRoutes (
-  routes, $routesList, $routeItemTemplate, $flightItemTemplate
-) {
+function setupLoading ($button, $routesList) {
+  const step = 5;
+  let loadedCount = MAX_ROUTES_PER_PAGE + 1; // include the template item
+
+  $button.click(() => {
+    $routesList.children()
+      .slice(loadedCount, loadedCount + step)
+      .show();
+
+    loadedCount += step;
+  });
+}
+
+function displaySearchResult (searchResult, $routesList, $routeItemTemplate, $flightItemTemplate) {
   $routesList.find('li:not(:first)')
     .remove();
 
   if (
-    routes === undefined ||
-    (Object.keys(routes).length === 0 && routes.constructor === Object)
+    searchResult === undefined ||
+    (Object.keys(searchResult).length === 0 && searchResult.constructor === Object)
   ) {
     return;
   }
 
-  for (let [index, route] of routes.routes.entries()) {
-    if (index === MAX_DISPLAYED_ROUTES) {
-      break;
-    }
-
-    let $clone = $routeItemTemplate.clone()
-      .removeAttr('id')
-      .removeClass('hidden');
+  for (let [index, route] of searchResult.routes.entries()) {
+    let $clone = $routeItemTemplate.clone();
     let $routeList = $clone.find('ul');
-    let $newRoute = makeFlightList(route.route, $routeList,
-      $flightItemTemplate);
+    let $newRoute = fillListFromRoute($routeList, route.route, $flightItemTemplate);
+
+    if (index < MAX_ROUTES_PER_PAGE) {
+      $clone.show();
+    }
 
     $clone.find('.route-price')
       .text(route.price);
@@ -392,49 +400,52 @@ function displayRoutes (
       );
   }
 
-  function makeFlightList (route, $list, $flightItemTemplate) {
-    $list.find('li:not(:first)')
-      .remove();
+  $('#load-more-button')
+    .show();
+}
 
-    for (let flight of route) {
-      $list.append(makeListItem(flight, $flightItemTemplate));
-    }
+function fillListFromRoute ($listTemplate, route, $flightItemTemplate) {
+  $listTemplate.find('li:not(:first)')
+    .remove();
 
-    $list.show();
-
-    return $list;
-
-    function makeListItem (flight, $itemTemplate) {
-      let $clone = $itemTemplate.clone()
-        .removeAttr('id')
-        .removeClass('hidden');
-
-      let duration = flight.atime.getTime() - flight.dtime.getTime();
-
-      duration = (duration / 1000 / 60 / 60).toFixed(2);
-      duration = (duration + ' hours').replace(':');
-
-      $clone.find('.airline-logo')
-        .attr('src', flight.airlineLogo);
-      $clone.find('.airline-name')
-        .text(flight.airlineName);
-      $clone.find('.departure-time')
-        .text(timeStringFromDate(flight.dtime));
-      $clone.find('.arrival-time')
-        .text(timeStringFromDate(flight.atime));
-      $clone.find('.flight-date')
-        .text(weeklyDateString(flight.dtime));
-      $clone.find('.timezone')
-        .text('UTC');
-      $clone.find('.duration')
-        .text(duration);
-      // TODO later change to city when server implements the field
-      $clone.find('.from-to-display')
-        .text(`${flight.airportFrom} -----> ${flight.airportTo}`);
-
-      return $clone;
-    }
+  for (let flight of route) {
+    $listTemplate.append(makeFlightItem(flight, $flightItemTemplate));
   }
+
+  $listTemplate.show();
+
+  return $listTemplate;
+}
+
+function makeFlightItem (flight, $itemTemplate) {
+  let $clone = $itemTemplate.clone()
+    .removeAttr('id')
+    .removeClass('hidden');
+
+  let duration = flight.atime.getTime() - flight.dtime.getTime();
+
+  duration = (duration / 1000 / 60 / 60).toFixed(2);
+  duration = (duration + ' hours').replace(':');
+
+  $clone.find('.airline-logo')
+    .attr('src', flight.airlineLogo);
+  $clone.find('.airline-name')
+    .text(flight.airlineName);
+  $clone.find('.departure-time')
+    .text(timeStringFromDate(flight.dtime));
+  $clone.find('.arrival-time')
+    .text(timeStringFromDate(flight.atime));
+  $clone.find('.flight-date')
+    .text(weeklyDateString(flight.dtime));
+  $clone.find('.timezone')
+    .text('UTC');
+  $clone.find('.duration')
+    .text(duration);
+  // TODO later change to city when server implements the field
+  $clone.find('.from-to-display')
+    .text(`${flight.airportFrom} -----> ${flight.airportTo}`);
+
+  return $clone;
 }
 
 function watchInputField ($inputField, callback) {
@@ -480,23 +491,9 @@ function setupAutoComplete ({hash, $textInput, $dataList}) {
 }
 
 function searchFormParams ($searchForm) {
-  function objectifyForm (formArray) {
-    return formArray.reduce(
-      (obj, entry) => {
-        if (entry.value !== undefined && entry.value !== '') {
-          obj[entry.name] = entry.value;
-        }
-        return obj;
-      },
-      {});
-  }
-
   let formData = objectifyForm($searchForm.serializeArray());
-  // variables for paramaters
   let flyFrom = getAirportByString(formData.from);
   let flyTo = getAirportByString(formData.to);
-  let dateFrom;
-  let dateTo;
 
   PeerError.assert(flyFrom,
     {
@@ -508,31 +505,13 @@ function searchFormParams ($searchForm) {
     {userMessage: `${formData.to} is not a location that has an airport!`}
   );
 
-  function dateFromFields ({yearField, monthField, dayField}) {
-    let date = new Date();
-
-    // TODO problematic when not all of the fields are set
-    if (formData[yearField]) {
-      dateFrom.setFullYear(formData[yearField]);
-    }
-    if (formData[monthField]) {
-      dateFrom.setMonth(formData[monthField]);
-    }
-    if (formData[dayField]) {
-      dateFrom.setDate(formData[dayField]);
-    }
-
-    date.setHours(0);
-    date.setMinutes(0);
-    date.setSeconds(0);
-
-    return date;
-  }
-
-  dateFrom = dateFromFields({
+  let dateFrom = dateFromFields({
     monthField: formData.departureMonth,
     dayField: formData.departureDay
   });
+
+  // TODO refactor
+  let dateTo;
 
   if (formData.arrivalMonth || formData.arrivalDay) {
     dateTo = dateFromFields({
@@ -547,6 +526,38 @@ function searchFormParams ($searchForm) {
     dateFrom: dateFrom,
     dateTo: dateTo
   });
+}
+
+function objectifyForm (formArray) {
+  return formArray.reduce(
+    (obj, entry) => {
+      if (entry.value !== undefined && entry.value !== '') {
+        obj[entry.name] = entry.value;
+      }
+      return obj;
+    },
+    {});
+}
+
+function dateFromFields ({yearField, monthField, dayField}) {
+  let date = new Date();
+
+  // TODO problematic when not all of the fields are set
+  if (yearField) {
+    date.setFullYear(yearField);
+  }
+  if (monthField) {
+    date.setMonth(monthField);
+  }
+  if (dayField) {
+    date.setDate(dayField);
+  }
+
+  date.setHours(0);
+  date.setMinutes(0);
+  date.setSeconds(0);
+
+  return date;
 }
 
 $(document)
@@ -578,7 +589,7 @@ $(document)
           console.error(e);
           routes = {};
         }
-        displayRoutes(routes, $allRoutesList, $flightsListTemplate,
+        displaySearchResult(routes, $allRoutesList, $flightsListTemplate,
           $flightItemTemplate);
 
         return false;
@@ -605,9 +616,12 @@ $(document)
       $textInput: $('#to-input'),
       $dataList: $('#to-airports')
     });
+
+    setupLoading($('#load-more-button'), $allRoutesList);
   });
 
 window.addEventListener('error', (event) => {
+  // TODO display to user if not displayed.
   console.error(event);
   // suppress
   return true;
