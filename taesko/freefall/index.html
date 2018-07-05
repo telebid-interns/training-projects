@@ -27,13 +27,13 @@
     <form id="flight-form-input">
         <div class="form-group fixed-form-height">
             <label for="from-input" class="col-md-1 col-md-offset-4 text-center">From</labeL>
-            <input id="from-input" name="from" type="text" placeholder="From" list="from-airports">
+            <input id="from-input" name="from" type="text" placeholder="From" list="from-airports" required>
             <datalist id="from-airports">
             </datalist>
         </div>
         <div class="form-group fixed-form-height">
             <label for="to-input" class="col-md-1 col-md-offset-4 text-center">To</label>
-            <input id="to-input" name="to" type="text" placeholder="To" list="to-airports">
+            <input id="to-input" name="to" type="text" placeholder="To" list="to-airports" required>
             <datalist id="to-airports">
             </datalist>
         </div>
@@ -64,18 +64,18 @@
     </div>
     <div id="routes-container" class="row text-center">
         <ul class="list-unstyled col-sm-12" id="all-routes-list">
-            <li id="flights-list-item-template" class="hidden">
+            <li id="flights-list-item-template" class="collapse">
                 <hr>
                 <div class="row">
                     <strong class="route-price col-md-1"></strong>
-                    <div class="col-md-2">
+                    <div class="col-md-5">
                         <time></time>
                         <span class="middle-dash">-</span>
                         <time></time>
                     </div>
                 </div>
                 <ul class="row">
-                    <li id="flight-item-template" class="row hidden text-center centered-row">
+                    <li id="flight-item-template" class="row collapse text-center centered-row">
                         <div class="col-sm-2">
                             <img class="airline-logo img-responsive center-block"
                                  src="https://www.designevo.com/res/templates/thumb_small/glorious-sunrise-aviation.png">
@@ -103,6 +103,7 @@
             </li>
         </ul>
     </div>
+    <button id="load-more-button" class="btn-primary col-xs-12 collapse">Load more</button>
 </div>
 
 <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
