@@ -11,7 +11,7 @@ const {
   insert
 } = require('../modules/db');
 const { handleError, assertApp, assertPeer } = require('../modules/error-handling');
-const { log, requestJSON } = require('../modules/utils');
+const { log, requestJSON, toSmallestCurrencyUnit } = require('../modules/utils');
 const { isObject } = require('lodash');
 const moment = require('moment');
 
@@ -233,7 +233,7 @@ async function getAirportsAndFlights (airportFrom, airportTo, fetchId, offset) {
   log(`FROM ${airportFrom} to ${airportTo} (offset: ${offset}): data for ${response.data.length} routes. Getting data...`);
 
   const routesPromises = response.data.map(async (data) => {
-    const routeId = await insert('routes', ['booking_token', 'price', 'fetch_id'], [data.booking_token, data.price, fetchId]);
+    const routeId = await insert('routes', ['booking_token', 'price', 'fetch_id'], [data.booking_token, toSmallestCurrencyUnit(data.price), fetchId]);
 
     const flightsPromises = data.route.map(async (flight) => {
       log(`Inserting route ${routeId} flight ${flight.airline} ${flight.flight_no} from ${flight.flyFrom} to ${flight.flyTo} departure time ${moment.unix(flight.dTimeUTC).format(SERVER_TIME_FORMAT)} ...`);

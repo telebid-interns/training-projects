@@ -34,6 +34,14 @@ async function requestJSON (url, parameters) {
   return response.json();
 }
 
+function toSmallestCurrencyUnit (quantity) {
+  return quantity * 100;
+}
+
+function fromSmallestCurrencyUnit (quantity) {
+  return quantity / 100;
+}
+
 function log (msg) {
   console.log(msg);
 }
@@ -41,5 +49,7 @@ function log (msg) {
 module.exports = {
   log,
   handleError,
-  requestJSON
+  requestJSON,
+  toSmallestCurrencyUnit,
+  fromSmallestCurrencyUnit
 };

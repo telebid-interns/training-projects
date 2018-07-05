@@ -7,11 +7,19 @@ module.exports = (() => {
   let db;
 
   async function dbConnect () {
-    log('Connecting to freefall.db...');
-    db = await sqlite.open(path.join(__dirname, '../freefall.db'));
-    await db.run('PRAGMA foreign_keys = ON;');
-    await db.run('PRAGMA integrity_check;');
-    log('freefall.db OK');
+    if (
+      isObject(db) &&
+      isObject(db.driver) &&
+      db.driver.open
+    ) {
+      log('Already connected to freefall.db...');
+    } else {
+      log('Connecting to freefall.db...');
+      db = await sqlite.open(path.join(__dirname, '../freefall.db'));
+      await db.run('PRAGMA foreign_keys = ON;');
+      await db.run('PRAGMA integrity_check;');
+      log('freefall.db OK');
+    }
   }
 
   function assertDB () {
@@ -96,35 +104,17 @@ module.exports = (() => {
 
     // TODO finish filtration
 
-    // if (params.currency) {
-    //   assertPeer(typeof params.currency === 'string', 'Invalid currency in search request.');
-    //   query += ' AND '
-    //   queryParams.push(params.curreny);
-    // }
+    if (params.date_from) {
+      assertPeer(typeof params.date_from === 'string', 'Invalid date_from in search request.');
+      query += ' AND flights.dtime >= ?';
+      queryParams.push(params.date_from);
+    }
 
-    // if (params.date_from) {
-    //   assertPeer(typeof params.date_from === 'string', 'Invalid date_from in search request.');
-    //   query += ' AND '
-    //   queryParams.push(params.date_from);
-    // }
-
-    // if (params.date_to) {
-    //   assertPeer(typeof params.date_to === 'string', 'Invalid date_to in search request.');
-
-    //   queryParams.push(params.date_to);
-    // }
-
-    // if (params.sort) {
-    //   assertPeer(typeof params.sort === 'string', 'Invalid sort in search request.');
-
-    //   queryParams.push(params.sort);
-    // }
-
-    // if (params.max_fly_duration) {
-    //   assertPeer(Number.isInteger(params.max_fly_duration), 'Invalid max_fly_duration in search request.');
-
-    //   queryParams.push(params.max_fly_duration);
-    // }
+    if (params.date_to) {
+      assertPeer(typeof params.date_to === 'string', 'Invalid date_to in search request.');
+      query += ' AND flights.atime <= ?';
+      queryParams.push(params.date_to);
+    }
 
     query += ';';
 

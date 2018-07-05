@@ -1,5 +1,5 @@
 const yamlParser = require('js-yaml');
-const { assertUser, UserError } = require('./error-handling');
+const { assertPeer, PeerError } = require('./error-handling');
 const { log } = require('./utils');
 const { isObject } = require('lodash');
 
@@ -7,7 +7,7 @@ function parseYAML (yaml) {
   try {
     return yamlParser.safeLoad(yaml);
   } catch (error) {
-    throw new UserError('Invalid input format. Cannot parse YAML.');
+    throw new PeerError('Invalid input format. Cannot parse YAML.');
   }
 }
 
@@ -19,7 +19,7 @@ function stringifyYAML (yaml) {
 }
 
 function normalizeYAML (yaml) {
-  assertUser(
+  assertPeer(
     isObject(yaml) &&
     isObject(yaml.parameters) &&
     typeof yaml.yamlrpc === 'string' &&
@@ -55,7 +55,7 @@ function normalize (body, contentType, format) {
   let normalized;
 
   if (contentType === 'application/json') {
-    assertUser(
+    assertPeer(
       format === 'json' ||
       !format,
       'Ambiguous content type.'
@@ -63,7 +63,7 @@ function normalize (body, contentType, format) {
 
     normalized = body;
   } else if (contentType === 'text/yaml') {
-    assertUser(
+    assertPeer(
       format === 'yaml' ||
       !format,
       'Ambiguous content type.'
@@ -76,13 +76,13 @@ function normalize (body, contentType, format) {
     } else if (format === 'yaml') {
       normalized = normalizeYAML(parseYAML(body));
     } else {
-      throw new UserError('Unknown content type.');
+      throw new PeerError('Unknown content type.');
     }
   } else {
-    throw new UserError('Unknown content type.');
+    throw new PeerError('Unknown content type.');
   }
 
-  assertUser(
+  assertPeer(
     isObject(normalized) &&
     typeof normalized.method === 'string' &&
     isObject(normalized.params),
@@ -94,7 +94,7 @@ function normalize (body, contentType, format) {
 
 function denormalize (normalized, result, contentType, format) {
   if (contentType === 'application/json') {
-    assertUser(
+    assertPeer(
       format === 'json' ||
       !format,
       'Ambiguous content type.'
@@ -102,7 +102,7 @@ function denormalize (normalized, result, contentType, format) {
 
     return JSON.stringify(formJSONResponse(normalized, result));
   } else if (contentType === 'text/yaml') {
-    assertUser(
+    assertPeer(
       format === 'yaml' ||
       !format,
       'Ambiguous content type.'
@@ -115,10 +115,10 @@ function denormalize (normalized, result, contentType, format) {
     } else if (format === 'yaml') {
       return stringifyYAML(formYAMLResponse(normalized, result));
     } else {
-      throw new UserError('Unknown content type.');
+      throw new PeerError('Unknown content type.');
     }
   } else {
-    throw new UserError('Unknown content type.');
+    throw new PeerError('Unknown content type.');
   }
 }
 

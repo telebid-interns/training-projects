@@ -1,5 +1,7 @@
-const { assertUser, assertApp, UserError } = require('../modules/error-handling');
+const { assertPeer, assertApp, PeerError } = require('../modules/error-handling');
+const { toSmallestCurrencyUnit, fromSmallestCurrencyUnit } = require('../modules/utils');
 const { isObject } = require('lodash');
+const moment = require('moment');
 
 function dbToAPIRouteFlight (routeFlight) {
   assertApp(
@@ -27,7 +29,7 @@ function dbToAPIRouteFlight (routeFlight) {
 }
 
 async function search (params, db) {
-  assertUser(
+  assertPeer(
     isObject(params) &&
     typeof params.v === 'string' &&
     Number.isInteger(+params.fly_from) &&
@@ -41,15 +43,13 @@ async function search (params, db) {
     'Invalid search request.'
   );
 
+  params.price_to = toSmallestCurrencyUnit(params.price_to);
+
   const result = {
     currency: params.currency
   };
 
   const subscriptions = await db.selectSubscriptions(+params.fly_from, +params.fly_to);
-  // Number(num);
-  // new Number(num);
-  // +num;
-  // parseInt(num);
 
   if (subscriptions <= 0) {
     result.status_code = 2000;
@@ -85,23 +85,15 @@ async function search (params, db) {
       'Invalid database route response.'
     );
 
-    // hash[ routeId ] = hash[ routeId ] || {
-    //   routes: [],
-    // };
+    routesHash[routeFlight.routeId] = routesHash[routeFlight.routeId] || {
+      booking_token: routeFlight.bookingToken,
+      price: fromSmallestCurrencyUnit(routeFlight.price),
+      route: []
+    };
 
-    // assert(Array.isArray(hash[ routeId ].routes);
+    assertApp(Array.isArray(routesHash[routeFlight.routeId].route));
 
-    // hash[ routeId ].routes.push(1)
-
-    if (routeFlight.routeId in routesHash) {
-      routesHash[routeFlight.routeId].route.push(dbToAPIRouteFlight(routeFlight));
-    } else {
-      routesHash[routeFlight.routeId] = {
-        booking_token: routeFlight.bookingToken,
-        price: routeFlight.price,
-        route: [dbToAPIRouteFlight(routeFlight)]
-      };
-    }
+    routesHash[routeFlight.routeId].route.push(dbToAPIRouteFlight(routeFlight));
   }
 
   const routes = [];
@@ -112,6 +104,13 @@ async function search (params, db) {
     }
   }
 
+  // const routesFilteredSorted = routes.map((route) => {
+  //   return {
+  //     ...route,
+  //     // maxFlyDuration: route.route.reduce((acc, flight) => acc + moment(flight.))
+  //   }
+  // })
+
   result.routes = routes;
   result.status_code = 1000;
 
@@ -119,7 +118,7 @@ async function search (params, db) {
 }
 
 async function subscribe (params, db) {
-  assertUser(
+  assertPeer(
     isObject(params) &&
     typeof params.v === 'string' &&
     typeof params.fly_from === 'string' &&
@@ -135,7 +134,7 @@ async function subscribe (params, db) {
 }
 
 async function unsubscribe (params, db) {
-  assertUser(
+  assertPeer(
     isObject(params) &&
     typeof params.v === 'string' &&
     typeof params.fly_from === 'string' &&
@@ -151,7 +150,7 @@ async function unsubscribe (params, db) {
 }
 
 module.exports = function resolveMethod (body) {
-  assertUser(
+  assertPeer(
     isObject(body) &&
     typeof body.method === 'string',
     'Invalid input format. Method not found.'
@@ -173,6 +172,6 @@ module.exports = function resolveMethod (body) {
       execute: unsubscribe
     };
   } else {
-    throw new UserError(`Unknown method "${body.method}"`);
+    throw new PeerError(`Unknown method "${body.method}"`);
   }
 };
