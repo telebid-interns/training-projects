@@ -13,6 +13,7 @@ process.on('unhandledRejection', (err) => {
 });
 
 (async () => {
+  const ROUTES_LIMIT = 30;
   const { fromUnixTimestamp, toKiwiAPIDateFormat, today, dateMonthsFromNow } = require('./modules/date-format');
   const { dbConnect, select, insertDataFetch, insertRoute, insertOrGetFlight, insertRouteFlight, selectAirport, insertIfNotExistsAirline, selectWhereColEquals, insert } = require('./modules/db');
   const { requestJSON } = require('./modules/request');
@@ -53,7 +54,7 @@ process.on('unhandledRejection', (err) => {
 
   // GET routes
 
-  const subscriptionsPromises = subscriptions.map(async (sub) => {
+  for (const sub of subscriptions) {
     assertApp(
       isObject(sub) &&
       Number.isInteger(sub.id) &&
@@ -62,9 +63,8 @@ process.on('unhandledRejection', (err) => {
       'Invalid subscription data.'
     );
 
-    let fetchId, airportFrom, airportTo;
-
     const newFetchResult = await insertDataFetch(sub.id);
+
     assertApp(
       isObject(newFetchResult) &&
       isObject(newFetchResult.stmt) &&
@@ -72,7 +72,7 @@ process.on('unhandledRejection', (err) => {
       'Incorrect db response.'
     );
 
-    fetchId = newFetchResult.stmt.lastID;
+    const fetchId = newFetchResult.stmt.lastID;
     const airports = await Promise.all([selectAirport(sub.airport_from_id), selectAirport(sub.airport_to_id)]);
 
     assertApp(
@@ -89,21 +89,36 @@ process.on('unhandledRejection', (err) => {
       'Invalid airports data.'
     );
 
-    airportFrom = airports[0][0];
-    airportTo = airports[1][0];
+    const airportFrom = airports[0][0];
+    const airportTo = airports[1][0];
+
+    await getAirportsAndFlights(airportFrom.iata_code, airportTo.iata_code, fetchId, 0);
+  }
+
+  console.log(`Checked ${subscriptions.length} subscriptions.`);
+
+  async function getAirportsAndFlights (airportFrom, airportTo, fetchId, offset) {
+    assertApp(
+      typeof airportFrom === 'string' &&
+      typeof airportTo === 'string',
+      'Invalid airport data.'
+    );
+
+    const flightsHash = {};
+    const airportsSet = [];
 
     const response = await requestJSON('https://api.skypicker.com/flights', {
-      flyFrom: airportFrom.iata_code,
-      to: airportTo.iata_code,
+      flyFrom: airportFrom,
+      to: airportTo,
       dateFrom: toKiwiAPIDateFormat(today()),
-      dateTo: toKiwiAPIDateFormat(dateMonthsFromNow(3)),
+      dateTo: toKiwiAPIDateFormat(dateMonthsFromNow(1)),
       typeFlight: 'oneway',
       partner: 'picky',
       v: '2',
       xml: '0',
       locale: 'en',
-      offset: '0',
-      limit: '30' // TODO get not just 30 but the data for the next 3 months
+      offset: offset,
+      limit: ROUTES_LIMIT
     });
 
     assertPeer(
@@ -113,7 +128,7 @@ process.on('unhandledRejection', (err) => {
       'API sent invalid data response.'
     );
 
-    const routesPromises = response.data.map(async (data) => {
+    for (const data of response.data) {
       assertPeer(
         isObject(data) &&
         typeof data.booking_token === 'string' &&
@@ -122,13 +137,7 @@ process.on('unhandledRejection', (err) => {
         'API sent invalid route response.'
       );
 
-      const routeId = await insertRoute({
-        bookingToken: data.booking_token,
-        price: data.price,
-        fetchId: fetchId
-      });
-
-      const flightsPromises = data.route.map(async (flight) => {
+      for (const flight of data.route) {
         assertPeer(
           isObject(flight) &&
           Number.isInteger(flight.flight_no) &&
@@ -137,13 +146,48 @@ process.on('unhandledRejection', (err) => {
           (flight.return === 0 || flight.return === 1) &&
           typeof flight.flyFrom === 'string' &&
           typeof flight.flyTo === 'string' &&
+          flight.flyFrom !== flight.flyTo &&
           typeof flight.airline === 'string' &&
           typeof flight.id === 'string',
           'API sent invalid flight response.'
         );
 
-        const airportCodes = [flight.flyFrom, flight.flyTo];
+        flightsHash[flight.id] = flightsHash[flight.id] || flight;
+        if (!airportsSet.includes(flight.flyFrom)) {
+          airportsSet.push(flight.flyFrom);
+        }
+        if (!airportsSet.includes(flight.flyTo)) {
+          airportsSet.push(flight.flyTo);
+        }
+      }
+    }
 
+    await Promise.all(airportsSet.map((IATACode) => insertAirportInDBIfNotExists(IATACode)));
+
+    await Promise.all(Object.values(flightsHash).map(async (flight) => {
+      const airportCodes = [flight.flyFrom, flight.flyTo];
+      const airportIds = await Promise.all(airportCodes.map((IATACode) => insertAirportInDBIfNotExists(IATACode)));
+
+      return insertOrGetFlight({
+        airlineCode: flight.airline,
+        airportFromId: airportIds[0],
+        airportToId: airportIds[1],
+        dtime: fromUnixTimestamp(flight.dTimeUTC),
+        atime: fromUnixTimestamp(flight.aTimeUTC),
+        flightNumber: flight.flight_no,
+        remoteId: flight.id
+      });
+    }));
+
+    const routesPromises = response.data.map(async (data) => {
+      const routeId = await insertRoute({
+        bookingToken: data.booking_token,
+        price: data.price,
+        fetchId: fetchId
+      });
+
+      const flightsPromises = data.route.map(async (flight) => {
+        const airportCodes = [flight.flyFrom, flight.flyTo];
         const airportIds = await Promise.all(airportCodes.map((IATACode) => insertAirportInDBIfNotExists(IATACode)));
 
         const flightId = await insertOrGetFlight({
@@ -164,15 +208,16 @@ process.on('unhandledRejection', (err) => {
       });
 
       await Promise.all(flightsPromises);
-      console.log(`Inserted ${flightsPromises.length} flights for route with id ${routeId} for subscription with id ${sub.id}.`);
+      // console.log(`Inserted ${flightsPromises.length} flights for route with id ${routeId} for subscription with id ${sub.id}.`);
     });
 
     await Promise.all(routesPromises);
-    console.log(`Inserted ${routesPromises.length} routes for subscription with id ${sub.id}.`);
-  });
+    // console.log(`Inserted ${routesPromises.length} routes for subscription with id ${sub.id}.`);
 
-  await Promise.all(subscriptionsPromises);
-  console.log(`Checked ${subscriptionsPromises.length} subscriptions.`);
+    if (typeof response._next === 'string') {
+      getAirportsAndFlights(airportFrom, airportTo, fetchId, offset + ROUTES_LIMIT);
+    }
+  }
 
   async function insertAirportInDBIfNotExists (IATACode) {
     const airports = await selectWhereColEquals('airports', ['id'], 'iata_code', IATACode);

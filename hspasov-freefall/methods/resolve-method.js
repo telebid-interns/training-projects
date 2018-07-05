@@ -86,7 +86,6 @@ async function search (params, db) {
       'Invalid database route response.'
     );
 
-
     // hash[ routeId ] = hash[ routeId ] || {
     //   routes: [],
     // };
