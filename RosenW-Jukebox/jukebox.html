@@ -5,30 +5,22 @@
    <body>
     <div class="form-inline">
       <input type="text" id='channel' placeholder="Enter Youtube Channel link" class="form-control">
-      <button id='subBtn' class='btn btn-default'> Subscribe </button>
+      <button id='sub-btn' class='btn btn-default'> Subscribe </button>
       <br>
-      <br>
-      <label>Show songs from: </label>
-      <select id="select-time" class="form-control">
-        <option value="week">Last Week</option>
-        <option value="month">Last Month</option>
-        <option value="year">Last Year</option>
-        <option value="all" selected>Whenever</option>
-      </select>
     </div>
     <br>
     <p>Channels subscribed to:</p>
-    <ul id='channels' class="list-group">
-      
+    <ul id='channels'>
+
     </ul>
-    <table id="infoTable" class="table table-hover">
+    <table id="info-table" class="table table-hover">
       <tr>
-        <th>Channel</th>
+        <th>Date</th>
         <th>Artist</th>
         <th>Song</th>
         <th>Duration</th>
         <th>Album</th>
-        </tr>
+      </tr>
     </table>
   </body>
 </html>

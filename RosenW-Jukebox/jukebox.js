@@ -1,16 +1,14 @@
 const YT_API_KEY = 'AIzaSyDrLczSe8MEo3k5FAwo1Kc3fkn26NB-VUQ';
 const LAST_FM_API_KEY = '93c3430d5a7c70eb83e5f3b1ccdc71dd';
 
-const table = document.getElementById('infoTable');
-const subBtn = document.getElementById('subBtn');
-const timeSelect = document.getElementById('select-time');
+const table = document.getElementById('info-table');
+const subBtn = document.getElementById('sub-btn');
+const channelTextBox = document.getElementById('channel');
 
 let channelList = [];
 let allVids = [];
 
 loadLocalStorage();
-
-timeSelect.addEventListener('change', displayVideos);
 
 subBtn.addEventListener('click', subscribe);
 
@@ -28,43 +26,38 @@ function loadLocalStorage () {
 }
 
 function subscribe () {
-  let linkTextbox = document.getElementById('channel');
-  let link = linkTextbox.value;
+  const link = channelTextBox.value;
+  const channelId = link.split('/channel/')[1]; // user error
+  const reqLink = 'https://www.googleapis.com/youtube/v3/search?channelId=' + channelId + '&key=' + YT_API_KEY + '&part=snippet&type=video&maxResults=50&videoCategoryId=10';
 
-  linkTextbox.value = '';
+  channelTextBox.value = '';
 
-  let channelId = link.split('/channel/')[1]; // user error
-  let reqLink = 'https://www.googleapis.com/youtube/v3/search?channelId=' + channelId + '&key=' + YT_API_KEY + '&part=snippet&type=video&maxResults=50&videoCategoryId=10';
+  // class CustomError extends Error {}
+  // class UserError extends CustomError {}
+  // class PerrError extends CustomError {}
+  // class AppError extends CustomError {}
 
-  class CustomError extends Error {}
-  class UserError extends CustomError {}
-  class PerrError extends CustomError {}
-  class AppError extends CustomError {}
+  // window.addEventListener('error', (event) => {
+  //   // event.error;
+  // });
 
-  window.addEventListener('error', (event) => {
-    // event.error;
-  });
+  // const assert = (condition, msg) => {
+  //   if(!IS_ASSERTS_ENABLED) return;
+  //   if(condition) return;
 
-  const assert = (condition, msg) => {
-    if(!IS_ASSERTS_ENABLED) return;
-    if(condition) return;
+  //   throw new AppError(msg);
+  // }
 
-    throw new AppError(msg);
-  }
+  // const assertPeer = (condition, msg) => {
+  //   if(condition) return;
 
-
-  const assertPeer = (condition, msg) => {
-    if(condition) return;
-
-    throw new PerrError(msg);
-  }
-
-  
+  //   throw new PerrError(msg);
+  // }
 
   fetch(reqLink)
     .then((response) => response.json())
     .then((data) => {
-      let channelName = data.items[0].snippet.channelTitle;
+      const channelName = data.items[0].snippet.channelTitle;
 
       for (const channel of channelList) {
         if (channel.name === channelName) {
@@ -72,11 +65,11 @@ function subscribe () {
         }
       }
 
-      let channelObj = {
+      const channelObj = {
         name: channelName,
         url: link
       };
-      let videos = data.items;
+      const videos = data.items;
 
       channelList.push(channelObj);
 
@@ -97,69 +90,66 @@ function customEscapeURI (params) { // check type
 }
 
 function saveAndDisplayVids (videos) {
-  let promises = [];
+  const promises = [];
 
-  for (let i in videos) { // change for in
-    let videoObj = {
+  for (const video of videos) {
+    const videoObj = {
       artists: [],
-      channelFoundOn: '',
+      channel: '',
       song: '',
       album: '',
       duration: '',
       date: ''
     };
-
-    let artAndSong = extractArtistsAndSongFromTitle(videos[i].snippet.title); // setting song and artsts
+    const artAndSong = extractArtistsAndSongFromTitle(video.snippet.title); // setting song and artsts
 
     if (typeof artAndSong === 'undefined' || artAndSong.artists.length === 0) {
       continue;
     }
 
-    videoObj.channelFoundOn = videos[i].snippet.channelTitle; // todo assert peer
+    videoObj.channel = video.snippet.channelTitle; // todo assert peer
     videoObj.artists = artAndSong.artists;
     videoObj.song = artAndSong.song.trim();
 
     // escape link
-    let lastfmReqLink = 'http://ws.audioscrobbler.com/2.0/?method=track.getInfo&api_key=' + LAST_FM_API_KEY + '&artist=' + videoObj.artists[0].trim() + '&track=' + videoObj.song + '&format=json';
-
-    let currentPromise = fetch(lastfmReqLink)
+    const lastfmReqLink = 'http://ws.audioscrobbler.com/2.0/?method=track.getInfo&api_key=' + LAST_FM_API_KEY + '&artist=' + videoObj.artists[0].trim() + '&track=' + videoObj.song + '&format=json';
+    const currPromise = fetch(lastfmReqLink) // wrapper
       .then((response) => {
         return response.json();
       }).then((data) => {
-        let album;
-        let duration;
-
         if (data.message === 'Track not found') { // const string
-          album = 'No information';
-          duration = 'No information';
+          videoObj.album = 'No information';
+          videoObj.duration = 'No information';
         } else {
           if (data.track.album === undefined) {
-            album = 'No information';
+            videoObj.album = 'No information';
           } else {
-            album = data.track.album.title;
+            videoObj.album = data.track.album.title;
           }
 
-          if (typeof data.track.duration === 'undefined' || data.track.duration === '0') { //undef ===
-            duration = 'No information';
+          if (typeof data.track.duration === 'undefined' || data.track.duration === '0') { // undef ===
+            videoObj.duration = 'No information';
           } else {
-            duration = data.track.duration;
+            videoObj.duration = data.track.duration;
           }
         }
 
-        videoObj.album = album; // remove para variables
-        videoObj.duration = isNaN(duration) ? duration : millisToMinutesAndSeconds(duration);
+        if (!isNaN(videoObj.duration)) {
+          videoObj.duration = millisToMinutesAndSeconds(videoObj);
+        }
 
-        let vidDate = videos[i].snippet.publishedAt;
-        videoObj.date = Date.parse(vidDate);
+        const vidDate = video.snippet.publishedAt;
+        videoObj.date = vidDate;
 
         if (videoObj.artists.length > 0 && videoObj.song.length > 0) { // pushing valid data to array
           allVids.push(videoObj);
+          allVids = allVids.sort((a, b) => { return new Date(b.date) - new Date(a.date); });
           updateLocalStorage();
           displayVideos();
         }
       });
 
-    promises.push(currentPromise);
+    promises.push(currPromise);
   }
 
   Promise.all(promises).then(showChannels);
@@ -169,44 +159,71 @@ function showChannels () {
   let channelsElement = document.getElementById('channels');
   channelsElement.innerHTML = '';
 
-  for (let i in channelList) {
-    let currChannel = channelList[i].name;
-    let link = channelList[i].url;
+  for (const channel of channelList) {
+    const currChannel = channel.name;
+    const link = channel.url;
 
-    let divWrapper = document.createElement('li');
-    divWrapper.setAttribute('class', 'list-group-item clearfix');
-    divWrapper.setAttribute('style', 'width:20%'); // use bootstrap
+    const liElement = document.createElement('li');
+    liElement.setAttribute('class', 'list-group-item clearfix col-lg-2 col-md-2 col-sm-2 col-xs-2');
 
-    let pElement = document.createElement('p');
+    const pElement = document.createElement('p');
     pElement.setAttribute('id', 'name-' + currChannel);
 
-    let aElement = document.createElement('a');
+    const aElement = document.createElement('a');
     aElement.setAttribute('href', link);
     aElement.setAttribute('class', 'pull-left');
-    aElement.appendChild(document.createTextNode(currChannel + ' ')); // curr
+    aElement.appendChild(document.createTextNode(currChannel + ' '));
 
-    let unsubBtn = document.createElement('button');
+    const unsubBtn = document.createElement('button');
     unsubBtn.setAttribute('class', 'btn btn-default pull-right');
     unsubBtn.setAttribute('id', 'unsub-' + currChannel);
     unsubBtn.innerHTML = 'Unsub';
     unsubBtn.addEventListener('click', function (event) {
-      let chName = event.target.id.substr(6, event.target.id.length);
-      let removeElement = document.getElementById('name-' + chName);
+      const chName = event.target.id.substr(6, event.target.id.length);
+      const removeElement = document.getElementById('name-' + chName);
 
       channelList = channelList.filter(e => e.name !== chName);
       removeElement.remove();
 
-      allVids = allVids.filter(e => e.channelFoundOn !== chName);
+      allVids = allVids.filter(e => e.channel !== chName);
 
       updateLocalStorage();
       showChannels();
       displayVideos();
     });
 
+    const filterLabel = document.createElement('label');
+    filterLabel.innerHTML = 'Filter by date: ';
+
+    const filterElement = document.createElement('select');
+    filterElement.setAttribute('id', 'select-' + currChannel);
+    filterElement.addEventListener('change', displayVideos);
+
+    const lastWeekOpt = document.createElement('option');
+    lastWeekOpt.setAttribute('value', 'week');
+    lastWeekOpt.innerHTML = 'Last Week';
+    const lastMonthOpt = document.createElement('option');
+    lastMonthOpt.setAttribute('value', 'month');
+    lastMonthOpt.innerHTML = 'Last Month';
+    const lastYearOpt = document.createElement('option');
+    lastYearOpt.setAttribute('value', 'year');
+    lastYearOpt.innerHTML = 'Last Year';
+    const wheneverOpt = document.createElement('option');
+    wheneverOpt.setAttribute('value', 'all');
+    wheneverOpt.setAttribute('selected', 'true');
+    wheneverOpt.innerHTML = 'Whenever';
+
+    filterElement.appendChild(lastWeekOpt);
+    filterElement.appendChild(lastMonthOpt);
+    filterElement.appendChild(lastYearOpt);
+    filterElement.appendChild(wheneverOpt);
+
     pElement.appendChild(aElement);
     pElement.appendChild(unsubBtn);
-    divWrapper.appendChild(pElement);
-    channelsElement.appendChild(divWrapper);
+    liElement.appendChild(pElement);
+    liElement.appendChild(filterLabel);
+    liElement.appendChild(filterElement);
+    channelsElement.appendChild(liElement);
   }
 }
 
@@ -230,23 +247,23 @@ function getLastMonth () {
 
 function getLastYear () {
   let lastYear = new Date();
-  lastYear.setDate(1);
+  lastYear.setMonth(1);
   lastYear.setYear(lastYear.getFullYear() - 1);
   return Date.parse(lastYear);
 }
 
 function displayVideos () {
   cleanTable(); // use async await
-  for (let i in allVids) {
-    if (checkFilter(allVids[i].date)) {
-      addVideoToTable(allVids[i]);
+  for (const vid of allVids) {
+    if (checkFilters(Date.parse(vid.date), vid.channel)) { // ??
+      addVideoToTable(vid);
     }
   }
 }
 
-function checkFilter (checkDate) {
-  let filterElement = document.getElementById('select-time');
-  let filterValue = filterElement.options[filterElement.selectedIndex].value;
+function checkFilters (checkDate, channel) {
+  const filterElement = document.getElementById('select-' + channel);
+  const filterValue = filterElement == null ? 'all' : filterElement.options[filterElement.selectedIndex].value;
 
   if (filterValue === 'week') {
     return checkDate - getLastWeek() > 0;
@@ -265,10 +282,10 @@ function cleanTable () {
   }
 }
 
-function addVideoToTable (video) {
+function addVideoToTable (video) { // datafication
   let row = table.insertRow(-1);
 
-  let channelCell = row.insertCell(0);
+  let dateCell = row.insertCell(0);
   let artistCell = row.insertCell(1);
   let songCell = row.insertCell(2);
   let durationCell = row.insertCell(3);
@@ -276,17 +293,18 @@ function addVideoToTable (video) {
 
   let artistText = document.createTextNode(video.artists.join(', '));
   let songText = document.createTextNode(video.song);
-  let channelText = document.createTextNode(video.channelFoundOn);
   let albumText = document.createTextNode(video.album);
   let durationText = document.createTextNode(video.duration);
+  let dateText = document.createTextNode(video.date.substr(0, 10));
 
   artistCell.appendChild(artistText);
   songCell.appendChild(songText);
-  channelCell.appendChild(channelText);
   albumCell.appendChild(albumText);
   durationCell.appendChild(durationText);
+  dateCell.appendChild(dateText);
 }
 
+// Rework function
 function extractArtistsAndSongFromTitle (title) {
   let regex = /^([0-9a-zA-Z\s.&']*) [-|] ([0-9a-zA-Z\s.&"'=-]*)/g; // simplify
   let match = regex.exec(title);
@@ -327,6 +345,7 @@ function extractArtistsAndSongFromTitle (title) {
   return {artists: artists, song: song};
 }
 
+// Rework function
 function checkGroupForFt (group, featString, isArtistGroup) {
   let foundArtists = [];
   let song;
@@ -343,8 +362,8 @@ function checkGroupForFt (group, featString, isArtistGroup) {
 
     if (feat.includes(' & ')) {
       let featArtists = feat.split(' & ');
-      for (let i in featArtists) {
-        foundArtists.push(featArtists[i]);
+      for (const artist of featArtists) {
+        foundArtists.push(artist);
       }
     } else {
       foundArtists.push(feat); // if feat artist is only one person whole group is the feat artist
@@ -364,6 +383,7 @@ function checkGroupForFt (group, featString, isArtistGroup) {
   return {artists: foundArtists, song: song};
 }
 
+// Rework
 function millisToMinutesAndSeconds (millis) {
   let minutes = Math.floor(millis / 60000);
   let seconds = ((millis % 60000) / 1000).toFixed(0);
