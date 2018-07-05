@@ -1,3 +1,4 @@
+'use strict';
 /* global $, _ */
 const MAX_ROUTES_PER_PAGE = 5;
 const SERVER_URL = 'http://10.20.1.155:3000';
@@ -14,7 +15,7 @@ const WEEK_DAYS = [
   'Saturday',
   'Sunday'
 ];
-
+let jsonRPCRequestId = 1;
 let $errorBar;
 let errorTimeout;
 
@@ -36,6 +37,9 @@ function displayErrorMessage (errMsg) {
 class BaseError extends Error {
   constructor ({userMessage, logs}) {
     super(userMessage);
+
+    this.userMessage = userMessage;
+    this.logs = logs;
 
     if (logs) {
       console.warn(...logs);
@@ -111,67 +115,128 @@ function getAirportByString (term) {
   }
 }
 
-function snakeToCamel (string) {
-  let words = string.split('_');
-  let top = words[0];
+/**
+ * Make a search method call to the server and retrieve possible routes
+ * All parameters must be JS primitives with their corresponding type in
+ * the API docs.
+ *
+ **/
+async function search ({
+  flyFrom,
+  flyTo,
+  priceTo,
+  currency,
+  dateFrom,
+  dateTo,
+  sort,
+  maxFlyDuration
+}) {
+  const required = ['fly_from', 'fly_to'];
+  const fixed = {sort: ['price', 'duration'], currency: ['USD', 'BGN']};
+  const params = validateParams({
+    v: '1.0', // this is better to be passed through the url for better optimization
+    fly_from: '2', // TODO remove hardcoded values
+    fly_to: '3',
+    price_to: priceTo,
+    currency: currency,
+    date_from: dateFrom,
+    date_to: dateTo,
+    sort: sort,
+    max_fly_duration: maxFlyDuration
+  },
+  required,
+  fixed
+  );
 
-  words.splice(0, 1);
+  console.log("Searching", params);
 
-  return top + words.map(_.capitalize)
-    .join('');
-}
+  let jsonRPCResponse = await jsonRPCRequest('search', params);
+  let response = switchStyle(jsonRPCResponse, snakeToCamel);
 
-function switchStyle (json, converter) {
-  function switchHash (hash) {
-    return _.mapKeys(hash, (value, key) => converter(key));
-  }
-
-  function switcher (json) {
-    let converted = switchHash(json);
-
-    for (let [key, value] of Object.entries(converted)) {
-      if (_.isPlainObject(value)) {
-        value = switcher(value);
-      } else if (Array.isArray(value)) {
-        value = value.map(switcher);
-      }
-
-      converted[key] = value;
+  for (let routeObj of response.routes) {
+    // server doesn't provide currency yet
+    if (response.currency) {
+      routeObj.price += ' ' + response.currency;
+    } else {
+      routeObj.price += ' $';
     }
 
-    return converted;
+    for (let flight of routeObj.route) {
+      flight.dtime = new Date(flight.dtime);
+      flight.atime = new Date(flight.atime);
+
+      // server doesn't provide city_from and city_to yet
+      flight.cityFrom = flight.cityFrom || '';
+      flight.cityTo = flight.cityTo || '';
+    }
+
+    routeObj.route = sortRoute(routeObj.route);
+    routeObj.dtime = routeObj.route[0].dtime;
+    routeObj.atime = routeObj.route[routeObj.route.length - 1].atime;
   }
 
-  return switcher(json);
+  response.routes = _.sortBy(response.routes, [routeObj => routeObj.dtime]);
+
+  return response;
 }
 
-async function postJSON (url, data) {
-  let serverResponse;
+async function subscribe (fromAiport, toAirport) {
+  console.log('Subscribing', fromAiport, toAirport);
+
+  let response;
+  let params = {
+    v: '1.0',
+    fly_from: fromAiport.id,
+    fly_to: toAirport.id
+  };
 
   try {
-    serverResponse = await window.fetch(url, {
-      method: 'POST',
-      mode: 'cors',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(data)
-    });
+    response = await jsonRPCRequest('subscribe', params);
   } catch (e) {
-    throw new PeerError({
-      userMessage: 'Service is not available at the moment due to network issues',
-      logs: ['Couldn\'t connect to server at url: ', url, 'Sent POST request with data: ', data]
-    });
+    e.userMessage = `Failed to subscribe for flights from airport ${fromAiport.nationalName} to airport ${toAirport.nationalName}.`;
   }
 
-  PeerError.assert(serverResponse.ok, {
-    logs: ['Sent POST request with data: ', data, 'Got NOT OK response back', serverResponse]
-  });
-
-  return serverResponse.json();
+  PeerError.assert(response.status_code >= 1000 && response.status_code < 2000,
+    {
+      userMessage: `Already subscribed for flights from airport ${fromAiport.nationalName} to airport ${toAirport.nationalName}.`,
+      logs: [
+        'Server returned unknown status code',
+        'Sent params: ',
+        params,
+        'Got response: ',
+        response]
+    });
 }
 
-let jsonRPCRequestId = 1;
+async function unsubscribe(fromAirport, toAirport) {
+  console.log("Unsubscribing", fromAirport, toAirport);
+
+  let response;
+  let params = {
+    v: '1.0',
+    fly_from: fromAirport.id,
+    fly_to: toAirport.id
+  };
+
+  try {
+    response = await jsonRPCRequest('unsubscribe', params);
+  } catch (e) {
+    e.userMessage = `Failed to unsubscribe for flights from airport ${fromAiport.nationalName} to airport ${toAirport.nationalName}.`;
+  }
+
+  PeerError.assert(response.status_code >= 1000 && response.status_code < 2000,
+    {
+      userMessage: `You aren't subscribed for flights from airport ${fromAiport.nationalName} to airport ${toAirport.nationalName}.`,
+      logs: [
+        'Server returned unknown status code',
+        'Sent params: ',
+        params,
+        'Got response: ',
+        response]
+    });
+
+  return params;
+}
 
 async function jsonRPCRequest (method, params) {
   let request = {
@@ -225,90 +290,30 @@ async function jsonRPCRequest (method, params) {
   return response.result;
 }
 
-/**
- * Make a search method call to the server and retrieve possible routes
- * All parameters must be JS primitives with their corresponding type in
- * the API docs.
- *
- **/
-async function search ({
-  flyFrom,
-  flyTo,
-  priceTo,
-  currency,
-  dateFrom,
-  dateTo,
-  sort,
-  maxFlyDuration
-}) {
-  function validateParams (params) {
-    const required = ['fly_from', 'fly_to'];
-    const fixed = {sort: ['price', 'duration'], currency: ['USD', 'BGN']};
+async function postJSON (url, data) {
+  let serverResponse;
 
-    // TODO this might not be needed if the API can accept undefined values
-    params = cleanUndefinedFromObject(params);
-
-    for (let requiredParam of required) {
-      ApplicationError.assert(
-        !_.has(required, requiredParam),
-        {logs: ['Missing required keyword argument: ', requiredParam, 'to call of', search]}
-      );
-    }
-
-    for (let [fixedParam, possibleStates] of Object.entries(fixed)) {
-      ApplicationError.assert(
-        !_.has(params, fixedParam) && !_.includes(possibleStates, params[fixedParam]),
-        {
-          logs: [
-            'Paramater', fixedParam,
-            'is not one of:', fixed[fixedParam],
-            'instead got -', params[fixedParam]]
-        }
-      );
-    }
-
-    return params;
+  try {
+    serverResponse = await window.fetch(url, {
+      method: 'POST',
+      mode: 'cors',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    });
+  } catch (e) {
+    throw new PeerError({
+      userMessage: 'Service is not available at the moment due to network issues',
+      logs: ['Couldn\'t connect to server at url: ', url, 'Sent POST request with data: ', data]
+    });
   }
 
-  const params = validateParams({
-    v: '1.0',
-    fly_from: '2', // TODO remove hardcoded values
-    fly_to: '3',
-    price_to: priceTo,
-    currency: currency,
-    date_from: dateFrom,
-    date_to: dateTo,
-    sort: sort,
-    max_fly_duration: maxFlyDuration
-  }
-  );
+  PeerError.assert(serverResponse.ok, {
+    logs: ['Sent POST request with data: ', data, 'Got NOT OK response back', serverResponse]
+  });
 
-  let jsonRPCResponse = await jsonRPCRequest('search', params);
-  let response = switchStyle(jsonRPCResponse, snakeToCamel);
-
-  for (let routeObj of response.routes) {
-    // server doesn't provide currency yet
-    if (response.currency) {
-      routeObj.price += ' ' + response.currency;
-    } else {
-      routeObj.price += ' $';
-    }
-
-    for (let flight of routeObj.route) {
-      flight.dtime = new Date(flight.dtime);
-      flight.atime = new Date(flight.atime);
-
-      // server doesn't provide city_from and city_to yet
-      flight.cityFrom = flight.cityFrom || '';
-      flight.cityTo = flight.cityTo || '';
-    }
-
-    routeObj.route = sortRoute(routeObj.route);
-    routeObj.dtime = routeObj.route[0].dtime;
-    routeObj.atime = routeObj.route[routeObj.route.length - 1].atime;
-  }
-
-  return response;
+  return serverResponse.json();
 }
 
 function sortRoute (route) {
@@ -495,6 +500,8 @@ function searchFormParams ($searchForm) {
   let flyFrom = getAirportByString(formData.from);
   let flyTo = getAirportByString(formData.to);
 
+  console.log("Form data: ", formData);
+
   PeerError.assert(flyFrom,
     {
       userMessage: `${formData.from} is not a location that has an airport!`,
@@ -506,8 +513,8 @@ function searchFormParams ($searchForm) {
   );
 
   let dateFrom = dateFromFields({
-    monthField: formData.departureMonth,
-    dayField: formData.departureDay
+    monthField: formData['departure-month'],
+    dayField: formData['departure-day']
   });
 
   // TODO refactor
@@ -515,8 +522,8 @@ function searchFormParams ($searchForm) {
 
   if (formData.arrivalMonth || formData.arrivalDay) {
     dateTo = dateFromFields({
-      monthField: formData.arrivalMonth,
-      dayField: formData.arrivalDay
+      monthField: formData['arrival-month'],
+      dayField: formData['arrival-day']
     });
   }
 
@@ -581,16 +588,27 @@ $(document)
 
         flightFormData = $flightForm.serialize();
 
-        let routes;
+        let formParams;
 
         try {
-          routes = await search(searchFormParams($flightForm));
+          formParams = searchFormParams($flightForm);
         } catch (e) {
-          console.error(e);
-          routes = {};
+          handleError(e);
+          return false;
         }
-        displaySearchResult(routes, $allRoutesList, $flightsListTemplate,
-          $flightItemTemplate);
+
+        try {
+          displaySearchResult(await search(formParams), $allRoutesList,
+            $flightsListTemplate, $flightItemTemplate);
+        } catch (e) {
+          handleError(e);
+        }
+
+        try {
+          await subscribe(formParams.flyFrom, formParams.flyTo);
+        } catch (e) {
+          handleError(e);
+        }
 
         return false;
       });
@@ -626,3 +644,67 @@ window.addEventListener('error', (event) => {
   // suppress
   return true;
 });
+
+function handleError (error) {
+  console.error(error);
+}
+
+function validateParams (params, required, fixed) {
+  // TODO this might not be needed if the API can accept undefined values
+  params = cleanUndefinedFromObject(params);
+
+  for (let requiredParam of required) {
+    ApplicationError.assert(
+      !_.has(required, requiredParam),
+      {logs: ['Missing required keyword argument: ', requiredParam, 'to call of', search]}
+    );
+  }
+
+  for (let [fixedParam, possibleStates] of Object.entries(fixed)) {
+    ApplicationError.assert(
+      !_.has(params, fixedParam) && !_.includes(possibleStates, params[fixedParam]),
+      {
+        logs: [
+          'Paramater', fixedParam,
+          'is not one of:', fixed[fixedParam],
+          'instead got -', params[fixedParam]]
+      }
+    );
+  }
+
+  return params;
+}
+
+function switchStyle (json, converter) {
+  function switchHash (hash) {
+    return _.mapKeys(hash, (value, key) => converter(key));
+  }
+
+  function switcher (json) {
+    let converted = switchHash(json);
+
+    for (let [key, value] of Object.entries(converted)) {
+      if (_.isPlainObject(value)) {
+        value = switcher(value);
+      } else if (Array.isArray(value)) {
+        value = value.map(switcher);
+      }
+
+      converted[key] = value;
+    }
+
+    return converted;
+  }
+
+  return switcher(json);
+}
+
+function snakeToCamel (string) {
+  let words = string.split('_');
+  let top = words[0];
+
+  words.splice(0, 1);
+
+  return top + words.map(_.capitalize)
+    .join('');
+}
