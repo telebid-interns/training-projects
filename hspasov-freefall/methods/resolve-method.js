@@ -1,5 +1,5 @@
 const { assertUser, assertApp, UserError } = require('../modules/error-handling');
-const isObject = require('../modules/is-object');
+const { isObject } = require('lodash');
 
 function dbToAPIRouteFlight (routeFlight) {
   assertApp(
@@ -27,12 +27,11 @@ function dbToAPIRouteFlight (routeFlight) {
 }
 
 async function search (params, db) {
-  console.log(params);
   assertUser(
     isObject(params) &&
     typeof params.v === 'string' &&
-    Number.isInteger(Number(params.fly_from)) &&
-    Number.isInteger(Number(params.fly_to)) &&
+    Number.isInteger(+params.fly_from) &&
+    Number.isInteger(+params.fly_to) &&
     (!params.price_to || Number.isInteger(params.price_to)) &&
     (!params.currency || typeof params.currency === 'string') &&
     (!params.date_from || typeof params.date_from === 'string') &&
@@ -46,7 +45,7 @@ async function search (params, db) {
     currency: params.currency
   };
 
-  const subscriptions = await db.selectSubscriptions(Number(params.fly_from), Number(params.fly_to));
+  const subscriptions = await db.selectSubscriptions(+params.fly_from, +params.fly_to);
   // Number(num);
   // new Number(num);
   // +num;

@@ -1,6 +1,7 @@
 const yamlParser = require('js-yaml');
 const { assertUser, UserError } = require('./error-handling');
-const isObject = require('./is-object');
+const { log } = require('./utils');
+const { isObject } = require('lodash');
 
 function parseYAML (yaml) {
   try {
@@ -11,9 +12,9 @@ function parseYAML (yaml) {
 }
 
 function stringifyYAML (yaml) {
-  console.log(yaml);
+  log(yaml);
   const parsed = yamlParser.safeDump(yaml);
-  console.log(parsed);
+  log(parsed);
   return parsed;
 }
 

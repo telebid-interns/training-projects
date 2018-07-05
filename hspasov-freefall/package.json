@@ -4,8 +4,8 @@
   "description": "FreeFall app backend",
   "main": "index.js",
   "scripts": {
-    "server": "semistandard && node server.js",
-    "fetch": "semistandard && node fetch-data.js"
+    "server": "semistandard && node ./server.js",
+    "fetch": "semistandard && node ./scripts/fetch-data.js"
   },
   "repository": "https://github.com/hspasov/training-projects/tree/master/hspasov-freefall",
   "author": "Hristo Spasov",
@@ -19,6 +19,7 @@
     "koa-router": "^7.4.0",
     "koa-send": "^5.0.0",
     "koa-static": "^5.0.0",
+    "lodash": "^4.17.10",
     "moment": "^2.22.2",
     "node-fetch": "^2.1.2",
     "sqlite": "^2.9.2"

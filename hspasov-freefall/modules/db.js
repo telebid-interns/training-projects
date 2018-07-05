@@ -2,15 +2,16 @@ module.exports = (() => {
   const path = require('path');
   const sqlite = require('sqlite');
   const { assertApp, assertPeer } = require('./error-handling');
-  const isObject = require('./is-object');
+  const { isObject } = require('lodash');
+  const { log } = require('./utils');
   let db;
 
   async function dbConnect () {
-    console.log('Connecting to freefall.db...');
+    log('Connecting to freefall.db...');
     db = await sqlite.open(path.join(__dirname, '../freefall.db'));
     await db.run('PRAGMA foreign_keys = ON;');
     await db.run('PRAGMA integrity_check;');
-    console.log('freefall.db OK');
+    log('freefall.db OK');
   }
 
   function assertDB () {
@@ -52,36 +53,6 @@ module.exports = (() => {
     );
 
     return db.all(`SELECT ${stringifyColumns(columns)} FROM ${table} WHERE ${whereCol} = ?;`, [value]);
-  }
-
-  async function selectAirport (airportId) {
-    assertDB();
-    assertApp(
-      Number.isInteger(airportId),
-      'Invalid airport id'
-    );
-
-    return selectWhereColEquals('airports', ['id', 'iata_code', 'name'], 'id', airportId);
-  }
-
-  async function selectFlight (remoteId) {
-    assertDB();
-    assertApp(
-      typeof remoteId === 'string',
-      'Invalid flight id'
-    );
-
-    return selectWhereColEquals('flights', ['id'], 'remote_id', remoteId);
-  }
-
-  async function selectAirline (airlineCode) {
-    assertDB();
-    assertApp(
-      typeof airlineCode === 'string',
-      'Invalid airline code.'
-    );
-
-    return selectWhereColEquals('airlines', ['id'], 'code', airlineCode);
   }
 
   async function selectRoutesFlights (fetchId, params) {
@@ -206,90 +177,55 @@ module.exports = (() => {
 
     const columnsStringified = columns.join(', ');
     const rowStringified = Array(columns.length).fill('?').join(', ');
-    return db.run(`INSERT INTO ${table} (${columnsStringified}) VALUES (${rowStringified});`, row);
+    const insertResult = await db.run(`INSERT INTO ${table} (${columnsStringified}) VALUES (${rowStringified});`, row);
+
+    assertApp(
+      isObject(insertResult) &&
+      isObject(insertResult.stmt) &&
+      Number.isInteger(insertResult.stmt.lastID),
+      'Incorrect db response.'
+    );
+
+    return insertResult.stmt.lastID;
   }
 
   async function insertDataFetch (subscriptionId) {
     assertDB();
 
-    return db.run('INSERT INTO fetches(timestamp, subscription_id) VALUES (strftime(\'%Y-%m-%dT%H:%M:%SZ\' ,\'now\'), ?);', [subscriptionId]);
-  }
-
-  async function insertRoute (route) {
-    assertDB();
-
-    const routeResult = await insert('routes', ['booking_token', 'price', 'fetch_id'], [route.bookingToken, route.price, route.fetchId]);
+    const newFetchResult = await db.run('INSERT INTO fetches(timestamp, subscription_id) VALUES (strftime(\'%Y-%m-%dT%H:%M:%SZ\' ,\'now\'), ?);', [subscriptionId]);
 
     assertApp(
-      isObject(routeResult) &&
-      isObject(routeResult.stmt) &&
-      Number.isInteger(routeResult.stmt.lastID),
+      isObject(newFetchResult) &&
+      isObject(newFetchResult.stmt) &&
+      Number.isInteger(newFetchResult.stmt.lastID),
       'Incorrect db response.'
     );
 
-    return routeResult.stmt.lastID;
+    return newFetchResult.stmt.lastID;
   }
 
-  async function insertIfNotExistsAirline (airline) {
+  async function insertIfNotExists (table, columns, row, existsCheckCol, existCheckVal) {
     assertDB();
 
-    const airlineIdResult = await selectAirline(airline.code);
+    const selectResult = await selectWhereColEquals(table, columns, existsCheckCol, existCheckVal);
 
-    assertApp(Array.isArray(airlineIdResult), 'Invalid db response.');
+    assertApp(Array.isArray(selectResult), 'Invalid db response.');
 
-    if (airlineIdResult.length > 0) {
-      assertApp(airlineIdResult.length === 1, 'Invalid db response.');
+    if (selectResult.length > 0) {
+      assertApp(selectResult.length === 1, 'Invalid db response.');
 
-      console.log(`Airline with code ${airline.code} already exists`);
-
+      // return flightIdResult[0].id;
       return false;
     }
 
-    await insert('airlines', ['name', 'code', 'logo_url'], [airline.name, airline.code, airline.logoURL]);
-
-    console.log(`Inserted airline with code ${airline.code}`);
-
-    return true;
-  }
-
-  async function insertOrGetFlight (flight) {
-    assertDB();
-
-    const flightIdResult = await selectFlight(flight.remoteId);
-
-    assertApp(Array.isArray(flightIdResult), 'Invalid db response.');
-
-    if (flightIdResult.length > 0) {
-      assertApp(flightIdResult.length === 1, 'Invalid db response.');
-
-      return flightIdResult[0].id;
-    }
-
-    const flightResult = await db.run(`
-
-      INSERT OR IGNORE INTO flights
-        (airline_id, airport_from_id, airport_to_id, dtime, atime, flight_number, remote_id)
-      VALUES
-        ((SELECT id FROM airlines WHERE code = ?), ?, ?, ?, ?, ?, ?);
-
-      `,
-    [flight.airlineCode, flight.airportFromId, flight.airportToId, flight.dtime, flight.atime, flight.flightNumber, flight.remoteId]
-    );
+    const insertResult = await insert(table, columns, row);
 
     assertApp(
-      isObject(flightResult) &&
-      isObject(flightResult.stmt) &&
-      Number.isInteger(flightResult.stmt.lastID),
+      Number.isInteger(insertResult),
       'Incorrect db response.'
     );
 
-    return flightResult.stmt.lastID;
-  }
-
-  async function insertRouteFlight (routeFlight) {
-    assertDB();
-
-    return db.run('INSERT OR IGNORE INTO routes_flights(flight_id, route_id, is_return) VALUES (?, ?, ?);', [routeFlight.flightId, routeFlight.routeId, routeFlight.isReturn]);
+    return true;
   }
 
   async function insertIfNotExistsSubscription (flyFrom, flyTo) {
@@ -339,12 +275,8 @@ module.exports = (() => {
     select,
     insert,
     insertDataFetch,
-    insertRoute,
-    insertOrGetFlight,
-    insertRouteFlight,
-    insertIfNotExistsAirline,
+    insertIfNotExists,
     insertIfNotExistsSubscription,
-    selectAirport,
     selectSubscriptions,
     selectRoutesFlights,
     selectWhereColEquals,

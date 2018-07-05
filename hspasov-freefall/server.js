@@ -30,8 +30,6 @@ app.use(serve(path.join(__dirname, 'public')));
 app.context.db = db;
 
 router.post('/', async (ctx, next) => {
-  console.log(typeof ctx.request.rawBody);
-  console.log(ctx.request.rawBody.length);
   const normalized = normalize(ctx.request.body, ctx.headers['content-type'], ctx.query.format);
   const method = resolveMethod(normalized);
   const result = await method.execute(normalized.params, ctx.db);
