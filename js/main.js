@@ -34,23 +34,57 @@ function displayErrorMessage (errMsg) {
 }
 
 class BaseError extends Error {
-  constructor (userMessage, ...logs) {
+  constructor ({userMessage, logs}) {
     super(userMessage);
 
-    console.warn(...logs);
-    displayErrorMessage(userMessage);
+    if (logs) {
+      console.warn(...logs);
+    }
+
+    if (userMessage) {
+      displayErrorMessage(userMessage);
+    }
+  }
+
+  static assert (condition, errorParams) {
+    if (!condition) {
+      throw new BaseError(errorParams);
+    }
   }
 }
 
 class ApplicationError extends BaseError {
-  constructor (userMessage, ...logs) {
-    super(userMessage, ...logs);
+  constructor ({userMessage, logs}) {
+    if (!userMessage) {
+      userMessage = 'Application encountered an unexpected condition. Please refresh the page.';
+    }
+    super({userMessage, logs});
 
     window.alert(userMessage);
   }
+
+  static assert (condition, errorParams) {
+    if (!condition) {
+      throw new ApplicationError(errorParams);
+    }
+  }
 }
 
-class PeerError extends BaseError {}
+class PeerError extends BaseError {
+  constructor ({userMessage, logs}) {
+    if (!userMessage) {
+      userMessage = 'Service is not available at the moment. Please refresh the page and try' +
+                    ' later.';
+    }
+    super({userMessage, logs});
+  }
+
+  static assert (condition, errorParams) {
+    if (!condition) {
+      throw new PeerError(errorParams);
+    }
+  }
+}
 
 const AIRPORT_HASH = {
   '2': {
@@ -124,17 +158,15 @@ async function postJSON (url, data) {
       body: JSON.stringify(data)
     });
   } catch (e) {
-    throw PeerError(
-      'Service is not available at the moment due to network issues',
-      'Couldn\'t connect to server at url: ', url,
-      'Sent POST request with data: ', data);
+    throw new PeerError({
+      userMessage: 'Service is not available at the moment due to network issues',
+      logs: ['Couldn\'t connect to server at url: ', url, 'Sent POST request with data: ', data]
+    });
   }
 
-  if (!serverResponse.ok) {
-    throw PeerError('Service is not available at the moment',
-      'Sent POST request with data: ', data,
-      'Got NOT OK response back', serverResponse);
-  }
+  PeerError.assert(serverResponse.ok, {
+    logs: ['Sent POST request with data: ', data, 'Got NOT OK response back', serverResponse]
+  });
 
   return serverResponse.json();
 }
@@ -145,7 +177,7 @@ async function jsonRPCRequest (method, params) {
   let request = {
     jsonrpc: '2.0',
     method,
-    params,
+    params: params,
     id: jsonRPCRequestId
   };
   let response;
@@ -153,41 +185,35 @@ async function jsonRPCRequest (method, params) {
   try {
     response = await postJSON(SERVER_URL, request);
   } catch (error) {
-    throw new PeerError('Service is not available at the moment',
-      'failed to make a post request to server API',
-      'url: ', SERVER_URL,
-      'request data: ', request,
-      'error raised: ', error);
+    throw new PeerError({
+      logs: [
+        'failed to make a post request to server API', 'url: ', SERVER_URL,
+        'request data: ', request, 'error raised: ', error
+      ]
+    });
   }
 
   // increment id only on successful requests
   jsonRPCRequestId++;
 
-  if (!['jsonrpc', 'id'].every(prop => _.has(response, prop))) {
-    throw new PeerError('Service is not available at the moment',
-      'Invalid JSON RPC response from server',
-      'sent data: ', request,
-      'got response', response);
-  } else if (_.has(response, 'error')) {
-    throw new PeerError('Service is not available at the moment',
-      'jsonrpc request failed.',
-      'sent data: ', request,
-      'got response: ', response);
-  } else if (!_.has(response, 'result')) {
-    throw new PeerError('Service is not available at the moment',
-      'jsonrpc request failed - response has neither \'error\' nor \'result\' properties',
-      'sent data: ', request,
-      'got response: ', response);
-  } else if (response.id === null) {
-    throw new ApplicationError(
-      'An unexpected behaviour occurred. Please refresh the page.',
-      'Server sent back a null id for request: ', request,
-      'Full response is: ', response);
-  } else if (response.id !== request.id) {
+  let logs = ['jsonrpc protocol error', 'sent data: ', request, 'got response', response];
+  let errorReport = {logs: logs};
+
+  PeerError.assert(['jsonrpc', 'id'].every(prop => _.has(response, prop)), errorReport);
+  PeerError.assert(!response.error, errorReport);
+  PeerError.assert(response.result, errorReport);
+  ApplicationError.assert(response.id !== null,
+    {
+      logs: [
+        'Server sent back a null id for request: ', request,
+        'Full response is: ', response]
+    }
+  );
+
+  if (response.id !== request.id) {
     console.warn('Different id between response and request.');
     console.warn(
       'Ignoring because server always returns id = 1 at the moment.');
-
     // throw new ApplicationError(
     //     'An unexpected behaviour occurred. Please refresh the page.',
     //     'json rpc response and request id are out of sync',
@@ -223,43 +249,38 @@ async function search ({
     params = cleanUndefinedFromObject(params);
 
     for (let requiredParam of required) {
-      if (Object.keys(params)
-        .indexOf(requiredParam) === -1) {
-        throw new ApplicationError(
-          'An unexpected behaviour occurred. Please refresh the page.',
-          'Missing required keyword argument: ', requiredParam,
-          'to call of', search);
-      }
+      ApplicationError.assert(
+        !_.has(required, requiredParam),
+        {logs: ['Missing required keyword argument: ', requiredParam, 'to call of', search]}
+      );
     }
 
     for (let [fixedParam, possibleStates] of Object.entries(fixed)) {
-      if (
-        Object.keys(params)
-          .indexOf(fixedParam) !== -1 &&
-        possibleStates.indexOf(params[fixedParam]) === -1
-      ) {
-        throw new ApplicationError(
-          'An unexpected behaviour occurred. Please refresh the page.',
-          'Paramater', fixedParam,
-          'is not one of:', fixed[fixedParam],
-          'instead got -', params[fixedParam]);
-      }
+      ApplicationError.assert(
+        !_.has(params, fixedParam) && !_.includes(possibleStates, params[fixedParam]),
+        {
+          logs: [
+            'Paramater', fixedParam,
+            'is not one of:', fixed[fixedParam],
+            'instead got -', params[fixedParam]]
+        }
+      );
     }
 
     return params;
   }
 
   const params = validateParams({
-    v: '1.0',
-    fly_from: '2', // TODO remove hardcoded values
-    fly_to: '3',
-    price_to: priceTo,
-    currency: currency,
-    date_from: dateFrom,
-    date_to: dateTo,
-    sort: sort,
-    max_fly_duration: maxFlyDuration
-  }
+      v: '1.0',
+      fly_from: '2', // TODO remove hardcoded values
+      fly_to: '3',
+      price_to: priceTo,
+      currency: currency,
+      date_from: dateFrom,
+      date_to: dateTo,
+      sort: sort,
+      max_fly_duration: maxFlyDuration
+    }
   );
 
   let jsonRPCResponse = await jsonRPCRequest('search', params);
@@ -316,15 +337,15 @@ function weeklyDateString (date) {
 function cleanUndefinedFromObject (obj) {
   return Object.entries(obj)
     .reduce((newObj, entry) => {
-      let [key, value] = entry;
+        let [key, value] = entry;
 
-      if (obj[key] !== undefined) {
-        newObj[key] = value;
-      }
+        if (obj[key] !== undefined) {
+          newObj[key] = value;
+        }
 
-      return newObj;
-    },
-    {}
+        return newObj;
+      },
+      {}
     );
 }
 
@@ -477,17 +498,15 @@ function searchFormParams ($searchForm) {
   let dateFrom;
   let dateTo;
 
-  if (!flyFrom) {
-    throw new BaseError(
-      `${formData.from} is not a location that has an airport!`,
-      'User entered an invalid string in #departure-input - ',
-      formData.from);
-  } else if (!flyTo) {
-    throw new BaseError(
-      `${formData.to} is not a location that has an airport!`,
-      'User entered an invalid string in #arrival-input - ',
-      formData.to);
-  }
+  PeerError.assert(flyFrom,
+    {
+      userMessage: `${formData.from} is not a location that has an airport!`,
+      logs: ['User entered an invalid string in #arrival-input - ', formData.to]
+    }
+  );
+  PeerError.assert(flyTo,
+    {userMessage: `${formData.to} is not a location that has an airport!`}
+  );
 
   function dateFromFields ({yearField, monthField, dayField}) {
     let date = new Date();
