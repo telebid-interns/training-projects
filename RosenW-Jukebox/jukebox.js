@@ -1,6 +1,9 @@
 const YT_API_KEY = 'AIzaSyDrLczSe8MEo3k5FAwo1Kc3fkn26NB-VUQ';
 const LAST_FM_API_KEY = '93c3430d5a7c70eb83e5f3b1ccdc71dd';
 
+const NO_INFORMATION_FOUND_MSG = 'No Information';
+const TRACK_NOT_FOUND_MSG = 'Track not found';
+
 const table = document.getElementById('info-table');
 const subBtn = document.getElementById('sub-btn');
 const channelTextBox = document.getElementById('channel');
@@ -32,30 +35,7 @@ function subscribe () {
 
   channelTextBox.value = '';
 
-  // class CustomError extends Error {}
-  // class UserError extends CustomError {}
-  // class PerrError extends CustomError {}
-  // class AppError extends CustomError {}
-
-  // window.addEventListener('error', (event) => {
-  //   // event.error;
-  // });
-
-  // const assert = (condition, msg) => {
-  //   if(!IS_ASSERTS_ENABLED) return;
-  //   if(condition) return;
-
-  //   throw new AppError(msg);
-  // }
-
-  // const assertPeer = (condition, msg) => {
-  //   if(condition) return;
-
-  //   throw new PerrError(msg);
-  // }
-
-  fetch(reqLink)
-    .then((response) => response.json())
+  makeRequest(reqLink)
     .then((data) => {
       const channelName = data.items[0].snippet.channelTitle;
 
@@ -79,7 +59,7 @@ function subscribe () {
     });
 }
 
-function customEscapeURI (params) { // check type
+function customEscapeURI (params) { // check type, rename
   const result = [];
 
   for (const param of Object.keys(params)) {
@@ -103,7 +83,7 @@ function saveAndDisplayVids (videos) {
     };
     const artAndSong = extractArtistsAndSongFromTitle(video.snippet.title); // setting song and artsts
 
-    if (typeof artAndSong === 'undefined' || artAndSong.artists.length === 0) {
+    if (artAndSong === undefined || typeof artAndSong === undefined || artAndSong.artists.length === 0) {
       continue;
     }
 
@@ -113,29 +93,31 @@ function saveAndDisplayVids (videos) {
 
     // escape link
     const lastfmReqLink = 'http://ws.audioscrobbler.com/2.0/?method=track.getInfo&api_key=' + LAST_FM_API_KEY + '&artist=' + videoObj.artists[0].trim() + '&track=' + videoObj.song + '&format=json';
-    const currPromise = fetch(lastfmReqLink) // wrapper
-      .then((response) => {
-        return response.json();
-      }).then((data) => {
-        if (data.message === 'Track not found') { // const string
-          videoObj.album = 'No information';
-          videoObj.duration = 'No information';
+    const currPromise = makeRequest(lastfmReqLink)
+      .then((data) => {
+        if(data === undefined){
+          return;
+        }
+
+        if (data.message === TRACK_NOT_FOUND_MSG) {
+          videoObj.album = NO_INFORMATION_FOUND_MSG;
+          videoObj.duration = NO_INFORMATION_FOUND_MSG;
         } else {
           if (data.track.album === undefined) {
-            videoObj.album = 'No information';
+            videoObj.album = NO_INFORMATION_FOUND_MSG;
           } else {
             videoObj.album = data.track.album.title;
           }
 
-          if (typeof data.track.duration === 'undefined' || data.track.duration === '0') { // undef ===
-            videoObj.duration = 'No information';
+          if (typeof data.track.duration === undefined || data.track.duration === '0') { // undef ===
+            videoObj.duration = NO_INFORMATION_FOUND_MSG;
           } else {
             videoObj.duration = data.track.duration;
           }
         }
 
         if (!isNaN(videoObj.duration)) {
-          videoObj.duration = millisToMinutesAndSeconds(videoObj);
+          videoObj.duration = millisToMinutesAndSeconds(videoObj.duration);
         }
 
         const vidDate = video.snippet.publishedAt;
@@ -164,10 +146,12 @@ function showChannels () {
     const link = channel.url;
 
     const liElement = document.createElement('li');
-    liElement.setAttribute('class', 'list-group-item clearfix col-lg-2 col-md-2 col-sm-2 col-xs-2');
+    liElement.setAttribute('class', 'list-group-item col-lg-4 col-md-4 col-sm-4 col-xs-4');
 
     const pElement = document.createElement('p');
     pElement.setAttribute('id', 'name-' + currChannel);
+
+    const brElement = document.createElement('br');
 
     const aElement = document.createElement('a');
     aElement.setAttribute('href', link);
@@ -221,6 +205,7 @@ function showChannels () {
     pElement.appendChild(aElement);
     pElement.appendChild(unsubBtn);
     liElement.appendChild(pElement);
+    liElement.appendChild(brElement);
     liElement.appendChild(filterLabel);
     liElement.appendChild(filterElement);
     channelsElement.appendChild(liElement);
@@ -306,81 +291,30 @@ function addVideoToTable (video) { // datafication
 
 // Rework function
 function extractArtistsAndSongFromTitle (title) {
-  let regex = /^([0-9a-zA-Z\s.&']*) [-|] ([0-9a-zA-Z\s.&"'=-]*)/g; // simplify
-  let match = regex.exec(title);
+  const titleTokens = title.split(' - '); //assert
 
-  let artists = [];
-  let song;
+  // matches all artists (gr 1) and song (gr 2)
+  // let regex = /(?<=vs|&|ft\.|feat\.|^)(.*?)(?=vs|&|ft\.|feat\.|$| - (.*?)(?=vs|&|ft\.|feat\.|$))/gmi; // works in regex101 ?
 
-  if (match == null) { // notify for skip
+  let artistRegex = /(?<=vs|&|ft\.|feat\.|^)(.*?)(?=vs|&|ft\.|feat\.|$| - )/gi
+  let songRegex = /(?<= - ).*?(?=vs|&|ft\.|feat\.|$|\(|\[)/gi;
+  let songMatchArr = title.match(songRegex);
+
+  if (songMatchArr == null) { // notify for skip
     return;
   }
 
-  let artistGroup = match[1];
-  let songGroup = match[2];
-
-  let checkOne = checkGroupForFt(artistGroup, ' Feat. ', true); // make case insenstitive
-  let checkTwo = checkGroupForFt(artistGroup, ' ft. ', true);
-  let checkThree = checkGroupForFt(songGroup, ' Feat. ', false);
-  let checkFour = checkGroupForFt(songGroup, ' ft. ', false);
-
-  artists = artists.concat(checkOne.artists);
-  artists = artists.concat(checkTwo.artists);
-  artists = artists.concat(checkThree.artists);
-  artists = artists.concat(checkFour.artists);
-
-  if (checkOne.song !== undefined) song = checkOne.song;
-  if (checkTwo.song !== undefined) song = checkTwo.song;
-  if (checkThree.song !== undefined) song = checkThree.song;
-  if (checkFour.song !== undefined) song = checkFour.song;
-
-  artists = artists.filter(function (item, index) {
-    if (artists.indexOf(item) === index) {
-      return item;
-    }
-  });
-
+  let artists = title.match(artistRegex);
+  let song = songMatchArr[0];
   song = song.replace(/"/g, '');
 
-  return {artists: artists, song: song};
-}
-
-// Rework function
-function checkGroupForFt (group, featString, isArtistGroup) {
-  let foundArtists = [];
-  let song;
-
-  if (group.includes(featString)) {
-    let groupTokens = group.split(featString);
-
-    if (isArtistGroup) {
-      foundArtists.push(groupTokens[0]); // add original singer
-    } else {
-      song = groupTokens[0];
-    }
-    let feat = groupTokens[1];
-
-    if (feat.includes(' & ')) {
-      let featArtists = feat.split(' & ');
-      for (const artist of featArtists) {
-        foundArtists.push(artist);
-      }
-    } else {
-      foundArtists.push(feat); // if feat artist is only one person whole group is the feat artist
-    }
-  } else if (isArtistGroup && !group.toLowerCase().includes(' ft. ')) {
-    foundArtists.push(group); // if there isnt a feat artist whole group is the artist
-  } else {
-    if (group.includes(' Feat. ')) {
-      song = group.split(' Feat. ')[0];
-    } else if (group.includes(' ft. ')) {
-      song = group.split(' ft. ')[0];
-    } else {
-      song = group;
-    }
+  if (artists.length === 0 || song === '' || song == null) { // notify for skip
+    return;
   }
 
-  return {artists: foundArtists, song: song};
+  artists = artists.map(a => a.trim());
+  song = song.trim();
+  return {artists: artists, song: song};
 }
 
 // Rework
@@ -388,4 +322,22 @@ function millisToMinutesAndSeconds (millis) {
   let minutes = Math.floor(millis / 60000);
   let seconds = ((millis % 60000) / 1000).toFixed(0);
   return minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+}
+
+// fetch wrapper
+function makeRequest(url, options){
+  let fetchPromis = fetch(url, options)
+    .then(function(response) {
+      if (response.status !== 200) {
+        console.log('Status Code Error: ' +
+        response.status);
+        return;
+      }
+
+      return response.json();
+    }).catch((err) => {
+      console.log('smth went wrong: ' + err);
+    });
+
+  return fetchPromis;
 }
