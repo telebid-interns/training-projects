@@ -5,6 +5,7 @@ const logger = require('koa-logger');
 const bodyParser = require('koa-bodyparser');
 const serve = require('koa-static');
 const send = require('koa-send');
+const cors = require('@koa/cors');
 const resolveMethod = require('./methods/resolve-method');
 const { normalize, denormalize } = require('./modules/normalize');
 const db = require('./modules/db.js');
@@ -15,6 +16,9 @@ const router = new Router();
 db.dbConnect();
 
 app.use(logger());
+app.use(cors({
+  origin: '*'
+}));
 app.use(bodyParser({
   extendTypes: {
     text: ['text/yaml']

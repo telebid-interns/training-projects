@@ -123,6 +123,8 @@ module.exports = (() => {
       queryParams.push(params.price_to);
     }
 
+    // TODO finish filtration
+
     // if (params.currency) {
     //   assertPeer(typeof params.currency === 'string', 'Invalid currency in search request.');
     //   query += ' AND '
@@ -165,7 +167,7 @@ module.exports = (() => {
     return routesFlights;
   }
 
-  async function selectSubscription (airportFromId, airportToId) {
+  async function selectSubscriptions (airportFromId, airportToId) {
     assertDB();
     assertApp(
       Number.isInteger(airportFromId) &&
@@ -295,7 +297,7 @@ module.exports = (() => {
 
     const flyFromParsed = Number(flyFrom);
     const flyToParsed = Number(flyTo);
-    const subscriptions = await select('subscriptions', ['id']);
+    const subscriptions = await selectSubscriptions(flyFromParsed, flyToParsed);
 
     assertApp(Array.isArray(subscriptions), 'Invalid select subscriptions response.');
 
@@ -343,7 +345,7 @@ module.exports = (() => {
     insertIfNotExistsAirline,
     insertIfNotExistsSubscription,
     selectAirport,
-    selectSubscription,
+    selectSubscriptions,
     selectRoutesFlights,
     selectWhereColEquals,
     deleteIfNotExistsSubscription,

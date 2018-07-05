@@ -1,3 +1,17 @@
+function handleError (err) {
+  console.error('Error while fetching data:');
+  console.error(err);
+  process.exit();
+}
+
+process.on('error', (err) => {
+  handleError(err);
+});
+
+process.on('unhandledRejection', (err) => {
+  handleError(err);
+});
+
 (async () => {
   const { fromUnixTimestamp, toKiwiAPIDateFormat, today, dateMonthsFromNow } = require('./modules/date-format');
   const { dbConnect, select, insertDataFetch, insertRoute, insertOrGetFlight, insertRouteFlight, selectAirport, insertIfNotExistsAirline, selectWhereColEquals, insert } = require('./modules/db');
@@ -60,6 +74,7 @@
 
     fetchId = newFetchResult.stmt.lastID;
     const airports = await Promise.all([selectAirport(sub.airport_from_id), selectAirport(sub.airport_to_id)]);
+
     assertApp(
       Array.isArray(airports) &&
       airports.length === 2 &&

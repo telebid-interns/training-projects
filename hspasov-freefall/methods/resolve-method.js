@@ -46,7 +46,11 @@ async function search (params, db) {
     currency: params.currency
   };
 
-  const subscriptions = await db.selectSubscription(Number(params.fly_from), Number(params.fly_to));
+  const subscriptions = await db.selectSubscriptions(Number(params.fly_from), Number(params.fly_to));
+  // Number(num);
+  // new Number(num);
+  // +num;
+  // parseInt(num);
 
   if (subscriptions <= 0) {
     result.status_code = 2000;
@@ -81,6 +85,15 @@ async function search (params, db) {
       Number.isInteger(routeFlight.price),
       'Invalid database route response.'
     );
+
+
+    // hash[ routeId ] = hash[ routeId ] || {
+    //   routes: [],
+    // };
+
+    // assert(Array.isArray(hash[ routeId ].routes);
+
+    // hash[ routeId ].routes.push(1)
 
     if (routeFlight.routeId in routesHash) {
       routesHash[routeFlight.routeId].route.push(dbToAPIRouteFlight(routeFlight));
