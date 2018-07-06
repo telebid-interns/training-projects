@@ -386,9 +386,8 @@ function displaySearchResult (searchResult, $routesList, $routeItemTemplate, $fl
   }
 
   if (searchResult.routes.length === 0) {
-    $('#load-more-button').hide()
-    displayErrorMessage("There are no known flights from ${flyFrom.latinName} to" +
-                        " ${flyTo.latinName}");
+    $('#load-more-button').hide();
+    displayErrorMessage(`There are no known flights.`);
   } else {
     $('#load-more-button').show();
   }
@@ -544,11 +543,18 @@ function searchFormParams ($searchForm) {
     dateTo.setUTCHours(23, 59, 59);
   }
 
+  let priceTo;
+
+  if(formData['price-to']) {
+    priceTo = parseInt(formData['price-to']);
+  }
+
   return cleanUndefinedFromObject({
     flyFrom: flyFrom,
     flyTo: flyTo,
     dateFrom: dateFrom,
-    dateTo: dateTo
+    dateTo: dateTo,
+    priceTo: priceTo
   });
 }
 
