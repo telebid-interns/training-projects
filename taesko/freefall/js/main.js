@@ -15,8 +15,8 @@ const WEEK_DAYS = [
   'Saturday',
   'Sunday'
 ];
-let jsonRPCRequestId = 1;
-let $errorBar;
+let jsonRPCRequestId = 1; // closures
+let $errorBar; // closures
 const errorMessagesQueue = [];
 
 (function setupErrorMessages () {
@@ -561,8 +561,8 @@ function searchFormParams ($searchForm) {
 function objectifyForm (formArray) {
   return formArray.reduce(
     (obj, entry) => {
-      if (entry.value !== undefined && entry.value !== '') {
-        obj[entry.name] = entry.value;
+      if (entry.value != null && entry.value !== '') { // '' check not needed
+        obj[entry.name] = entry.value; // overwrites similar names
       }
       return obj;
     },
@@ -586,11 +586,10 @@ function dateFromFields ({yearField, monthField, dayField}) {
   return date;
 }
 
-$(document)
-  .ready(() => {
+$(document).ready(() => {
     $errorBar = $('#errorBar');
 
-    let $allRoutesList = $('#all-routes-list');
+    let $allRoutesList = $('#all-routes-list'); // consts
     let $flightsListTemplate = $('#flights-list-item-template');
     let $flightItemTemplate = $('#flight-item-template');
 
@@ -601,7 +600,7 @@ $(document)
 
     $('#subscribe-button').click(() => {
 
-    })
+    });
     $flightForm.on('submit',
       async event => {
         event.preventDefault();
@@ -625,11 +624,14 @@ $(document)
           let response = await search(formParams);
 
           if (response.statusCode >= 1000 && response.statusCode < 2000) {
-            displaySearchResult(response, $allRoutesList,
-              $flightsListTemplate, $flightItemTemplate);
+            displaySearchResult(
+              response,
+              $allRoutesList,
+              $flightsListTemplate,
+              $flightItemTemplate
+            );
           } else if (response.statusCode === 2000) {
-            displayErrorMessage('There is no information about this flight at the moment. Please' +
-                                ' come back in 15 minutes.');
+            displayErrorMessage('There is no information about this flight at the moment. Please come back in 15 minutes.');
           }
         } catch (e) {
           handleError(e);
@@ -638,7 +640,7 @@ $(document)
         return false;
       });
 
-    let byNames = Object.values(AIRPORT_HASH)
+    let airportsByNames = Object.values(AIRPORT_HASH)
       .reduce(
         (hash, airport) => {
           hash[airport.latinName] = airport;
@@ -650,12 +652,12 @@ $(document)
       );
 
     setupAutoComplete({
-      hash: byNames,
+      hash: airportsByNames,
       $textInput: $('#from-input'),
       $dataList: $('#from-airports')
     });
     setupAutoComplete({
-      hash: byNames,
+      hash: airportsByNames,
       $textInput: $('#to-input'),
       $dataList: $('#to-airports')
     });
@@ -705,6 +707,7 @@ function validateParams (params, required, fixed) {
   return params;
 }
 
+// TODO remove
 function switchStyle (json, converter) {
   function switchHash (hash) {
     return _.mapKeys(hash, (value, key) => converter(key));
