@@ -11,6 +11,11 @@ const channelTextBox = document.getElementById('channel');
 let channelList = [];
 let allVids = [];
 
+window.addEventListener('error', (event) => {
+  console.log('error caught');
+  console.log('ERROR: ' + event);
+});
+
 loadLocalStorage();
 
 subBtn.addEventListener('click', subscribe);
@@ -31,7 +36,15 @@ function loadLocalStorage () {
 function subscribe () {
   const link = channelTextBox.value;
   const channelId = link.split('/channel/')[1]; // user error
-  const reqLink = 'https://www.googleapis.com/youtube/v3/search?channelId=' + channelId + '&key=' + YT_API_KEY + '&part=snippet&type=video&maxResults=50&videoCategoryId=10';
+  const params = {
+    channelId: channelId,
+    key: YT_API_KEY,
+    part: 'snippet',
+    type: 'video',
+    maxResults: '50',
+    videoCategoryId: '10'
+  };
+  const reqLink = 'https://www.googleapis.com/youtube/v3/search?' + getSafeParams(params);
 
   channelTextBox.value = '';
 
@@ -59,16 +72,6 @@ function subscribe () {
     });
 }
 
-function customEscapeURI (params) { // check type, rename
-  const result = [];
-
-  for (const param of Object.keys(params)) {
-    result.push(`${encodeURIComponent(param)}=${encodeURIComponent(params[param])}`);
-  }
-
-  return result.join('&');
-}
-
 function saveAndDisplayVids (videos) {
   const promises = [];
 
@@ -91,8 +94,14 @@ function saveAndDisplayVids (videos) {
     videoObj.artists = artAndSong.artists;
     videoObj.song = artAndSong.song.trim();
 
-    // escape link
-    const lastfmReqLink = 'http://ws.audioscrobbler.com/2.0/?method=track.getInfo&api_key=' + LAST_FM_API_KEY + '&artist=' + videoObj.artists[0].trim() + '&track=' + videoObj.song + '&format=json';
+    const params = {
+      api_key: LAST_FM_API_KEY,
+      artist: videoObj.artists[0].trim(),
+      track: videoObj.song,
+      format: 'json'
+    };
+    const lastfmReqLink = 'http://ws.audioscrobbler.com/2.0/?method=track.getInfo&' + getSafeParams(params);
+    console.log(lastfmReqLink);
     const currPromise = makeRequest(lastfmReqLink)
       .then((data) => {
         if(data === undefined){
@@ -117,7 +126,7 @@ function saveAndDisplayVids (videos) {
         }
 
         if (!isNaN(videoObj.duration)) {
-          videoObj.duration = millisToMinutesAndSeconds(videoObj.duration);
+          videoObj.duration = msToMinutesAndSeconds(videoObj.duration);
         }
 
         const vidDate = video.snippet.publishedAt;
@@ -161,8 +170,11 @@ function showChannels () {
     const unsubBtn = document.createElement('button');
     unsubBtn.setAttribute('class', 'btn btn-default pull-right');
     unsubBtn.setAttribute('id', 'unsub-' + currChannel);
-    unsubBtn.innerHTML = 'Unsub';
+    unsubBtn.innerHTML = 'Unsubscribe';
     unsubBtn.addEventListener('click', function (event) {
+      if(!window.confirm('Are you sure you want to unsubscribe from ' + currChannel)){
+        return;
+      }
       const chName = event.target.id.substr(6, event.target.id.length);
       const removeElement = document.getElementById('name-' + chName);
 
@@ -237,8 +249,8 @@ function getLastYear () {
   return Date.parse(lastYear);
 }
 
-function displayVideos () {
-  cleanTable(); // use async await
+async function displayVideos () {
+  await cleanTable(); // use async await
   for (const vid of allVids) {
     if (checkFilters(Date.parse(vid.date), vid.channel)) { // ??
       addVideoToTable(vid);
@@ -261,10 +273,14 @@ function checkFilters (checkDate, channel) {
   }
 }
 
-function cleanTable () {
-  while (document.getElementsByTagName('tr')[1]) { // use for
-    document.getElementsByTagName('tr')[1].remove();
-  }
+function cleanTable () { // ??
+  table.innerHTML = "<tr> \
+                      <th>Date</th> \
+                      <th>Artist</th> \
+                      <th>Song</th> \
+                      <th>Duration</th> \
+                      <th>Album</th> \
+                    </tr>";
 }
 
 function addVideoToTable (video) { // datafication
@@ -296,7 +312,7 @@ function extractArtistsAndSongFromTitle (title) {
   // matches all artists (gr 1) and song (gr 2)
   // let regex = /(?<=vs|&|ft\.|feat\.|^)(.*?)(?=vs|&|ft\.|feat\.|$| - (.*?)(?=vs|&|ft\.|feat\.|$))/gmi; // works in regex101 ?
 
-  let artistRegex = /(?<=vs|&|ft\.|feat\.|^)(.*?)(?=vs|&|ft\.|feat\.|$| - )/gi
+  let artistRegex = /(?<=vs|&|ft\.|feat\.|^)(.*?)(?=vs|&|ft\.|feat\.|$| - )/gi // make code generated with []
   let songRegex = /(?<= - ).*?(?=vs|&|ft\.|feat\.|$|\(|\[)/gi;
   let songMatchArr = title.match(songRegex);
 
@@ -318,9 +334,9 @@ function extractArtistsAndSongFromTitle (title) {
 }
 
 // Rework
-function millisToMinutesAndSeconds (millis) {
-  let minutes = Math.floor(millis / 60000);
-  let seconds = ((millis % 60000) / 1000).toFixed(0);
+function msToMinutesAndSeconds (ms) {
+  let minutes = Math.floor(ms / 60000);
+  let seconds = ((ms % 60000) / 1000).toFixed(0);
   return minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
 }
 
@@ -340,4 +356,14 @@ function makeRequest(url, options){
     });
 
   return fetchPromis;
+}
+
+function getSafeParams (params) { // check type, rename
+  const result = [];
+
+  for (const param of Object.keys(params)) {
+    result.push(`${encodeURIComponent(param)}=${encodeURIComponent(params[param])}`);
+  }
+
+  return result.join('&');
 }

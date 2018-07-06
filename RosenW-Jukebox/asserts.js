@@ -1,21 +1,27 @@
-  // class CustomError extends Error {}
-  // class UserError extends CustomError {}
-  // class PerrError extends CustomError {}
-  // class AppError extends CustomError {}
+class CustomError extends Error {}
+class UserError extends CustomError {}
+class PeerError extends CustomError {}
+class AppError extends CustomError {}
 
-  // window.addEventListener('error', (event) => {
-  //   // event.error;
-  // });
+const assert = (condition, msg) => {
+  if (!IS_ASSERTS_ENABLED) {
+    return;
+  }
 
-  // const assert = (condition, msg) => {
-  //   if(!IS_ASSERTS_ENABLED) return;
-  //   if(condition) return;
+  if(condition){
+    return;
+  }
 
-  //   throw new AppError(msg);
-  // }
+  throw new AppError(msg);
+}
 
-  // const assertPeer = (condition, msg) => {
-  //   if(condition) return;
+const assertPeer = (condition, msg) => {
+  if(condition) return;
 
-  //   throw new PerrError(msg);
-  // }
+  throw new PerrError(msg);
+}
+const assertPeer = (condition, msg) => {
+  if(condition) return;
+
+  throw new PerrError(msg);
+}
