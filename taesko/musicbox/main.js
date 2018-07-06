@@ -16,9 +16,8 @@ const lastMonthFilter = document.getElementById('last-month-filter');
 const lastYearFilter = document.getElementById('last-year-filter');
 const eternityFilter = document.getElementById('eternity-filter');
 const subscriptionSelect = document.getElementById('sub-select');
-const global_subscriptions = {};
+const globalSubscriptions = {};
 let modifyingSubscriptions = false;
-let jsonpCounter = 0;
 
 function queryString(params) {
     let string = '?';
@@ -31,9 +30,8 @@ function queryString(params) {
 
 function fetchJSONP(url, params) {
     return new Promise((resolve, reject) => {
-        let callbackName = 'jsonp' + new Date().getTime() + jsonpCounter;
+        let callbackName = 'jsonp' + new Date().getTime();
 
-        jsonpCounter += 1;
         params['callback'] = callbackName;
 
         window[callbackName] = jsonData => {
@@ -105,15 +103,46 @@ function displayMessage(msg) {
 }
 
 class BasicError extends Error {
-    constructor(userMessage, ...logArguments) {
-        super(userMessage);
+    constructor(...logs) {
+        super(logs.join('\n'));
 
-        console.warn(userMessage, ...logArguments);
-        displayMessage(userMessage);
+        console.error(...logs);
+    }
+
+    static assert(condition, ...messages) {
+        if (!condition) {
+            throw new this(...messages);
+        }
     }
 }
 
-async function getSubscription(url, until=30) {
+class ApplicationError extends BasicError {
+    constructor(...logs) {
+        super(...logs);
+
+        this.userMessage = "An unexpected behaviour was encountered. Please refresh the page.";
+    }
+}
+
+class PeerError extends BasicError {
+    constructor(...logs) {
+        super(...logs);
+
+        this.userMessage = "Service is not available at the moment. Please try again later.";
+    }
+}
+
+class UserError extends BasicError {}
+
+class SystemError extends BasicError {
+    constructor(...logs) {
+        super(...logs);
+
+        this.userMessage = "Our service is not supported on your browser. Consider upgrading and trying again."
+    }
+}
+
+async function getSubscription(url, until = 30) {
     async function fetchChannel(url) {
         let channelInformation = {};
         let identifiers = parseChannelFromYTUrl(url);
@@ -138,43 +167,8 @@ async function getSubscription(url, until=30) {
                 'User tried to subscribe to incorrect url:', url);
         }
 
-        params.key = YOUTUBE_API_KEY;
+        let response = await fetchFromYtAPI('channels', params);
 
-        let raw_response;
-
-        try {
-            raw_response = await fetch(YOUTUBE_API_URLS.channels +
-                queryString(params));
-        } catch (reason) {
-            throw new BasicError(
-                `Couldn't download information about 
-                channel ${url} from the Youtube API.`,
-                'Youtube API raised error: ', reason,
-            );
-        }
-        if (!raw_response.ok) {
-            throw new BasicError(
-                `Couldn't download information about 
-                channel ${url} from the Youtube API.`,
-                'Youtube API response for fetch of params: ', params,
-                'Is not ok', 'Actual response code: ', raw_response.status,
-            );
-        }
-
-        let response;
-
-        try {
-            response = await raw_response.json();
-        } catch (reason) {
-            throw new BasicError(
-                `Couldn't download information about 
-                channel ${url} from the Youtube API.`,
-                'Couldn\'t get json body from response: ', response,
-                'While fetching data for url', url,
-            );
-        }
-
-        LATEST_RESPONSE = response;
         if (
             !hasChainedProperties(['items'], response) ||
             response.items.length === 0 ||
@@ -201,80 +195,71 @@ async function getSubscription(url, until=30) {
     }
 
     async function fetchFromYtAPI(method, params) {
-        let finalParams = Object.assign(params, {
-            key: YOUTUBE_API_KEY
-        });
-        let rawRequest;
-        try {
-            rawRequest = await fetch(YOUTUBE_API_URLS[method] + queryString(finalParams));
-        } catch (e) {
-            throw new BasicError(
-                `We're but we cannot provide you with a list of tracks for this 
-                channel because Youtube's API is not running correctly.`,
-                'Youtube API for playlistItems failed. Reason: ', reason,
-            );
-        }
+        let genericErrorMsg = `We're but we cannot provide you with a list of tracks for this channel because Youtube's API is not running correctly.`
         let response;
 
+        params = Object.assign(params, {
+            key: YOUTUBE_API_KEY
+        });
+
         try {
-            response = await rawRequest.json();
+            response = await fetch(YOUTUBE_API_URLS[method] + queryString(params));
+        } catch (e) {
+            throw new BasicError(genericErrorMsg, 'Youtube API for playlistItems failed. Reason: ', reason);
+        }
+
+        if (!response.ok) {
+            throw new BasicError(genericErrorMsg,
+                'Youtube API for playlistItems failed with a not ok response: ', response)
+        }
+
+        let content;
+
+        try {
+            content = await response.json();
         } catch (reason) {
             throw new BasicError(
-                `We're but we cannot provide you with a list of tracks for this 
-                channel because Youtube's API is not running correctly.`,
+                genericErrorMsg,
                 'Failed to decode json from Youtube API for playlistItems.',
                 'Reason: ', reason);
         }
 
-        return response;
+        return content;
     }
 
     async function fetchVideos(playlistId, untilDays) {
-        console.log("fetching videos", playlistId, untilDays);
         let items = [];
+        let params = {
+            maxResults: MAX_VIDEO_RESULTS,
+            part: 'snippet,contentDetails',
+            playlistId: playlistId,
+        };
         let untilDate = new Date();
 
         untilDate.setDate(untilDate.getDate() - untilDays);
 
-        let foundTooOld = false;
-        let nextPageToken;
-
-        while (!foundTooOld) {
-            console.log("foundTooOld state: ", foundTooOld);
-            let params = {
-                maxResults: MAX_VIDEO_RESULTS,
-                part: 'snippet,contentDetails',
-                playlistId: playlistId,
-            };
-
-            if (nextPageToken) {
-                params.pageToken = nextPageToken;
-            }
-
+        do {
             let response = await fetchFromYtAPI('playlistItems', params);
 
-            nextPageToken = response.nextPageToken;
-            items.push(...response.items.filter(
-                (item) => {
-                    console.log("fetched video", item);
-                    if (!hasChainedProperties(['snippet.title', 'snippet.publishedAt'], item)) {
-                        throw new BasicError(
-                            `We're but we cannot provide you with a list of tracks for this channel because Youtube's API is not running correctly.`,
-                        );
-                    }
+            params.pageToken = response.nextPageToken;
 
-                    console.log(item, "compared", item.snippet.publishedAt, "to", untilDate);
-                    if (new Date(item.snippet.publishedAt).getTime() <= untilDate.getTime()) {
-                        console.log("too old");
-                        foundTooOld = true;
-                        return false;
-                    } else {
-                        return true;
-                    }
+            let newItems = response.items.filter((item) => {
+                if (!hasChainedProperties(['snippet.title', 'snippet.publishedAt'], item)) {
+                    throw new BasicError(
+                        `We're but we cannot provide you with a list of tracks for this channel because Youtube's API is not running correctly.`,
+                    );
                 }
-            ));
-            console.log("all items are: ", items);
-        }
+
+                return new Date(item.snippet.publishedAt).getTime() >= untilDate.getTime();
+            });
+
+            items.push(...newItems);
+
+            if (newItems.length !== response.items.length) {
+                break;
+            }
+        } while (params.pageToken);
+
         return items;
     }
 
@@ -363,7 +348,7 @@ async function getSubscription(url, until=30) {
 function getSubByCustomURL(customUrl) {
     customUrl = customUrl.toLowerCase();
 
-    for (let sub of Object.values(global_subscriptions)) {
+    for (let sub of Object.values(globalSubscriptions)) {
         if (sub.customUrl.toLowerCase() === customUrl) {
             return sub;
         }
@@ -373,8 +358,8 @@ function getSubByCustomURL(customUrl) {
 function getSubByFullURL(url) {
     let parsed = parseChannelFromYTUrl(url);
 
-    if (parsed.id && global_subscriptions[parsed.id]) {
-        return global_subscriptions[parsed.id];
+    if (parsed.id && globalSubscriptions[parsed.id]) {
+        return globalSubscriptions[parsed.id];
     } else if (parsed.name) {
         let sub = getSubByCustomURL(parsed.name);
 
@@ -465,7 +450,7 @@ async function subscribe(url) {
     // it's possible for a race condition to occur where
     // getSubscription returns twice two different subscriptions
     // to the same channel, because different urls can point to the same channel.
-    if (global_subscriptions[sub.id]) {
+    if (globalSubscriptions[sub.id]) {
         return;
     }
 
@@ -474,7 +459,7 @@ async function subscribe(url) {
     option.value = url;
     option.innerHTML = sub.title;
     subscriptionSelect.appendChild(option);
-    global_subscriptions[sub.id] = sub;
+    globalSubscriptions[sub.id] = sub;
     UrlList.display(sub);
     TableAPI.displaySub(sub);
     TableAPI.showTable();
@@ -493,7 +478,7 @@ function unsubscribe(url) {
     }
 
     if (sub) {
-        delete global_subscriptions[sub.id];
+        delete globalSubscriptions[sub.id];
         UrlList.hide(sub);
     } else {
         console.warn('Already unsubscribed from ', url);
@@ -505,8 +490,8 @@ function unsubscribe(url) {
 function clearSubs() {
     TableAPI.clearTable();
 
-    for (let [key, sub] of Object.entries(global_subscriptions)) {
-        delete global_subscriptions[key];
+    for (let [key, sub] of Object.entries(globalSubscriptions)) {
+        delete globalSubscriptions[key];
         UrlList.hide(sub);
     }
 
