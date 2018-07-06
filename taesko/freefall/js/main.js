@@ -596,7 +596,12 @@ $(document)
 
     let $flightForm = $('#flight-form-input');
     let flightFormData = '';
+    let subscribeFormData = '';
+    let unsubscribeFormData = '';
 
+    $('#subscribe-button').click(() => {
+
+    })
     $flightForm.on('submit',
       async event => {
         event.preventDefault();
