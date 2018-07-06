@@ -21,17 +21,17 @@ const errorMessagesQueue = [];
 
 (function setupErrorMessages () {
   setInterval(() => {
-      if (!$errorBar) {
-        return;
-      }
+    if (!$errorBar) {
+      return;
+    }
 
-      if (errorMessagesQueue.length !== 0) {
-        $errorBar.text(errorMessagesQueue.shift());
-      } else {
-        $errorBar.text('');
-      }
-    },
-    5000);
+    if (errorMessagesQueue.length !== 0) {
+      $errorBar.text(errorMessagesQueue.shift());
+    } else {
+      $errorBar.text('');
+    }
+  },
+  5000);
 })();
 
 function displayErrorMessage (errMsg) {
@@ -326,7 +326,13 @@ function sortRoute (route) {
 }
 
 function timeStringFromDate (date) {
-  return `${date.getUTCHours()}:${date.getUTCMinutes()}`;
+  const hours = date.getUTCHours()
+    .toString()
+    .padStart(2, '0');
+  const minutes = date.getUTCMinutes()
+    .toString()
+    .padStart(2, '0');
+  return `${hours}:${minutes}`;
 }
 
 function weeklyDateString (date) {
@@ -353,16 +359,15 @@ function cleanUndefinedFromObject (obj) {
 
 function setupLoading ($button, $routesList) {
   const step = 5;
-  let loadedCount = MAX_ROUTES_PER_PAGE + 1; // include the template item
 
   $button.click(() => {
+    let loaded = $routesList.children()
+      .filter(':visible').length;
     $routesList.children()
-      .slice(loadedCount, loadedCount + step)
+      .slice(loaded, loaded + step + 1)
       .show();
 
-    loadedCount += step;
-
-    if (loadedCount >= $routesList.children().length) {
+    if (loaded + step >= $routesList.children().length) {
       $button.hide();
     }
   });
@@ -397,13 +402,11 @@ function displaySearchResult (searchResult, $routesList, $routeItemTemplate, $fl
 
     $($timeElements[0])
       .attr('datetime', route.dtime)
-      .text(weeklyDateString(route.dtime) + ' ' +
-            timeStringFromDate(route.dtime)
+      .text(weeklyDateString(route.dtime) + ' ' + timeStringFromDate(route.dtime)
       );
     $($timeElements[1])
       .attr('datetime', route.dtime)
-      .text(weeklyDateString(route.atime) + ' ' +
-            timeStringFromDate(route.atime)
+      .text(weeklyDateString(route.atime) + ' ' + timeStringFromDate(route.atime)
       );
   }
 
