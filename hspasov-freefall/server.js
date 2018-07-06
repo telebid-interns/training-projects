@@ -7,11 +7,27 @@ const serve = require('koa-static');
 const send = require('koa-send');
 const cors = require('@koa/cors');
 const resolveMethod = require('./methods/resolve-method');
-const { normalize, denormalize } = require('./modules/normalize');
+const { defineParsers, jsonParser, yamlParser } = require('./modules/normalize');
+const { PeerError, UserError, AppError } = require('./modules/error-handling.js');
 const db = require('./modules/db.js');
+
+const parser = defineParsers(jsonParser, yamlParser);
 
 const app = new Koa();
 const router = new Router();
+
+app.on('error', (err, ctx) => {
+  console.log('inside error');
+  console.log(err);
+  // ctx.status = 200;
+  // if (err instanceof PeerError) {
+  //   const denormalized = denormalize(normalize())
+  // } else if (err instanceof UserError) {
+
+  // } else if (err instanceof AppError) {
+
+  // }
+});
 
 db.dbConnect();
 
@@ -30,13 +46,19 @@ app.use(serve(path.join(__dirname, 'public')));
 app.context.db = db;
 
 router.post('/', async (ctx, next) => {
-  const normalized = normalize(ctx.request.body, ctx.headers['content-type'], ctx.query.format);
-  const method = resolveMethod(normalized);
-  const result = await method.execute(normalized.params, ctx.db);
-  const denormalized = denormalize(normalized, result, ctx.headers['content-type'], ctx.query.format);
+  const parsed = parser.parse(ctx.request.body, {
+    contentType: ctx.headers['content-type'],
+    format: ctx.query.format
+  });
+  const method = resolveMethod(parsed);
+  const result = await method.execute(parsed.params, ctx.db);
+  const stringified = parser.stringify(result, {
+    contentType: ctx.headers['content-type'],
+    format: ctx.query.format
+  }, parsed.version, parsed.id);
 
   ctx.status = 200;
-  ctx.body = denormalized;
+  ctx.body = stringified;
 });
 
 router.get('/', async (ctx, next) => {

@@ -18,8 +18,6 @@ function dbToAPIRouteFlight (routeFlight) {
   );
 
   return {
-    airport_from_id: routeFlight.afromId,
-    airport_to_id: routeFlight.atoId,
     airport_from: routeFlight.afromName,
     airport_to: routeFlight.atoName,
     return: !!routeFlight.isReturn,
@@ -55,6 +53,12 @@ async function search (params, db) {
   const subscriptions = await db.selectSubscriptions(+params.fly_from, +params.fly_to);
 
   if (subscriptions <= 0) {
+    await subscribe({
+      v: params.v,
+      fly_from: params.fly_from,
+      fly_to: params.fly_to
+    }, db);
+
     result.status_code = 2000;
     result.routes = [];
 
@@ -96,18 +100,44 @@ async function search (params, db) {
 
     assertApp(Array.isArray(routesHash[routeFlight.routeId].route));
 
-    routesHash[routeFlight.routeId].route.push(dbToAPIRouteFlight(routeFlight));
+    routesHash[routeFlight.routeId].route.push(routeFlight);
   }
 
   const routes = [];
 
   for (const routeId in routesHash) {
+    assertApp(
+      isObject(routesHash) &&
+      isObject(routesHash[routeId]) &&
+      Array.isArray(routesHash[routeId].route),
+      'Invalid database route response'
+    );
+
+    assertApp(
+      routesHash[routeId].route.every(flight => {
+        return Number.isInteger(flight.afromId) &&
+          Number.isInteger(flight.atoId) &&
+          typeof flight.airlineName === 'string' &&
+          typeof flight.logoURL === 'string' &&
+          typeof flight.afromName === 'string' &&
+          typeof flight.atoName === 'string' &&
+          typeof flight.dtime === 'string' &&
+          typeof flight.atime === 'string' &&
+          typeof flight.flightNumber === 'string' &&
+          (flight.isReturn === 1 || flight.isReturn === 0);
+      }),
+      'Invalid database flight response.'
+    );
+
     if (
       routesHash.hasOwnProperty(routeId) &&
-      routesHash[routeId].route.some((flight) => flight.airport_from_id === +params.fly_from) &&
-      routesHash[routeId].route.some((flight) => flight.airport_to_id === +params.fly_to)
+      routesHash[routeId].route.some((flight) => flight.afromId === +params.fly_from) &&
+      routesHash[routeId].route.some((flight) => flight.atoId === +params.fly_to)
     ) {
-      routes.push(routesHash[routeId]);
+      routes.push({
+        ...routesHash[routeId],
+        route: routesHash[routeId].route.map((flight) => dbToAPIRouteFlight(flight))
+      });
     }
   }
 
@@ -141,13 +171,13 @@ async function search (params, db) {
 async function subscribe (params, db) {
   assertPeer(
     isObject(params) &&
-    typeof params.v === 'string' &&
-    typeof params.fly_from === 'string' &&
-    typeof params.fly_to === 'string',
+    Number.isInteger(+params.v) &&
+    Number.isInteger(+params.fly_from) &&
+    Number.isInteger(+params.fly_to),
     'Invalid subscribe request.'
   );
 
-  const isInserted = await db.insertIfNotExistsSubscription(params.fly_from, params.fly_to);
+  const isInserted = await db.insertIfNotExistsSubscription(+params.fly_from, +params.fly_to);
 
   return {
     status_code: (isInserted) ? 1000 : 2000
@@ -157,13 +187,13 @@ async function subscribe (params, db) {
 async function unsubscribe (params, db) {
   assertPeer(
     isObject(params) &&
-    typeof params.v === 'string' &&
-    typeof params.fly_from === 'string' &&
-    typeof params.fly_to === 'string',
+    Number.isInteger(+params.v) &&
+    Number.isInteger(+params.fly_from) &&
+    Number.isInteger(+params.fly_to),
     'Invalid unsubscribe request.'
   );
 
-  const isDeleted = await db.deleteIfNotExistsSubscription(params.fly_from, params.fly_to);
+  const isDeleted = await db.deleteIfNotExistsSubscription(+params.fly_from, +params.fly_to);
 
   return {
     status_code: (isDeleted) ? 1000 : 2000

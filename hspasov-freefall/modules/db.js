@@ -225,7 +225,14 @@ module.exports = (() => {
 
     const flyFromParsed = Number(flyFrom);
     const flyToParsed = Number(flyTo);
-    const subscriptions = await selectSubscriptions(flyFromParsed, flyToParsed);
+    const subscriptions = await db.all(`
+      SELECT id
+      FROM subscriptions
+      WHERE airport_from_id = ? AND airport_to_id = ?;
+    `, [
+      flyFromParsed,
+      flyToParsed
+    ]);
 
     assertApp(Array.isArray(subscriptions), 'Invalid select subscriptions response.');
 
