@@ -17,21 +17,25 @@ const WEEK_DAYS = [
 ];
 let jsonRPCRequestId = 1;
 let $errorBar;
-let errorTimeout;
+const errorMessagesQueue = [];
+
+(function setupErrorMessages () {
+  setInterval(() => {
+      if (!$errorBar) {
+        return;
+      }
+
+      if (errorMessagesQueue.length !== 0) {
+        $errorBar.text(errorMessagesQueue.shift());
+      } else {
+        $errorBar.text('');
+      }
+    },
+    5000);
+})();
 
 function displayErrorMessage (errMsg) {
-  if (errorTimeout) {
-    clearTimeout(errorTimeout);
-    errorTimeout = undefined;
-  }
-
-  $errorBar.text(errMsg);
-  errorTimeout = setTimeout(
-    () => {
-      $errorBar.text('');
-    },
-    5000
-  );
+  errorMessagesQueue.push(errMsg);
 }
 
 class BaseError extends Error {
@@ -41,12 +45,8 @@ class BaseError extends Error {
     this.userMessage = userMessage;
     this.logs = logs;
 
-    if (logs) {
-      console.warn(...logs);
-    }
-
-    if (userMessage) {
-      displayErrorMessage(userMessage);
+    if (this.logs) {
+      console.error(...this.logs);
     }
   }
 
@@ -143,7 +143,7 @@ async function search ({
     fixed
   );
 
-  console.log("Searching", params);
+  console.log('Searching', params);
 
   let jsonRPCResponse = await jsonRPCRequest('search', params);
   let response = switchStyle(jsonRPCResponse, snakeToCamel);
@@ -189,11 +189,12 @@ async function subscribe (fromAiport, toAirport) {
     response = await jsonRPCRequest('subscribe', params);
   } catch (e) {
     e.userMessage = `Failed to subscribe for flights from airport ${fromAiport.nationalName} to airport ${toAirport.nationalName}.`;
+    throw e;
   }
 
   PeerError.assert(response.status_code >= 1000 && response.status_code < 2000,
     {
-      userMessage: `Already subscribed for flights from airport ${fromAiport.nationalName} to airport ${toAirport.nationalName}.`,
+      userMessage: `Already subscribed for flights from ${fromAiport.latinName} to ${toAirport.latinName}.`,
       logs: [
         'Tried to subscribe but subscription already existed.',
         'Sent params: ',
@@ -217,6 +218,7 @@ async function unsubscribe (fromAirport, toAirport) {
     response = await jsonRPCRequest('unsubscribe', params);
   } catch (e) {
     e.userMessage = `Failed to unsubscribe for flights from airport ${fromAiport.nationalName} to airport ${toAirport.nationalName}.`;
+    throw e;
   }
 
   PeerError.assert(response.status_code >= 1000 && response.status_code < 2000,
@@ -614,12 +616,6 @@ $(document)
           handleError(e);
         }
 
-        try {
-          await subscribe(formParams.flyFrom, formParams.flyTo);
-        } catch (e) {
-          handleError(e);
-        }
-
         return false;
       });
 
@@ -648,15 +644,20 @@ $(document)
     setupLoading($('#load-more-button'), $allRoutesList);
   });
 
-window.addEventListener('error', (event) => {
-  // TODO display to user if not displayed.
-  console.error(event);
+window.addEventListener('error', (error) => {
+  handleError(error);
+
   // suppress
   return true;
 });
 
 function handleError (error) {
   console.error(error);
+
+  if (error.userMessage) {
+    console.log('displaying user message');
+    displayErrorMessage(error.userMessage);
+  }
 }
 
 function validateParams (params, required, fixed) {
