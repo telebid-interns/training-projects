@@ -1,4 +1,4 @@
-const MAX_VIDEO_RESULTS = 25;
+const MAX_VIDEO_RESULTS = 10;
 const YOUTUBE_API_URLS = {
     'channels': 'https://www.googleapis.com/youtube/v3/channels',
     'playlistItems': 'https://www.googleapis.com/youtube/v3/playlistItems',
@@ -20,7 +20,7 @@ const global_subscriptions = {};
 let modifyingSubscriptions = false;
 let jsonpCounter = 0;
 
-function queryString (params) {
+function queryString(params) {
     let string = '?';
 
     for (let [key, entry] of Object.entries(params))
@@ -29,7 +29,7 @@ function queryString (params) {
     return string;
 }
 
-function fetchJSONP (url, params) {
+function fetchJSONP(url, params) {
     return new Promise((resolve, reject) => {
         let callbackName = 'jsonp' + new Date().getTime() + jsonpCounter;
 
@@ -52,7 +52,7 @@ function fetchJSONP (url, params) {
 
 // TODO put this at the subscribe/unsubscribe functions instead of closures around their usages
 // TODO fix nesting of lock decorators ?
-function lockDecorator (wrapped) {
+function lockDecorator(wrapped) {
     return (...args) => {
         if (modifyingSubscriptions) {
             throw new BasicError('Please wait for subscriptions to load.',
@@ -70,8 +70,8 @@ function lockDecorator (wrapped) {
     };
 }
 
-function asyncLockDecorator (wrapped) {
-    function decorated (...args) {
+function asyncLockDecorator(wrapped) {
+    function decorated(...args) {
         let promise;
 
         if (modifyingSubscriptions) {
@@ -85,14 +85,14 @@ function asyncLockDecorator (wrapped) {
         return promise;
     }
 
-    function unlock () {
+    function unlock() {
         modifyingSubscriptions = false;
     }
 
     return decorated;
 }
 
-function displayMessage (msg) {
+function displayMessage(msg) {
     if (statusParagraph.timeout)
         clearTimeout(statusParagraph.timeout);
 
@@ -105,7 +105,7 @@ function displayMessage (msg) {
 }
 
 class BasicError extends Error {
-    constructor (userMessage, ...logArguments) {
+    constructor(userMessage, ...logArguments) {
         super(userMessage);
 
         console.warn(userMessage, ...logArguments);
@@ -113,8 +113,8 @@ class BasicError extends Error {
     }
 }
 
-async function getSubscription (url) {
-    async function fetchChannel (url) {
+async function getSubscription(url, until=30) {
+    async function fetchChannel(url) {
         let channelInformation = {};
         let identifiers = parseChannelFromYTUrl(url);
         let params = {};
@@ -200,30 +200,24 @@ async function getSubscription (url) {
         return channelInformation;
     }
 
-    async function fetchTracks (playlistId) {
-        let raw_response;
-
+    async function fetchFromYtAPI(method, params) {
+        let finalParams = Object.assign(params, {
+            key: YOUTUBE_API_KEY
+        });
+        let rawRequest;
         try {
-            raw_response = await fetch(YOUTUBE_API_URLS.playlistItems
-                + queryString({
-                    key: YOUTUBE_API_KEY,
-                    maxResults: MAX_VIDEO_RESULTS,
-                    part: 'snippet,contentDetails',
-                    playlistId: playlistId,
-                }),
-            );
-        } catch (reason) {
+            rawRequest = await fetch(YOUTUBE_API_URLS[method] + queryString(finalParams));
+        } catch (e) {
             throw new BasicError(
                 `We're but we cannot provide you with a list of tracks for this 
                 channel because Youtube's API is not running correctly.`,
                 'Youtube API for playlistItems failed. Reason: ', reason,
             );
         }
-
         let response;
 
         try {
-            response = await raw_response.json();
+            response = await rawRequest.json();
         } catch (reason) {
             throw new BasicError(
                 `We're but we cannot provide you with a list of tracks for this 
@@ -232,10 +226,66 @@ async function getSubscription (url) {
                 'Reason: ', reason);
         }
 
+        return response;
+    }
+
+    async function fetchVideos(playlistId, untilDays) {
+        console.log("fetching videos", playlistId, untilDays);
+        let items = [];
+        let untilDate = new Date();
+
+        untilDate.setDate(untilDate.getDate() - untilDays);
+
+        let foundTooOld = false;
+        let nextPageToken;
+
+        while (!foundTooOld) {
+            console.log("foundTooOld state: ", foundTooOld);
+            let params = {
+                maxResults: MAX_VIDEO_RESULTS,
+                part: 'snippet,contentDetails',
+                playlistId: playlistId,
+            };
+
+            if (nextPageToken) {
+                params.pageToken = nextPageToken;
+            }
+
+            let response = await fetchFromYtAPI('playlistItems', params);
+
+            nextPageToken = response.nextPageToken;
+            items.push(...response.items.filter(
+                (item) => {
+                    console.log("fetched video", item);
+                    if (!hasChainedProperties(['snippet.title', 'snippet.publishedAt'], item)) {
+                        throw new BasicError(
+                            `We're but we cannot provide you with a list of tracks for this channel because Youtube's API is not running correctly.`,
+                        );
+                    }
+
+                    console.log(item, "compared", item.snippet.publishedAt, "to", untilDate);
+                    if (new Date(item.snippet.publishedAt).getTime() <= untilDate.getTime()) {
+                        console.log("too old");
+                        foundTooOld = true;
+                        return false;
+                    } else {
+                        return true;
+                    }
+                }
+            ));
+            console.log("all items are: ", items);
+        }
+        return items;
+    }
+
+    async function fetchTracks(playlistId, until) {
+        console.log("fetching tracks", playlistId, until);
+        let items = await fetchVideos(playlistId, until);
+        console.log("fetched all videos");
         let tracks = [];
         let failures = [];
 
-        for (let item of response.items) {
+        for (let item of items) {
             if (!hasChainedProperties(['snippet.title', 'snippet.publishedAt'],
                 item)) {
                 throw new BasicError(
@@ -263,7 +313,7 @@ async function getSubscription (url) {
         return {tracks, failures};
     }
 
-    async function fetchTrackInfo (tracks) {
+    async function fetchTrackInfo(tracks) {
         let failures = {};
         let successfulTracks = [];
 
@@ -287,7 +337,7 @@ async function getSubscription (url) {
     // let errors propagate to the caller.
     subscription = await fetchChannel(url);
 
-    let trackResponse = await fetchTracks(subscription.playlistId);
+    let trackResponse = await fetchTracks(subscription.playlistId, until);
 
     subscription.tracks = trackResponse.tracks;
     subscription.failedToParse = trackResponse.failures;
@@ -310,7 +360,7 @@ async function getSubscription (url) {
     return subscription;
 }
 
-function getSubByCustomURL (customUrl) {
+function getSubByCustomURL(customUrl) {
     customUrl = customUrl.toLowerCase();
 
     for (let sub of Object.values(global_subscriptions)) {
@@ -320,7 +370,7 @@ function getSubByCustomURL (customUrl) {
     }
 }
 
-function getSubByFullURL (url) {
+function getSubByFullURL(url) {
     let parsed = parseChannelFromYTUrl(url);
 
     if (parsed.id && global_subscriptions[parsed.id]) {
@@ -335,7 +385,7 @@ function getSubByFullURL (url) {
 }
 
 class Track {
-    constructor ({artist, title, featuring, publishedAt}) {
+    constructor({artist, title, featuring, publishedAt}) {
         // url, duration, artistUrl, album properties are loaded and attached through the loadData async method
         this.id = artist + title;
         this.name = title;
@@ -344,7 +394,7 @@ class Track {
         this.publishedAt = new Date(publishedAt);
     }
 
-    trackInfoUrlParams () {
+    trackInfoUrlParams() {
         return {
             method: 'track.getInfo',
             format: 'json',
@@ -354,7 +404,7 @@ class Track {
         };
     }
 
-    async loadData () {
+    async loadData() {
         let response;
 
         try {
@@ -381,7 +431,7 @@ class Track {
     }
 }
 
-function hasChainedProperties (chainedProperties, object) {
+function hasChainedProperties(chainedProperties, object) {
     for (let chainedProp of chainedProperties) {
         let properties = chainedProp.split('.');
         let chainedObject = object;
@@ -397,7 +447,7 @@ function hasChainedProperties (chainedProperties, object) {
     return true;
 }
 
-function getProp (chainedProp, object, default_) {
+function getProp(chainedProp, object, default_) {
     for (let prop of chainedProp.split('.')) {
         if (object[prop]) {
             object = object[prop];
@@ -409,7 +459,7 @@ function getProp (chainedProp, object, default_) {
     return object;
 }
 
-async function subscribe (url) {
+async function subscribe(url) {
     let sub = await getSubscription(url);
 
     // it's possible for a race condition to occur where
@@ -430,7 +480,7 @@ async function subscribe (url) {
     TableAPI.showTable();
 }
 
-function unsubscribe (url) {
+function unsubscribe(url) {
     let sub = getSubByFullURL(url);
 
     for (let k = 0; k < subscriptionSelect.children.length; k++) {
@@ -452,7 +502,7 @@ function unsubscribe (url) {
     TableAPI.removeSub(sub);
 }
 
-function clearSubs () {
+function clearSubs() {
     TableAPI.clearTable();
 
     for (let [key, sub] of Object.entries(global_subscriptions)) {
@@ -465,7 +515,7 @@ function clearSubs () {
     }
 }
 
-function parseUrlsFromString (str) {
+function parseUrlsFromString(str) {
     // taken from https://stackoverflow.com/questions/6038061/regular-expression-to-find-urls-within-a-string
     let regex = new RegExp(
         '(http|ftp|https)://([\\w_-]+(?:(?:\\.[\\w_-]+)+))([\\w.,@?^=%&:/~+#-]*[\\w@?^=%&/~+#-])?',
@@ -481,7 +531,7 @@ function parseUrlsFromString (str) {
     return urls;
 }
 
-function parseChannelFromYTUrl (url) {
+function parseChannelFromYTUrl(url) {
     let idResult = new RegExp('www.youtube.com/channel/([^/]+)').exec(url); // TODO parses query params incorrectly
     let userResult = new RegExp('www.youtube.com/user/([^/]+)').exec(url);
 
@@ -500,7 +550,7 @@ function parseChannelFromYTUrl (url) {
     }
 }
 
-function parseTrackFromVideoTitle (videoTitle) {
+function parseTrackFromVideoTitle(videoTitle) {
     let regex = /\s*([^_]+)\s+-\s+([^()]+)\s*/;
     let featuringRegex = /(?:ft\.|feat\.)\s*(.*)/;
     let featMatch = featuringRegex.exec(videoTitle);
@@ -557,7 +607,7 @@ const TableAPI = {
             TableAPI.tableBody.appendChild(row);
         }
 
-        function hookDialogEvents (cell) {
+        function hookDialogEvents(cell) {
             let dialog = cell.getElementsByTagName('dialog')[0];
 
             if (!dialog)
@@ -575,21 +625,21 @@ const TableAPI = {
             });
         }
 
-        function prepareChannelCell (sub, track, cell) {
+        function prepareChannelCell(sub, track, cell) {
             let link = cell.getElementsByTagName('a')[0];
 
             link.textContent = getProp('title', sub, '');
             link.setAttribute('href', YOUTUBE_CHANNEL_URL + sub.customUrl);
         }
 
-        function prepareArtistCell (sub, track, cell) {
+        function prepareArtistCell(sub, track, cell) {
             let link = cell.getElementsByTagName('a')[0];
 
             link.textContent = track.artistName;
             link.setAttribute('href', track.artistUrl);
         }
 
-        function prepareAlbumCell (sub, track, cell) {
+        function prepareAlbumCell(sub, track, cell) {
             let title = getProp('album.title', track, '');
             let titleElement = cell.getElementsByTagName('p')[0];
             let dialog = cell.getElementsByTagName('dialog')[0];
@@ -611,13 +661,13 @@ const TableAPI = {
             }
         }
 
-        function prepareTrackCell (sub, track, cell) {
+        function prepareTrackCell(sub, track, cell) {
             cell.appendChild(
                 document.createTextNode(getProp('name', track, '')),
             );
         }
 
-        function preparePublishedAtCell (sub, track, cell) {
+        function preparePublishedAtCell(sub, track, cell) {
             let publishedAt = getProp('publishedAt', track, '');
             publishedAt = `${publishedAt.getFullYear()}-${publishedAt.getMonth()}-${publishedAt.getDate()}`;
 
@@ -626,13 +676,11 @@ const TableAPI = {
             );
         }
 
-        function prepareDurationCell (sub, track, cell) {
+        function prepareDurationCell(sub, track, cell) {
             let duration = parseInt(getProp('duration', track, '0'));
 
             if (duration !== 0) {
-                duration = (duration / 1000 / 60).toFixed(2).
-                    replace('.', ':').
-                    padStart(5, '0');
+                duration = (duration / 1000 / 60).toFixed(2).replace('.', ':').padStart(5, '0');
             } else {
                 duration = '';
             }
@@ -642,7 +690,7 @@ const TableAPI = {
             );
         }
 
-        function trackToRow (sub, track) {
+        function trackToRow(sub, track) {
             let newRow = TableAPI.tableItemTemplate.cloneNode(true);
             const preparations = [
                 prepareChannelCell,
@@ -738,13 +786,13 @@ const UrlList = {
     },
 };
 
-function dateFilterUntil (until) {
+function dateFilterUntil(until) {
     return track => {
         return track.publishedAt.getTime() >= until.getTime();
     };
 }
 
-function setupFiltering () {
+function setupFiltering() {
     const lastWeek = new Date();
     const lastMonth = new Date();
     const lastYear = new Date();
@@ -760,7 +808,7 @@ function setupFiltering () {
         'eternity-filter': (track => true),
     };
 
-    function selectedFilter (event) {
+    function selectedFilter(event) {
         if (!subscriptionSelect.options || subscriptionSelect.options.length ===
             0)
             return;
@@ -772,7 +820,7 @@ function setupFiltering () {
         TableAPI.refresh(sub);
     }
 
-    function selectedSubscription (event) {
+    function selectedSubscription(event) {
         if (!subscriptionSelect.options || subscriptionSelect.options.length ===
             0)
             return;
@@ -791,7 +839,7 @@ function setupFiltering () {
     eternityFilter.addEventListener('click', selectedFilter);
 }
 
-function setupSubEvents (form, button) {
+function setupSubEvents(form, button) {
     const submitUrls = asyncLockDecorator(async (urls) => {
         let promises = urls.map(subscribe);
 
@@ -805,7 +853,7 @@ function setupSubEvents (form, button) {
 
     });
 
-    async function processForm (e) {
+    async function processForm(e) {
         if (e.preventDefault)
             e.preventDefault();
 
