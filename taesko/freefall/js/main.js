@@ -90,22 +90,7 @@ class PeerError extends BaseError {
   }
 }
 
-const AIRPORT_HASH = {
-  '2': {
-    id: '2',
-    iataID: 'SOF',
-    latinName: 'Sofia Airport',
-    nationalName: 'Летище София',
-    location: {latinName: 'Sofia'}
-  },
-  '3': {
-    id: '3',
-    iataID: 'JFK',
-    latinName: 'John Kennedy International Airport',
-    nationalName: 'John Kennedy International Airport',
-    location: {latinName: 'New York City'}
-  }
-};
+const AIRPORT_HASH = airportDump();
 
 function getAirportByString (term) {
   term = term.toLowerCase();
@@ -115,7 +100,7 @@ function getAirportByString (term) {
       airport.iataID.toLowerCase(),
       airport.latinName.toLowerCase(),
       airport.nationalName.toLowerCase(),
-      airport.location.latinName.toLowerCase()
+      airport.cityName.toLowerCase()
     ];
 
     if (_.includes(strings, term)) {
@@ -142,17 +127,21 @@ async function search ({
 }) {
   const required = ['fly_from', 'fly_to'];
   const fixed = {sort: ['price', 'duration'], currency: ['USD', 'BGN']};
-  const params = validateParams({
+  const params = validateParams(
+    {
       v: '1.0', // this is better to be passed through the url for better optimization
-      fly_from: '2', // TODO remove hardcoded values
-      fly_to: '3',
+      fly_from: flyFrom.id,
+      fly_to: flyTo.id,
       price_to: priceTo,
       currency: currency,
       date_from: dateFrom,
       date_to: dateTo,
       sort: sort,
       max_fly_duration: maxFlyDuration
-    });
+    },
+    required,
+    fixed
+  );
 
   console.log("Searching", params);
 
@@ -370,10 +359,15 @@ function setupLoading ($button, $routesList) {
       .show();
 
     loadedCount += step;
+
+    if (loadedCount >= $routesList.children().length) {
+      $button.hide();
+    }
   });
 }
 
 function displaySearchResult (searchResult, $routesList, $routeItemTemplate, $flightItemTemplate) {
+  console.log('Displaying search result', searchResult);
   $routesList.find('li:not(:first)')
     .remove();
 
@@ -607,8 +601,15 @@ $(document)
         }
 
         try {
-          displaySearchResult(await search(formParams), $allRoutesList,
-            $flightsListTemplate, $flightItemTemplate);
+          let response = await search(formParams);
+
+          if (response.statusCode >= 1000 && response.statusCode < 2000) {
+            displaySearchResult(response, $allRoutesList,
+              $flightsListTemplate, $flightItemTemplate);
+          } else if (response.statusCode === 2000) {
+            displayErrorMessage('There is no information about this flight at the moment. Please' +
+                                ' come back in 15 minutes.');
+          }
         } catch (e) {
           handleError(e);
         }
@@ -627,7 +628,7 @@ $(document)
         (hash, airport) => {
           hash[airport.latinName] = airport;
           hash[airport.nationalName] = airport;
-          hash[airport.location.latinName] = airport;
+          hash[airport.cityName] = airport;
           return hash;
         },
         {}
@@ -665,7 +666,7 @@ function validateParams (params, required, fixed) {
   for (let requiredParam of required) {
     ApplicationError.assert(
       !_.has(required, requiredParam),
-      {logs: ['Missing required keyword argument: ', requiredParam, 'to call of', search]}
+      {logs: ['Missing required keyword argument: ', requiredParam]}
     );
   }
 
