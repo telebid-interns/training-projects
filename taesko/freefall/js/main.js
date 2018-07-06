@@ -217,7 +217,7 @@ async function unsubscribe (fromAirport, toAirport) {
   try {
     response = await jsonRPCRequest('unsubscribe', params);
   } catch (e) {
-    e.userMessage = `Failed to unsubscribe for flights from airport ${fromAiport.nationalName} to airport ${toAirport.nationalName}.`;
+    e.userMessage = `Failed to unsubscribe for flights from airport ${fromAirport.nationalName} to airport ${toAirport.nationalName}.`;
     throw e;
   }
 
@@ -545,7 +545,7 @@ function searchFormParams ($searchForm) {
 
   let priceTo;
 
-  if(formData['price-to']) {
+  if (formData['price-to']) {
     priceTo = parseInt(formData['price-to']);
   }
 
