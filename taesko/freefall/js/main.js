@@ -152,12 +152,9 @@ async function search ({
       date_to: dateTo,
       sort: sort,
       max_fly_duration: maxFlyDuration
-    },
-    required,
-    fixed
-  );
+    });
 
-  console.log('Searching', params);
+  console.log("Searching", params);
 
   let jsonRPCResponse = await jsonRPCRequest('search', params);
   let response = switchStyle(jsonRPCResponse, snakeToCamel);
@@ -351,15 +348,15 @@ function weeklyDateString (date) {
 function cleanUndefinedFromObject (obj) {
   return Object.entries(obj)
     .reduce((newObj, entry) => {
-        let [key, value] = entry;
+      let [key, value] = entry;
 
-        if (obj[key] !== undefined) {
-          newObj[key] = value;
-        }
+      if (obj[key] !== undefined) {
+        newObj[key] = value;
+      }
 
-        return newObj;
-      },
-      {}
+      return newObj;
+    },
+    {}
     );
 }
 
