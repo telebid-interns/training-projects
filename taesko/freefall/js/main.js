@@ -385,6 +385,14 @@ function displaySearchResult (searchResult, $routesList, $routeItemTemplate, $fl
     return;
   }
 
+  if (searchResult.routes.length === 0) {
+    $('#load-more-button').hide()
+    displayErrorMessage("There are no known flights from ${flyFrom.latinName} to" +
+                        " ${flyTo.latinName}");
+  } else {
+    $('#load-more-button').show();
+  }
+
   for (let [index, route] of searchResult.routes.entries()) {
     let $clone = $routeItemTemplate.clone();
     let $routeList = $clone.find('ul');
@@ -409,9 +417,6 @@ function displaySearchResult (searchResult, $routesList, $routeItemTemplate, $fl
       .text(weeklyDateString(route.atime) + ' ' + timeStringFromDate(route.atime)
       );
   }
-
-  $('#load-more-button')
-    .show();
 }
 
 function fillListFromRoute ($listTemplate, route, $flightItemTemplate) {
@@ -566,7 +571,7 @@ function dateFromFields ({yearField, monthField, dayField}) {
     date.setFullYear(yearField);
   }
   if (monthField) {
-    date.setMonth(monthField);
+    date.setMonth(monthField - 1);
   }
   if (dayField) {
     date.setDate(dayField);

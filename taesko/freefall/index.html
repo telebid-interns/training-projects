@@ -42,8 +42,8 @@
                 <label class="text-center">Departure</label>
             </div>
             <div class="col-md-2">
-                <input id="departure-month" class="col-md-6" name="departure-month" type="number" placeholder="mm">
-                <input id="departure-day" class="col-md-6" name="departure-day" type="number" placeholder="dd">
+                <input id="departure-month" class="col-md-6" name="departure-month" type="number" placeholder="mm" min="0">
+                <input id="departure-day" class="col-md-6" name="departure-day" type="number" placeholder="dd" min="0">
             </div>
         </div>
         <div class="form-group fixed-form-height">
@@ -51,9 +51,13 @@
                 <label class="text-center">Arrival</label>
             </div>
             <div class="col-md-2">
-                <input id="arrival-month" class="col-md-6" name="arrival-month" type="number" placeholder="mm">
-                <input id="arrival-day" class="col-md-6" name="arrival-day" type="number" placeholder="dd">
+                <input id="arrival-month" class="col-md-6" name="arrival-month" type="number" placeholder="mm" min="0">
+                <input id="arrival-day" class="col-md-6" name="arrival-day" type="number" placeholder="dd" min="0">
             </div>
+        </div>
+        <div class="form-group fixed-form-height">
+            <label for="max-price" class="col-md-1 col-md-offset-4 text-center">Max price</label>
+            <input id="max-price" name="max-price" placeholder="max-price" min="0">
         </div>
         <div class="form-group text-center">
             <button type="submit" class="btn btn-primary col-md-3 col-md-offset-4">Jump</button>
