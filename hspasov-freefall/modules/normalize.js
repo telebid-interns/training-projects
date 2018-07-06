@@ -1,7 +1,6 @@
 const YAMLParser = require('js-yaml');
-const { assertPeer, PeerError } = require('./error-handling');
-const { log } = require('./utils');
-const { isObject, isFunction } = require('lodash');
+const { assertPeer, AppError, PeerError } = require('./error-handling');
+const { isObject } = require('lodash');
 
 function yamlParser () {
   const parseYAML = (yaml) => {
@@ -30,8 +29,11 @@ function yamlParser () {
   };
 
   const stringifyYAML = (yaml) => {
-    const parsed = YAMLParser.safeDump(yaml);
-    return parsed;
+    try {
+      return YAMLParser.safeDump(yaml);
+    } catch (error) {
+      throw new AppError(error);
+    }
   };
 
   const execute = (data) => {
@@ -46,11 +48,16 @@ function yamlParser () {
     return stringifyYAML({ result: data, yamlrpc, id });
   };
 
+  const error = (error, yamlrpc = '2.0') => {
+    return stringifyYAML({ yamlrpc, error, id: null });
+  };
+
   return {
     contentType: 'text/yaml',
     format: 'yaml',
     execute,
-    stringify
+    stringify,
+    error
   };
 }
 
@@ -63,43 +70,68 @@ function jsonParser () {
   };
 
   const stringify = (data, jsonrpc = '2.0', id = null) => {
-    return JSON.stringify({ jsonrpc, id, result: data });
+    try {
+      return JSON.stringify({ jsonrpc, id, result: data });
+    } catch (error) {
+      throw new AppError(error);
+    }
+  };
+
+  const error = (error, jsonrpc = '2.0') => {
+    try {
+      return JSON.stringify({ jsonrpc, error, id: null });
+    } catch (error) {
+      throw new AppError('Data could not be stringified.');
+    }
   };
 
   return {
     contentType: 'application/json',
     format: 'json',
     execute,
-    stringify
+    stringify,
+    error
   };
 }
 
 function defineParsers (...args) {
   const parsers = args.map((arg) => arg());
 
-  const parse = (data, type) => {
+  const assertType = (type) => {
     assertPeer(
       isObject(type) &&
       (!type.contentType || typeof type.contentType === 'string') &&
       (!type.format || typeof type.format === 'string'),
       'Invalid content type.'
     );
+  };
+
+  const assertFormat = (parser, format) => {
+    assertPeer(
+      parser.format === format ||
+      !format,
+      'Ambiguous content type.'
+    );
+  };
+
+  const assertContentType = (parser, contentType) => {
+    assertPeer(
+      parser.contentType === contentType ||
+      !contentType,
+      'Ambiguous content type.'
+    );
+  };
+
+  const parse = (data, type) => {
+    assertType(type);
 
     for (const parser of parsers) {
       if (parser.contentType === type.contentType) {
-        assertPeer(
-          parser.format === type.format ||
-          !type.format,
-          'Ambiguous content type.'
-        );
+        assertFormat(parser, type.format);
 
         return parser.execute(data);
       } else if (parser.format === type.format) {
-        assertPeer(
-          parser.contentType === type.contentType ||
-          !type.contentType,
-          'Ambiguous content type.'
-        );
+        assertContentType(parser, type.contentType);
 
         return parser.execute(data);
       }
@@ -108,35 +140,40 @@ function defineParsers (...args) {
   };
 
   const stringify = (data, type, version, id) => {
-    assertPeer(
-      isObject(type) &&
-      (!type.contentType || typeof type.contentType === 'string') &&
-      (!type.format || typeof type.format === 'string'),
-      'Invalid content type.'
-    );
+    assertType(type);
 
     for (const parser of parsers) {
       if (parser.contentType === type.contentType) {
-        assertPeer(
-          parser.format === type.format ||
-          !type.format,
-          'Ambiguous content type.'
-        );
+        assertFormat(parser, type.format);
 
         return parser.stringify(data, version, id);
       } else if (parser.format === type.format) {
-        assertPeer(
-          parser.contentType === type.contentType ||
-          !type.contentType,
-          'Ambiguous content type.'
-        );
+        assertContentType(parser, type.contentType);
+
         return parser.stringify(data, version, id);
       }
     }
     throw new PeerError('Unknown content type.');
   };
 
-  return { parse, stringify };
+  const error = (error, type) => {
+    assertType(type);
+
+    for (const parser of parsers) {
+      if (parser.contentType === type.contentType) {
+        assertFormat(parser, type.format);
+
+        return parser.error(error);
+      } else if (parser.format === type.format) {
+        assertContentType(parser, type.contentType);
+
+        return parser.error(error);
+      }
+    }
+    throw new PeerError('Unknown content type.');
+  };
+
+  return { parse, stringify, error };
 }
 
 module.exports = {

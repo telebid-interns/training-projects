@@ -8,8 +8,9 @@ const send = require('koa-send');
 const cors = require('@koa/cors');
 const resolveMethod = require('./methods/resolve-method');
 const { defineParsers, jsonParser, yamlParser } = require('./modules/normalize');
-const { PeerError, UserError, AppError } = require('./modules/error-handling.js');
-const db = require('./modules/db.js');
+const { PeerError, UserError } = require('./modules/error-handling');
+const db = require('./modules/db');
+const { log } = require('./modules/utils');
 
 const parser = defineParsers(jsonParser, yamlParser);
 
@@ -17,16 +18,42 @@ const app = new Koa();
 const router = new Router();
 
 app.on('error', (err, ctx) => {
-  console.log('inside error');
-  console.log(err);
-  // ctx.status = 200;
-  // if (err instanceof PeerError) {
-  //   const denormalized = denormalize(normalize())
-  // } else if (err instanceof UserError) {
+  log(err);
+});
 
-  // } else if (err instanceof AppError) {
+app.use(async (ctx, next) => {
+  try {
+    await next();
+  } catch (err) {
+    log(err);
+    ctx.status = 200;
 
-  // }
+    if (err instanceof PeerError) {
+      ctx.body = parser.error({
+        code: -32600,
+        message: err.message
+      }, {
+        contentType: ctx.headers['content-type'],
+        format: ctx.query.format
+      });
+    } else if (err instanceof UserError) {
+      ctx.body = parser.stringify({
+        code: 5000,
+        message: err.message
+      }, {
+        contentType: ctx.headers['content-type'],
+        format: ctx.query.format
+      });
+    } else {
+      ctx.body = parser.stringify({
+        code: 5000,
+        message: 'App error'
+      }, {
+        contentType: ctx.headers['content-type'],
+        format: ctx.query.format
+      });
+    }
+  }
 });
 
 db.dbConnect();
