@@ -92,14 +92,14 @@ class PeerError extends BaseError {
 
 const AIRPORT_HASH = {
   '2': {
-    id: '1',
+    id: '2',
     iataID: 'SOF',
     latinName: 'Sofia Airport',
     nationalName: 'Летище София',
     location: {latinName: 'Sofia'}
   },
   '3': {
-    id: '2',
+    id: '3',
     iataID: 'JFK',
     latinName: 'John Kennedy International Airport',
     nationalName: 'John Kennedy International Airport',
@@ -108,8 +108,17 @@ const AIRPORT_HASH = {
 };
 
 function getAirportByString (term) {
+  term = term.toLowerCase();
+
   for (let airport of Object.values(AIRPORT_HASH)) {
-    if (term.toLowerCase() === airport.iataID.toLowerCase()) {
+    let strings = [
+      airport.iataID.toLowerCase(),
+      airport.latinName.toLowerCase(),
+      airport.nationalName.toLowerCase(),
+      airport.location.latinName.toLowerCase()
+    ];
+
+    if (_.includes(strings, term)) {
       return airport;
     }
   }
@@ -134,21 +143,21 @@ async function search ({
   const required = ['fly_from', 'fly_to'];
   const fixed = {sort: ['price', 'duration'], currency: ['USD', 'BGN']};
   const params = validateParams({
-    v: '1.0', // this is better to be passed through the url for better optimization
-    fly_from: '2', // TODO remove hardcoded values
-    fly_to: '3',
-    price_to: priceTo,
-    currency: currency,
-    date_from: dateFrom,
-    date_to: dateTo,
-    sort: sort,
-    max_fly_duration: maxFlyDuration
-  },
-  required,
-  fixed
+      v: '1.0', // this is better to be passed through the url for better optimization
+      fly_from: '2', // TODO remove hardcoded values
+      fly_to: '3',
+      price_to: priceTo,
+      currency: currency,
+      date_from: dateFrom,
+      date_to: dateTo,
+      sort: sort,
+      max_fly_duration: maxFlyDuration
+    },
+    required,
+    fixed
   );
 
-  console.log("Searching", params);
+  console.log('Searching', params);
 
   let jsonRPCResponse = await jsonRPCRequest('search', params);
   let response = switchStyle(jsonRPCResponse, snakeToCamel);
@@ -200,7 +209,7 @@ async function subscribe (fromAiport, toAirport) {
     {
       userMessage: `Already subscribed for flights from airport ${fromAiport.nationalName} to airport ${toAirport.nationalName}.`,
       logs: [
-        'Server returned unknown status code',
+        'Tried to subscribe but subscription already existed.',
         'Sent params: ',
         params,
         'Got response: ',
@@ -208,8 +217,8 @@ async function subscribe (fromAiport, toAirport) {
     });
 }
 
-async function unsubscribe(fromAirport, toAirport) {
-  console.log("Unsubscribing", fromAirport, toAirport);
+async function unsubscribe (fromAirport, toAirport) {
+  console.log('Unsubscribing', fromAirport, toAirport);
 
   let response;
   let params = {
@@ -342,15 +351,15 @@ function weeklyDateString (date) {
 function cleanUndefinedFromObject (obj) {
   return Object.entries(obj)
     .reduce((newObj, entry) => {
-      let [key, value] = entry;
+        let [key, value] = entry;
 
-      if (obj[key] !== undefined) {
-        newObj[key] = value;
-      }
+        if (obj[key] !== undefined) {
+          newObj[key] = value;
+        }
 
-      return newObj;
-    },
-    {}
+        return newObj;
+      },
+      {}
     );
 }
 
@@ -471,9 +480,7 @@ function setupAutoComplete ({hash, $textInput, $dataList}) {
   let keys = Object.keys(hash)
     .sort();
 
-  watchInputField($textInput, hinter);
-
-  function hinter () {
+  watchInputField($textInput, () => {
     let minCharacters = 1;
     let maxSuggestions = 100;
 
@@ -482,17 +489,24 @@ function setupAutoComplete ({hash, $textInput, $dataList}) {
     }
 
     $dataList.empty();
+
     let suggestionsCount = 0;
+
     for (let key of keys) {
-      if (suggestionsCount === maxSuggestions) { break; }
+      if (suggestionsCount === maxSuggestions) {
+        break;
+      }
+
       if (key.indexOf($textInput.val()) !== -1) {
         suggestionsCount += 1;
+
         let newOption = `<option value="${key}">`;
+
         $dataList.append(newOption);
-        console.log('appended option');
+        console.log('appended option', newOption);
       }
     }
-  }
+  });
 }
 
 function searchFormParams ($searchForm) {
@@ -500,7 +514,7 @@ function searchFormParams ($searchForm) {
   let flyFrom = getAirportByString(formData.from);
   let flyTo = getAirportByString(formData.to);
 
-  console.log("Form data: ", formData);
+  console.log('Form data: ', formData);
 
   PeerError.assert(flyFrom,
     {
@@ -516,15 +530,17 @@ function searchFormParams ($searchForm) {
     monthField: formData['departure-month'],
     dayField: formData['departure-day']
   });
+  dateFrom.setUTCHours(0, 1, 1);
 
   // TODO refactor
   let dateTo;
 
-  if (formData.arrivalMonth || formData.arrivalDay) {
+  if (formData['arrival-month'] || formData['arrival-day']) {
     dateTo = dateFromFields({
       monthField: formData['arrival-month'],
       dayField: formData['arrival-day']
     });
+    dateTo.setUTCHours(23, 59, 59);
   }
 
   return cleanUndefinedFromObject({
@@ -559,10 +575,6 @@ function dateFromFields ({yearField, monthField, dayField}) {
   if (dayField) {
     date.setDate(dayField);
   }
-
-  date.setHours(0);
-  date.setMinutes(0);
-  date.setSeconds(0);
 
   return date;
 }
