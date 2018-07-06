@@ -1,3 +1,4 @@
+const SERVER_TIME_FORMAT = 'Y-MM-DDTHH:mm:ssZ';
 const { assertPeer, assertApp, PeerError } = require('../modules/error-handling');
 const { toSmallestCurrencyUnit, fromSmallestCurrencyUnit } = require('../modules/utils');
 const { isObject } = require('lodash');
@@ -17,6 +18,8 @@ function dbToAPIRouteFlight (routeFlight) {
   );
 
   return {
+    airport_from_id: routeFlight.afromId,
+    airport_to_id: routeFlight.atoId,
     airport_from: routeFlight.afromName,
     airport_to: routeFlight.atoName,
     return: !!routeFlight.isReturn,
@@ -99,19 +102,37 @@ async function search (params, db) {
   const routes = [];
 
   for (const routeId in routesHash) {
-    if (routesHash.hasOwnProperty(routeId)) {
+    if (
+      routesHash.hasOwnProperty(routeId) &&
+      routesHash[routeId].route.some((flight) => flight.airport_from_id === +params.fly_from) &&
+      routesHash[routeId].route.some((flight) => flight.airport_to_id === +params.fly_to)
+    ) {
       routes.push(routesHash[routeId]);
     }
   }
 
-  // const routesFilteredSorted = routes.map((route) => {
-  //   return {
-  //     ...route,
-  //     // maxFlyDuration: route.route.reduce((acc, flight) => acc + moment(flight.))
-  //   }
-  // })
+  const flyDurationCalculator = (acc, flight) => {
+    const arrivalTime = moment(flight.atime, SERVER_TIME_FORMAT);
+    const departureTime = moment(flight.dtime, SERVER_TIME_FORMAT);
 
-  result.routes = routes;
+    return acc + arrivalTime.diff(departureTime, 'hours');
+  };
+
+  const flyDurationIncluder = (route) => {
+    const accInitValue = 0;
+    const flyDuration = route.route.reduce(flyDurationCalculator, accInitValue);
+
+    return { route, flyDuration };
+  };
+
+  const flyDurationFilter = (route) => !params.max_fly_duration || route.flyDuration <= params.max_fly_duration;
+  const flyDurationExcluder = (route) => {
+    return { ...route.route };
+  };
+
+  const routesFiltered = routes.map(flyDurationIncluder).filter(flyDurationFilter).map(flyDurationExcluder);
+
+  result.routes = routesFiltered;
   result.status_code = 1000;
 
   return result;
