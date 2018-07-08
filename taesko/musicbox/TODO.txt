@@ -1,0 +1,4 @@
+optimize
+top level error handling
+download only until filters are satisfied
+use local storage

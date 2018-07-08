@@ -19,91 +19,6 @@ const subscriptionSelect = document.getElementById('sub-select');
 const globalSubscriptions = {};
 let modifyingSubscriptions = false;
 
-function queryString (params) {
-  let string = '?';
-
-  for (let [key, entry] of Object.entries(params)) {
-    string += `${encodeURIComponent(key)}=${encodeURIComponent(entry)}&`;
-  }
-
-  return string;
-}
-
-function fetchJSONP (url, params) {
-  return new Promise((resolve, reject) => {
-    let callbackName = 'jsonp' + new Date().getTime();
-
-    params['callback'] = callbackName;
-
-    window[callbackName] = jsonData => {
-      if (jsonData.error) {
-        reject(jsonData.message);
-      } else {
-        resolve(jsonData);
-      }
-    };
-
-    let script = document.createElement('script');
-    script.src = url + queryString(params);
-    document.getElementsByTagName('head')[0].appendChild(script);
-  });
-}
-
-// TODO put this at the subscribe/unsubscribe functions instead of closures around their usages
-// TODO fix nesting of lock decorators ?
-function lockDecorator (wrapped) {
-  return (...args) => {
-    if (modifyingSubscriptions) {
-      throw new BasicError('Please wait for subscriptions to load.',
-        'Attempted to modify subscriptions while they are locked.',
-        'Wrapped function:', wrapped);
-    }
-
-    modifyingSubscriptions = true;
-
-    try {
-      wrapped(...args);
-    } finally {
-      modifyingSubscriptions = false;
-    }
-  };
-}
-
-function asyncLockDecorator (wrapped) {
-  function decorated (...args) {
-    let promise;
-
-    if (modifyingSubscriptions) {
-      promise = Promise.reject(new UserError('Please wait for subscriptions to load.'));
-    } else {
-      modifyingSubscriptions = true;
-      promise = wrapped(...args);
-      promise.then(unlock, unlock);
-    }
-
-    return promise;
-  }
-
-  function unlock () {
-    modifyingSubscriptions = false;
-  }
-
-  return decorated;
-}
-
-function displayMessage (msg) {
-  if (statusParagraph.timeout) {
-    clearTimeout(statusParagraph.timeout);
-  }
-
-  statusParagraph.textContent = msg;
-
-  statusParagraph.timeout = setTimeout(
-    () => { statusParagraph.textContent = ''; },
-    5000
-  );
-}
-
 class BasicError extends Error {
   constructor (...logs) {
     super(logs.join('\n'));
@@ -142,6 +57,81 @@ class SystemError extends BasicError {
 
     this.userMessage = 'Our service is not supported on your browser. Consider upgrading and trying again.';
   }
+}
+
+window.addEventListener('error', function (event) {
+  console.log('Error reached the top level: ', event);
+
+  return true;
+});
+
+window.addEventListener('load', function () {
+  let form = document.getElementById('url-form');
+  let button = document.getElementById('unsubscribe-all-btn');
+
+  setupSubEvents(form, button);
+  setupFiltering();
+});
+
+// TODO put this at the subscribe/unsubscribe functions instead of closures around their usages
+// TODO fix nesting of lock decorators ?
+function lockDecorator (wrapped) {
+  return (...args) => {
+    if (modifyingSubscriptions) {
+      throw new BasicError('Please wait for subscriptions to load.',
+        'Attempted to modify subscriptions while they are locked.',
+        'Wrapped function:', wrapped);
+    }
+
+    modifyingSubscriptions = true;
+
+    try {
+      wrapped(...args);
+    } finally {
+      modifyingSubscriptions = false;
+    }
+  };
+}
+function asyncLockDecorator (wrapped) {
+  function decorated (...args) {
+    let promise;
+
+    if (modifyingSubscriptions) {
+      promise = Promise.reject(new UserError('Please wait for subscriptions to load.'));
+    } else {
+      modifyingSubscriptions = true;
+      promise = wrapped(...args);
+      promise.then(unlock, unlock);
+    }
+
+    return promise;
+  }
+
+  function unlock () {
+    modifyingSubscriptions = false;
+  }
+
+  return decorated;
+}
+
+function fetchJSONP (url, params) {
+  return new Promise((resolve, reject) => {
+    let callbackName = 'jsonp' + new Date().getTime();
+
+    params['callback'] = callbackName;
+
+    window[callbackName] = jsonData => {
+      if (jsonData.error) {
+        reject(jsonData.message);
+      } else {
+        resolve(jsonData);
+      }
+    };
+
+    let script = document.createElement('script');
+    script.src = url + queryString(params);
+    document.getElementsByTagName('head')[0].appendChild(script);
+  });
 }
 
 async function getSubscription (url, until = 30) {
@@ -420,35 +410,6 @@ class Track {
   }
 }
 
-function hasChainedProperties (chainedProperties, object) {
-  for (let chainedProp of chainedProperties) {
-    let properties = chainedProp.split('.');
-    let chainedObject = object;
-
-    for (let prop of properties) {
-      if (chainedObject[prop] === undefined) {
-        return false;
-      }
-
-      chainedObject = chainedObject[prop];
-    }
-  }
-
-  return true;
-}
-
-function getProp (chainedProp, object, default_) {
-  for (let prop of chainedProp.split('.')) {
-    if (object[prop]) {
-      object = object[prop];
-    } else {
-      return default_;
-    }
-  }
-
-  return object;
-}
-
 async function subscribe (url) {
   let sub = await getSubscription(url);
 
@@ -492,7 +453,7 @@ function unsubscribe (url) {
   TableAPI.removeSub(sub);
 }
 
-function clearSubs () {
+function unsubscribeAll () {
   TableAPI.clearTable();
 
   for (let [key, sub] of Object.entries(globalSubscriptions)) {
@@ -788,12 +749,6 @@ const UrlList = {
   }
 };
 
-function dateFilterUntil (until) {
-  return track => {
-    return track.publishedAt.getTime() >= until.getTime();
-  };
-}
-
 function setupFiltering () {
   const lastWeek = new Date();
   const lastMonth = new Date();
@@ -843,6 +798,12 @@ function setupFiltering () {
   eternityFilter.addEventListener('click', selectedFilter);
 }
 
+function dateFilterUntil (until) {
+  return track => {
+    return track.publishedAt.getTime() >= until.getTime();
+  };
+}
+
 function setupSubEvents (form, button) {
   const submitUrls = asyncLockDecorator(async (urls) => {
     let promises = urls.map(subscribe);
@@ -881,19 +842,58 @@ function setupSubEvents (form, button) {
     form.addEventListener('submit', processForm);
   }
 
-  button.addEventListener('click', lockDecorator(clearSubs));
+  button.addEventListener('click', lockDecorator(unsubscribeAll));
 }
 
-window.addEventListener('error', function (event) {
-  console.log('Error reached the top level: ', event);
+function queryString (params) {
+  let string = '?';
+
+  for (let [key, entry] of Object.entries(params)) {
+    string += `${encodeURIComponent(key)}=${encodeURIComponent(entry)}&`;
+  }
+
+  return string;
+}
+
+function displayMessage (msg) {
+  if (statusParagraph.timeout) {
+    clearTimeout(statusParagraph.timeout);
+  }
+
+  statusParagraph.textContent = msg;
+
+  statusParagraph.timeout = setTimeout(
+    () => { statusParagraph.textContent = ''; },
+    5000
+  );
+}
+
+function hasChainedProperties (chainedProperties, object) {
+  for (let chainedProp of chainedProperties) {
+    let properties = chainedProp.split('.');
+    let chainedObject = object;
+
+    for (let prop of properties) {
+      if (chainedObject[prop] === undefined) {
+        return false;
+      }
+
+      chainedObject = chainedObject[prop];
+    }
+  }
 
   return true;
-});
+}
 
-window.addEventListener('load', function () {
-  let form = document.getElementById('url-form');
-  let button = document.getElementById('unsubscribe-all-btn');
+function getProp (chainedProp, object, default_) {
+  for (let prop of chainedProp.split('.')) {
+    if (object[prop]) {
+      object = object[prop];
+    } else {
+      return default_;
+    }
+  }
 
-  setupSubEvents(form, button);
-  setupFiltering();
-});
+  return object;
+}
+
