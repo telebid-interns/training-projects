@@ -10,7 +10,10 @@
     "globals": [
       "_",
       "$",
-      "airportDump"
+      "airportDump",
+      "getValidateSearchReq",
+      "getValidateSearchRes",
+      "Ajv"
     ]
   },
   "dependencies": {

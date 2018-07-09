@@ -1,6 +1,6 @@
 const ajv = new Ajv();
 
-function getValidateSearchReq () {
+function getValidateSearchReq () { // eslint-disable-line no-unused-vars
   const searchRequestSchema = {
     '$schema': 'http://json-schema.org/draft-07/schema#',
     '$id': 'http://10.20.1.155:3000/searchrequest.schema.json',
@@ -56,7 +56,7 @@ function getValidateSearchReq () {
   return ajv.compile(searchRequestSchema);
 }
 
-function getValidateSearchRes () {
+function getValidateSearchRes () { // eslint-disable-line no-unused-vars
   const searchResponseSchema = {
     '$schema': 'http://json-schema.org/draft-07/schema#',
     '$id': 'http://10.20.1.155:3000/searchresponse.schema.json',

@@ -164,65 +164,73 @@ async function search (params) {
   return response;
 }
 
-// async function subscribe (fromAiport, toAirport) {
-//   console.log('Subscribing', fromAiport, toAirport);
+async function subscribe (fromAirportId, toAirportId) { // eslint-disable-line no-unused-vars
+  console.log('Subscribing', fromAirportId, toAirportId);
 
-//   let response;
-//   let params = {
-//     v: '1.0',
-//     fly_from: fromAiport.id,
-//     fly_to: toAirport.id
-//   };
+  let response;
+  let params = {
+    v: '1.0',
+    fly_from: fromAirportId,
+    fly_to: toAirportId
+  };
 
-//   try {
-//     response = await jsonRPCRequest('subscribe', params);
-//   } catch (e) {
-//     e.userMessage = `Failed to subscribe for flights from airport ${fromAiport.nationalName} to airport ${toAirport.nationalName}.`;
-//     throw e;
-//   }
+  const { latinName: fromAirportLatinName } = getAirportByString(fromAirportId);
+  const { latinName: toAirportLatinName } = getAirportByString(toAirportId);
 
-//   assertPeer(response.status_code >= 1000 && response.status_code < 2000,
-//     {
-//       userMessage: `Already subscribed for flights from ${fromAiport.latinName} to ${toAirport.latinName}.`,
-//       logs: [
-//         'Tried to subscribe but subscription already existed.',
-//         'Sent params: ',
-//         params,
-//         'Got response: ',
-//         response]
-//     });
-// }
+  try {
+    response = await jsonRPCRequest('subscribe', params);
+  } catch (e) {
+    e.userMessage = `Failed to subscribe for flights from airport ${fromAirportLatinName} to airport ${toAirportLatinName}.`;
+    throw e;
+  }
 
-// async function unsubscribe (fromAirport, toAirport) {
-//   console.log('Unsubscribing', fromAirport, toAirport);
+  assertPeer(response.status_code >= 1000 && response.status_code < 2000, {
+    userMessage: `Already subscribed for flights from ${fromAirportLatinName} to ${toAirportLatinName}.`,
+    logs: [
+      'Tried to subscribe but subscription already existed.',
+      'Sent params: ',
+      params,
+      'Got response: ',
+      response
+    ]
+  });
 
-//   let response;
-//   let params = {
-//     v: '1.0',
-//     fly_from: fromAirport.id,
-//     fly_to: toAirport.id
-//   };
+  return params;
+}
 
-//   try {
-//     response = await jsonRPCRequest('unsubscribe', params);
-//   } catch (e) {
-//     e.userMessage = `Failed to unsubscribe for flights from airport ${fromAirport.nationalName} to airport ${toAirport.nationalName}.`;
-//     throw e;
-//   }
+async function unsubscribe (fromAirportId, toAirportId) { // eslint-disable-line no-unused-vars
+  console.log('Unsubscribing', fromAirportId, toAirportId);
 
-//   assertPeer(response.status_code >= 1000 && response.status_code < 2000,
-//     {
-//       userMessage: `You aren't subscribed for flights from airport ${fromAirport.nationalName} to airport ${toAirport.nationalName}.`,
-//       logs: [
-//         'Server returned unknown status code',
-//         'Sent params: ',
-//         params,
-//         'Got response: ',
-//         response]
-//     });
+  let response;
+  let params = {
+    v: '1.0',
+    fly_from: fromAirportId,
+    fly_to: toAirportId
+  };
 
-//   return params;
-// }
+  const { latinName: fromAirportLatinName } = getAirportByString(fromAirportId);
+  const { latinName: toAirportLatinName } = getAirportByString(toAirportId);
+
+  try {
+    response = await jsonRPCRequest('unsubscribe', params);
+  } catch (e) {
+    e.userMessage = `Failed to unsubscribe for flights from airport ${fromAirportLatinName} to airport ${toAirportLatinName}.`;
+    throw e;
+  }
+
+  assertPeer(response.status_code >= 1000 && response.status_code < 2000, {
+    userMessage: `You aren't subscribed for flights from airport ${fromAirportLatinName} to airport ${toAirportLatinName}.`,
+    logs: [
+      'Server returned unknown status code',
+      'Sent params: ',
+      params,
+      'Got response: ',
+      response
+    ]
+  });
+
+  return params;
+}
 
 async function jsonRPCRequest (method, params) {
   let request = {
@@ -502,29 +510,17 @@ function getSearchFormParams ($searchForm) {
   searchFormParams.fly_from = airportFromId;
   searchFormParams.fly_to = airportToId;
 
-  let dateFrom = dateFromFields({
-    monthField: formData['departure-month'],
-    dayField: formData['departure-day']
-  });
-  dateFrom.setUTCHours(0, 1, 1);
-
-  // TODO refactor
-  let dateTo;
-
-  if (formData['arrival-month'] || formData['arrival-day']) {
-    dateTo = dateFromFields({
-      monthField: formData['arrival-month'],
-      dayField: formData['arrival-day']
-    });
-    dateTo.setUTCHours(23, 59, 59);
-  }
-
   if (formData['price-to']) {
     searchFormParams.price_to = parseInt(formData['price-to']);
   }
 
-  searchFormParams.date_from = '2018-07-09';
-  searchFormParams.date_to = '2018-08-09';
+  if (formData['date-from']) {
+    searchFormParams.date_from = formData['date-from'];
+  }
+
+  if (formData['date-to']) {
+    searchFormParams.date_to = formData['date-to'];
+  }
 
   return searchFormParams;
 }
@@ -540,23 +536,6 @@ function objectifyForm (formArray) {
     {});
 }
 
-function dateFromFields ({yearField, monthField, dayField}) {
-  let date = new Date();
-
-  // TODO problematic when not all of the fields are set
-  if (yearField) {
-    date.setFullYear(yearField);
-  }
-  if (monthField) {
-    date.setMonth(monthField - 1);
-  }
-  if (dayField) {
-    date.setDate(dayField);
-  }
-
-  return date;
-}
-
 $(document).ready(() => {
   $errorBar = $('#errorBar');
 
@@ -565,45 +544,103 @@ $(document).ready(() => {
   let $flightItemTemplate = $('#flight-item-template');
 
   let $flightForm = $('#flight-form-input');
-  // let subscribeFormData = '';
-  // let unsubscribeFormData = '';
 
-  $('#subscribe-button').click(() => {
-
-  });
-  $flightForm.on('submit',
-    async event => {
-      event.preventDefault();
-
-      let formParams;
-
-      try {
-        formParams = getSearchFormParams($flightForm);
-      } catch (e) {
-        handleError(e);
-        return false;
-      }
-
-      try {
-        let response = await search(formParams);
-
-        if (response.status_code >= 1000 && response.status_code < 2000) {
-          displaySearchResult(
-            response,
-            $allRoutesList,
-            $flightsListTemplate,
-            $flightItemTemplate
-          );
-        } else if (response.status_code === 2000) {
-          console.log('here');
-          displayErrorMessage('There is no information about this flight at the moment. Please come back in 15 minutes.');
-        }
-      } catch (e) {
-        handleError(e);
-      }
-
+  $('#subscribe-button').click(async () => {
+    let formParams;
+    try {
+      formParams = getSearchFormParams($flightForm);
+    } catch (e) {
+      handleError(e);
       return false;
-    });
+    }
+    console.log(formParams);
+
+    try {
+      let response = await subscribe(formParams.fly_from, formParams.fly_to);
+
+      if (response.status_code >= 1000 && response.status_code < 2000) {
+        displaySearchResult(
+          response,
+          $allRoutesList,
+          $flightsListTemplate,
+          $flightItemTemplate
+        );
+      } else if (response.status_code === 2000) {
+        console.log('here');
+        displayErrorMessage('There is no information about this flight at the moment. Please come back in 15 minutes.');
+      }
+    } catch (e) {
+      handleError(e);
+    }
+
+    return false;
+  });
+
+  $('#unsubscribe-button').click(async () => {
+    let formParams;
+    try {
+      formParams = getSearchFormParams($flightForm);
+    } catch (e) {
+      handleError(e);
+      return false;
+    }
+    console.log(formParams);
+
+    try {
+      let response = await unsubscribe(formParams.fly_from, formParams.fly_to);
+
+      if (response.status_code >= 1000 && response.status_code < 2000) {
+        displaySearchResult(
+          response,
+          $allRoutesList,
+          $flightsListTemplate,
+          $flightItemTemplate
+        );
+      } else if (response.status_code === 2000) {
+        console.log('here');
+        displayErrorMessage('There is no information about this flight at the moment. Please come back in 15 minutes.');
+      }
+    } catch (e) {
+      handleError(e);
+    }
+  });
+
+  $('#submit-button').click(async (event) => {
+    event.preventDefault();
+
+    let formParams;
+
+    try {
+      formParams = getSearchFormParams($flightForm);
+    } catch (e) {
+      handleError(e);
+      return false;
+    }
+
+    try {
+      let response = await search(formParams);
+
+      if (response.status_code >= 1000 && response.status_code < 2000) {
+        displaySearchResult(
+          response,
+          $allRoutesList,
+          $flightsListTemplate,
+          $flightItemTemplate
+        );
+      } else if (response.status_code === 2000) {
+        console.log('here');
+        displayErrorMessage('There is no information about this flight at the moment. Please come back in 15 minutes.');
+      }
+    } catch (e) {
+      handleError(e);
+    }
+
+    return false;
+  });
+
+  $flightForm.on('submit', event => {
+    event.preventDefault();
+  });
 
   let airportsByNames = Object.values(AIRPORT_HASH)
     .reduce(
@@ -644,28 +681,4 @@ function handleError (error) {
     console.log('displaying user message');
     displayErrorMessage(error.userMessage);
   }
-}
-
-function validateParams (params, required, fixed) {
-
-  for (let requiredParam of required) {
-    assertApp(
-      !_.has(required, requiredParam),
-      {logs: ['Missing required keyword argument: ', requiredParam]}
-    );
-  }
-
-  for (let [fixedParam, possibleStates] of Object.entries(fixed)) {
-    assertApp(
-      !_.has(params, fixedParam) && !_.includes(possibleStates, params[fixedParam]),
-      {
-        logs: [
-          'Paramater', fixedParam,
-          'is not one of:', fixed[fixedParam],
-          'instead got -', params[fixedParam]]
-      }
-    );
-  }
-
-  return params;
 }
