@@ -61,25 +61,29 @@ async function relistChannel (channel) {
   };
   const reqLink = 'https://www.googleapis.com/youtube/v3/search?' + toQueryString(params);
 
-  const data = await makeRequest(reqLink);
-  assertPeer(Array.isArray(data.items), 'Youtube responded with wrong data');
+  let items = [];
+  let data = await makeRequest(reqLink);
+  items.push(...data.items);
 
-  if(data.items.length <= 0){
+  while(data.nextPageToken != null){
+    data = await makeRequest(`${reqLink}&pageToken=${data.nextPageToken}`);
+    items.push(...data.items);
+  }
+
+  if(items.length <= 0){
     displayVideos();
     return;
   }
 
   assertPeer( // _.get (lodash)
-    isObject(data.items[0].snippet) &&
-    typeof data.items[0].snippet.channelTitle === 'string',
+    isObject(items[0].snippet) &&
+    typeof items[0].snippet.channelTitle === 'string',
     'Youtube responded with wrong data'
   );
 
+  const channelName = items[0].snippet.channelTitle;
 
-  const channelName = data.items[0].snippet.channelTitle;
-  const videos = data.items;
-
-  saveAndDisplayVids(videos);
+  saveAndDisplayVids(items); // rename items to vids
 }
 
 async function subscribe () {
@@ -121,25 +125,31 @@ async function subscribe () {
 
   channelTextBox.value = '';
 
+
+  let items = [];
   let songs = await makeRequest(reqLink);
+  items.push(...songs.items);
+
+  while(songs.nextPageToken != null){
+    songs = await makeRequest(`${reqLink}&pageToken=${songs.nextPageToken}`);
+    items.push(...songs.items);
+  }
   assertPeer(Array.isArray(songs.items), 'Youtube responded with wrong data');
 
-  if(songs.items.length <= 0){
+  if(items.length <= 0){
     showChannels();
     return;
   }
 
   assertPeer( // _.get (lodash)
-    isObject(songs.items[0].snippet) &&
-    typeof songs.items[0].snippet.channelTitle === 'string',
+    isObject(items[0].snippet) &&
+    typeof items[0].snippet.channelTitle === 'string',
     'Youtube responded with wrong data'
   );
 
-  if(songs.items.length <= 0) return;
+  if(items.length <= 0) return;
 
-  const videos = songs.items;
-
-  saveAndDisplayVids(videos);
+  saveAndDisplayVids(items);
 }
 
 function saveAndDisplayVids (videos) {
