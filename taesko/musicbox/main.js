@@ -3,6 +3,31 @@ const YOUTUBE_API_URLS = {
   'channels': 'https://www.googleapis.com/youtube/v3/channels',
   'playlistItems': 'https://www.googleapis.com/youtube/v3/playlistItems'
 };
+const YOUTUBE_API_ASSERTS = {
+  'channels': (response) => {
+    PeerError.assert(
+      hasChainedProperties(['items'], response) &&
+      response.items.length !== 0 &&
+      hasChainedProperties([
+          'snippet.title',
+          'snippet.customUrl',
+          'id',
+          'contentDetails.relatedPlaylists.uploads'],
+        response.items[0]
+      ),
+      'Missing properties in channels.list response:', response
+    );
+  },
+  'playlistItems': response => {
+    for (let item of response.items) {
+      PeerError.assert(
+        hasChainedProperties(['snippet.title', 'snippet.publishedAt'], item),
+        'Youtube API has missing properties for response.items object of playlistItems resposne',
+        response
+      );
+    }
+  }
+};
 const YOUTUBE_API_KEY = 'AIzaSyAHhFtmNEo9TwEN90p6yyZg43_4MKCiyyQ';
 const YOUTUBE_CHANNEL_URL = 'https://www.youtube.com/user/';
 const LAST_FM_API_URL = 'http://ws.audioscrobbler.com/2.0/';
@@ -26,8 +51,6 @@ let modifyingSubscriptions = false;
 class BasicError extends Error {
   constructor (...logs) {
     super(logs.join('\n'));
-
-    console.error(...logs);
   }
 
   static assert (condition, ...messages) {
@@ -53,7 +76,13 @@ class PeerError extends BasicError {
   }
 }
 
-class UserError extends BasicError {}
+class UserError extends BasicError {
+  constructor (userMessage, ...logs) {
+    super('User error: ', userMessage, ...logs);
+
+    this.userMessage = userMessage;
+  }
+}
 
 class SystemError extends BasicError {
   constructor (...logs) {
@@ -63,9 +92,8 @@ class SystemError extends BasicError {
   }
 }
 
-window.addEventListener('error', function (event) {
-  console.log('Error reached the top level: ', event.target);
-
+window.addEventListener('error', function (error) {
+  handleError(error);
   return true;
 });
 
@@ -84,11 +112,7 @@ async function loadAndDisplayTracks (sub) {
       try {
         await track.loadData();
       } catch (e) {
-        console.log('cannot download information for track',
-          track,
-          'reason: ',
-          e
-        );
+        handleError(e);
         return;
       }
       TableAPI.displaySubTrackInfo(sub,
@@ -162,22 +186,19 @@ function unsubscribeAll () {
 // TODO put this at the subscribe/unsubscribe functions instead of closures around their usages
 // TODO fix nesting of lock decorators ?
 function lockDecorator (wrapped) {
-  return (...args) => {
-    if (modifyingSubscriptions) {
-      throw new BasicError('Please wait for subscriptions to load.',
-        'Attempted to modify subscriptions while they are locked.',
-        'Wrapped function:', wrapped
-      );
-    }
+  return buttonLock(
+    (...args) => {
+      UserError.assert(!modifyingSubscriptions, 'Please wait for subscriptions to load.');
 
-    modifyingSubscriptions = true;
+      modifyingSubscriptions = true;
 
-    try {
-      wrapped(...args);
-    } finally {
-      modifyingSubscriptions = false;
+      try {
+        wrapped(...args);
+      } finally {
+        modifyingSubscriptions = false;
+      }
     }
-  };
+  );
 }
 
 function asyncLockDecorator (wrapped) {
@@ -199,7 +220,36 @@ function asyncLockDecorator (wrapped) {
     modifyingSubscriptions = false;
   }
 
-  return decorated;
+  return buttonLock(decorated);
+}
+
+function buttonLock (func) {
+  const inputs = [
+    lastWeekFilter,
+    lastMonthFilter,
+    lastYearFilter,
+    document.getElementById('urls-input'),
+    document.getElementById('subscribe-btn'),
+    document.getElementById('unsubscribe-all-btn')
+  ];
+  ApplicationError.assert(inputs.every(element => !!element),
+    'An unexpected error occurred. Please refresh the page.'
+  );
+
+  return async (...args) => {
+    for (let i = 0; i < inputs.length; i++) {
+      inputs[i].disabled = true;
+    }
+    console.log('disabled everything');
+    try {
+      return await func(...args);
+    } finally {
+      console.log('enabled everything');
+      for (let i = 0; i < inputs.length; i++) {
+        inputs[i].disabled = false;
+      }
+    }
+  };
 }
 
 let jsonpRequestId = 1;
@@ -207,7 +257,6 @@ let jsonpRequestId = 1;
 function fetchJSONP (url, params) {
   return new Promise((resolve, reject) => {
     let callbackName = 'jsonp' + new Date().getTime() + jsonpRequestId;
-    console.log('jsonp callbackname: ', callbackName);
 
     jsonpRequestId++;
 
@@ -277,30 +326,13 @@ async function fetchChannel (url) {
       forUsername: identifiers.name
     };
   } else {
-    throw new BasicError(
+    throw new UserError(
       `Youtube url - ${url} is not a link to a channel.`,
       'User tried to subscribe to incorrect url:', url
     );
   }
 
   let response = await fetchFromYtAPI('channels', params);
-
-  if (
-    !hasChainedProperties(['items'], response) ||
-    response.items.length === 0 ||
-    !hasChainedProperties([
-        'snippet.title',
-        'snippet.customUrl',
-        'id',
-        'contentDetails.relatedPlaylists.uploads'],
-      response.items[0]
-    )
-  ) {
-    throw new BasicError(
-      `We're sorry but the app cannot provide information about channel ${url}`,
-      'Missing properties in channels.list response:', response
-    );
-  }
 
   let item = response.items[0];
 
@@ -313,7 +345,6 @@ async function fetchChannel (url) {
 }
 
 async function fetchFromYtAPI (method, params) {
-  let genericErrorMsg = `We're but we cannot provide you with a list of tracks for this channel because Youtube's API is not running correctly.`;
   let response;
 
   params = Object.assign(params, {
@@ -323,26 +354,26 @@ async function fetchFromYtAPI (method, params) {
   try {
     response = await window.fetch(YOUTUBE_API_URLS[method] + queryString(params));
   } catch (e) {
-    throw new BasicError(genericErrorMsg, 'Youtube API for playlistItems failed. Reason: ', e);
+    throw new PeerError('Youtube API for playlistItems failed. Reason: ', e);
   }
 
-  if (!response.ok) {
-    throw new BasicError(genericErrorMsg,
-      'Youtube API for playlistItems failed with a not ok response: ', response
-    );
-  }
+  PeerError.assert(response.ok,
+    'Youtube API for playlistItems failed with a not ok response: ',
+    response
+  );
 
   let content;
 
   try {
     content = await response.json();
   } catch (reason) {
-    throw new BasicError(
-      genericErrorMsg,
+    throw new PeerError(
       'Failed to decode json from Youtube API for playlistItems.',
       'Reason: ', reason
     );
   }
+
+  YOUTUBE_API_ASSERTS[method](content);
 
   return content;
 }
@@ -368,15 +399,9 @@ async function fetchVideos (playlistId, untilDays, pageToken) {
     lastPageToken = params.pageToken;
     params.pageToken = response.nextPageToken;
 
-    let newItems = response.items.filter((item) => {
-      if (!hasChainedProperties(['snippet.title', 'snippet.publishedAt'], item)) {
-        throw new BasicError(
-          `We're but we cannot provide you with a list of tracks for this channel because Youtube's API is not running correctly.`
-        );
-      }
-
-      return new Date(item.snippet.publishedAt).getTime() >= untilDate.getTime();
-    });
+    let newItems = response.items.filter(
+      item => new Date(item.snippet.publishedAt).getTime() >= untilDate.getTime()
+    );
 
     items.push(...newItems);
 
@@ -399,15 +424,6 @@ async function fetchTracks (playlistId, until, pageToken) {
   ({items, pageToken} = await fetchVideos(playlistId, until, pageToken));
 
   for (let item of items) {
-    if (!hasChainedProperties(['snippet.title', 'snippet.publishedAt'],
-      item
-    )) {
-      throw new BasicError(
-        `We're but we cannot provide you with a list of tracks for this 
-                channel because Youtube's API is not running correctly.`
-      );
-    }
-
     let parsed = parseTrackFromVideoTitle(item.snippet.title);
 
     if (parsed.artist && parsed.track) {
@@ -425,9 +441,6 @@ async function fetchTracks (playlistId, until, pageToken) {
   }
 
   return {tracks, failures, pageToken};
-}
-
-function * fetchTrackData (subscription) {
 }
 
 function getSubByCustomURL (customUrl) {
@@ -483,25 +496,21 @@ class Track {
     let response;
 
     try {
-      console.log('fetching for ', this.id);
       response = await fetchJSONP(
         LAST_FM_API_URL,
         this.trackInfoUrlParams()
       );
-      console.log('track response', this.id, response);
     } catch (error) {
-      throw new BasicError(
-        `Couldn't download data from last.fm for track: ${this.name}`,
-        'fetchJSONP raised error: ', error
-      );
+      const err = new PeerError('fetchJSONP raised error: ', error);
+
+      err.userMessage = `Couldn't download data from last.fm for track: ${this.name}`;
+
+      throw err;
     }
 
-    if (!response.track) {
-      throw new BasicError(`Couldn't download information for track 
-            ${this.name} because last.fm broke their API contract.`,
-        'Missing track property from response: ', response
-      );
-    }
+    PeerError.assert(response.track,
+      'missing track property in last fm resposne: ', response
+    );
 
     this.name = response.track.name;
     this.duration = response.track.duration;
@@ -666,11 +675,11 @@ const TableAPI = {
 
     cell.addEventListener('click', () => {
       // does not work in firefox 60.0.2 for Ubunutu
-      if (dialog.showModal === undefined) {
-        throw new BasicError(`We're sorry but displaying extra 
+      SystemError.assert(dialog.showModal,
+        `We're sorry but displaying extra 
                     information is not supported in your browser. 
-                    Please use another (chrome).`);
-      }
+                    Please use another (chrome).`
+      );
 
       dialog.showModal();
     });
@@ -859,28 +868,7 @@ function setupFiltering () {
     }
   };
 
-  function buttonLock (func) {
-    const radioButtons = [
-      lastWeekFilter, lastMonthFilter, lastYearFilter
-    ];
-
-    return async (...args) => {
-      for (let i = 0; i < radioButtons.length; i++) {
-        radioButtons[i].disabled = true;
-      }
-      console.log('disabled everything');
-      try {
-        return await func(...args);
-      } finally {
-        console.log('enabled everything');
-        for (let i = 0; i < radioButtons.length; i++) {
-          radioButtons[i].disabled = false;
-        }
-      }
-    };
-  }
-
-  const selectedFilter = buttonLock(asyncLockDecorator(async (event) => {
+  const selectedFilter = asyncLockDecorator(async (event) => {
     if (!subscriptionSelect.options || subscriptionSelect.options.length === 0) {
       return;
     }
@@ -895,7 +883,7 @@ function setupFiltering () {
     TableAPI.refresh(sub);
     console.log('successfully refreshed');
     await loadAndDisplayTracks(sub);
-  }));
+  });
 
   function selectedSubscription (event) {
     if (!subscriptionSelect.options || subscriptionSelect.options.length ===
@@ -986,6 +974,11 @@ function displayMessage (msg) {
     () => { statusParagraph.textContent = ''; },
     5000
   );
+}
+
+function handleError (error) {
+  displayMessage(error.userMessage);
+  console.error(error);
 }
 
 function hasChainedProperties (chainedProperties, object) {
