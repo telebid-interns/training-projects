@@ -76,27 +76,24 @@ async function start () {
     );
 
     const fetchId = await insertDataFetch(sub.id);
-    const airports = await Promise.all([
-      selectWhereColEquals('airports', ['id', 'iata_code', 'name'], 'id', sub.airport_from_id),
-      selectWhereColEquals('airports', ['id', 'iata_code', 'name'], 'id', sub.airport_to_id)
+    const [airportFrom, airportTo] = await Promise.all([
+      selectWhereColEquals('airports', ['id', 'iata_code', 'name'], 'id', sub.airport_from_id).then((r) => r[0]),
+      selectWhereColEquals('airports', ['id', 'iata_code', 'name'], 'id', sub.airport_to_id).then((r) => r[0])
     ]);
 
-    assertApp(
-      Array.isArray(airports) &&
-      airports.length === 2 &&
-      airports.every((airport) => {
-        return Array.isArray(airport) &&
-          airport.length === 1 &&
-          isObject(airport[0]) &&
-          Number.isInteger(airport[0].id) &&
-          typeof airport[0].iata_code === 'string' &&
-          typeof airport[0].name === 'string';
-      }),
-      'Invalid airports data.'
-    );
-
-    const airportFrom = airports[0][0];
-    const airportTo = airports[1][0];
+    // assertApp(
+    //   Array.isArray(airports) &&
+    //   airports.length === 2 &&
+    //   airports.every((airport) => {
+    //     return Array.isArray(airport) &&
+    //       airport.length === 1 &&
+    //       isObject(airport[0]) &&
+    //       Number.isInteger(airport[0].id) &&
+    //       typeof airport[0].iata_code === 'string' &&
+    //       typeof airport[0].name === 'string';
+    //   }),
+    //   'Invalid airports data.'
+    // );
 
     await getAirportsAndFlights(airportFrom.iata_code, airportTo.iata_code, fetchId, 0);
   }
@@ -297,7 +294,7 @@ async function getAirportIfNotExists (IATACode) {
     const airportId = await insert(
       'airports',
       ['iata_code', 'name'],
-      [response.locations[0].code, `${response.locations[0].name} ${response.locations[0].code}`]
+      [response.locations[0].code, `${response.locations[0].name}, ${response.locations[0].code}`]
     );
 
     return airportId;

@@ -26,6 +26,8 @@ app.use(async (ctx, next) => {
     await next();
   } catch (err) {
     log(err);
+    // assertPeer(0, `The password: ${ pass } is not valid`)
+
     ctx.status = 200;
 
     if (err instanceof PeerError) {

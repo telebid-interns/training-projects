@@ -94,6 +94,12 @@ function jsonParser () {
   };
 }
 
+// const closure = (param1) => {
+//   return (param2) => {
+//     return param1 + param2;
+//   }
+// };
+
 function defineParsers (...args) {
   const parsers = args.map((arg) => arg());
 
@@ -122,7 +128,7 @@ function defineParsers (...args) {
     );
   };
 
-  const parse = (data, type) => {
+  const parse = (parsers) => (data, type) => {
     assertType(type);
 
     for (const parser of parsers) {
@@ -173,7 +179,11 @@ function defineParsers (...args) {
     throw new PeerError('Unknown content type.');
   };
 
-  return { parse, stringify, error };
+  return {
+    parse: parse(parsers),
+    stringify,
+    error
+  };
 }
 
 module.exports = {

@@ -160,7 +160,43 @@ async function search (params, db) {
     return { ...route.route };
   };
 
-  const routesFiltered = routes.map(flyDurationIncluder).filter(flyDurationFilter).map(flyDurationExcluder);
+  const comparePrices = function comparePrices (route1, route2) {
+    if (route1.price > route2.price) {
+      return 1;
+    } else if (route1.price < route2.price) {
+      return -1;
+    }
+    return 0;
+  };
+
+  const compareDepartureTimes = function compareDepartureTimes (flight1, flight2) {
+    const departureTime1 = moment(flight1.dtime, SERVER_TIME_FORMAT);
+    const departureTime2 = moment(flight2.dtime, SERVER_TIME_FORMAT);
+
+    if (departureTime1.isAfter(departureTime2)) {
+      return 1;
+    } else if (departureTime2.isAfter(departureTime1)) {
+      return -1;
+    }
+    return 0;
+  };
+
+  const flightsInRouteSorter = function flightsInRouteSorter (route) {
+    // sorts flights in a route by departure time
+    return {
+      ...route,
+      route: route.route.sort(compareDepartureTimes)
+    };
+  };
+
+  const routesFiltered = routes
+    .map(flyDurationIncluder)
+    .filter(flyDurationFilter)
+    .map(flyDurationExcluder)
+    .sort(comparePrices)
+    .map(flightsInRouteSorter);
+  console.log(routesFiltered);
+  console.log(routes[0].route);
 
   result.routes = routesFiltered;
   result.status_code = 1000;
