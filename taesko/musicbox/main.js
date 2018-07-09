@@ -77,6 +77,20 @@ window.addEventListener('load', function () {
   setupFiltering();
 });
 
+async function loadAndDisplayTracks (sub) {
+  const promises = Object.values(sub.tracks)
+    .map(async track => {
+      try {
+        await track.loadData();
+        TableAPI.displaySubTrackInfo(sub, track);
+      } catch (e) {
+        console.log('cannot download information for track', track);
+      }
+    });
+
+  await Promise.all(promises);
+}
+
 async function subscribe (url, until) {
   console.log('subscribing for ', url, 'until', until);
 
@@ -98,6 +112,8 @@ async function subscribe (url, until) {
   UrlList.display(sub);
   TableAPI.displaySub(sub);
   TableAPI.showTable();
+
+  await loadAndDisplayTracks(sub);
 }
 
 function unsubscribe (url) {
@@ -177,9 +193,14 @@ function asyncLockDecorator (wrapped) {
   return decorated;
 }
 
+let jsonpRequestId = 1;
+
 function fetchJSONP (url, params) {
   return new Promise((resolve, reject) => {
-    let callbackName = 'jsonp' + new Date().getTime();
+    let callbackName = 'jsonp' + new Date().getTime() + jsonpRequestId;
+    console.log('jsonp callbackname: ', callbackName);
+
+    jsonpRequestId++;
 
     params['callback'] = callbackName;
 
@@ -200,13 +221,10 @@ function fetchJSONP (url, params) {
 async function getSubscription (url, until = 30) {
   let subscription = getSubByFullURL(url);
 
-  if (subscription !== undefined) {
-    subscription = await downloadIntoSubscription(subscription, until);
-    return subscription;
+  if (subscription === undefined) {
+    // let errors propagate to the caller.
+    subscription = await fetchChannel(url);
   }
-
-  // let errors propagate to the caller.
-  subscription = await fetchChannel(url);
 
   subscription = await downloadIntoSubscription(subscription, until);
 
@@ -228,18 +246,6 @@ async function downloadIntoSubscription (subscription, until) {
   subscription.pageToken = trackResponse.pageToken;
   subscription.fetchedUntil = until;
 
-  let {tracks, failures} = await fetchTrackInfo(subscription.tracks);
-
-  subscription.tracks = Object.values(
-    tracks.reduce(
-      (prev, current) => {
-        prev[current.name] = current;
-        return prev;
-      },
-      {}
-    )
-  );
-  subscription.failedToLoad = failures;
   return subscription;
 }
 
@@ -406,20 +412,7 @@ async function fetchTracks (playlistId, until, pageToken) {
   return {tracks, failures, pageToken};
 }
 
-async function fetchTrackInfo (tracks) {
-  let failures = {};
-  let successfulTracks = [];
-
-  for (let track of tracks) {
-    try {
-      await track.loadData();
-      successfulTracks.push(track);
-    } catch (error) {
-      failures[track.id] = error;
-    }
-  }
-
-  return {tracks: successfulTracks, failures};
+function * fetchTrackData (subscription) {
 }
 
 function getSubByCustomURL (customUrl) {
@@ -454,6 +447,7 @@ class Track {
     this.artistName = artist;
     this.featuring = featuring;
     this.publishedAt = new Date(publishedAt);
+    this.hasLoaded = false;
   }
 
   trackInfoUrlParams () {
@@ -467,13 +461,19 @@ class Track {
   }
 
   async loadData () {
+    if (this.hasLoaded) {
+      return;
+    }
+
     let response;
 
     try {
+      console.log('fetching for ', this.id);
       response = await fetchJSONP(
         LAST_FM_API_URL,
         this.trackInfoUrlParams()
       );
+      console.log('track response', this.id, response);
     } catch (error) {
       throw BasicError(
         `Couldn't download data from last.fm for track: ${this.name}`,
@@ -491,6 +491,8 @@ class Track {
     this.url = response.track.url;
     this.artistUrl = response.track.artist.url;
     this.album = response.track.album;
+
+    this.hasLoaded = true;
   }
 }
 
@@ -563,9 +565,22 @@ const TableAPI = {
   table: document.getElementsByClassName('table')[0],
   tableBody: document.querySelector('table tbody'),
   tableItemTemplate: document.getElementById('table-row-template'),
-  rowElements: {},
+  rowElements: {}, // refactor subs to tracks
 
   isSubDisplayed: sub => !!TableAPI.rowElements[sub.id],
+
+  displayDataIntoCells: (headers, sub, track, cells) => {
+    const order = TableAPI.headerOrder();
+
+    for (let header of headers) {
+      let index = order[header];
+      TableAPI.preparations[header](
+        sub,
+        track,
+        cells[index]
+      );
+    }
+  },
 
   displaySub: sub => {
     if (TableAPI.isSubDisplayed(sub)) {
@@ -577,124 +592,33 @@ const TableAPI = {
     }
 
     TableAPI.rowElements[sub.id] = [];
-    for (let track of sub.tracks) {
-      if (!sub.filterFunc(track)) {
-        continue;
-      }
 
-      let row = trackToRow(sub, track);
+    const tracks = sub.tracks.filter(sub.filterFunc);
+
+    for (let track of tracks) {
+      let row = TableAPI.tableItemTemplate.cloneNode(true);
+
+      TableAPI.displayDataIntoCells(['channel', 'artist', 'published-at'], sub, track, row.cells);
+      row.setAttribute('data-track-id', track.id);
+
+      row.classList.remove('hidden');
+      row.removeAttribute('id');
 
       TableAPI.rowElements[sub.id].push(row);
       TableAPI.tableBody.appendChild(row);
     }
+  },
 
-    function hookDialogEvents (cell) {
-      let dialog = cell.getElementsByTagName('dialog')[0];
+  displaySubTrackInfo: (sub, track) => {
+    let rows = TableAPI.rowElements[sub.id];
 
-      if (!dialog) {
-        return;
-      }
+    ApplicationError.assert(
+      rows,
+      'Trying to display track info for sub', sub, 'but it has no rows'
+    );
 
-      cell.addEventListener('click', () => {
-        // does not work in firefox 60.0.2 for Ubunutu
-        if (dialog.showModal === undefined) {
-          throw new BasicError(`We're sorry but displaying extra 
-                    information is not supported in your browser. 
-                    Please use another (chrome).`);
-        }
-
-        dialog.showModal();
-      });
-    }
-
-    function prepareChannelCell (sub, track, cell) {
-      let link = cell.getElementsByTagName('a')[0];
-
-      link.textContent = getProp('title', sub, '');
-      link.setAttribute('href', YOUTUBE_CHANNEL_URL + sub.customUrl);
-    }
-
-    function prepareArtistCell (sub, track, cell) {
-      let link = cell.getElementsByTagName('a')[0];
-
-      link.textContent = track.artistName;
-      link.setAttribute('href', track.artistUrl);
-    }
-
-    function prepareAlbumCell (sub, track, cell) {
-      let title = getProp('album.title', track, '');
-      let titleElement = cell.getElementsByTagName('p')[0];
-      let dialog = cell.getElementsByTagName('dialog')[0];
-
-      titleElement.textContent = title;
-
-      if (hasChainedProperties(['album.image'], track)) {
-        let imageSrc = '';
-
-        for (let image of track.album.image) {
-          if (image['#text']) {
-            imageSrc = image['#text'];
-          }
-        }
-
-        dialog.getElementsByTagName('img')[0].setAttribute('src',
-          imageSrc);
-
-        hookDialogEvents(cell);
-      }
-    }
-
-    function prepareTrackCell (sub, track, cell) {
-      cell.appendChild(
-        document.createTextNode(getProp('name', track, ''))
-      );
-    }
-
-    function preparePublishedAtCell (sub, track, cell) {
-      let publishedAt = getProp('publishedAt', track, '');
-      publishedAt = `${publishedAt.getFullYear()}-${publishedAt.getMonth()}-${publishedAt.getDate()}`;
-
-      cell.appendChild(
-        document.createTextNode(publishedAt)
-      );
-    }
-
-    function prepareDurationCell (sub, track, cell) {
-      let duration = parseInt(getProp('duration', track, '0'));
-
-      if (duration !== 0) {
-        duration = (duration / 1000 / 60).toFixed(2)
-          .replace('.', ':')
-          .padStart(5, '0');
-      } else {
-        duration = '';
-      }
-
-      cell.appendChild(
-        document.createTextNode(duration)
-      );
-    }
-
-    function trackToRow (sub, track) {
-      let newRow = TableAPI.tableItemTemplate.cloneNode(true);
-      const preparations = [
-        prepareChannelCell,
-        prepareArtistCell,
-        prepareAlbumCell,
-        prepareTrackCell,
-        preparePublishedAtCell,
-        prepareDurationCell
-      ];
-
-      for (let k = 0; k < newRow.cells.length; k++) {
-        preparations[k](sub, track, newRow.cells[k]);
-      }
-
-      newRow.classList.remove('hidden');
-      newRow.removeAttribute('id');
-
-      return newRow;
-    }
+    const row = rows.find(element => element.getAttribute('data-track-id') === track.id);
+    TableAPI.displayDataIntoCells(['artist', 'album', 'track', 'length'], sub, track, row.cells);
   },
 
   removeSub: sub => {
@@ -714,6 +638,101 @@ const TableAPI = {
     TableAPI.displaySub(sub);
   },
 
+  hookDialogEvents: (cell) => {
+    let dialog = cell.getElementsByTagName('dialog')[0];
+
+    if (!dialog) {
+      return;
+    }
+
+    cell.addEventListener('click', () => {
+      // does not work in firefox 60.0.2 for Ubunutu
+      if (dialog.showModal === undefined) {
+        throw new BasicError(`We're sorry but displaying extra 
+                    information is not supported in your browser. 
+                    Please use another (chrome).`);
+      }
+
+      dialog.showModal();
+    });
+  },
+
+  headerOrder: () => {
+    return Object.entries(Array.from(TableAPI.table.getElementsByTagName('th')))
+      .map(([index, header]) => [header.getAttribute('id'), index])
+      .reduce((hash, entry) => {
+          hash[entry[0]] = entry[1];
+
+          return hash;
+        },
+        {}
+      );
+  },
+
+  preparations: {
+    'channel': (sub, track, cell) => {
+      let link = cell.getElementsByTagName('a')[0];
+
+      link.textContent = getProp('title', sub, '');
+      link.setAttribute('href', YOUTUBE_CHANNEL_URL + sub.customUrl);
+    },
+    'artist': (sub, track, cell) => {
+      let link = cell.getElementsByTagName('a')[0];
+
+      link.textContent = track.artistName;
+      link.setAttribute('href', track.artistUrl);
+    },
+    'album': (sub, track, cell) => {
+      let title = getProp('album.title', track, '');
+      let titleElement = cell.getElementsByTagName('p')[0];
+      let dialog = cell.getElementsByTagName('dialog')[0];
+
+      titleElement.textContent = title;
+
+      if (hasChainedProperties(['album.image'], track)) {
+        let imageSrc = '';
+
+        for (let image of track.album.image) {
+          if (image['#text']) {
+            imageSrc = image['#text'];
+          }
+        }
+
+        dialog.getElementsByTagName('img')[0].setAttribute('src',
+          imageSrc);
+
+        TableAPI.hookDialogEvents(cell);
+      }
+    },
+    'track': (sub, track, cell) => {
+      cell.appendChild(
+        document.createTextNode(getProp('name', track, ''))
+      );
+    },
+    'published-at': (sub, track, cell) => {
+      let publishedAt = getProp('publishedAt', track, '');
+      publishedAt = `${publishedAt.getFullYear()}-${publishedAt.getMonth()}-${publishedAt.getDate()}`;
+
+      cell.appendChild(
+        document.createTextNode(publishedAt)
+      );
+    },
+    'length': (sub, track, cell) => {
+      let duration = parseInt(getProp('duration', track, '0'));
+
+      if (duration !== 0) {
+        duration = (duration / 1000 / 60).toFixed(2)
+          .replace('.', ':')
+          .padStart(5, '0');
+      } else {
+        duration = '';
+      }
+
+      cell.appendChild(
+        document.createTextNode(duration)
+      );
+    }
+  },
   showTable: () => {
     TableAPI.table.classList.remove('hidden');
     noContentParagraph.classList.add('hidden');
@@ -844,6 +863,7 @@ function setupFiltering () {
     sub.filterFunc = filterFunc;
     sub.filterElement = event.target;
     TableAPI.refresh(sub);
+    await loadAndDisplayTracks(sub);
   }));
 
   function selectedSubscription (event) {
