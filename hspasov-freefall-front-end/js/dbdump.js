@@ -1,4 +1,4 @@
-function airportDump () {
+function airportDump () { // eslint-disable-line no-unused-vars
   const string = `1|LHR|Heathrow
 2|SOF|Sofia
 3|JFK|John F. Kennedy International
@@ -112,9 +112,9 @@ function airportDump () {
       }
     ])
     .reduce((hash, entry) => {
-        hash[entry[0]] = entry[1];
-        return hash;
-      },
-      {}
+      hash[entry[0]] = entry[1];
+      return hash;
+    },
+    {}
     );
 }
