@@ -386,7 +386,7 @@ async function fetchVideos (playlistId, untilDays, pageToken) {
     playlistId: playlistId
   };
   let untilDate = new Date();
-  let lastPageToken = undefined;
+  let lastPageToken;
 
   if (pageToken) {
     params.pageToken = pageToken;
@@ -675,7 +675,7 @@ const TableAPI = {
 
     cell.addEventListener('click', () => {
       // does not work in firefox 60.0.2 for Ubunutu
-      SystemError.assert(dialog.showModal,
+      SystemError.assert(dialog.showModal && dialog.close,
         `We're sorry but displaying extra 
                     information is not supported in your browser. 
                     Please use another (chrome).`
@@ -683,6 +683,11 @@ const TableAPI = {
 
       dialog.showModal();
     });
+    dialog.getElementsByTagName('button')[0]
+      .addEventListener('click', () => {
+        console.log('closing dialog', dialog);
+        dialog.close();
+      });
   },
 
   headerOrder: () => {
@@ -904,12 +909,6 @@ function setupFiltering () {
   lastYearFilter.addEventListener('click', selectedFilter);
 }
 
-function dateFilterUntil (until) {
-  return track => {
-    return track.publishedAt.getTime() >= until.getTime();
-  };
-}
-
 function setupSubEvents (form, button) {
   const submitUrls = asyncLockDecorator(async (urls) => {
     let promises = urls.map(async (url) => {
@@ -1009,4 +1008,3 @@ function getProp (chainedProp, object, default_) {
 
   return object;
 }
-
