@@ -79,13 +79,21 @@ window.addEventListener('load', function () {
 
 async function loadAndDisplayTracks (sub) {
   const promises = Object.values(sub.tracks)
+    .filter(sub.filterFunc)
     .map(async track => {
       try {
         await track.loadData();
-        TableAPI.displaySubTrackInfo(sub, track);
       } catch (e) {
-        console.log('cannot download information for track', track);
+        console.log('cannot download information for track',
+          track,
+          'reason: ',
+          e
+        );
+        return;
       }
+      TableAPI.displaySubTrackInfo(sub,
+        track
+      );
     });
 
   await Promise.all(promises);
@@ -158,7 +166,8 @@ function lockDecorator (wrapped) {
     if (modifyingSubscriptions) {
       throw new BasicError('Please wait for subscriptions to load.',
         'Attempted to modify subscriptions while they are locked.',
-        'Wrapped function:', wrapped);
+        'Wrapped function:', wrapped
+      );
     }
 
     modifyingSubscriptions = true;
@@ -270,7 +279,8 @@ async function fetchChannel (url) {
   } else {
     throw new BasicError(
       `Youtube url - ${url} is not a link to a channel.`,
-      'User tried to subscribe to incorrect url:', url);
+      'User tried to subscribe to incorrect url:', url
+    );
   }
 
   let response = await fetchFromYtAPI('channels', params);
@@ -283,11 +293,13 @@ async function fetchChannel (url) {
         'snippet.customUrl',
         'id',
         'contentDetails.relatedPlaylists.uploads'],
-      response.items[0])
+      response.items[0]
+    )
   ) {
     throw new BasicError(
       `We're sorry but the app cannot provide information about channel ${url}`,
-      'Missing properties in channels.list response:', response);
+      'Missing properties in channels.list response:', response
+    );
   }
 
   let item = response.items[0];
@@ -316,7 +328,8 @@ async function fetchFromYtAPI (method, params) {
 
   if (!response.ok) {
     throw new BasicError(genericErrorMsg,
-      'Youtube API for playlistItems failed with a not ok response: ', response);
+      'Youtube API for playlistItems failed with a not ok response: ', response
+    );
   }
 
   let content;
@@ -327,7 +340,8 @@ async function fetchFromYtAPI (method, params) {
     throw new BasicError(
       genericErrorMsg,
       'Failed to decode json from Youtube API for playlistItems.',
-      'Reason: ', reason);
+      'Reason: ', reason
+    );
   }
 
   return content;
@@ -386,7 +400,8 @@ async function fetchTracks (playlistId, until, pageToken) {
 
   for (let item of items) {
     if (!hasChainedProperties(['snippet.title', 'snippet.publishedAt'],
-      item)) {
+      item
+    )) {
       throw new BasicError(
         `We're but we cannot provide you with a list of tracks for this 
                 channel because Youtube's API is not running correctly.`
@@ -475,15 +490,17 @@ class Track {
       );
       console.log('track response', this.id, response);
     } catch (error) {
-      throw BasicError(
+      throw new BasicError(
         `Couldn't download data from last.fm for track: ${this.name}`,
-        'fetchJSONP raised error: ', error);
+        'fetchJSONP raised error: ', error
+      );
     }
 
     if (!response.track) {
       throw new BasicError(`Couldn't download information for track 
             ${this.name} because last.fm broke their API contract.`,
-        'Missing track property from response: ', response);
+        'Missing track property from response: ', response
+      );
     }
 
     this.name = response.track.name;
@@ -500,7 +517,8 @@ function parseUrlsFromString (str) {
   // taken from https://stackoverflow.com/questions/6038061/regular-expression-to-find-urls-within-a-string
   let regex = new RegExp(
     '(http|ftp|https)://([\\w_-]+(?:(?:\\.[\\w_-]+)+))([\\w.,@?^=%&:/~+#-]*[\\w@?^=%&/~+#-])?',
-    'g');
+    'g'
+  );
   let urls = [];
   let match = regex.exec(str);
 
@@ -586,7 +604,8 @@ const TableAPI = {
     if (TableAPI.isSubDisplayed(sub)) {
       console.warn(
         'Sub is already displayed but tried to display it again. Sub: ',
-        sub);
+        sub
+      );
 
       return;
     }
@@ -699,7 +718,8 @@ const TableAPI = {
         }
 
         dialog.getElementsByTagName('img')[0].setAttribute('src',
-          imageSrc);
+          imageSrc
+        );
 
         TableAPI.hookDialogEvents(cell);
       }
@@ -769,7 +789,8 @@ const UrlList = {
       lockDecorator(() => {
           unsubscribe(sub.originalUrl);
         }
-      ));
+      )
+    );
 
     newItem.classList.remove('hidden');
     newItem.removeAttribute('id');
@@ -814,17 +835,26 @@ function setupFiltering () {
   lastMonth.setMonth(lastMonth.getMonth() - 1);
   lastYear.setFullYear(lastYear.getFullYear() - 1);
 
+  function makeFilter (maxDays) {
+    const maxDate = new Date();
+    maxDate.setDate(maxDate.getDate() - maxDays);
+
+    return track => {
+      return track.publishedAt.getTime() > maxDate.getTime();
+    };
+  }
+
   const filterFuncHash = {
     'last-week-filter': {
-      filterFunc: dateFilterUntil(lastWeek),
+      filterFunc: makeFilter(7),
       until: 7
     },
     'last-month-filter': {
-      filterFunc: dateFilterUntil(lastMonth),
+      filterFunc: makeFilter(30),
       until: 30
     },
     'last-year-filter': {
-      filterFunc: dateFilterUntil(lastYear),
+      filterFunc: makeFilter(365),
       until: 365
     }
   };
@@ -863,6 +893,7 @@ function setupFiltering () {
     sub.filterFunc = filterFunc;
     sub.filterElement = event.target;
     TableAPI.refresh(sub);
+    console.log('successfully refreshed');
     await loadAndDisplayTracks(sub);
   }));
 
