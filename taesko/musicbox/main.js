@@ -60,7 +60,8 @@ class SystemError extends BasicError {
 }
 
 window.addEventListener('error', function (event) {
-  console.log('Error reached the top level: ', event);
+  console.log('Error reached the top level: ', event.target);
+  console.error("REACHED TOP LEVEL FFS.");
 
   return true;
 });
