@@ -1,6 +1,6 @@
 <html lang="en">
   <head>
-    <link rel="stylesheet" type="text/css" href="./bootstrap.css">
+    <link rel="stylesheet" type="text/css" href="./css/bootstrap.css">
   </head>
    <body>
 
@@ -12,15 +12,21 @@
         </menu>
       </form>
     </dialog>
-
-    <div class="form-inline">
+    <ul class="list-group-item col-lg-offset-4 col-md-offset-4 col-sm-offset-4 col-xs-offset-4 col-lg-4 col-md-4 col-sm-4 col-xs-4">
       <input type="text" id='channel' placeholder="Enter Youtube Channel link" class="form-control">
-      <button id='sub-btn' class='btn btn-default'> Subscribe </button>
+
       <br>
-    </div>
-    <br>
-    <p>Channels subscribed to:</p>
-    <ul id='channels'>
+      <label for="global-select">From</label>
+      <select id="global-select">
+        <option>Last Week</option>
+        <option>Last Month</option>
+        <option>Last Year</option>
+        <option selected>Whenever</option>
+      </select>
+      <button id='sub-btn' class='btn btn-default pull-right'> Subscribe </button>
+    </ul>
+    <h2 class="col-lg-12 col-md-12 col-sm-12 col-xs-12 text-center">Channels subscribed to:</h2>
+    <ul id='channels' class='col-lg-12 col-md-12 col-sm-12 col-xs-12 text-center'>
 
     </ul>
     <table id="info-table" class="table table-hover">
@@ -35,5 +41,5 @@
   </body>
 </html>
 
-<script src="./asserts.js"></script>
-<script src="./jukebox.js"></script>
+<script src="./scripts/asserts.js"></script>
+<script src="./scripts/jukebox.js"></script>

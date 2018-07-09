@@ -213,7 +213,6 @@ function showChannels () {
     let exists = false;
     for (const li of channelElements) {
       if(li.id === channel.name){
-        console.log('Duplicate !!!');
         exists = true;
       }
     }
@@ -223,7 +222,7 @@ function showChannels () {
     const link = channel.link;
 
     const liElement = document.createElement('li');
-    const pElement = document.createElement('p');
+    const pElement = document.createElement('h4');
     const aElement = document.createElement('a');
     const brElement = document.createElement('br');
     const unsubBtn = document.createElement('button');
@@ -232,9 +231,9 @@ function showChannels () {
     liElement.setAttribute('id', currChannel);
 
     pElement.setAttribute('id', 'name-' + currChannel);
+    pElement.setAttribute('class', 'text-center');
 
     aElement.setAttribute('href', link);
-    aElement.setAttribute('class', 'pull-left');
     aElement.appendChild(document.createTextNode(currChannel + ' '));
 
     unsubBtn.setAttribute('class', 'btn btn-default pull-right');
@@ -255,14 +254,17 @@ function showChannels () {
       displayVideos();
     });
 
-    const filterLabel = document.createElement('label');
-    filterLabel.innerHTML = 'Filter by date: ';
-
     const filterElement = document.createElement('select');
     filterElement.setAttribute('id', 'select-' + currChannel);
+    filterElement.setAttribute('class', 'pull-left');
     filterElement.addEventListener('change', () => {
       relistChannel(currChannel);
     });
+
+    const filterLabel = document.createElement('label');
+    filterLabel.setAttribute('for', 'select-' + currChannel);
+    filterLabel.setAttribute('class', 'pull-left');
+    filterLabel.innerHTML = 'Filter by date: ';
 
     const lastWeekOpt = document.createElement('option');
     lastWeekOpt.setAttribute('value', 'week');
@@ -287,11 +289,11 @@ function showChannels () {
     filterElement.appendChild(wheneverOpt);
 
     pElement.appendChild(aElement);
-    pElement.appendChild(unsubBtn);
     liElement.appendChild(pElement);
     liElement.appendChild(brElement);
     liElement.appendChild(filterLabel);
     liElement.appendChild(filterElement);
+    liElement.appendChild(unsubBtn);
     channelsElement.appendChild(liElement);
   }
 }
