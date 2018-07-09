@@ -240,11 +240,9 @@ function buttonLock (func) {
     for (let i = 0; i < inputs.length; i++) {
       inputs[i].disabled = true;
     }
-    console.log('disabled everything');
     try {
       return await func(...args);
     } finally {
-      console.log('enabled everything');
       for (let i = 0; i < inputs.length; i++) {
         inputs[i].disabled = false;
       }
@@ -297,7 +295,9 @@ async function downloadIntoSubscription (subscription, until) {
 
   let trackResponse = await fetchTracks(subscription.playlistId, until, subscription.pageToken);
 
-  subscription.tracks = trackResponse.tracks;
+  subscription.tracks = subscription.tracks || [];
+  subscription.tracks.push(...trackResponse.tracks);
+  subscription.tracks = removeDuplicates(subscription.tracks, track => track.id);
   subscription.failedToParse = trackResponse.failures;
   subscription.filterFunc = track => true;
   subscription.filterElement = filterHash[until];
@@ -833,7 +833,6 @@ const UrlList = {
 
 function getUntilDaysInput () {
   for (let [days, element] of Object.entries(filterHash)) {
-    console.log(element, element.checked);
     if (element.checked) {
       return days;
     }
@@ -995,6 +994,17 @@ function hasChainedProperties (chainedProperties, object) {
   }
 
   return true;
+}
+
+function removeDuplicates (array, iteratee) {
+  const hash = array.map(element => [iteratee(element), element])
+    .reduce((hash, entry) => {
+        hash[entry[0]] = entry[1];
+        return hash;
+      },
+      {}
+    );
+  return Object.values(hash);
 }
 
 function getProp (chainedProp, object, default_) {
