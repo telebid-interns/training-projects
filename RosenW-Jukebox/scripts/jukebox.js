@@ -18,10 +18,6 @@ const dialog = document.getElementById('dialog');
 const closeBtn = document.getElementById('close-dialog-btn');
 const channelsElement = document.getElementById('channels');
 
-subBtn.onerror = function (error) {
-  console.log('on button');
-};
-
 closeBtn.addEventListener('click', dialog.close);
 
 let channelList = [];
@@ -44,85 +40,106 @@ function loadLocalStorage () {
   }
 }
 
-function relistChannel (channel) {
+async function relistChannel (channel) {
   const link = channelList.filter(e => e.name === channel)[0].link;
   const channelId = link.split('/channel/')[1];
 
   allVids = allVids.filter(e => e.channel !== channel);
 
+  let from = checkFilter(channel);
+
+  let publishedAfter;
+
   const params = {
     channelId: channelId,
     key: YT_API_KEY,
     part: 'snippet',
     type: 'video',
     maxResults: '50',
-    videoCategoryId: '10'
+    videoCategoryId: '10',
+    publishedAfter: from
   };
   const reqLink = 'https://www.googleapis.com/youtube/v3/search?' + toQueryString(params);
 
-  makeRequest(reqLink)
-  .then((data) => {
-    assertPeer( // _.get (lodash)
-      data.items !== undefined &&
-      data.items[0].snippet !== undefined &&
-      data.items[0].snippet.channelTitle !== undefined,
-      'Youtube responded with wrong data'
-    );
-    const channelName = data.items[0].snippet.channelTitle;
+  const data = await makeRequest(reqLink);
+  assertPeer(Array.isArray(data.items), 'Youtube responded with wrong data');
 
-    const videos = data.items;
+  if(data.items.length <= 0){
+    displayVideos();
+    return;
+  }
 
-    saveAndDisplayVids(videos);
-  }).catch((err) => {
-    console.log(err.message);
-  });
+  assertPeer( // _.get (lodash)
+    isObject(data.items[0].snippet) &&
+    typeof data.items[0].snippet.channelTitle === 'string',
+    'Youtube responded with wrong data'
+  );
+
+
+  const channelName = data.items[0].snippet.channelTitle;
+  const videos = data.items;
+
+  saveAndDisplayVids(videos);
 }
 
-function subscribe () {
+async function subscribe () {
   const link = channelTextBox.value;
 
-// try {
   assertUser(link.includes('www.youtube.com/channel/'), 'Link not a youtube channel');
-// } catch (e) { console.log('here'); console.log(e);}
+
   const channelId = link.split('/channel/')[1];
+  const channelInfoParams = {
+    id: channelId,
+    key: YT_API_KEY,
+    part: 'snippet'
+  };
+  const channelData = await makeRequest('https://www.googleapis.com/youtube/v3/channels?' + toQueryString(channelInfoParams));
+  const channelName = channelData.items[0].snippet.title;
+
+  for (const channel of channelList) {
+    assertUser(channel.name !== channelName, 'Already subscribed to channel');
+  }
+
+  const channelObj = {
+    name: channelName,
+    link
+  };
+  channelList.push(channelObj);
+
+  let from = new Date(checkFilter('global')).toISOString();
+
   const params = {
     channelId: channelId,
     key: YT_API_KEY,
     part: 'snippet',
     type: 'video',
     maxResults: '50',
-    videoCategoryId: '10'
+    videoCategoryId: '10',
+    publishedAfter: from
   };
   const reqLink = 'https://www.googleapis.com/youtube/v3/search?' + toQueryString(params);
 
   channelTextBox.value = '';
 
-  makeRequest(reqLink)
-    .then((data) => {
-      assertPeer( // _.get (lodash)
-        Array.isArray(data.items) &&
-        isObject(data.items[0].snippet) &&
-        typeof data.items[0].snippet.channelTitle === 'string',
-        'Youtube responded with wrong data'
-      );
-      const channelName = data.items[0].snippet.channelTitle;
+  let songs = await makeRequest(reqLink);
+  assertPeer(Array.isArray(songs.items), 'Youtube responded with wrong data');
 
-      for (const channel of channelList) {
-        assertUser(channel.name !== channelName, 'Already subscribed to channel');
-      }
+  if(songs.items.length <= 0){
+    showChannels();
+    return;
+  }
 
-      const channelObj = {
-        name: channelName,
-        link
-      };
-      const videos = data.items;
+  assertPeer( // _.get (lodash)
+    isObject(songs.items[0].snippet) &&
+    typeof songs.items[0].snippet.channelTitle === 'string',
+    'Youtube responded with wrong data'
+  );
 
-      channelList.push(channelObj);
+  if(songs.items.length <= 0) return;
 
-      saveAndDisplayVids(videos);
-    }).catch((err) => {
-      console.log(err.message);
-    });
+  const videos = songs.items;
+
+  saveAndDisplayVids(videos);
 }
 
 function saveAndDisplayVids (videos) {
@@ -152,7 +169,6 @@ function saveAndDisplayVids (videos) {
     videoObj.channel = video.snippet.channelTitle; // todo assert peer
     videoObj.artists = artAndSong.artists;
     videoObj.song = artAndSong.song.trim();
-    console.log(videoObj.link);
 
     const params = {
       api_key: LAST_FM_API_KEY,
@@ -326,28 +342,13 @@ function getLastYear () {
 async function displayVideos () {
   await cleanTable();
   for (const vid of allVids) {
-    if (checkFilters(Date.parse(vid.date), vid.channel)) {
+    if(Date.parse(checkFilter(vid.channel)) <= Date.parse(vid.date)){
       addVideoToTable(vid);
     }
   }
 }
 
-function checkFilters (checkDate, channel) {
-  const filterElement = document.getElementById('select-' + channel);
-  const filterValue = filterElement == null ? 'all' : filterElement.options[filterElement.selectedIndex].value;
-
-  if (filterValue === 'week') {
-    return checkDate - getLastWeek() > 0;
-  } else if (filterValue === 'month') {
-    return checkDate - getLastMonth() > 0;
-  } else if (filterValue === 'year') {
-    return checkDate - getLastYear() > 0;
-  } else {
-    return true;
-  }
-}
-
-function cleanTable () { // ??
+function cleanTable () {
   const tableHeaders = ['Date', 'Artist', 'Song', 'Duration', 'Album'];
   const headers = tableHeaders.map((header) => '<th>' + header + '</th>').join('');
   table.innerHTML = `<tr>${headers}</tr>`;
@@ -390,7 +391,7 @@ function extractArtistsAndSongFromTitle (title) {
   let artists = title.match(artistRegex);
   let song = songMatchArr[0].replace(/"/g, '').trim();
 
-  if (artists.length === 0 || song === '' || song == null) { // notify for skip
+  if (artists.length === 0 || song === '' || song == null) {
     return;
   }
 
@@ -441,4 +442,25 @@ function handlePeerError (err) {
 
 function isObject(obj){
   return typeof obj === 'object' && obj != null;
+}
+
+function checkFilter (channel) {
+  let filterElement = document.getElementById('select-' + channel);
+  if(filterElement == null){
+    filterElement = document.getElementById('select-global');
+  }
+  const value = filterElement.options[filterElement.selectedIndex].value;
+  let returnDate;
+
+  if (value === 'week') {
+    returnDate = getLastWeek();
+  } else if (value === 'month') {
+    returnDate = getLastMonth();
+  } else if (value === 'year') {
+    returnDate =  getLastYear();
+  } else {
+    returnDate = 0;
+  }
+
+  return new Date(returnDate).toISOString();
 }
