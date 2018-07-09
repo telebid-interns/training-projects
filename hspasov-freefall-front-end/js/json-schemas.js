@@ -137,3 +137,45 @@ function getValidateSearchRes () { // eslint-disable-line no-unused-vars
   };
   return ajv.compile(searchResponseSchema);
 }
+
+function getValidateSubscriptionReq () { // eslint-disable-line no-unused-vars
+  const subscriptionRequestSchema = {
+    '$schema': 'http://json-schema.org/draft-07/schema#',
+    '$id': 'http://10.20.1.155:3000/subscriptionrequest.schema.json',
+    'title': 'Subscription request',
+    'description': 'Contains the request of subscribe or unsubscribe method',
+    'type': 'object',
+    'properties': {
+      'v': {
+        'description': 'FreeFall API version',
+        'type': 'string'
+      },
+      'fly_from': {
+        'description': 'The id of the departure airport',
+        'type': ['number', 'string']
+      },
+      'fly_to': {
+        'description': 'The id of the arrival airport',
+        'type': ['number', 'string']
+      }
+    }
+  };
+  return ajv.compile(subscriptionRequestSchema);
+}
+
+function getValidateSubscriptionRes () { // eslint-disable-line no-unused-vars
+  const subscriptionResponseSchema = {
+    '$schema': 'http://json-schema.org/draft-07/schema#',
+    '$id': 'http://10.20.1.155:3000/subscriptionresponse.schema.json',
+    'title': 'Subscription response',
+    'description': 'Contains the response of subscribe or unsubscribe method',
+    'type': 'object',
+    'properties': {
+      'status_code': {
+        'description': 'Indicator for the result of the request',
+        'type': ['string', 'number']
+      }
+    }
+  };
+  return ajv.compile(subscriptionResponseSchema);
+}

@@ -13,6 +13,8 @@
       "airportDump",
       "getValidateSearchReq",
       "getValidateSearchRes",
+      "getValidateSubscriptionReq",
+      "getValidateSubscriptionRes",
       "Ajv"
     ]
   },

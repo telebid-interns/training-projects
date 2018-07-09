@@ -19,6 +19,8 @@ let $errorBar; // closures
 const errorMessagesQueue = [];
 const validateSearchReq = getValidateSearchReq();
 const validateSearchRes = getValidateSearchRes();
+const validateSubscriptionReq = getValidateSubscriptionReq();
+const validateSubscriptionRes = getValidateSubscriptionRes();
 
 (function setupErrorMessages () {
   setInterval(() => {
@@ -73,6 +75,12 @@ class PeerError extends BaseError {
   }
 }
 
+class UserError extends BaseError {
+  constructor ({userMessage, logs}) {
+    super({userMessage, logs});
+  }
+}
+
 function assertApp (condition, errorParams) {
   if (!condition) {
     throw new ApplicationError(errorParams);
@@ -82,6 +90,12 @@ function assertApp (condition, errorParams) {
 function assertPeer (condition, errorParams) {
   if (!condition) {
     throw new PeerError(errorParams);
+  }
+}
+
+function assertUser (condition, errorParams) {
+  if (!condition) {
+    throw new UserError(errorParams);
   }
 }
 
@@ -135,7 +149,7 @@ async function search (params) {
   let response = await jsonRPCRequest('search', params);
   console.log(response);
 
-  assertApp(validateSearchRes(response), 'Params do not adhere to searchResponseSchema.');
+  assertPeer(validateSearchRes(response), 'Params do not adhere to searchResponseSchema.');
 
   for (let routeObj of response.routes) {
     // server doesn't provide currency yet
@@ -164,18 +178,14 @@ async function search (params) {
   return response;
 }
 
-async function subscribe (fromAirportId, toAirportId) { // eslint-disable-line no-unused-vars
-  console.log('Subscribing', fromAirportId, toAirportId);
+async function subscribe (params) { // eslint-disable-line no-unused-vars
+  console.log('Subscribing', params);
+  assertApp(validateSubscriptionReq(params), 'Params do not adhere to subscriptionRequestSchema');
 
   let response;
-  let params = {
-    v: '1.0',
-    fly_from: fromAirportId,
-    fly_to: toAirportId
-  };
 
-  const { latinName: fromAirportLatinName } = getAirportByString(fromAirportId);
-  const { latinName: toAirportLatinName } = getAirportByString(toAirportId);
+  const { latinName: fromAirportLatinName } = getAirportByString(params.fly_from);
+  const { latinName: toAirportLatinName } = getAirportByString(params.fly_to);
 
   try {
     response = await jsonRPCRequest('subscribe', params);
@@ -184,6 +194,7 @@ async function subscribe (fromAirportId, toAirportId) { // eslint-disable-line n
     throw e;
   }
 
+  assertPeer(validateSubscriptionRes(response), 'Params do not adhere to subscriptionResponseSchema');
   assertPeer(response.status_code >= 1000 && response.status_code < 2000, {
     userMessage: `Already subscribed for flights from ${fromAirportLatinName} to ${toAirportLatinName}.`,
     logs: [
@@ -198,18 +209,14 @@ async function subscribe (fromAirportId, toAirportId) { // eslint-disable-line n
   return params;
 }
 
-async function unsubscribe (fromAirportId, toAirportId) { // eslint-disable-line no-unused-vars
-  console.log('Unsubscribing', fromAirportId, toAirportId);
+async function unsubscribe (params) { // eslint-disable-line no-unused-vars
+  console.log('Unsubscribing', params);
+  assertApp(validateSubscriptionReq(params), 'Params do not adhere to subscriptionRequestSchema');
 
   let response;
-  let params = {
-    v: '1.0',
-    fly_from: fromAirportId,
-    fly_to: toAirportId
-  };
 
-  const { latinName: fromAirportLatinName } = getAirportByString(fromAirportId);
-  const { latinName: toAirportLatinName } = getAirportByString(toAirportId);
+  const { latinName: fromAirportLatinName } = getAirportByString(params.fly_from);
+  const { latinName: toAirportLatinName } = getAirportByString(params.fly_to);
 
   try {
     response = await jsonRPCRequest('unsubscribe', params);
@@ -218,6 +225,7 @@ async function unsubscribe (fromAirportId, toAirportId) { // eslint-disable-line
     throw e;
   }
 
+  assertPeer(validateSubscriptionRes(response), 'Params do not adhere to subscriptionResponseSchema');
   assertPeer(response.status_code >= 1000 && response.status_code < 2000, {
     userMessage: `You aren't subscribed for flights from airport ${fromAirportLatinName} to airport ${toAirportLatinName}.`,
     logs: [
@@ -499,6 +507,14 @@ function getSearchFormParams ($searchForm) {
   let { id: airportFromId } = getAirportByString(formData.from);
   let { id: airportToId } = getAirportByString(formData.to);
 
+  assertUser(
+    typeof airportFromId === 'string' &&
+    typeof airportToId === 'string', {
+      userMessage: 'Please choose your departure airport and arrival airport.',
+      logs: []
+    }
+  );
+
   assertPeer(airportFromId, {
     userMessage: `${formData.from} is not a location that has an airport!`,
     logs: ['User entered an invalid string in #arrival-input - ', formData.to]
@@ -556,7 +572,11 @@ $(document).ready(() => {
     console.log(formParams);
 
     try {
-      let response = await subscribe(formParams.fly_from, formParams.fly_to);
+      let response = await subscribe({
+        v: formParams.v,
+        fly_from: formParams.fly_from,
+        fly_to: formParams.fly_to
+      });
 
       if (response.status_code >= 1000 && response.status_code < 2000) {
         displaySearchResult(
@@ -587,7 +607,11 @@ $(document).ready(() => {
     console.log(formParams);
 
     try {
-      let response = await unsubscribe(formParams.fly_from, formParams.fly_to);
+      let response = await unsubscribe({
+        v: formParams.v,
+        fly_from: formParams.fly_from,
+        fly_to: formParams.fly_to
+      });
 
       if (response.status_code >= 1000 && response.status_code < 2000) {
         displaySearchResult(
@@ -607,7 +631,6 @@ $(document).ready(() => {
 
   $('#submit-button').click(async (event) => {
     event.preventDefault();
-
     let formParams;
 
     try {
