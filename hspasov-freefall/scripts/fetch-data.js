@@ -51,17 +51,13 @@ async function start () {
 
     log(`Inserting if not exists airline ${airline.name} (${airline.id})...`);
 
-    return insertIfNotExists(
-      'airlines',
-      ['name', 'code', 'logo_url'],
-      [
-        `${airline.name} (${airline.id})`,
-        airline.id,
-        `https://images.kiwi.com/airlines/64/${airline.id}.png`
-      ],
-      'code',
-      airline.id
-    );
+    return insertIfNotExists('airlines', {
+      name: `${airline.name} (${airline.id})`,
+      code: airline.id,
+      logo_url: `https://images.kiwi.com/airlines/64/${airline.id}.png`
+    }, {
+      code: airline.id
+    });
   }));
 
   // GET routes
@@ -77,8 +73,12 @@ async function start () {
 
     const fetchId = await insertDataFetch(sub.id);
     const [airportFrom, airportTo] = await Promise.all([
-      selectWhereColEquals('airports', ['id', 'iata_code', 'name'], 'id', sub.airport_from_id).then((r) => r[0]),
-      selectWhereColEquals('airports', ['id', 'iata_code', 'name'], 'id', sub.airport_to_id).then((r) => r[0])
+      selectWhereColEquals('airports', ['id', 'iata_code', 'name'], {
+        id: sub.airport_from_id
+      }).then((r) => r[0]),
+      selectWhereColEquals('airports', ['id', 'iata_code', 'name'], {
+        id: sub.airport_to_id
+      }).then((r) => r[0])
     ]);
 
     // assertApp(
@@ -177,7 +177,9 @@ async function getAirportsAndFlights (airportFrom, airportTo, fetchId, offset) {
   await Promise.all(Object.values(flightsHash).map(async (flight) => {
     const airportCodes = [flight.flyFrom, flight.flyTo];
     const airportIds = await Promise.all(airportCodes.map(async (IATACode) => {
-      const selectResult = await selectWhereColEquals('airports', ['id'], 'iata_code', IATACode);
+      const selectResult = await selectWhereColEquals('airports', ['id'], {
+        iata_code: IATACode
+      });
 
       assertApp(
         Array.isArray(selectResult) &&
@@ -189,7 +191,9 @@ async function getAirportsAndFlights (airportFrom, airportTo, fetchId, offset) {
       return selectResult[0].id;
     }));
 
-    const airlineIdResult = await selectWhereColEquals('airlines', ['id'], 'code', flight.airline);
+    const airlineIdResult = await selectWhereColEquals('airlines', ['id'], {
+      code: flight.airline
+    });
 
     assertApp(
       Array.isArray(airlineIdResult) &&
@@ -200,29 +204,17 @@ async function getAirportsAndFlights (airportFrom, airportTo, fetchId, offset) {
 
     log(`Inserting if not exists flight ${flight.airline} ${flight.flight_no} from ${flight.flyFrom} to ${flight.flyTo} departure time ${moment.unix(flight.dTimeUTC).format(SERVER_TIME_FORMAT)} ...`);
 
-    return insertIfNotExists(
-      'flights',
-      [
-        'airline_id',
-        'airport_from_id',
-        'airport_to_id',
-        'dtime',
-        'atime',
-        'flight_number',
-        'remote_id'
-      ],
-      [
-        airlineIdResult[0].id,
-        airportIds[0],
-        airportIds[1],
-        moment.unix(flight.dTimeUTC).format(SERVER_TIME_FORMAT),
-        moment.unix(flight.aTimeUTC).format(SERVER_TIME_FORMAT),
-        flight.flight_no,
-        flight.id
-      ],
-      'remote_id',
-      flight.id
-    );
+    return insertIfNotExists('flights', {
+      airline_id: airlineIdResult[0].id,
+      airport_from_id: airportIds[0],
+      airport_to_id: airportIds[1],
+      dtime: moment.unix(flight.dTimeUTC).format(SERVER_TIME_FORMAT),
+      atime: moment.unix(flight.aTimeUTC).format(SERVER_TIME_FORMAT),
+      flight_number: flight.flight_no,
+      remote_id: flight.id
+    }, {
+      remote_id: flight.id
+    });
   }));
 
   log('Finished getting data for flights.');
@@ -230,12 +222,18 @@ async function getAirportsAndFlights (airportFrom, airportTo, fetchId, offset) {
   log(`FROM ${airportFrom} to ${airportTo} (offset: ${offset}): data for ${response.data.length} routes. Getting data...`);
 
   const routesPromises = response.data.map(async (data) => {
-    const routeId = await insert('routes', ['booking_token', 'price', 'fetch_id'], [data.booking_token, toSmallestCurrencyUnit(data.price), fetchId]);
+    const routeId = await insert('routes', {
+      booking_token: data.booking_token,
+      price: toSmallestCurrencyUnit(data.price),
+      fetch_id: fetchId
+    });
 
     const flightsPromises = data.route.map(async (flight) => {
       log(`Inserting route ${routeId} flight ${flight.airline} ${flight.flight_no} from ${flight.flyFrom} to ${flight.flyTo} departure time ${moment.unix(flight.dTimeUTC).format(SERVER_TIME_FORMAT)} ...`);
 
-      const flightIdResults = await selectWhereColEquals('flights', ['id'], 'remote_id', flight.id);
+      const flightIdResults = await selectWhereColEquals('flights', ['id'], {
+        remote_id: flight.id
+      });
 
       assertApp(
         Array.isArray(flightIdResults) &&
@@ -244,7 +242,11 @@ async function getAirportsAndFlights (airportFrom, airportTo, fetchId, offset) {
         'Invalid db select flight id response.'
       );
 
-      return insert('routes_flights', ['flight_id', 'route_id', 'is_return'], [flightIdResults[0].id, routeId, flight.return]);
+      return insert('routes_flights', {
+        flight_id: flightIdResults[0].id,
+        route_id: routeId,
+        is_return: flight.return
+      });
     });
 
     await Promise.all(flightsPromises);
@@ -258,7 +260,9 @@ async function getAirportsAndFlights (airportFrom, airportTo, fetchId, offset) {
 }
 
 async function getAirportIfNotExists (IATACode) {
-  const airports = await selectWhereColEquals('airports', ['id'], 'iata_code', IATACode);
+  const airports = await selectWhereColEquals('airports', ['id'], {
+    iata_code: IATACode
+  });
 
   assertApp(
     Array.isArray(airports),
@@ -291,11 +295,10 @@ async function getAirportIfNotExists (IATACode) {
       'API sent invalid airport data response.'
     );
 
-    const airportId = await insert(
-      'airports',
-      ['iata_code', 'name'],
-      [response.locations[0].code, `${response.locations[0].name}, ${response.locations[0].code}`]
-    );
+    const airportId = await insert('airports', {
+      iata_code: response.locations[0].code,
+      name: `${response.locations[0].name}, ${response.locations[0].code}`
+    });
 
     return airportId;
   }

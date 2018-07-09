@@ -51,16 +51,19 @@ module.exports = (() => {
     return db.all(`SELECT ${stringifyColumns(columns)} FROM ${table};`);
   }
 
-  async function selectWhereColEquals (table, columns, whereCol, value) {
+  async function selectWhereColEquals (table, columns, where) {
     assertDB();
     assertApp(
       typeof table === 'string' &&
       Array.isArray(columns) &&
-      typeof whereCol === 'string',
+      isObject(where) &&
+      Object.keys(where).length === 1, // TODO add support for more than one
       'Invalid select data'
     );
 
-    return db.all(`SELECT ${stringifyColumns(columns)} FROM ${table} WHERE ${whereCol} = ?;`, [value]);
+    const whereCol = Object.keys(where)[0];
+
+    return db.all(`SELECT ${stringifyColumns(columns)} FROM ${table} WHERE ${whereCol} = ?;`, [where[whereCol]]);
   }
 
   async function selectRoutesFlights (fetchId, params) {
@@ -156,20 +159,25 @@ module.exports = (() => {
     return subscriptions;
   }
 
-  async function insert (table, columns, row) {
+  async function insert (table, data) {
     assertDB();
     assertApp(
       typeof table === 'string' &&
-      Array.isArray(columns) &&
-      columns.length > 0 &&
-      columns.every((col) => typeof col === 'string') &&
-      Array.isArray(row) && row.length === columns.length,
+      isObject(data),
       'Invalid insert data.'
     );
 
+    const columns = [];
+    const values = [];
+
+    for (const [col, value] of Object.entries(data)) {
+      columns.push(col);
+      values.push(value);
+    }
+
     const columnsStringified = columns.join(', ');
-    const rowStringified = Array(columns.length).fill('?').join(', ');
-    const insertResult = await db.run(`INSERT INTO ${table} (${columnsStringified}) VALUES (${rowStringified});`, row);
+    const rowStringified = Array(values.length).fill('?').join(', ');
+    const insertResult = await db.run(`INSERT INTO ${table} (${columnsStringified}) VALUES (${rowStringified});`, values);
 
     assertApp(
       isObject(insertResult) &&
@@ -196,10 +204,10 @@ module.exports = (() => {
     return newFetchResult.stmt.lastID;
   }
 
-  async function insertIfNotExists (table, columns, row, existsCheckCol, existCheckVal) {
+  async function insertIfNotExists (table, data, existsCheck) {
     assertDB();
 
-    const selectResult = await selectWhereColEquals(table, columns, existsCheckCol, existCheckVal);
+    const selectResult = await selectWhereColEquals(table, Object.keys(data), existsCheck);
 
     assertApp(Array.isArray(selectResult), 'Invalid db response.');
 
@@ -210,7 +218,7 @@ module.exports = (() => {
       return false;
     }
 
-    const insertResult = await insert(table, columns, row);
+    const insertResult = await insert(table, data);
 
     assertApp(
       Number.isInteger(insertResult),
@@ -241,7 +249,10 @@ module.exports = (() => {
 
       return false;
     } else {
-      await insert('subscriptions', ['airport_from_id', 'airport_to_id'], [flyFromParsed, flyToParsed]);
+      await insert('subscriptions', {
+        airport_from_id: flyFromParsed,
+        airport_to_id: flyToParsed
+      });
 
       return true;
     }

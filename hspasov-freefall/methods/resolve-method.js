@@ -195,8 +195,6 @@ async function search (params, db) {
     .map(flyDurationExcluder)
     .sort(comparePrices)
     .map(flightsInRouteSorter);
-  console.log(routesFiltered);
-  console.log(routes[0].route);
 
   result.routes = routesFiltered;
   result.status_code = 1000;
