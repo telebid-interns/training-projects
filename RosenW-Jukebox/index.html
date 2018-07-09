@@ -3,6 +3,16 @@
     <link rel="stylesheet" type="text/css" href="./bootstrap.css">
   </head>
    <body>
+
+    <dialog id="dialog">
+      <form method="dialog">
+        <p>Successfuly unsubscribed !</p>
+        <menu>
+          <button id="close-dialog-btn" type="submit">close</button>
+        </menu>
+      </form>
+    </dialog>
+
     <div class="form-inline">
       <input type="text" id='channel' placeholder="Enter Youtube Channel link" class="form-control">
       <button id='sub-btn' class='btn btn-default'> Subscribe </button>
@@ -25,4 +35,5 @@
   </body>
 </html>
 
+<script src="./asserts.js"></script>
 <script src="./jukebox.js"></script>
