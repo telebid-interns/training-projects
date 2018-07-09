@@ -250,13 +250,21 @@ function buttonLock (func) {
   };
 }
 
-let jsonpRequestId = 1;
+const getNextID = (() => {
+  const generator = (function * uniqueIDGenerator () {
+    let count = 1;
+    while (true) {
+      yield count++;
+    }
+  })();
+
+  return () => generator.next().value;
+})();
+
 
 function fetchJSONP (url, params) {
   return new Promise((resolve, reject) => {
-    let callbackName = 'jsonp' + new Date().getTime() + jsonpRequestId;
-
-    jsonpRequestId++;
+    let callbackName = 'jsonp' + new Date().getTime() + getNextID();
 
     params['callback'] = callbackName;
 
@@ -668,6 +676,7 @@ const TableAPI = {
 
   hookDialogEvents: (cell) => {
     let dialog = cell.getElementsByTagName('dialog')[0];
+    dialog.setAttribute('id', 'dialog-' + getNextID());
 
     if (!dialog) {
       return;
@@ -686,6 +695,7 @@ const TableAPI = {
     dialog.getElementsByTagName('button')[0]
       .addEventListener('click', () => {
         console.log('closing dialog', dialog);
+        console.log(dialog.close);
         dialog.close();
       });
   },
