@@ -675,29 +675,26 @@ const TableAPI = {
   },
 
   hookDialogEvents: (cell) => {
-    let dialog = cell.getElementsByTagName('dialog')[0];
-    dialog.setAttribute('id', 'dialog-' + getNextID());
+    let dialogElement = cell.getElementsByTagName('dialog')[0];
 
-    if (!dialog) {
+    if (!dialogElement) {
       return;
     }
 
+    dialogElement.setAttribute('id', 'dialog-' + getNextID());
     cell.addEventListener('click', () => {
       // does not work in firefox 60.0.2 for Ubunutu
-      SystemError.assert(dialog.showModal && dialog.close,
+      SystemError.assert(dialogElement.showModal && dialogElement.close,
         `We're sorry but displaying extra 
                     information is not supported in your browser. 
                     Please use another (chrome).`
       );
 
-      dialog.showModal();
+      dialogElement.showModal();
     });
-    dialog.getElementsByTagName('button')[0]
-      .addEventListener('click', () => {
-        console.log('closing dialog', dialog);
-        console.log(dialog.close);
-        dialog.close();
-      });
+
+    dialogElement.getElementsByTagName('button')[0]
+      .addEventListener('click', () => dialogElement.close());
   },
 
   headerOrder: () => {
@@ -732,20 +729,21 @@ const TableAPI = {
 
       titleElement.textContent = title;
 
-      if (hasChainedProperties(['album.image'], track)) {
-        let imageSrc = '';
+      let imageSrc = '';
 
+      if (hasChainedProperties(['album.image'], track)) {
         for (let image of track.album.image) {
           if (image['#text']) {
             imageSrc = image['#text'];
           }
         }
+      }
 
-        dialog.getElementsByTagName('img')[0].setAttribute('src',
-          imageSrc
-        );
-
+      if (imageSrc) {
+        dialog.getElementsByTagName('img')[0].setAttribute('src', imageSrc);
         TableAPI.hookDialogEvents(cell);
+      } else {
+        dialog.remove();
       }
     },
     'track': (sub, track, cell) => {
