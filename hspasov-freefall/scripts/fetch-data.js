@@ -174,7 +174,9 @@ async function getSubscriptionData (airportEndPoints, fetchId, offset) {
 
   log(`FROM ${airportFrom} to ${airportTo} (offset: ${offset}): data for ${airportsSet.length} airports. Getting data...`);
 
-  await Promise.all(airportsSet.map((IATACode) => getAirportIfNotExists(IATACode)));
+  await Promise.all(airportsSet.map((IATACode) => {
+    return getAirportIfNotExists(IATACode);
+  }));
 
   log('Finished getting data for airports.');
 
