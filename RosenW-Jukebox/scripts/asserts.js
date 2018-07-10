@@ -3,7 +3,12 @@ class CustomError extends Error {
     super(err);
   }
 }
-class UserError extends CustomError {}
+class UserError extends CustomError {
+  constructor(err) {
+    super(err);
+    handleUserError(err);
+  }
+}
 
 class PeerError extends CustomError {
   constructor(err) {

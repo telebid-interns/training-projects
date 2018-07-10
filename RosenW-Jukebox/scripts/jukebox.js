@@ -41,14 +41,12 @@ function loadLocalStorage () {
 }
 
 async function relistChannel (channel) {
-  const link = channelList.filter(e => e.name === channel)[0].link;
+  const { link } = channelList.find(e => e.name === channel);
   const channelId = link.split('/channel/')[1];
 
   allVids = allVids.filter(e => e.channel !== channel);
 
-  let from = checkFilter(channel);
-
-  let publishedAfter;
+  const from = getDateByFilter(channel);
 
   const params = {
     channelId: channelId,
@@ -57,20 +55,20 @@ async function relistChannel (channel) {
     type: 'video',
     maxResults: '50',
     videoCategoryId: '10',
-    publishedAfter: from
+    publishedAfter: from,
   };
-  const reqLink = 'https://www.googleapis.com/youtube/v3/search?' + toQueryString(params);
+  const reqLink = `https://www.googleapis.com/youtube/v3/search?${toQueryString(params)}`;
 
-  let items = [];
+  const items = [];
   let data = await makeRequest(reqLink);
-  items.push(...data.items);
+  items.push(...data.items); // use concat
 
-  while(data.nextPageToken != null){
+  while (data.nextPageToken != null) {
     data = await makeRequest(`${reqLink}&pageToken=${data.nextPageToken}`);
     items.push(...data.items);
   }
 
-  if(items.length <= 0){
+  if (items.length <= 0) {
     displayVideos();
     return;
   }
@@ -81,9 +79,7 @@ async function relistChannel (channel) {
     'Youtube responded with wrong data'
   );
 
-  const channelName = items[0].snippet.channelTitle;
-
-  saveAndDisplayVids(items); // rename items to vids
+  saveAndDisplayVids(items); // rename items
 }
 
 async function subscribe () {
@@ -95,9 +91,9 @@ async function subscribe () {
   const channelInfoParams = {
     id: channelId,
     key: YT_API_KEY,
-    part: 'snippet'
+    part: 'snippet',
   };
-  const channelData = await makeRequest('https://www.googleapis.com/youtube/v3/channels?' + toQueryString(channelInfoParams));
+  const channelData = await makeRequest(`https://www.googleapis.com/youtube/v3/channels?${toQueryString(channelInfoParams)}`);
   const channelName = channelData.items[0].snippet.title;
 
   for (const channel of channelList) {
@@ -106,11 +102,11 @@ async function subscribe () {
 
   const channelObj = {
     name: channelName,
-    link
+    link,
   };
   channelList.push(channelObj);
 
-  let from = new Date(checkFilter('global')).toISOString();
+  const from = new Date(getDateByFilter('global')).toISOString();
 
   const params = {
     channelId: channelId,
@@ -119,24 +115,23 @@ async function subscribe () {
     type: 'video',
     maxResults: '50',
     videoCategoryId: '10',
-    publishedAfter: from
+    publishedAfter: from,
   };
-  const reqLink = 'https://www.googleapis.com/youtube/v3/search?' + toQueryString(params);
+  const reqLink = `https://www.googleapis.com/youtube/v3/search?${toQueryString(params)}`;
 
   channelTextBox.value = '';
 
-
-  let items = [];
+  const items = []; // make function
   let songs = await makeRequest(reqLink);
   items.push(...songs.items);
 
-  while(songs.nextPageToken != null){
+  while (songs.nextPageToken != null) {
     songs = await makeRequest(`${reqLink}&pageToken=${songs.nextPageToken}`);
     items.push(...songs.items);
   }
   assertPeer(Array.isArray(songs.items), 'Youtube responded with wrong data');
 
-  if(items.length <= 0){
+  if (items.length <= 0) {
     showChannels();
     return;
   }
@@ -147,7 +142,7 @@ async function subscribe () {
     'Youtube responded with wrong data'
   );
 
-  if(items.length <= 0) return;
+  if (items.length <= 0) return;
 
   saveAndDisplayVids(items);
 }
@@ -163,14 +158,16 @@ function saveAndDisplayVids (videos) {
       song: '',
       album: '',
       duration: '',
-      date: ''
+      date: '',
     };
     const videoTitle = video.snippet.title; // remove undef
     assertPeer(videoTitle !== undefined, 'Unexpected Youtube response - video has no title');
     const artAndSong = extractArtistsAndSongFromTitle(videoTitle); // setting song and artsts
 
-    if (artAndSong === undefined || typeof artAndSong === undefined || artAndSong.artists.length === 0) {
-      console.log("Didn't recognise artist and song from video: " + videoTitle); // add to array
+    if (artAndSong === undefined ||
+        typeof artAndSong === undefined ||
+        artAndSong.artists.length === 0) {
+      console.log(`Didn't recognise artist and song from video: ${videoTitle}`); // add to array
       continue;
     }
 
@@ -184,12 +181,12 @@ function saveAndDisplayVids (videos) {
       api_key: LAST_FM_API_KEY,
       artist: videoObj.artists[0].trim(),
       track: videoObj.song,
-      format: 'json'
+      format: 'json',
     };
-    const lastfmReqLink = 'http://ws.audioscrobbler.com/2.0/?method=track.getInfo&' + toQueryString(params);
+    const lastfmReqLink = `http://ws.audioscrobbler.com/2.0/?method=track.getInfo&${toQueryString(params)}`;
     const currPromise = makeRequest(lastfmReqLink)
       .then((data) => {
-        if(data === undefined){
+        if (data === undefined) {
           return;
         }
 
@@ -232,17 +229,17 @@ function saveAndDisplayVids (videos) {
 }
 
 function showChannels () {
-  let displayedChannels = channelsElement.getElementsByClassName('list-group-item');
-  let channelElements = [... displayedChannels];
+  const displayedChannels = channelsElement.getElementsByClassName('list-group-item');
+  const channelElements = [...displayedChannels];
 
   for (const channel of channelList) {
     let exists = false;
     for (const li of channelElements) {
-      if(li.id === channel.name){
+      if (li.id === channel.name) {
         exists = true;
       }
     }
-    if(exists) continue;
+    if (exists) continue;
 
     const currChannel = channel.name;
     const link = channel.link;
@@ -256,16 +253,16 @@ function showChannels () {
     liElement.setAttribute('class', 'list-group-item col-lg-4 col-md-4 col-sm-4 col-xs-4');
     liElement.setAttribute('id', currChannel);
 
-    pElement.setAttribute('id', 'name-' + currChannel);
+    pElement.setAttribute('id', `name-${currChannel}`);
     pElement.setAttribute('class', 'text-center');
 
     aElement.setAttribute('href', link);
-    aElement.appendChild(document.createTextNode(currChannel + ' '));
+    aElement.appendChild(document.createTextNode(`${currChannel} `));
 
     unsubBtn.setAttribute('class', 'btn btn-default pull-right');
-    unsubBtn.setAttribute('id', 'unsub-' + currChannel);
+    unsubBtn.setAttribute('id', `unsub-${currChannel}`);
     unsubBtn.innerHTML = 'Unsubscribe';
-    unsubBtn.addEventListener('click', function (event) {
+    unsubBtn.addEventListener('click', (event) => {
       dialog.showModal();
       const chName = event.target.id.substr(6, event.target.id.length);
       const removeElement = document.getElementById(chName);
@@ -281,14 +278,14 @@ function showChannels () {
     });
 
     const filterElement = document.createElement('select');
-    filterElement.setAttribute('id', 'select-' + currChannel);
+    filterElement.setAttribute('id', `select-${currChannel}`);
     filterElement.setAttribute('class', 'pull-left');
     filterElement.addEventListener('change', () => {
       relistChannel(currChannel);
     });
 
     const filterLabel = document.createElement('label');
-    filterLabel.setAttribute('for', 'select-' + currChannel);
+    filterLabel.setAttribute('for', `select-${currChannel}`);
     filterLabel.setAttribute('class', 'pull-left');
     filterLabel.innerHTML = 'Filter by date: ';
 
@@ -330,20 +327,20 @@ function updateLocalStorage () {
 }
 
 function getLastWeek () {
-  let lastWeek = new Date();
+  const lastWeek = new Date();
   lastWeek.setDate(lastWeek.getDate() - lastWeek.getDay());
   return Date.parse(lastWeek);
 }
 
 function getLastMonth () {
-  let lastMonth = new Date();
+  const lastMonth = new Date();
   lastMonth.setDate(1);
   lastMonth.setMonth(lastMonth.getMonth() - 1);
   return Date.parse(lastMonth);
 }
 
 function getLastYear () {
-  let lastYear = new Date();
+  const lastYear = new Date();
   lastYear.setMonth(1);
   lastYear.setYear(lastYear.getFullYear() - 1);
   return Date.parse(lastYear);
@@ -352,7 +349,7 @@ function getLastYear () {
 async function displayVideos () {
   await cleanTable();
   for (const vid of allVids) {
-    if(Date.parse(checkFilter(vid.channel)) <= Date.parse(vid.date)){
+    if (Date.parse(getDateByFilter(vid.channel)) <= Date.parse(vid.date)) {
       addVideoToTable(vid);
     }
   }
@@ -360,24 +357,24 @@ async function displayVideos () {
 
 function cleanTable () {
   const tableHeaders = ['Date', 'Artist', 'Song', 'Duration', 'Album'];
-  const headers = tableHeaders.map((header) => '<th>' + header + '</th>').join('');
+  const headers = tableHeaders.map((header) => `<th>${header}</th>`).join('');
   table.innerHTML = `<tr>${headers}</tr>`;
 }
 
 function addVideoToTable (video) { // datafication
-  let row = table.insertRow(-1);
+  const row = table.insertRow(-1);
 
-  let dateCell = row.insertCell(0);
-  let artistCell = row.insertCell(1);
-  let songCell = row.insertCell(2);
-  let durationCell = row.insertCell(3);
-  let albumCell = row.insertCell(4);
+  const dateCell = row.insertCell(0);
+  const artistCell = row.insertCell(1);
+  const songCell = row.insertCell(2);
+  const durationCell = row.insertCell(3);
+  const albumCell = row.insertCell(4);
 
-  let artistText = document.createTextNode(video.artists.join(', '));
-  let songText = document.createTextNode(video.song);
-  let albumText = document.createTextNode(video.album);
-  let durationText = document.createTextNode(video.duration);
-  let dateText = document.createTextNode(video.date.substr(0, 10));
+  const artistText = document.createTextNode(video.artists.join(', '));
+  const songText = document.createTextNode(video.song);
+  const albumText = document.createTextNode(video.album);
+  const durationText = document.createTextNode(video.duration);
+  const dateText = document.createTextNode(video.date.substr(0, 10));
 
   artistCell.appendChild(artistText);
   songCell.appendChild(songText);
@@ -390,16 +387,16 @@ function addVideoToTable (video) { // datafication
 function extractArtistsAndSongFromTitle (title) {
   const titleTokens = title.split(' - ');
 
-  let artistRegex = /(?<=vs|&|ft\.|feat\.|^)(.*?)(?=vs|&|ft\.|feat\.|$| - )/gi; // make code generated regex with []
-  let songRegex = /(?<= - ).*?(?=vs|&|ft\.|feat\.|$|\(|\[)/gi;
-  let songMatchArr = title.match(songRegex);
+  const artistRegex = /(?<=vs|&|ft\.|feat\.|^)(.*?)(?=vs|&|ft\.|feat\.|$| - )/gi; // make code generated regex with []
+  const songRegex = /(?<= - ).*?(?=vs|&|ft\.|feat\.|$|\(|\[)/gi;
+  const songMatchArr = title.match(songRegex);
 
   if (songMatchArr == null) {
     return;
   }
 
   let artists = title.match(artistRegex);
-  let song = songMatchArr[0].replace(/"/g, '').trim();
+  const song = songMatchArr[0].replace(/"/g, '').trim();
 
   if (artists.length === 0 || song === '' || song == null) {
     return;
@@ -409,23 +406,23 @@ function extractArtistsAndSongFromTitle (title) {
 
   return {
     artists,
-    song
+    song,
   };
 }
 
 function msToMinutesAndSeconds (ms) {
   const minutes = Math.floor(ms / 60000);
   const seconds = ((ms % 60000) / 1000).toFixed(0);
-  return minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+  return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
 }
 
 // fetch wrapper
-async function makeRequest(link, options){
+async function makeRequest (link, options) {
   try {
     const response = await fetch(link, options);
 
     if (response.status !== 200) {
-      console.log('Status Code Error: ' + response.status);
+      console.log(`Status Code Error: ${response.status}`);
       return;
     }
     return response.json();
@@ -446,17 +443,13 @@ function toQueryString (params) { // check type
   return result.join('&');
 }
 
-function handlePeerError (err) {
-  console.log(err);
-}
-
-function isObject(obj){
+function isObject (obj) {
   return typeof obj === 'object' && obj != null;
 }
 
-function checkFilter (channel) {
-  let filterElement = document.getElementById('select-' + channel);
-  if(filterElement == null){
+function getDateByFilter (channel) {
+  let filterElement = document.getElementById(`select-${channel}`);
+  if (filterElement == null) {
     filterElement = document.getElementById('select-global');
   }
   const value = filterElement.options[filterElement.selectedIndex].value;
@@ -467,10 +460,18 @@ function checkFilter (channel) {
   } else if (value === 'month') {
     returnDate = getLastMonth();
   } else if (value === 'year') {
-    returnDate =  getLastYear();
+    returnDate = getLastYear();
   } else {
     returnDate = 0;
   }
 
   return new Date(returnDate).toISOString();
+}
+
+function handlePeerError (err) {
+  console.log(err);
+}
+
+function handleUserError (err) {
+  console.log(err);
 }
