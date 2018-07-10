@@ -17,6 +17,7 @@ const channelTextBox = document.getElementById('channel');
 const dialog = document.getElementById('dialog');
 const closeBtn = document.getElementById('close-dialog-btn');
 const channelsElement = document.getElementById('channels');
+const errorMessageElement = document.getElementById('error-msg');
 
 closeBtn.addEventListener('click', dialog.close);
 
@@ -66,7 +67,7 @@ async function relistChannel (channel) {
     return;
   }
 
-  assertPeer( // _.get (lodash)
+  assertPeer(
     isObject(videos[0].snippet) &&
     typeof videos[0].snippet.channelTitle === 'string',
     'Youtube responded with wrong data'
@@ -100,7 +101,6 @@ async function subscribe () {
   channelList.push(channelObj);
 
   const from = new Date(getDateByFilter('global')).toISOString();
-
   const params = {
     channelId: channelId,
     key: YT_API_KEY,
@@ -122,7 +122,7 @@ async function subscribe () {
     return;
   }
 
-  assertPeer( // _.get (lodash)
+  assertPeer( 
     isObject(items[0].snippet) &&
     typeof items[0].snippet.channelTitle === 'string',
     'Youtube responded with wrong data'
@@ -146,18 +146,18 @@ function saveAndDisplayVids (videos) {
       duration: '',
       date: '',
     };
-    const videoTitle = video.snippet.title; // remove undef
-    assertPeer(videoTitle !== undefined, 'Unexpected Youtube response - video has no title');
+    const videoTitle = video.snippet.title;
+    assertPeer(typeof videoTitle === 'string', 'Unexpected Youtube response - video has no title');
     const artAndSong = extractArtistsAndSongFromTitle(videoTitle);
 
-    if (artAndSong === undefined ||
-        typeof artAndSong === undefined ||
+    if (artAndSong == null ||
+        typeof artAndSong == null ||
         artAndSong.artists.length === 0) {
       console.log(`Didn't recognise artist and song from video: ${videoTitle}`);
       continue;
     }
 
-    assertPeer(video.snippet.channelTitle !== undefined, 'Unexpected Youtube response - channel name not present');
+    assertPeer(typeof video.snippet.channelTitle === 'string', 'Unexpected Youtube response - channel name not present');
 
     videoObj.channel = video.snippet.channelTitle;
     videoObj.artists = artAndSong.artists;
@@ -186,7 +186,7 @@ function saveAndDisplayVids (videos) {
             videoObj.album = data.track.album.title;
           }
 
-          if (typeof data.track.duration === undefined || data.track.duration === '0') { // undef ===
+          if (typeof data.track.duration === undefined || data.track.duration === '0') {
             videoObj.duration = NO_INFORMATION_FOUND_MSG;
           } else {
             videoObj.duration = data.track.duration;
@@ -354,11 +354,11 @@ function cleanTable () {
 
 function addVideoToTable (video) {
   const cellValues = {
+    date: video.date.substr(0, 10),
     artists: video.artists.join(', '),
     song: video.song,
-    album: video.album,
     duration: video.duration,
-    date: video.date.substr(0, 10)
+    album: video.album
   }
 
   const row = table.insertRow(-1);
@@ -371,11 +371,13 @@ function addVideoToTable (video) {
 }
 
 function extractArtistsAndSongFromTitle (title) {
-  const titleTokens = title.split(' - ');
-  let featWords = ['vs', '&', 'ft\.', 'feat\.']; // complete
+  const regexFeatStr = ['vs', '&', 'ft\\.', 'feat\\.'].join('|');
+  const artistRegexPattern = `(?<=${regexFeatStr}|^)(.*?)(?=${regexFeatStr}|$| - )`;
+  const songRegexPattern = `(?<= - ).*?(?=${regexFeatStr}|$|\\(|\\[)`;
 
-  const artistRegex = /(?<=vs|&|ft\.|feat\.|^)(.*?)(?=vs|&|ft\.|feat\.|$| - )/gi; // make code generated regex with []
-  const songRegex = /(?<= - ).*?(?=vs|&|ft\.|feat\.|$|\(|\[)/gi;
+  const artistRegex = new RegExp(artistRegexPattern, 'gi');
+  const songRegex = new RegExp(songRegexPattern, 'gi');
+
   const songMatchArr = title.match(songRegex);
 
   if (songMatchArr == null) {
@@ -456,11 +458,15 @@ function getDateByFilter (channel) {
 }
 
 function handlePeerError (err) {
-  console.log(err);
+  errorMessageElement.removeAttribute('hidden');
+  errorMessageElement.innerHTML = err;
+  setTimeout(() => {errorMessageElement.setAttribute('hidden', '');}, 2000);
 }
 
 function handleUserError (err) {
-  console.log(err);
+  errorMessageElement.removeAttribute('hidden');
+  errorMessageElement.innerHTML = err;
+  setTimeout(() => {errorMessageElement.setAttribute('hidden', '');}, 2000);
 }
 
 async function getAllVideos (link) {
