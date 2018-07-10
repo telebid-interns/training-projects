@@ -4,8 +4,8 @@
   "description": "FreeFall app backend",
   "main": "index.js",
   "scripts": {
-    "server": "semistandard && node ./server.js",
-    "fetch": "semistandard && node ./scripts/fetch-data.js"
+    "server": "eslint && node ./server.js",
+    "fetch": "eslint && node ./scripts/fetch-data.js"
   },
   "repository": "https://github.com/hspasov/training-projects/tree/master/hspasov-freefall",
   "author": "Hristo Spasov",
@@ -25,12 +25,8 @@
     "sqlite": "^2.9.2"
   },
   "devDependencies": {
-    "semistandard": "^12.0.1"
-  },
-  "semistandard": {
-    "ignore": [
-      "all_flight_params.js",
-      "public"
-    ]
+    "babel-eslint": "^8.2.5",
+    "eslint-config-semistandard-react": "^4.2.0",
+    "eslint-plugin-semistandard-react": "^4.1.0"
   }
 }

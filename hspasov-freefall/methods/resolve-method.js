@@ -1,7 +1,7 @@
 const SERVER_TIME_FORMAT = 'Y-MM-DDTHH:mm:ssZ';
 const { assertPeer, assertApp, PeerError } = require('../modules/error-handling');
 const { toSmallestCurrencyUnit, fromSmallestCurrencyUnit } = require('../modules/utils');
-const { isObject } = require('lodash');
+const { isObject, each } = require('lodash');
 const moment = require('moment');
 
 function dbToAPIRouteFlight (routeFlight) {
@@ -25,7 +25,7 @@ function dbToAPIRouteFlight (routeFlight) {
     atime: routeFlight.atime,
     airline_logo: routeFlight.logoURL,
     airline_name: routeFlight.airlineName,
-    flight_number: routeFlight.flightNumber
+    flight_number: routeFlight.flightNumber,
   };
 }
 
@@ -47,16 +47,16 @@ async function search (params, db) {
   params.price_to = toSmallestCurrencyUnit(params.price_to);
 
   const result = {
-    currency: params.currency
+    currency: params.currency,
   };
 
-  const subscriptions = await db.selectSubscriptions(+params.fly_from, +params.fly_to);
+  const subs = await db.selectSubscriptions(+params.fly_from, +params.fly_to);
 
-  if (subscriptions <= 0) {
+  if (subs <= 0) {
     await subscribe({
       v: params.v,
       fly_from: params.fly_from,
-      fly_to: params.fly_to
+      fly_to: params.fly_to,
     }, db);
 
     result.status_code = 2000;
@@ -66,14 +66,14 @@ async function search (params, db) {
   }
 
   assertApp(
-    subscriptions.length === 1 &&
-    isObject(subscriptions[0]) &&
-    Number.isInteger(subscriptions[0].fetchId) &&
-    typeof subscriptions[0].timestamp === 'string',
+    subs.length === 1 &&
+    isObject(subs[0]) &&
+    Number.isInteger(subs[0].fetchId) &&
+    typeof subs[0].timestamp === 'string',
     'Invalid subscription data.'
   );
 
-  const fetchId = subscriptions[0].fetchId;
+  const fetchId = subs[0].fetchId;
   const routesAndFlights = await db.selectRoutesFlights(fetchId, params);
 
   assertApp(
@@ -83,7 +83,7 @@ async function search (params, db) {
 
   const routesHash = {};
 
-  for (const routeFlight of routesAndFlights) {
+  each(routesAndFlights, (routeFlight) => {
     assertApp(
       isObject(routeFlight) &&
       Number.isInteger(routeFlight.routeId) &&
@@ -95,17 +95,17 @@ async function search (params, db) {
     routesHash[routeFlight.routeId] = routesHash[routeFlight.routeId] || {
       booking_token: routeFlight.bookingToken,
       price: fromSmallestCurrencyUnit(routeFlight.price),
-      route: []
+      route: [],
     };
 
     assertApp(Array.isArray(routesHash[routeFlight.routeId].route));
 
     routesHash[routeFlight.routeId].route.push(routeFlight);
-  }
+  });
 
   const routes = [];
 
-  for (const routeId in routesHash) {
+  each(routesHash, (routeId) => {
     assertApp(
       isObject(routesHash) &&
       isObject(routesHash[routeId]) &&
@@ -113,8 +113,11 @@ async function search (params, db) {
       'Invalid database route response'
     );
 
+    const routeData = routesHash[routeId];
+    const route = routeData.route;
+
     assertApp(
-      routesHash[routeId].route.every(flight => {
+      route.every(flight => {
         return Number.isInteger(flight.afromId) &&
           Number.isInteger(flight.atoId) &&
           typeof flight.airlineName === 'string' &&
@@ -129,17 +132,29 @@ async function search (params, db) {
       'Invalid database flight response.'
     );
 
-    if (
-      routesHash.hasOwnProperty(routeId) &&
-      routesHash[routeId].route.some((flight) => flight.afromId === +params.fly_from) &&
-      routesHash[routeId].route.some((flight) => flight.atoId === +params.fly_to)
-    ) {
+    const hasMatchingDepartureAirport = (flight) => {
+      return flight.afromId === +params.fly_from;
+    };
+
+    const hasMatchingArrivalAirport = (flight) => {
+      return flight.atoId === +params.fly_to;
+    };
+
+    const areEndpointsCorrect = (routesHash, routeId) => {
+      return route.some(hasMatchingDepartureAirport) &&
+        route.some(hasMatchingArrivalAirport);
+    };
+
+    if (areEndpointsCorrect(routesHash, routeId)) {
+      const routeAPIFormat = route.map((flight) => {
+        return dbToAPIRouteFlight(flight);
+      });
       routes.push({
-        ...routesHash[routeId],
-        route: routesHash[routeId].route.map((flight) => dbToAPIRouteFlight(flight))
+        ...routeData,
+        route: routeAPIFormat,
       });
     }
-  }
+  });
 
   const flyDurationCalculator = (acc, flight) => {
     const arrivalTime = moment(flight.atime, SERVER_TIME_FORMAT);
@@ -155,12 +170,18 @@ async function search (params, db) {
     return { route, flyDuration };
   };
 
-  const flyDurationFilter = (route) => !params.max_fly_duration || route.flyDuration <= params.max_fly_duration;
+  const flyDurationFilter = (route) => {
+    return (
+      !params.max_fly_duration ||
+      route.flyDuration <= params.max_fly_duration
+    );
+  };
+
   const flyDurationExcluder = (route) => {
     return { ...route.route };
   };
 
-  const comparePrices = function comparePrices (route1, route2) {
+  const cmpPrices = function cmpPrices (route1, route2) {
     if (route1.price > route2.price) {
       return 1;
     } else if (route1.price < route2.price) {
@@ -169,7 +190,7 @@ async function search (params, db) {
     return 0;
   };
 
-  const compareDepartureTimes = function compareDepartureTimes (flight1, flight2) {
+  const cmpDepartureTimes = function cmpDepartureTimes (flight1, flight2) {
     const departureTime1 = moment(flight1.dtime, SERVER_TIME_FORMAT);
     const departureTime2 = moment(flight2.dtime, SERVER_TIME_FORMAT);
 
@@ -185,7 +206,7 @@ async function search (params, db) {
     // sorts flights in a route by departure time
     return {
       ...route,
-      route: route.route.sort(compareDepartureTimes)
+      route: route.route.sort(cmpDepartureTimes),
     };
   };
 
@@ -193,7 +214,7 @@ async function search (params, db) {
     .map(flyDurationIncluder)
     .filter(flyDurationFilter)
     .map(flyDurationExcluder)
-    .sort(comparePrices)
+    .sort(cmpPrices)
     .map(flightsInRouteSorter);
 
   result.routes = routesFiltered;
@@ -211,10 +232,13 @@ async function subscribe (params, db) {
     'Invalid subscribe request.'
   );
 
-  const isInserted = await db.insertIfNotExistsSubscription(+params.fly_from, +params.fly_to);
+  const flyFrom = +params.fly_from;
+  const flyTo = +params.fly_to;
+
+  const isInserted = await db.insertIfNotExistsSub(flyFrom, flyTo);
 
   return {
-    status_code: (isInserted) ? 1000 : 2000
+    status_code: (isInserted) ? 1000 : 2000,
   };
 }
 
@@ -227,10 +251,10 @@ async function unsubscribe (params, db) {
     'Invalid unsubscribe request.'
   );
 
-  const isDeleted = await db.deleteIfNotExistsSubscription(+params.fly_from, +params.fly_to);
+  const isDel = await db.delIfNotExistsSub(+params.fly_from, +params.fly_to);
 
   return {
-    status_code: (isDeleted) ? 1000 : 2000
+    status_code: (isDel) ? 1000 : 2000,
   };
 }
 
@@ -244,17 +268,17 @@ module.exports = function resolveMethod (body) {
   if (body.method === 'search') {
     return {
       name: 'search',
-      execute: search
+      execute: search,
     };
   } else if (body.method === 'subscribe') {
     return {
       name: 'subscribe',
-      execute: subscribe
+      execute: subscribe,
     };
   } else if (body.method === 'unsubscribe') {
     return {
       name: 'unsubscribe',
-      execute: unsubscribe
+      execute: unsubscribe,
     };
   } else {
     throw new PeerError(`Unknown method "${body.method}"`);

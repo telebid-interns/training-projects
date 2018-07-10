@@ -7,12 +7,12 @@ const {
   select,
   insertDataFetch,
   insertIfNotExists,
-  selectWhereColEquals,
-  insert
+  selectWhere,
+  insert,
 } = require('../modules/db');
 const { handleError, assertApp, assertPeer } = require('../modules/error-handling');
 const { log, requestJSON, toSmallestCurrencyUnit } = require('../modules/utils');
-const { isObject } = require('lodash');
+const { isObject, each } = require('lodash');
 const moment = require('moment');
 
 process.on('error', (err) => {
@@ -54,9 +54,9 @@ async function start () {
     return insertIfNotExists('airlines', {
       name: `${airline.name} (${airline.id})`,
       code: airline.id,
-      logo_url: `https://images.kiwi.com/airlines/64/${airline.id}.png`
+      logo_url: `https://images.kiwi.com/airlines/64/${airline.id}.png`,
     }, {
-      code: airline.id
+      code: airline.id,
     });
   }));
 
@@ -73,12 +73,12 @@ async function start () {
 
     const fetchId = await insertDataFetch(sub.id);
     const [airportFrom, airportTo] = await Promise.all([
-      selectWhereColEquals('airports', ['id', 'iata_code', 'name'], {
-        id: sub.airport_from_id
+      selectWhere('airports', ['id', 'iata_code', 'name'], {
+        id: sub.airport_from_id,
       }).then((r) => r[0]),
-      selectWhereColEquals('airports', ['id', 'iata_code', 'name'], {
-        id: sub.airport_to_id
-      }).then((r) => r[0])
+      selectWhere('airports', ['id', 'iata_code', 'name'], {
+        id: sub.airport_to_id,
+      }).then((r) => r[0]),
     ]);
 
     // assertApp(
@@ -95,13 +95,19 @@ async function start () {
     //   'Invalid airports data.'
     // );
 
-    await getAirportsAndFlights(airportFrom.iata_code, airportTo.iata_code, fetchId, 0);
+    const airportEndPoints = {
+      airportFrom: airportFrom.iata_code,
+      airportTo: airportTo.iata_code,
+    };
+
+    await getSubscriptionData(airportEndPoints, fetchId, 0);
   }
 
   log(`Checked ${subscriptions.length} subscriptions.`);
 }
 
-async function getAirportsAndFlights (airportFrom, airportTo, fetchId, offset) {
+async function getSubscriptionData (airportEndPoints, fetchId, offset) {
+  const { airportFrom, airportTo } = airportEndPoints;
   assertApp(
     typeof airportFrom === 'string' &&
     typeof airportTo === 'string',
@@ -122,7 +128,7 @@ async function getAirportsAndFlights (airportFrom, airportTo, fetchId, offset) {
     xml: '0',
     locale: 'en',
     offset: offset,
-    limit: ROUTES_LIMIT
+    limit: ROUTES_LIMIT,
   });
 
   assertPeer(
@@ -132,7 +138,7 @@ async function getAirportsAndFlights (airportFrom, airportTo, fetchId, offset) {
     'API sent invalid data response.'
   );
 
-  for (const data of response.data) {
+  each(response.data, (data) => {
     assertPeer(
       isObject(data) &&
       typeof data.booking_token === 'string' &&
@@ -141,7 +147,7 @@ async function getAirportsAndFlights (airportFrom, airportTo, fetchId, offset) {
       'API sent invalid route response.'
     );
 
-    for (const flight of data.route) {
+    each(data.route, (flight) => {
       assertPeer(
         isObject(flight) &&
         Number.isInteger(flight.flight_no) &&
@@ -163,8 +169,8 @@ async function getAirportsAndFlights (airportFrom, airportTo, fetchId, offset) {
       if (!airportsSet.includes(flight.flyTo)) {
         airportsSet.push(flight.flyTo);
       }
-    }
-  }
+    });
+  });
 
   log(`FROM ${airportFrom} to ${airportTo} (offset: ${offset}): data for ${airportsSet.length} airports. Getting data...`);
 
@@ -177,8 +183,8 @@ async function getAirportsAndFlights (airportFrom, airportTo, fetchId, offset) {
   await Promise.all(Object.values(flightsHash).map(async (flight) => {
     const airportCodes = [flight.flyFrom, flight.flyTo];
     const airportIds = await Promise.all(airportCodes.map(async (IATACode) => {
-      const selectResult = await selectWhereColEquals('airports', ['id'], {
-        iata_code: IATACode
+      const selectResult = await selectWhere('airports', ['id'], {
+        iata_code: IATACode,
       });
 
       assertApp(
@@ -191,8 +197,8 @@ async function getAirportsAndFlights (airportFrom, airportTo, fetchId, offset) {
       return selectResult[0].id;
     }));
 
-    const airlineIdResult = await selectWhereColEquals('airlines', ['id'], {
-      code: flight.airline
+    const airlineIdResult = await selectWhere('airlines', ['id'], {
+      code: flight.airline,
     });
 
     assertApp(
@@ -211,9 +217,9 @@ async function getAirportsAndFlights (airportFrom, airportTo, fetchId, offset) {
       dtime: moment.unix(flight.dTimeUTC).format(SERVER_TIME_FORMAT),
       atime: moment.unix(flight.aTimeUTC).format(SERVER_TIME_FORMAT),
       flight_number: flight.flight_no,
-      remote_id: flight.id
+      remote_id: flight.id,
     }, {
-      remote_id: flight.id
+      remote_id: flight.id,
     });
   }));
 
@@ -225,14 +231,14 @@ async function getAirportsAndFlights (airportFrom, airportTo, fetchId, offset) {
     const routeId = await insert('routes', {
       booking_token: data.booking_token,
       price: toSmallestCurrencyUnit(data.price),
-      fetch_id: fetchId
+      fetch_id: fetchId,
     });
 
     const flightsPromises = data.route.map(async (flight) => {
       log(`Inserting route ${routeId} flight ${flight.airline} ${flight.flight_no} from ${flight.flyFrom} to ${flight.flyTo} departure time ${moment.unix(flight.dTimeUTC).format(SERVER_TIME_FORMAT)} ...`);
 
-      const flightIdResults = await selectWhereColEquals('flights', ['id'], {
-        remote_id: flight.id
+      const flightIdResults = await selectWhere('flights', ['id'], {
+        remote_id: flight.id,
       });
 
       assertApp(
@@ -245,7 +251,7 @@ async function getAirportsAndFlights (airportFrom, airportTo, fetchId, offset) {
       return insert('routes_flights', {
         flight_id: flightIdResults[0].id,
         route_id: routeId,
-        is_return: flight.return
+        is_return: flight.return,
       });
     });
 
@@ -255,13 +261,13 @@ async function getAirportsAndFlights (airportFrom, airportTo, fetchId, offset) {
   await Promise.all(routesPromises);
 
   if (typeof response._next === 'string') {
-    await getAirportsAndFlights(airportFrom, airportTo, fetchId, offset + ROUTES_LIMIT);
+    await getSubscriptionData(airportEndPoints, fetchId, offset + ROUTES_LIMIT);
   }
 }
 
 async function getAirportIfNotExists (IATACode) {
-  const airports = await selectWhereColEquals('airports', ['id'], {
-    iata_code: IATACode
+  const airports = await selectWhere('airports', ['id'], {
+    iata_code: IATACode,
   });
 
   assertApp(
@@ -282,7 +288,7 @@ async function getAirportIfNotExists (IATACode) {
       term: IATACode,
       locale: 'en-US',
       location_types: 'airport',
-      limit: 1
+      limit: 1,
     });
 
     assertPeer(
@@ -297,7 +303,7 @@ async function getAirportIfNotExists (IATACode) {
 
     const airportId = await insert('airports', {
       iata_code: response.locations[0].code,
-      name: `${response.locations[0].name}, ${response.locations[0].code}`
+      name: `${response.locations[0].name}, ${response.locations[0].code}`,
     });
 
     return airportId;

@@ -108,8 +108,8 @@ function airportDump () { // eslint-disable-line no-unused-vars
         iataID: columns[1],
         latinName: columns[2],
         nationalName: '',
-        cityName: ''
-      }
+        cityName: '',
+      },
     ])
     .reduce((hash, entry) => {
       hash[entry[0]] = entry[1];

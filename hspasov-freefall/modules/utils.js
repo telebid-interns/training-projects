@@ -51,5 +51,5 @@ module.exports = {
   handleError,
   requestJSON,
   toSmallestCurrencyUnit,
-  fromSmallestCurrencyUnit
+  fromSmallestCurrencyUnit,
 };

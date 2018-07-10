@@ -24,7 +24,7 @@ function yamlParser () {
       yamlrpc: yaml.yamlrpc,
       method: yaml.action,
       params: yaml.parameters,
-      id: yaml.id
+      id: yaml.id,
     };
   };
 
@@ -40,7 +40,7 @@ function yamlParser () {
     const normalized = normalizeYAML(parseYAML(data));
     return {
       ...normalized,
-      version: normalized.yamlrpc
+      version: normalized.yamlrpc,
     };
   };
 
@@ -57,7 +57,7 @@ function yamlParser () {
     format: 'yaml',
     execute,
     stringify,
-    error
+    error,
   };
 }
 
@@ -65,7 +65,7 @@ function jsonParser () {
   const execute = (data) => {
     return {
       ...data,
-      version: data.jsonrpc
+      version: data.jsonrpc,
     };
   };
 
@@ -90,7 +90,7 @@ function jsonParser () {
     format: 'json',
     execute,
     stringify,
-    error
+    error,
   };
 }
 
@@ -145,7 +145,8 @@ function defineParsers (...args) {
     throw new PeerError('Unknown content type.');
   };
 
-  const stringify = (data, type, version, id) => {
+  const stringify = (data, metadata) => {
+    const { type, version, id } = metadata;
     assertType(type);
 
     for (const parser of parsers) {
@@ -182,12 +183,12 @@ function defineParsers (...args) {
   return {
     parse: parse(parsers),
     stringify,
-    error
+    error,
   };
 }
 
 module.exports = {
   defineParsers,
   jsonParser,
-  yamlParser
+  yamlParser,
 };

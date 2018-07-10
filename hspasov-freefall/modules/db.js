@@ -51,7 +51,7 @@ module.exports = (() => {
     return db.all(`SELECT ${stringifyColumns(columns)} FROM ${table};`);
   }
 
-  async function selectWhereColEquals (table, columns, where) {
+  async function selectWhere (table, columns, where) {
     assertDB();
     assertApp(
       typeof table === 'string' &&
@@ -207,12 +207,12 @@ module.exports = (() => {
   async function insertIfNotExists (table, data, existsCheck) {
     assertDB();
 
-    const selectResult = await selectWhereColEquals(table, Object.keys(data), existsCheck);
+    const found = await selectWhere(table, Object.keys(data), existsCheck);
 
-    assertApp(Array.isArray(selectResult), 'Invalid db response.');
+    assertApp(Array.isArray(found), 'Invalid db response.');
 
-    if (selectResult.length > 0) {
-      assertApp(selectResult.length === 1, 'Invalid db response.');
+    if (found.length > 0) {
+      assertApp(found.length === 1, 'Invalid db response.');
 
       // return flightIdResult[0].id;
       return false;
@@ -239,7 +239,7 @@ module.exports = (() => {
       WHERE airport_from_id = ? AND airport_to_id = ?;
     `, [
       flyFromParsed,
-      flyToParsed
+      flyToParsed,
     ]);
 
     assertApp(Array.isArray(subscriptions), 'Invalid select subscriptions response.');
@@ -251,14 +251,14 @@ module.exports = (() => {
     } else {
       await insert('subscriptions', {
         airport_from_id: flyFromParsed,
-        airport_to_id: flyToParsed
+        airport_to_id: flyToParsed,
       });
 
       return true;
     }
   }
 
-  async function deleteIfNotExistsSubscription (flyFrom, flyTo) {
+  async function delIfNotExistsSub (flyFrom, flyTo) {
     assertDB();
 
     const flyFromParsed = Number(flyFrom);
@@ -289,8 +289,8 @@ module.exports = (() => {
     insertIfNotExistsSubscription,
     selectSubscriptions,
     selectRoutesFlights,
-    selectWhereColEquals,
-    deleteIfNotExistsSubscription,
-    dbConnect
+    selectWhere,
+    delIfNotExistsSub,
+    dbConnect,
   };
 })();

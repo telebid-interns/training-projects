@@ -33,26 +33,26 @@ app.use(async (ctx, next) => {
     if (err instanceof PeerError) {
       ctx.body = parser.error({
         code: -32600,
-        message: err.message
+        message: err.message,
       }, {
         contentType: ctx.headers['content-type'],
-        format: ctx.query.format
+        format: ctx.query.format,
       });
     } else if (err instanceof UserError) {
       ctx.body = parser.stringify({
         code: 5000,
-        message: err.message
+        message: err.message,
       }, {
         contentType: ctx.headers['content-type'],
-        format: ctx.query.format
+        format: ctx.query.format,
       });
     } else {
       ctx.body = parser.stringify({
         code: 5000,
-        message: 'App error'
+        message: 'App error',
       }, {
         contentType: ctx.headers['content-type'],
-        format: ctx.query.format
+        format: ctx.query.format,
       });
     }
   }
@@ -62,13 +62,13 @@ db.dbConnect();
 
 app.use(logger());
 app.use(cors({
-  origin: '*'
+  origin: '*',
 }));
 app.use(bodyParser({
   extendTypes: {
-    text: ['text/yaml']
+    text: ['text/yaml'],
   },
-  enableTypes: ['json', 'form', 'text']
+  enableTypes: ['json', 'form', 'text'],
 }));
 app.use(serve(path.join(__dirname, 'public')));
 
@@ -77,14 +77,18 @@ app.context.db = db;
 router.post('/', async (ctx, next) => {
   const parsed = parser.parse(ctx.request.body, {
     contentType: ctx.headers['content-type'],
-    format: ctx.query.format
+    format: ctx.query.format,
   });
   const method = resolveMethod(parsed);
   const result = await method.execute(parsed.params, ctx.db);
   const stringified = parser.stringify(result, {
-    contentType: ctx.headers['content-type'],
-    format: ctx.query.format
-  }, parsed.version, parsed.id);
+    type: {
+      contentType: ctx.headers['content-type'],
+      format: ctx.query.format,
+    },
+    version: parsed.version,
+    id: parsed.id,
+  });
 
   ctx.status = 200;
   ctx.body = stringified;
@@ -99,4 +103,4 @@ app.use(router.routes());
 
 app.listen(3000);
 
-console.log('Listening on 3000...');
+// console.log('Listening on 3000...');

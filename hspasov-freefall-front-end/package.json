@@ -19,7 +19,13 @@
     ]
   },
   "dependencies": {
-    "live-server": "^1.2.0",
+    "live-server": "^1.2.0"
+  },
+  "devDependencies": {
+    "babel-eslint": "^8.2.5",
+    "eslint": "^5.1.0",
+    "eslint-config-semistandard-react": "^4.2.0",
+    "eslint-plugin-semistandard-react": "^4.1.0",
     "semistandard": "^12.0.1"
   }
 }

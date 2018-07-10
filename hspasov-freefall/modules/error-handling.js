@@ -34,5 +34,5 @@ module.exports = {
   PeerError,
   AppError,
   UserError,
-  handleError
+  handleError,
 };
