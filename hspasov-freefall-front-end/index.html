@@ -55,6 +55,13 @@
                     <label for="price-to" text-center">Max price</label>
                     <input id="price-to" class="form-control" name="price-to" placeholder="max-price" min="0" type="number">
                 </div>
+                <div class="form-group fixed-form-height">
+                    <label for="request-format" text-center">Request format</label>
+                    <select id="request-format" class="form-control">
+                        <option>jsonrpc</option>
+                        <option>yamlrpc</option>
+                    </select>
+                </div>
                 <div class="form-group fixed-form-height text-center">
                     <button id="submit-button" type="submit" class="btn btn-primary">Jump</button>
                     <button id="subscribe-button" class="btn btn-primary">Subscribe</button>
@@ -119,6 +126,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ajv/6.5.2/ajv.min.js"></script>
 <script src="js/dbdump.js"></script>
 <script src="js/json-schemas.js"></script>
+<script src="js/js-yaml/js-yaml.min.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

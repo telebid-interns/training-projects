@@ -44,6 +44,7 @@
     "getValidateSendErrorReq": true,
     "getValidateSendErrorRes": true,
     "Ajv": true,
+    "jsyaml": true,
     "window": true
   },
 }

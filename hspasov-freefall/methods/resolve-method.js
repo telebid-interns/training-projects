@@ -115,9 +115,11 @@ function search () {
 
     params.price_to = toSmallestCurrencyUnit(params.price_to);
 
-    const result = {
-      currency: params.currency,
-    };
+    const result = {};
+
+    if (params.currency) {
+      result.currency = params.currency;
+    }
 
     const subs = await db.selectSubscriptions(+params.fly_from, +params.fly_to);
 

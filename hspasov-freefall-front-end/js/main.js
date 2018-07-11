@@ -17,6 +17,7 @@ function start () {
     'Sunday',
   ];
   let jsonRPCRequestId = 1; // closures
+  let yamlRPCRequestId = 1;
   let $errorBar; // closures
   const errorMessagesQueue = [];
   const validateSearchReq = getValidateSearchReq();
@@ -278,7 +279,11 @@ function start () {
     let response;
 
     try {
-      response = await postJSON(SERVER_URL, request);
+      const requestString = JSON.stringify(request);
+      const responseString = await sendRequest(SERVER_URL, requestString, {
+        contentType: 'application/json',
+      });
+      response = await responseString.json();
     } catch (error) {
       throw new PeerError({
         msg: `failed to make a post request to server API, url: ${SERVER_URL}, request data: ${request}, error raised: ${error}`,
@@ -313,7 +318,47 @@ function start () {
     return response.result;
   }
 
-  async function postJSON (url, data) {
+  async function yamlRPCRequest (method, params) {
+    trace(`yamlRPCRequest(${method}, ${objToString(params)}), typeof arg1=${typeof method}, typeof arg2=${typeof params}`);
+
+    const request = {
+      yamlrpc: '2.0',
+      action: method,
+      parameters: params,
+      id: yamlRPCRequestId,
+    };
+
+    let response;
+
+    try {
+      const requestString = jsyaml.safeDump(request);
+      const responseObj = await sendRequest(SERVER_URL, requestString, {
+        contentType: 'text/yaml',
+      });
+      const responseString = await responseObj.text();
+      response = jsyaml.safeLoad(responseString);
+    } catch (error) {
+      throw new PeerError({
+        msg: `failed to make a post request to server API, url: ${SERVER_URL}, request data: ${request}, error raised: ${error}`,
+      });
+    }
+
+    yamlRPCRequestId++;
+
+    assertPeer(
+      ['yamlrpc', 'id'].every(prop => _.has(response, prop)) &&
+      response.result &&
+      !response.error &&
+      response.id !== null,
+      {
+        msg: `yamlrpc protocol error. Sent data: ${request}. Got response: ${response}.`,
+      }
+    );
+
+    return response.result;
+  }
+
+  async function sendRequest (url, data, type) {
     let serverResponse;
 
     try {
@@ -321,9 +366,9 @@ function start () {
         method: 'POST',
         mode: 'cors',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': type.contentType,
         },
-        body: JSON.stringify(data),
+        body: data,
       });
     } catch (e) {
       // TODO - check if JSON.stringify threw an error
@@ -341,7 +386,7 @@ function start () {
       }
     );
 
-    return serverResponse.json();
+    return serverResponse;
   }
 
   function sortRoute (route) {
