@@ -1,5 +1,6 @@
 import argparse
 import collections
+from pprint import pprint
 
 
 CORRIDOR = ' '
@@ -46,11 +47,14 @@ Corridor = collections.namedtuple('Corridor', ['row', 'col', 'type'])
 
 def adjacent_corridors(lab, corridor):
     row, col = (corridor.row, corridor.col)
+    row_len = len(lab)
+    col_len = len(lab[0])
     adjacent_indexes = [(row + 1, col),
                         (row - 1, col),
                         (row, col + 1),
                         (row, col - 1)]
-    adjacent = (lab[index] for index in adjacent_indexes)
+    adjacent = (lab[r][c] for r, c in adjacent_indexes
+                if 0 <= r < row_len and 0 <= c < col_len)
 
     for adj in adjacent:
         if adj.type in (EXIT, CORRIDOR):
@@ -68,20 +72,23 @@ def lab_from_arrays(arrays):
     return lab
 
 
-def find_exit(lab, start, end):
-    visited = {start}
-    current_path = [start]
+def find_exit(lab, start):
+    visited, queue = set(), collections.deque([[start]])
+    print("start dfs: ", start)
 
-    while current_path:
-        corridor = current_path[-1]
-        for adj in adjacent_corridors(lab, corridor):
-            if adj.type == EXIT:
-                current_path += adj
-                return adj
-            elif adj in visited:
-                current_path = current_path[:-1]
-            else:
-                
+    while queue:
+        path = queue.popleft()
+        last_corridor = path[-1]
+        if last_corridor.type == EXIT:
+            return path
+
+        for adj in adjacent_corridors(lab, last_corridor):
+            if adj not in visited:
+                new_path = [*path, adj]
+                queue.append(new_path)
+                visited.add(adj)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('file')
@@ -89,4 +96,11 @@ def main():
     args = parser.parse_args()
 
     with open(args.file, mode='r') as f:
-        print(PathGraph.from_arrays(eval(f.read())))
+        lab = lab_from_arrays(eval(f.read()))
+        pprint(lab)
+
+    print("exit:\n", find_exit(lab, lab[0][0]), sep='')
+
+
+if __name__ == '__main__':
+    main()
