@@ -2,6 +2,7 @@ const SERVER_TIME_FORMAT = 'Y-MM-DDTHH:mm:ssZ';
 const { assertPeer, assertApp, PeerError } = require('../modules/error-handling');
 const { toSmallestCurrencyUnit, fromSmallestCurrencyUnit } = require('../modules/utils');
 const { isFunction, isObject, each, forOwn } = require('lodash');
+const { log } = require('../modules/utils.js');
 const moment = require('moment');
 
 function search () {
@@ -277,6 +278,26 @@ function unsubscribe () {
   };
 }
 
+function sendError () {
+  const execute = async function execute (params, db) {
+    assertPeer(
+      isObject(params),
+      'Invalid senderror request',
+    );
+
+    log(params);
+
+    return {
+      status_code: 1000,
+    };
+  };
+
+  return {
+    name: 'senderror',
+    execute: execute,
+  };
+}
+
 function defineMethods (...args) {
   assertApp(
     args.every(isFunction),
@@ -316,4 +337,5 @@ module.exports = {
   search,
   subscribe,
   unsubscribe,
+  sendError,
 };

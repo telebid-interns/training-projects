@@ -11,6 +11,7 @@ const {
   search,
   subscribe,
   unsubscribe,
+  sendError,
 } = require('./methods/resolve-method');
 const { defineParsers, jsonParser, yamlParser } = require('./modules/normalize');
 const { PeerError, UserError } = require('./modules/error-handling');
@@ -18,7 +19,7 @@ const db = require('./modules/db');
 const { log } = require('./modules/utils');
 
 const parser = defineParsers(jsonParser, yamlParser);
-const execute = defineMethods(search, subscribe, unsubscribe);
+const execute = defineMethods(search, subscribe, unsubscribe, sendError);
 
 const app = new Koa();
 const router = new Router();

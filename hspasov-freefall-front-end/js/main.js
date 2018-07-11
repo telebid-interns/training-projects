@@ -23,6 +23,8 @@ function start () {
   const validateSearchRes = getValidateSearchRes();
   const validateSubscriptionReq = getValidateSubscriptionReq();
   const validateSubscriptionRes = getValidateSubscriptionRes();
+  const validateSendErrorReq = getValidateSendErrorReq();
+  const validateSendErrorRes = getValidateSendErrorRes();
   const traceLog = [];
 
   function trace (msg) {
@@ -53,42 +55,43 @@ function start () {
   }
 
   class BaseError extends Error {
-    constructor ({userMessage, logs}) {
+    constructor ({userMessage, msg}) {
       super(userMessage);
 
       this.userMessage = userMessage;
-      this.logs = logs;
+      this.msg = msg;
 
-      if (this.logs) {
-        // TODO log error
-      }
+      sendError({
+        msg,
+        trace: traceLog,
+      });
     }
   }
 
   class ApplicationError extends BaseError {
-    constructor ({userMessage, logs}) {
+    constructor ({userMessage, msg}) {
       if (!userMessage) {
         userMessage = 'Application encountered an unexpected condition. Please refresh the page.';
       }
-      super({userMessage, logs});
+      super({userMessage, msg});
 
       window.alert(userMessage);
     }
   }
 
   class PeerError extends BaseError {
-    constructor ({userMessage, logs}) {
+    constructor ({userMessage, msg}) {
       if (!userMessage) {
         userMessage = 'Service is not available at the moment. Please refresh the page and try' +
                       ' later.';
       }
-      super({userMessage, logs});
+      super({userMessage, msg});
     }
   }
 
   class UserError extends BaseError {
-    constructor ({userMessage, logs}) {
-      super({userMessage, logs});
+    constructor ({userMessage, msg}) {
+      super({userMessage, msg});
     }
   }
 
@@ -132,6 +135,10 @@ function start () {
       }
     }
     trace(`getAirport(${term}) returning undefined`);
+    throw new UserError({
+      userMessage: 'Could not find an airport. Please try again.',
+      msg: `Term '${term}', provided by user, could not be resolved to an airport`,
+    });
   }
 
   /**
@@ -143,11 +150,15 @@ function start () {
   async function search (params) {
     trace(`search(${objToString(params)}), typeof arg=${typeof params}`);
 
-    assertApp(validateSearchReq(params), 'Params do not adhere to searchRequestSchema.');
+    assertApp(validateSearchReq(params), {
+      msg: 'Params do not adhere to searchRequestSchema.',
+    });
 
     const response = await jsonRPCRequest('search', params);
 
-    assertPeer(validateSearchRes(response), 'Params do not adhere to searchResponseSchema.');
+    assertPeer(validateSearchRes(response), {
+      msg: 'Params do not adhere to searchResponseSchema.',
+    });
 
     for (const routeObj of response.routes) {
       // server doesn't provide currency yet
@@ -179,7 +190,9 @@ function start () {
   async function subscribe (params) {
     trace(`subscribe(${objToString(params)}), typeof arg=${typeof params}`);
 
-    assertApp(validateSubscriptionReq(params), 'Params do not adhere to subscriptionRequestSchema');
+    assertApp(validateSubscriptionReq(params), {
+      msg: 'Params do not adhere to subscriptionRequestSchema',
+    });
 
     let response;
 
@@ -193,16 +206,12 @@ function start () {
       throw e;
     }
 
-    assertPeer(validateSubscriptionRes(response), 'Params do not adhere to subscriptionResponseSchema');
-    assertPeer(response.status_code >= 1000 && response.status_code < 2000, {
+    assertPeer(validateSubscriptionRes(response), {
+      msg: 'Params do not adhere to subscriptionResponseSchema',
+    });
+    assertUser(response.status_code >= 1000 && response.status_code < 2000, {
       userMessage: `Already subscribed for flights from ${fromAirportLatinName} to ${toAirportLatinName}.`,
-      logs: [
-        'Tried to subscribe but subscription already existed.',
-        'Sent params: ',
-        params,
-        'Got response: ',
-        response,
-      ],
+      msg: `Tried to subscribe but subscription already existed. Sent params: ${params}. Got response: ${response}`,
     });
 
     return params;
@@ -211,7 +220,9 @@ function start () {
   async function unsubscribe (params) {
     trace(`unsubscribe(${objToString(params)}), typeof arg=${typeof params}`);
 
-    assertApp(validateSubscriptionReq(params), 'Params do not adhere to subscriptionRequestSchema');
+    assertApp(validateSubscriptionReq(params), {
+      msg: 'Params do not adhere to subscriptionRequestSchema',
+    });
 
     let response;
 
@@ -225,19 +236,34 @@ function start () {
       throw e;
     }
 
-    assertPeer(validateSubscriptionRes(response), 'Params do not adhere to subscriptionResponseSchema');
-    assertPeer(response.status_code >= 1000 && response.status_code < 2000, {
+    assertPeer(validateSubscriptionRes(response), {
+      msg: 'Params do not adhere to subscriptionResponseSchema',
+    });
+    assertUser(response.status_code >= 1000 && response.status_code < 2000, {
       userMessage: `You aren't subscribed for flights from airport ${fromAirportLatinName} to airport ${toAirportLatinName}.`,
-      logs: [
-        'Server returned unknown status code',
-        'Sent params: ',
-        params,
-        'Got response: ',
-        response,
-      ],
+      msg: `Server returned ${response.status_code} status code. Sent params: ${params}. Got response: ${response}`,
     });
 
     return params;
+  }
+
+  async function sendError (params) {
+    assertApp(validateSendErrorReq(params), {
+      msg: 'Params do not adhere to sendErrorRequestSchema',
+    });
+
+    let response;
+
+    try {
+      response = await jsonRPCRequest('senderror', params);
+    } catch (e) {
+      e.userMessage = 'An error occurred in the application. Please refresh the page and try again.';
+      throw e;
+    }
+
+    assertPeer(validateSendErrorRes(response), {
+      msg: 'Params do not adhere to sendErrorResponseSchema',
+    });
   }
 
   async function jsonRPCRequest (method, params) {
@@ -255,27 +281,20 @@ function start () {
       response = await postJSON(SERVER_URL, request);
     } catch (error) {
       throw new PeerError({
-        logs: [
-          'failed to make a post request to server API', 'url: ', SERVER_URL,
-          'request data: ', request, 'error raised: ', error,
-        ],
+        msg: `failed to make a post request to server API, url: ${SERVER_URL}, request data: ${request}, error raised: ${error}`,
       });
     }
 
     // increment id only on successful requests
     jsonRPCRequestId++;
 
-    const logs = ['jsonrpc protocol error', 'sent data: ', request, 'got response', response];
-    const errorReport = {logs: logs};
-
-    assertPeer(['jsonrpc', 'id'].every(prop => _.has(response, prop)), errorReport);
-    assertPeer(!response.error, errorReport);
-    assertPeer(response.result, errorReport);
-    assertApp(response.id !== null,
+    assertPeer(
+      ['jsonrpc', 'id'].every(prop => _.has(response, prop)) &&
+      response.result &&
+      !response.error &&
+      response.id !== null,
       {
-        logs: [
-          'Server sent back a null id for request: ', request,
-          'Full response is: ', response],
+        msg: `jsonrpc protocol error. Sent data: ${request}. Got response: ${response}.`,
       }
     );
 
@@ -310,13 +329,17 @@ function start () {
       // TODO - check if JSON.stringify threw an error
       throw new PeerError({
         userMessage: 'Service is not available at the moment due to network issues',
-        logs: ['Couldn\'t connect to server at url: ', url, 'Sent POST request with data: ', data],
+        msg: `Couldn't connect to server at url: ${url}. Sent POST request with data: ${data}`,
       });
     }
 
-    assertPeer(serverResponse.ok, {
-      logs: ['Sent POST request with data: ', data, 'Got NOT OK response back', serverResponse],
-    });
+    assertPeer(
+      serverResponse.ok,
+      {
+        userMessage: 'There was a problem with your request. Please, try again.',
+        msg: `Sent POST request with data: ${data}. Got NOT OK response back: ${serverResponse}`,
+      }
+    );
 
     return serverResponse.json();
   }
@@ -427,8 +450,6 @@ function start () {
   }
 
   function makeFlightItem (flight, $itemTemplate) {
-    trace(`makeFlightItem(${objToString(flight)}, $itemtemplate), typeof flight=${typeof flight}`);
-
     const $clone = $itemTemplate.clone()
       .removeAttr('id')
       .removeClass('hidden');
@@ -512,23 +533,31 @@ function start () {
       v: '1.0',
     };
     const formData = objectifyForm($searchForm.serializeArray());
-    const { id: airportFromId } = getAirport(formData.from);
-    const { id: airportToId } = getAirport(formData.to);
 
-    assertUser(
-      typeof airportFromId === 'string' &&
-      typeof airportToId === 'string', {
-        userMessage: 'Please choose your departure airport and arrival airport.',
-        logs: [],
+    assertApp(
+      _.isObject(formData), {
+        msg: 'formData is not an object',
       }
     );
 
-    assertPeer(airportFromId, {
+    assertUser(
+      typeof formData.from === 'string' &&
+      typeof formData.to === 'string', {
+        userMessage: 'Please choose your departure airport and arrival airport.',
+        msg: 'User did not select flight from or flight to.',
+      }
+    );
+
+    const { id: airportFromId } = getAirport(formData.from);
+    const { id: airportToId } = getAirport(formData.to);
+
+    assertUser(airportFromId, {
       userMessage: `${formData.from} is not a location that has an airport!`,
-      logs: ['User entered an invalid string in #arrival-input - ', formData.to],
+      msg: `User entered a string in departure input, that cannot be resolved to an airport - ${formData.from}`,
     });
-    assertPeer(airportToId, {
+    assertUser(airportToId, {
       userMessage: `${formData.to} is not a location that has an airport!`,
+      msg: `User entered a string in arrival input, that cannot be resolved to an airport - ${formData.to}`,
     });
 
     searchFormParams.fly_from = airportFromId;

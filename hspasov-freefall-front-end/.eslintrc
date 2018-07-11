@@ -41,6 +41,8 @@
     "getValidateSearchRes": true,
     "getValidateSubscriptionReq": true,
     "getValidateSubscriptionRes": true,
+    "getValidateSendErrorReq": true,
+    "getValidateSendErrorRes": true,
     "Ajv": true,
     "window": true
   },
