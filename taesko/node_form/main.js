@@ -4,9 +4,7 @@ const Router = require('koa-router');
 const serve = require('koa-static');
 const views = require('koa-views');
 const logger = require('koa-logger');
-const fs = require('fs');
 const path = require('path');
-const os = require('os');
 
 const database = require('./database');
 

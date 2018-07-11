@@ -10,7 +10,7 @@ const database = (() => {
   }
 
   const save = () => {
-    console.log("Saving database contents to: ", storage.data);
+    console.log('Saving database contents to: ', storage.data);
     fs.writeFileSync('db.json', JSON.stringify(storage.data));
   };
   const read = () => {
@@ -27,7 +27,7 @@ const database = (() => {
   return storage;
 })();
 
-function getRecord(name) {
+function getRecord (name) {
   return database.data[name];
 }
 
@@ -45,7 +45,7 @@ function add ({
   };
   fs.mkdirSync(path.join(UPLOADS_DIR, name));
   database.save();
-  console.log("created name", name, "database is: ", database);
+  console.log('created name', name, 'database is: ', database);
 }
 
 function upload (name, file) {
@@ -68,12 +68,12 @@ function upload (name, file) {
   }
 
   handleUploadStream(file.path, uploadDst, true);
-  record.files[file.name] ={
+  record.files[file.name] = {
     name: file.name,
     path: file.path
   };
-  console.log("Successfully uploaded file %r to record %r", file, record);
-  console.log("current record state is: ", record);
+  console.log('Successfully uploaded file %r to record %r', file, record);
+  console.log('current record state is: ', record);
   database.save();
 }
 
@@ -91,7 +91,6 @@ function handleUploadStream (fileStreamPath, uploadDst, overwrite = false) {
   reader.pipe(stream);
   console.log('uploading %s -> %s', fileStreamPath, uploadDst);
 }
-
 
 module.exports = {
   add,

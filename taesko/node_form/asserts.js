@@ -1,8 +1,7 @@
 class BaseError extends Error {}
 class ApplicationError extends BaseError {}
 
-
-function assert(condition, error, ...args) {
+function assert (condition, error, ...args) {
   if (!condition) {
     throw new error(...args);
   }
