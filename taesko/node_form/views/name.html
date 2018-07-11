@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ name }}'s uploads</title>
+</head>
+<body>
+<main>
+    <h3>{{ name }}'s page</h3>
+    <ol>
+    {% for file in files %}
+        <li><a href="{{ file.link }}">{{ file.name }}</a></li>
+    {% endfor %}
+    </ol>
+</main>
+</body>
+</html>

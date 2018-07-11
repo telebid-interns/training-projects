@@ -5,7 +5,16 @@
     <title></title>
 </head>
 <body>
-    <a href="/download">Download</a>
-    <a href="/upload">Upload</a>
+    <form id="view-form" action='/names' method="GET">
+        <label for="name-view-input">Name: </label>
+        <input type="text" name="name" id="name-view-input">
+        <button type="submit">Find</button>
+    </form>
+    <form id="upload-form" action="/names" method="POST" enctype='multipart/form-data'>
+        <label for="name-upload-input">Name: </label>
+        <input type="text" name="name" id="name-upload-input">
+        <input type="file" name="file" id="file-upload-input">
+        <button type="submit">Upload</button>
+    </form>
 </body>
 </html>
