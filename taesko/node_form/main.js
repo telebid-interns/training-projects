@@ -3,6 +3,7 @@ const Router = require('koa-router');
 const serve = require('koa-static');
 const views = require('koa-views');
 const fs = require('fs');
+const path = require('path');
 
 const app = new Koa();
 const router = new Router();
@@ -28,22 +29,46 @@ const database = (() => {
   return storage;
 })();
 
-//app.use(views(__dirname + '/views'))
+app.use(views(path.join(__dirname, '/views'), {
+  map: {
+    html: 'swig'
+  }
+}));
+
+app.use(async function (ctx, next) {
+  ctx.state = {
+    session: this.session,
+    title: 'norm-app'
+  };
+
+  await next();
+});
+
+/*
+router.get('/:name', ...);
+router.get('/:name/files', ...);
+router.get('/:name/files/:file', ...);
+
+// or
+router.get('/:name', ...)
+  .get('/:name/files', ...)
+  .get('/:name/files/:file', ...);
+ */
+
 router.get('/', serve('static'));
 router.get('/static', serve('static'));
 
 router.get('/:name', async (ctx, next) => {
   const name = ctx.params.name || ctx.query.name;
 
-  console.log("checking database for name", database, name);
+  console.log('checking database for name', database, name);
 
   if (database.data[name]) {
     ctx.body = `Greetings ${name}`;
+    await next();
   } else {
-    ctx.body = `${name} is not registered yet.`
+    await ctx.render('name-not-found.html', {name});
   }
-
-  await next();
 });
 
 router.get('/:name/files', async (ctx, next) => {
