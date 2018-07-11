@@ -4,8 +4,8 @@
   "description": "FreeFall app backend",
   "main": "index.js",
   "scripts": {
-    "server": "eslint && node ./server.js",
-    "fetch": "eslint && node ./scripts/fetch-data.js"
+    "server": "eslint . && node ./server.js",
+    "fetch": "eslint . && node ./scripts/fetch-data.js"
   },
   "repository": "https://github.com/hspasov/training-projects/tree/master/hspasov-freefall",
   "author": "Hristo Spasov",

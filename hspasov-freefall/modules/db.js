@@ -228,7 +228,7 @@ module.exports = (() => {
     return true;
   }
 
-  async function insertIfNotExistsSubscription (flyFrom, flyTo) {
+  async function insertIfNotExistsSub (flyFrom, flyTo) {
     assertDB();
 
     const flyFromParsed = Number(flyFrom);
@@ -286,7 +286,7 @@ module.exports = (() => {
     insert,
     insertDataFetch,
     insertIfNotExists,
-    insertIfNotExistsSubscription,
+    insertIfNotExistsSub,
     selectSubscriptions,
     selectRoutesFlights,
     selectWhere,

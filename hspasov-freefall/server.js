@@ -6,13 +6,19 @@ const bodyParser = require('koa-bodyparser');
 const serve = require('koa-static');
 const send = require('koa-send');
 const cors = require('@koa/cors');
-const resolveMethod = require('./methods/resolve-method');
+const {
+  defineMethods,
+  search,
+  subscribe,
+  unsubscribe,
+} = require('./methods/resolve-method');
 const { defineParsers, jsonParser, yamlParser } = require('./modules/normalize');
 const { PeerError, UserError } = require('./modules/error-handling');
 const db = require('./modules/db');
 const { log } = require('./modules/utils');
 
 const parser = defineParsers(jsonParser, yamlParser);
+const execute = defineMethods(search, subscribe, unsubscribe);
 
 const app = new Koa();
 const router = new Router();
@@ -79,8 +85,7 @@ router.post('/', async (ctx, next) => {
     contentType: ctx.headers['content-type'],
     format: ctx.query.format,
   });
-  const method = resolveMethod(parsed);
-  const result = await method.execute(parsed.params, ctx.db);
+  const result = await execute(parsed.method, parsed.params, ctx.db);
   const stringified = parser.stringify(result, {
     type: {
       contentType: ctx.headers['content-type'],
