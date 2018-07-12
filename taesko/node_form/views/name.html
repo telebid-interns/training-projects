@@ -2,15 +2,15 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>{{ name }}'s uploads</title>
+    <title>{{ username }}'s uploads</title>
 </head>
 <body>
 <main>
-    <h3>{{ name }}'s page</h3>
+    <h3>{{ username }}'s page</h3>
     <ol>
-    {% for file in files %}
-        <li><a href="{{ file.link }}">{{ file.name }}</a></li>
-    {% endfor %}
+    {{#files}}
+        <li><a href="/{{ username }}/{{ name }}">{{ name }}</a></li>
+    {{/files}}
     </ol>
 </main>
 </body>

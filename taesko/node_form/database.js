@@ -19,11 +19,10 @@ const database = (() => {
     storage.data = JSON.parse(fs.readFileSync('db.json', 'utf-8'));
   };
 
-  // TODO can be const
-  let storage = {
+  const storage = {
     read,
     save,
-    data: undefined // TODO remove or change to null
+    data: undefined, // TODO remove or change to null
   };
 
   storage.read();
@@ -40,12 +39,12 @@ function exists (name) {
 
 // TODO maybe rename to register
 function add ({
-  name
+  name,
 }) {
   assertApp(!exists(name), `Name ${name} already exists. Cannot create it.`);
   database.data[name] = {
     name: name,
-    files: {}
+    files: {},
   };
   fs.mkdirSync(path.join(UPLOADS_DIR, name));
   database.save();
@@ -74,7 +73,7 @@ function upload (name, file) {
   handleUploadStream(file.path, uploadDst, true);
   record.files[file.name] = {
     name: file.name,
-    path: file.path
+    path: uploadDst,
   };
   console.log('Successfully uploaded file %r to record %r', file, record);
   console.log('current record state is: ', record);
@@ -101,5 +100,5 @@ module.exports = {
   add,
   upload,
   getRecord,
-  exists
+  exists,
 };

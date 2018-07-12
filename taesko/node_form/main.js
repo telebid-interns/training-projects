@@ -15,14 +15,14 @@ app.use(logger());
 
 app.use(views(path.join(__dirname, '/views'), {
   map: {
-    html: 'swig'
-  }
+    html: 'mustache',
+  },
 }));
 
 app.use(async function (ctx, next) {
   ctx.state = {
     session: this.session,
-    title: 'norm-app'
+    title: 'norm-app',
   };
 
   await next();
@@ -33,7 +33,12 @@ router.get('/', serve('static'));
 // TODO renderUserPage
 async function renderNamePage (ctx, name) {
   if (database.exists(name)) {
-    await ctx.render('name.html', database.getRecord(name));
+    const record = database.getRecord(name);
+    console.log(record);
+    await ctx.render('name.html', {
+      username: record.name,
+      files: Object.values(record.files)
+    });
   } else {
     await ctx.render('name-not-found.html', {name});
   }
@@ -59,6 +64,7 @@ router.post('/names',
 
     // TODO maybe assert files.file
     database.upload(name, ctx.request.files.file);
+    // TODO redirect
     await renderNamePage(ctx, name);
     await next();
   }
