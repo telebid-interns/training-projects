@@ -60,6 +60,14 @@ function start () {
     }
   }
 
+  function * idGenerator () {
+    let requestId = 1;
+
+    while (true) {
+      yield requestId++;
+    }
+  }
+
   const MAX_ROUTES_PER_PAGE = 5;
   const SERVER_URL = 'http://10.20.1.155:3000';
   const MONTH_NAMES = [
@@ -76,7 +84,6 @@ function start () {
     'Sunday',
   ];
   const MAX_TRACE = 300;
-  let requestId = 1;
   let $errorBar; // closures
   const errorMessagesQueue = [];
   const validateSearchReq = getValidateSearchReq();
@@ -88,6 +95,7 @@ function start () {
   const traceLog = [];
 
   const getParser = defineParsers(jsonParser, yamlParser);
+  const getId = idGenerator();
 
   function trace (msg) {
     if (traceLog.length > MAX_TRACE) {
@@ -282,6 +290,8 @@ function start () {
     let serverResponse;
     const parser = getParser(protocolName);
 
+    const { id } = getId.next();
+
     try {
       serverResponse = await window.fetch(url, {
         method: 'POST',
@@ -289,7 +299,7 @@ function start () {
         headers: {
           'Content-Type': parser.contentType,
         },
-        body: parser.stringifyRequest(data),
+        body: parser.stringifyRequest(data, id),
       });
     } catch (e) {
       // TODO - check if JSON.stringify threw an error
@@ -308,8 +318,6 @@ function start () {
     );
 
     const responseParsed = await parser.parseResponse(serverResponse);
-
-    requestId++;
 
     return {
       result: responseParsed.result || null,
@@ -597,11 +605,11 @@ function start () {
       return normalized;
     };
 
-    const stringifyResponse = (data, yamlrpc = '2.0', id = null) => {
+    const stringifyResponse = (data, id = null, yamlrpc = '2.0') => {
       return stringifyYAML({ result: data, yamlrpc, id });
     };
 
-    const stringifyRequest = (data, yamlrpc = '2.0', id = null) => {
+    const stringifyRequest = (data, id = null, yamlrpc = '2.0') => {
       const { method, params } = data;
       return stringifyYAML({
         action: method,
@@ -643,7 +651,7 @@ function start () {
       };
     };
 
-    const stringifyRequest = (data, jsonrpc = '2.0', id = null) => {
+    const stringifyRequest = (data, id = null, jsonrpc = '2.0') => {
       const { method, params } = data;
       return JSON.stringify({
         method,
@@ -653,7 +661,7 @@ function start () {
       });
     };
 
-    const stringifyResponse = (data, jsonrpc = '2.0', id = null) => {
+    const stringifyResponse = (data, id = null, jsonrpc = '2.0') => {
       try {
         return JSON.stringify({ jsonrpc, id, result: data });
       } catch (error) {
