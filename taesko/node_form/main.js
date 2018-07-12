@@ -30,6 +30,7 @@ app.use(async function (ctx, next) {
 
 router.get('/', serve('static'));
 
+// TODO renderUserPage
 async function renderNamePage (ctx, name) {
   if (database.exists(name)) {
     await ctx.render('name.html', database.getRecord(name));
@@ -56,6 +57,7 @@ router.post('/names',
       return;
     }
 
+    // TODO maybe assert files.file
     database.upload(name, ctx.request.files.file);
     await renderNamePage(ctx, name);
     await next();

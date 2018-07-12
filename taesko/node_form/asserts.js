@@ -1,5 +1,6 @@
 class BaseError extends Error {}
 class ApplicationError extends BaseError {}
+// TODO AppError
 
 function assert (condition, error, ...args) {
   if (!condition) {

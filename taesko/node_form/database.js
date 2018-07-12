@@ -4,6 +4,7 @@ const {assertApp} = require('./asserts');
 
 const UPLOADS_DIR = path.join(__dirname, '/uploads');
 
+// TODO ask ivan
 const database = (() => {
   if (!fs.existsSync('db.json')) {
     fs.writeFileSync('db.json', '{}');
@@ -14,13 +15,15 @@ const database = (() => {
     fs.writeFileSync('db.json', JSON.stringify(storage.data));
   };
   const read = () => {
+    // TODO error handling
     storage.data = JSON.parse(fs.readFileSync('db.json', 'utf-8'));
   };
 
+  // TODO can be const
   let storage = {
     read,
     save,
-    data: undefined
+    data: undefined // TODO remove or change to null
   };
 
   storage.read();
@@ -35,6 +38,7 @@ function exists (name) {
   return !!database.data[name];
 }
 
+// TODO maybe rename to register
 function add ({
   name
 }) {
@@ -77,19 +81,20 @@ function upload (name, file) {
   database.save();
 }
 
-function handleUploadStream (fileStreamPath, uploadDst, overwrite = false) {
+function handleUploadStream (fileStreamPath, uploadDestination, overwrite = false) {
+  // TODO put in assert
   if (!overwrite) {
     assertApp(
-      !fs.existsSync(uploadDst),
-      `uploadDst ${uploadDst} exists but overwrite flag is false`
+      !fs.existsSync(uploadDestination),
+      `uploadDst ${uploadDestination} exists but overwrite flag is false`
     );
   }
 
   const reader = fs.createReadStream(fileStreamPath);
-  const stream = fs.createWriteStream(path.join(uploadDst));
+  const stream = fs.createWriteStream(path.join(uploadDestination));
 
   reader.pipe(stream);
-  console.log('uploading %s -> %s', fileStreamPath, uploadDst);
+  console.log('uploading %s -> %s', fileStreamPath, uploadDestination);
 }
 
 module.exports = {
