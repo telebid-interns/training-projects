@@ -75,6 +75,7 @@ function start () {
     'Saturday',
     'Sunday',
   ];
+  const MAX_TRACE = 300;
   let requestId = 1;
   let $errorBar; // closures
   const errorMessagesQueue = [];
@@ -89,10 +90,13 @@ function start () {
   const getParser = defineParsers(jsonParser, yamlParser);
 
   function trace (msg) {
+    if (traceLog.length > MAX_TRACE) {
+      traceLog.shift();
+    }
     traceLog.push(msg);
   }
 
-  function objToString (obj) {
+  function objToString (obj) { // maybe JSON.stringify
     return Object.entries(obj).map(pair => pair.join(':')).join(',');
   }
 
@@ -398,7 +402,7 @@ function start () {
 
     return {
       result: responseParsed.result || null,
-      error: responseParsed.error || null,
+      error: responseParsed.error || null, // TODO handle error
     };
   }
 
@@ -541,13 +545,13 @@ function start () {
   function watchInputField ($inputField, callback) {
     let lastValue = '';
 
-    function callbackOnChange (event) {
+    const callbackOnChange = function callbackOnChange (event) {
       const newVal = $inputField.serialize();
       if (newVal !== lastValue) {
         lastValue = newVal;
         callback(event);
       }
-    }
+    };
 
     $inputField.on('keyup', callbackOnChange);
   }
@@ -555,32 +559,8 @@ function start () {
   function setupAutoComplete ({hash, $textInput, $dataList}) {
     const keys = Object.keys(hash)
       .sort();
-
     watchInputField($textInput, () => {
-      const minCharacters = 1;
-      const maxSuggestions = 100;
 
-      if ($textInput.val().length < minCharacters) {
-        return;
-      }
-
-      $dataList.empty();
-
-      let suggestionsCount = 0;
-
-      for (const key of keys) {
-        if (suggestionsCount === maxSuggestions) {
-          break;
-        }
-
-        if (key.indexOf($textInput.val()) !== -1) {
-          suggestionsCount += 1;
-
-          const newOption = `<option value="${key}">`;
-
-          $dataList.append(newOption);
-        }
-      }
     });
   }
 
@@ -588,7 +568,7 @@ function start () {
     trace(`executing getSearchFormParams`);
 
     const searchFormParams = {
-      v: '1.0',
+      v: '1.0', // TODO move to another function, this should not be here
     };
     const formData = objectifyForm($searchForm.serializeArray());
 
@@ -845,6 +825,7 @@ function start () {
   }
 
   $(document).ready(() => {
+    // $('#test').autocomplete();
     $errorBar = $('#errorBar');
 
     const $allRoutesList = $('#all-routes-list'); // consts
@@ -970,17 +951,8 @@ function start () {
         {}
       );
 
-    setupAutoComplete({
-      hash: airportsByNames,
-      $textInput: $('#from-input'),
-      $dataList: $('#from-airports'),
-    });
-    setupAutoComplete({
-      hash: airportsByNames,
-      $textInput: $('#to-input'),
-      $dataList: $('#to-airports'),
-    });
-
+    $('#from-input').autocomplete(airportsByNames);
+    $('#to-input').autocomplete(airportsByNames);
     setupLoading($('#load-more-button'), $allRoutesList);
   });
 
