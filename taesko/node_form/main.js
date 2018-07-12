@@ -15,14 +15,14 @@ app.use(logger());
 
 app.use(views(path.join(__dirname, '/views'), {
   map: {
-    html: 'swig'
-  }
+    html: 'swig',
+  },
 }));
 
 app.use(async function (ctx, next) {
   ctx.state = {
     session: this.session,
-    title: 'norm-app'
+    title: 'norm-app',
   };
 
   await next();
