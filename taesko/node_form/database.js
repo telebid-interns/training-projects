@@ -70,7 +70,7 @@ function upload (name, file) {
   handleUploadStream(file.path, uploadDst, true);
   record.files[file.name] = {
     name: file.name,
-    path: file.path,
+    path: uploadDst,
   };
   console.log('Successfully uploaded file %r to record %r', file, record);
   console.log('current record state is: ', record);

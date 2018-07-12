@@ -15,7 +15,7 @@ app.use(logger());
 
 app.use(views(path.join(__dirname, '/views'), {
   map: {
-    html: 'swig',
+    html: 'mustache',
   },
 }));
 
@@ -32,7 +32,12 @@ router.get('/', serve('static'));
 
 async function renderNamePage (ctx, name) {
   if (database.exists(name)) {
-    await ctx.render('name.html', database.getRecord(name));
+    const record = database.getRecord(name);
+    console.log(record);
+    await ctx.render('name.html', {
+      username: record.name,
+      files: Object.values(record.files)
+    });
   } else {
     await ctx.render('name-not-found.html', {name});
   }
@@ -57,6 +62,7 @@ router.post('/names',
     }
 
     database.upload(name, ctx.request.files.file);
+    // TODO redirect
     await renderNamePage(ctx, name);
     await next();
   }
