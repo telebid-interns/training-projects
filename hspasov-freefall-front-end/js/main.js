@@ -1,60 +1,6 @@
 'use strict';
 
 function start () {
-  const MAX_ROUTES_PER_PAGE = 5;
-  const SERVER_URL = 'http://10.20.1.155:3000';
-  const MONTH_NAMES = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
-  ];
-  const WEEK_DAYS = [
-    'Monday',
-    'Tuesday',
-    'Wednesday',
-    'Thursday',
-    'Friday',
-    'Saturday',
-    'Sunday',
-  ];
-  let jsonRPCRequestId = 1; // closures
-  let yamlRPCRequestId = 1;
-  let $errorBar; // closures
-  const errorMessagesQueue = [];
-  const validateSearchReq = getValidateSearchReq();
-  const validateSearchRes = getValidateSearchRes();
-  const validateSubscriptionReq = getValidateSubscriptionReq();
-  const validateSubscriptionRes = getValidateSubscriptionRes();
-  const validateSendErrorReq = getValidateSendErrorReq();
-  const validateSendErrorRes = getValidateSendErrorRes();
-  const traceLog = [];
-
-  function trace (msg) {
-    traceLog.push(msg);
-  }
-
-  function objToString (obj) {
-    return Object.entries(obj).map(pair => pair.join(':')).join(',');
-  }
-
-  (function setupErrorMessages () {
-    setInterval(() => {
-      if (!$errorBar) {
-        return;
-      }
-
-      if (errorMessagesQueue.length !== 0) {
-        $errorBar.text(errorMessagesQueue.shift());
-      } else {
-        $errorBar.text('');
-      }
-    },
-    5000);
-  })();
-
-  function displayErrorMessage (errMsg) {
-    errorMessagesQueue.push(errMsg);
-  }
-
   class BaseError extends Error {
     constructor ({userMessage, msg}) {
       super(userMessage);
@@ -65,7 +11,7 @@ function start () {
       sendError({
         msg,
         trace: traceLog,
-      });
+      }, 'jsonrpc');
     }
   }
 
@@ -114,6 +60,61 @@ function start () {
     }
   }
 
+  const MAX_ROUTES_PER_PAGE = 5;
+  const SERVER_URL = 'http://10.20.1.155:3000';
+  const MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
+  const WEEK_DAYS = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ];
+  let requestId = 1;
+  let $errorBar; // closures
+  const errorMessagesQueue = [];
+  const validateSearchReq = getValidateSearchReq();
+  const validateSearchRes = getValidateSearchRes();
+  const validateSubscriptionReq = getValidateSubscriptionReq();
+  const validateSubscriptionRes = getValidateSubscriptionRes();
+  const validateSendErrorReq = getValidateSendErrorReq();
+  const validateSendErrorRes = getValidateSendErrorRes();
+  const traceLog = [];
+
+  const getParser = defineParsers(jsonParser, yamlParser);
+
+  function trace (msg) {
+    traceLog.push(msg);
+  }
+
+  function objToString (obj) {
+    return Object.entries(obj).map(pair => pair.join(':')).join(',');
+  }
+
+  (function setupErrorMessages () {
+    setInterval(() => {
+      if (!$errorBar) {
+        return;
+      }
+
+      if (errorMessagesQueue.length !== 0) {
+        $errorBar.text(errorMessagesQueue.shift());
+      } else {
+        $errorBar.text('');
+      }
+    },
+    5000);
+  })();
+
+  function displayErrorMessage (errMsg) {
+    errorMessagesQueue.push(errMsg);
+  }
+
   const AIRPORT_HASH = airportDump();
 
   function getAirport (term) {
@@ -148,23 +149,26 @@ function start () {
    * the API docs.
    *
    **/
-  async function search (params) {
+  async function search (params, requestFormat) {
     trace(`search(${objToString(params)}), typeof arg=${typeof params}`);
 
     assertApp(validateSearchReq(params), {
       msg: 'Params do not adhere to searchRequestSchema.',
     });
 
-    const response = await jsonRPCRequest('search', params);
+    const { result } = await sendRequest(SERVER_URL, {
+      method: 'search',
+      params,
+    }, requestFormat);
 
-    assertPeer(validateSearchRes(response), {
+    assertPeer(validateSearchRes(result), {
       msg: 'Params do not adhere to searchResponseSchema.',
     });
 
-    for (const routeObj of response.routes) {
+    for (const routeObj of result.routes) {
       // server doesn't provide currency yet
-      if (response.currency) {
-        routeObj.price += ` ${response.currency}`;
+      if (result.currency) {
+        routeObj.price += ` ${result.currency}`;
       } else {
         routeObj.price += ' $';
       }
@@ -183,192 +187,196 @@ function start () {
       routeObj.atime = routeObj.route[routeObj.route.length - 1].atime;
     }
 
-    response.routes = _.sortBy(response.routes, [routeObj => routeObj.dtime]);
+    result.routes = _.sortBy(result.routes, [routeObj => routeObj.dtime]);
 
-    return response;
+    return result;
   }
 
-  async function subscribe (params) {
+  async function subscribe (params, requestFormat) {
     trace(`subscribe(${objToString(params)}), typeof arg=${typeof params}`);
 
     assertApp(validateSubscriptionReq(params), {
       msg: 'Params do not adhere to subscriptionRequestSchema',
     });
 
-    let response;
-
     const { latinName: fromAirportLatinName } = getAirport(params.fly_from);
     const { latinName: toAirportLatinName } = getAirport(params.fly_to);
 
     try {
-      response = await jsonRPCRequest('subscribe', params);
+      const { result } = await sendRequest(SERVER_URL, {
+        method: 'subscribe',
+        params,
+      }, requestFormat);
+
+      assertPeer(validateSubscriptionRes(result), {
+        msg: 'Params do not adhere to subscriptionResponseSchema',
+      });
+      assertUser(result.status_code >= 1000 && result.status_code < 2000, {
+        userMessage: `Already subscribed for flights from ${fromAirportLatinName} to ${toAirportLatinName}.`,
+        msg: `Tried to subscribe but subscription already existed. Sent params: ${params}. Got result: ${result}`,
+      });
+
+      return params;
     } catch (e) {
       e.userMessage = `Failed to subscribe for flights from airport ${fromAirportLatinName} to airport ${toAirportLatinName}.`;
       throw e;
     }
-
-    assertPeer(validateSubscriptionRes(response), {
-      msg: 'Params do not adhere to subscriptionResponseSchema',
-    });
-    assertUser(response.status_code >= 1000 && response.status_code < 2000, {
-      userMessage: `Already subscribed for flights from ${fromAirportLatinName} to ${toAirportLatinName}.`,
-      msg: `Tried to subscribe but subscription already existed. Sent params: ${params}. Got response: ${response}`,
-    });
-
-    return params;
   }
 
-  async function unsubscribe (params) {
+  async function unsubscribe (params, requestFormat) {
     trace(`unsubscribe(${objToString(params)}), typeof arg=${typeof params}`);
 
     assertApp(validateSubscriptionReq(params), {
       msg: 'Params do not adhere to subscriptionRequestSchema',
     });
 
-    let response;
-
     const { latinName: fromAirportLatinName } = getAirport(params.fly_from);
     const { latinName: toAirportLatinName } = getAirport(params.fly_to);
 
     try {
-      response = await jsonRPCRequest('unsubscribe', params);
+      const { result } = await sendRequest(SERVER_URL, {
+        method: 'unsubscribe',
+        params,
+      }, requestFormat);
+
+      assertPeer(validateSubscriptionRes(result), {
+        msg: 'Params do not adhere to subscriptionResponseSchema',
+      });
+      assertUser(result.status_code >= 1000 && result.status_code < 2000, {
+        userMessage: `You aren't subscribed for flights from airport ${fromAirportLatinName} to airport ${toAirportLatinName}.`,
+        msg: `Server returned ${result.status_code} status code. Sent params: ${params}. Got result: ${result}`,
+      });
+
+      return params;
     } catch (e) {
       e.userMessage = `Failed to unsubscribe for flights from airport ${fromAirportLatinName} to airport ${toAirportLatinName}.`;
       throw e;
     }
-
-    assertPeer(validateSubscriptionRes(response), {
-      msg: 'Params do not adhere to subscriptionResponseSchema',
-    });
-    assertUser(response.status_code >= 1000 && response.status_code < 2000, {
-      userMessage: `You aren't subscribed for flights from airport ${fromAirportLatinName} to airport ${toAirportLatinName}.`,
-      msg: `Server returned ${response.status_code} status code. Sent params: ${params}. Got response: ${response}`,
-    });
-
-    return params;
   }
 
-  async function sendError (params) {
+  async function sendError (params, requestFormat) {
     assertApp(validateSendErrorReq(params), {
       msg: 'Params do not adhere to sendErrorRequestSchema',
     });
 
-    let response;
-
     try {
-      response = await jsonRPCRequest('senderror', params);
+      const { result } = await sendRequest(SERVER_URL, {
+        method: 'senderror',
+        params,
+      }, requestFormat);
+
+      assertPeer(validateSendErrorRes(result), {
+        msg: 'Params do not adhere to sendErrorResponseSchema',
+      });
     } catch (e) {
       e.userMessage = 'An error occurred in the application. Please refresh the page and try again.';
       throw e;
     }
-
-    assertPeer(validateSendErrorRes(response), {
-      msg: 'Params do not adhere to sendErrorResponseSchema',
-    });
   }
 
-  async function jsonRPCRequest (method, params) {
-    trace(`jsonRPCRequest(${method}, ${objToString(params)}), typeof arg1=${typeof method}, typeof arg2=${typeof params}`);
+  // async function jsonRPCRequest (method, params) {
+  //   trace(`jsonRPCRequest(${method}, ${objToString(params)}), typeof arg1=${typeof method}, typeof arg2=${typeof params}`);
 
-    const request = {
-      jsonrpc: '2.0',
-      method,
-      params: params,
-      id: jsonRPCRequestId,
-    };
-    let response;
+  //   const request = {
+  //     jsonrpc: '2.0',
+  //     method,
+  //     params: params,
+  //     id: requestId,
+  //   };
+  //   let result;
 
-    try {
-      const requestString = JSON.stringify(request);
-      const responseString = await sendRequest(SERVER_URL, requestString, {
-        contentType: 'application/json',
-      });
-      response = await responseString.json();
-    } catch (error) {
-      throw new PeerError({
-        msg: `failed to make a post request to server API, url: ${SERVER_URL}, request data: ${request}, error raised: ${error}`,
-      });
-    }
+  //   try {
+  //     const requestString = JSON.stringify(request);
+  //     const resultString = await sendRequest(SERVER_URL, requestString, {
+  //       contentType: 'application/json',
+  //     });
+  //     result = await resultString.json();
+  //   } catch (error) {
+  //     throw new PeerError({
+  //       msg: `failed to make a post request to server API, url: ${SERVER_URL}, request data: ${request}, error raised: ${error}`,
+  //     });
+  //   }
 
-    // increment id only on successful requests
-    jsonRPCRequestId++;
+  //   // increment id only on successful requests
+  //   requestId++;
 
-    assertPeer(
-      ['jsonrpc', 'id'].every(prop => _.has(response, prop)) &&
-      response.result &&
-      !response.error &&
-      response.id !== null,
-      {
-        msg: `jsonrpc protocol error. Sent data: ${request}. Got response: ${response}.`,
-      }
-    );
+  //   assertPeer(
+  //     ['jsonrpc', 'id'].every(prop => _.has(result, prop)) &&
+  //     result.result &&
+  //     !result.error &&
+  //     result.id !== null,
+  //     {
+  //       msg: `jsonrpc protocol error. Sent data: ${request}. Got result: ${result}.`,
+  //     }
+  //   );
 
-    if (response.id !== request.id) {
-      // console.warn('Different id between response and request.');
-      // console.warn(
-      //   'Ignoring because server always returns id = 1 at the moment.');
-      // throw new ApplicationError(
-      //     'An unexpected behaviour occurred. Please refresh the page.',
-      //     'json rpc response and request id are out of sync',
-      //     'request id =', request.id,
-      //     'response id =', response.id,
-      // );
-    }
+  //   if (result.id !== request.id) {
+  //     // console.warn('Different id between result and request.');
+  //     // console.warn(
+  //     //   'Ignoring because server always returns id = 1 at the moment.');
+  //     // throw new ApplicationError(
+  //     //     'An unexpected behaviour occurred. Please refresh the page.',
+  //     //     'json rpc result and request id are out of sync',
+  //     //     'request id =', request.id,
+  //     //     'result id =', result.id,
+  //     // );
+  //   }
 
-    return response.result;
-  }
+  //   return result.result;
+  // }
 
-  async function yamlRPCRequest (method, params) {
-    trace(`yamlRPCRequest(${method}, ${objToString(params)}), typeof arg1=${typeof method}, typeof arg2=${typeof params}`);
+  // async function yamlRPCRequest (method, params) {
+  //   trace(`yamlRPCRequest(${method}, ${objToString(params)}), typeof arg1=${typeof method}, typeof arg2=${typeof params}`);
 
-    const request = {
-      yamlrpc: '2.0',
-      action: method,
-      parameters: params,
-      id: yamlRPCRequestId,
-    };
+  //   const request = {
+  //     yamlrpc: '2.0',
+  //     action: method,
+  //     parameters: params,
+  //     id: requestId,
+  //   };
 
-    let response;
+  //   let result;
 
-    try {
-      const requestString = jsyaml.safeDump(request);
-      const responseObj = await sendRequest(SERVER_URL, requestString, {
-        contentType: 'text/yaml',
-      });
-      const responseString = await responseObj.text();
-      response = jsyaml.safeLoad(responseString);
-    } catch (error) {
-      throw new PeerError({
-        msg: `failed to make a post request to server API, url: ${SERVER_URL}, request data: ${request}, error raised: ${error}`,
-      });
-    }
+  //   try {
+  //     const requestString = jsyaml.safeDump(request);
+  //     const resultObj = await sendRequest(SERVER_URL, requestString, {
+  //       contentType: 'text/yaml',
+  //     });
+  //     const resultString = await resultObj.text();
+  //     result = jsyaml.safeLoad(resultString);
+  //   } catch (error) {
+  //     throw new PeerError({
+  //       msg: `failed to make a post request to server API, url: ${SERVER_URL}, request data: ${request}, error raised: ${error}`,
+  //     });
+  //   }
 
-    yamlRPCRequestId++;
+  //   requestId++;
 
-    assertPeer(
-      ['yamlrpc', 'id'].every(prop => _.has(response, prop)) &&
-      response.result &&
-      !response.error &&
-      response.id !== null,
-      {
-        msg: `yamlrpc protocol error. Sent data: ${request}. Got response: ${response}.`,
-      }
-    );
+  //   assertPeer(
+  //     ['yamlrpc', 'id'].every(prop => _.has(result, prop)) &&
+  //     result.result &&
+  //     !result.error &&
+  //     result.id !== null,
+  //     {
+  //       msg: `yamlrpc protocol error. Sent data: ${request}. Got result: ${result}.`,
+  //     }
+  //   );
 
-    return response.result;
-  }
+  //   return result.result;
+  // }
 
-  async function sendRequest (url, data, type) {
+  async function sendRequest (url, data, protocolName) {
     let serverResponse;
+    const parser = getParser(protocolName);
 
     try {
       serverResponse = await window.fetch(url, {
         method: 'POST',
         mode: 'cors',
         headers: {
-          'Content-Type': type.contentType,
+          'Content-Type': parser.contentType,
         },
-        body: data,
+        body: parser.stringifyRequest(data),
       });
     } catch (e) {
       // TODO - check if JSON.stringify threw an error
@@ -386,7 +394,12 @@ function start () {
       }
     );
 
-    return serverResponse;
+    const responseParsed = await parser.parseResponse(serverResponse);
+
+    return {
+      result: responseParsed.result || null,
+      error: responseParsed.error || null,
+    };
   }
 
   function sortRoute (route) {
@@ -607,6 +620,7 @@ function start () {
 
     searchFormParams.fly_from = airportFromId;
     searchFormParams.fly_to = airportToId;
+    searchFormParams.format = formData.format;
 
     if (formData['price-to']) {
       searchFormParams.price_to = parseInt(formData['price-to']);
@@ -635,6 +649,201 @@ function start () {
       {});
   }
 
+  function yamlParser () {
+    const parseYAML = (yaml) => {
+      try {
+        return jsyaml.safeLoad(yaml);
+      } catch (error) {
+        throw new PeerError({
+          msg: 'Invalid yamlrpc format. Cannot parse YAML.',
+        });
+      }
+    };
+
+    const normalizeYAMLRequest = (yaml) => {
+      assertPeer(
+        _.isObject(yaml) &&
+        _.isObject(yaml.parameters) &&
+        typeof yaml.yamlrpc === 'string' &&
+        typeof yaml.action === 'string', {
+          msg: 'Invalid yamlrpc request format.',
+        }
+      );
+
+      return {
+        yamlrpc: yaml.yamlrpc,
+        method: yaml.action,
+        params: yaml.parameters,
+        id: yaml.id,
+      };
+    };
+
+    const normalizeYAMLResponse = (yaml) => {
+      assertPeer(
+        _.isObject(yaml) &&
+        (
+          (!_.isObject(yaml.result) && _.isObject(yaml.error)) ||
+          (_.isObject(yaml.result) && !_.isObject(yaml.error))
+        ) &&
+        typeof yaml.yamlrpc === 'string', {
+          msg: 'Invalid yamlrpc response format.',
+        }
+      );
+
+      const normalized = {
+        id: yaml.id,
+        yamlrpc: yaml.yamlrpc,
+      };
+
+      if (_.isObject(yaml.result)) {
+        normalized.result = yaml.result;
+      } else {
+        normalized.error = yaml.error;
+      }
+
+      return normalized;
+    };
+
+    const stringifyYAML = (yaml) => {
+      try {
+        return jsyaml.safeDump(yaml);
+      } catch (error) {
+        throw new ApplicationError({
+          msg: error,
+        });
+      }
+    };
+
+    const parseRequest = (data) => {
+      const normalized = normalizeYAMLRequest(parseYAML(data));
+      return {
+        ...normalized,
+        version: normalized.yamlrpc,
+      };
+    };
+
+    const parseResponse = async (response) => {
+      const data = await response.text();
+      const normalized = normalizeYAMLResponse(parseYAML(data));
+      return normalized;
+    };
+
+    const stringifyResponse = (data, yamlrpc = '2.0', id = null) => {
+      return stringifyYAML({ result: data, yamlrpc, id });
+    };
+
+    const stringifyRequest = (data, yamlrpc = '2.0', id = null) => {
+      const { method, params } = data;
+      return stringifyYAML({
+        action: method,
+        parameters: params,
+        yamlrpc,
+        id,
+      });
+    };
+
+    const error = (error, yamlrpc = '2.0') => {
+      return stringifyYAML({ yamlrpc, error, id: null });
+    };
+
+    return {
+      name: 'yamlrpc',
+      contentType: 'text/yaml',
+      format: 'yaml',
+      parseRequest,
+      parseResponse,
+      stringifyResponse,
+      stringifyRequest,
+      error,
+    };
+  }
+
+  function jsonParser () {
+    const parseRequest = (data) => {
+      return {
+        ...data,
+        version: data.jsonrpc,
+      };
+    };
+
+    const parseResponse = async (response) => {
+      const data = await response.json();
+      return {
+        ...data,
+        version: data.jsonrpc,
+      };
+    };
+
+    const stringifyRequest = (data, jsonrpc = '2.0', id = null) => {
+      const { method, params } = data;
+      return JSON.stringify({
+        method,
+        params,
+        jsonrpc,
+        id,
+      });
+    };
+
+    const stringifyResponse = (data, jsonrpc = '2.0', id = null) => {
+      try {
+        return JSON.stringify({ jsonrpc, id, result: data });
+      } catch (error) {
+        throw new ApplicationError({
+          msg: error,
+        });
+      }
+    };
+
+    const error = (error, jsonrpc = '2.0') => {
+      try {
+        return JSON.stringify({ jsonrpc, error, id: null });
+      } catch (error) {
+        throw new ApplicationError({
+          msg: error,
+        });
+      }
+    };
+
+    return {
+      name: 'jsonrpc',
+      contentType: 'application/json',
+      format: 'json',
+      parseRequest,
+      parseResponse,
+      stringifyResponse,
+      stringifyRequest,
+      error,
+    };
+  }
+
+  // const closure = (param1) => {
+  //   return (param2) => {
+  //     return param1 + param2;
+  //   }
+  // };
+
+  function defineParsers (...args) {
+    const parsers = args.map((arg) => arg());
+
+    const getParser = (parsers) => (name) => {
+      assertApp(typeof name === 'string', {
+        msg: `Can't get parser '${name}', typeof=${typeof name}`
+      });
+
+      for (const parser of parsers) {
+        if (parser.name === name) {
+          return parser;
+        }
+      }
+
+      throw new ApplicationError({
+        msg: `No parser with name '${name}'`,
+      });
+    };
+
+    return getParser(parsers);
+  }
+
   $(document).ready(() => {
     $errorBar = $('#errorBar');
 
@@ -656,19 +865,19 @@ function start () {
       }
 
       try {
-        const response = await subscribe({
+        const result = await subscribe({
           v: formParams.v,
           fly_from: formParams.fly_from,
           fly_to: formParams.fly_to,
-        });
+        }, formParams.format);
 
-        if (response.status_code >= 1000 && response.status_code < 2000) {
+        if (result.status_code >= 1000 && result.status_code < 2000) {
           displaySearchResult(
-            response,
+            result,
             $allRoutesList,
             { $routeItemTemplate, $flightItemTemplate }
           );
-        } else if (response.status_code === 2000) {
+        } else if (result.status_code === 2000) {
           displayErrorMessage('There is no information about this flight at the moment. Please come back in 15 minutes.');
         }
       } catch (e) {
@@ -690,19 +899,19 @@ function start () {
       }
 
       try {
-        const response = await unsubscribe({
+        const result = await unsubscribe({
           v: formParams.v,
           fly_from: formParams.fly_from,
           fly_to: formParams.fly_to,
-        });
+        }, formParams.format);
 
-        if (response.status_code >= 1000 && response.status_code < 2000) {
+        if (result.status_code >= 1000 && result.status_code < 2000) {
           displaySearchResult(
-            response,
+            result,
             $allRoutesList,
             { $routeItemTemplate, $flightItemTemplate }
           );
-        } else if (response.status_code === 2000) {
+        } else if (result.status_code === 2000) {
           displayErrorMessage('There is no information about this flight at the moment. Please come back in 15 minutes.');
         }
       } catch (e) {
@@ -724,15 +933,19 @@ function start () {
       }
 
       try {
-        const response = await search(formParams);
+        const format = formParams.format;
 
-        if (response.status_code >= 1000 && response.status_code < 2000) {
+        delete formParams.format;
+
+        const result = await search(formParams, format);
+
+        if (result.status_code >= 1000 && result.status_code < 2000) {
           displaySearchResult(
-            response,
+            result,
             $allRoutesList,
             { $routeItemTemplate, $flightItemTemplate }
           );
-        } else if (response.status_code === 2000) {
+        } else if (result.status_code === 2000) {
           displayErrorMessage('There is no information about this flight at the moment. Please come back in 15 minutes.');
         }
       } catch (e) {
