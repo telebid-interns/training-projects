@@ -43,7 +43,7 @@ function loadLocalStorage () {
 
 async function relistChannel (channel) {
   const { link } = channelList.find(e => e.name === channel);
-  const channelId = link.split('/channel/')[1];
+  const channelId = link.split('/channel/')[1]; // TODO find ?
 
   allVids = allVids.filter(e => e.channel !== channel);
 
@@ -60,7 +60,7 @@ async function relistChannel (channel) {
   };
   const reqLink = `https://www.googleapis.com/youtube/v3/search?${toQueryString(params)}`;
 
-  let videos = await getAllVideos(reqLink);
+  const videos = await getAllVideos(reqLink);
 
   if (videos.length <= 0) {
     displayVideos();
@@ -87,6 +87,7 @@ async function subscribe () {
     key: YT_API_KEY,
     part: 'snippet',
   };
+  // TODO string global const, assert
   const channelData = await makeRequest(`https://www.googleapis.com/youtube/v3/channels?${toQueryString(channelInfoParams)}`);
   const channelName = channelData.items[0].snippet.title;
 
@@ -108,13 +109,13 @@ async function subscribe () {
     type: 'video',
     maxResults: '50',
     videoCategoryId: '10',
-    publishedAfter: from,
+    publishedAfter: from
   };
   const reqLink = `https://www.googleapis.com/youtube/v3/search?${toQueryString(params)}`;
 
   channelTextBox.value = '';
 
-  let items = await getAllVideos(reqLink);
+  const items = await getAllVideos(reqLink);
   assertPeer(Array.isArray(items), 'Youtube responded with wrong data');
 
   if (items.length <= 0) {
@@ -122,7 +123,7 @@ async function subscribe () {
     return;
   }
 
-  assertPeer( 
+  assertPeer(
     isObject(items[0].snippet) &&
     typeof items[0].snippet.channelTitle === 'string',
     'Youtube responded with wrong data'
@@ -134,7 +135,7 @@ async function subscribe () {
 }
 
 function saveAndDisplayVids (videos) {
-  const promises = [];
+  const promises = []; // TODO use map
 
   for (const video of videos) {
     const videoObj = {
@@ -214,7 +215,7 @@ function saveAndDisplayVids (videos) {
   Promise.all(promises).then(showChannels);
 }
 
-function showChannels () {
+function showChannels () { // TODO make template
   const displayedChannels = channelsElement.getElementsByClassName('list-group-item');
   const channelElements = [...displayedChannels];
 
@@ -280,7 +281,7 @@ function showChannels () {
       week: 'Last Week',
       month: 'Last Month',
       year: 'Last Year',
-      all: 'Whenever'
+      all: 'Whenever',
     };
 
     for (const key of Object.keys(options)) {
@@ -303,7 +304,7 @@ function showChannels () {
 function makeOptionElements (opts) {
   const keys = Object.keys(opts);
   const optionElements = [];
-  for(const key of keys){
+  for (const key of keys) {
     const tempOpt = document.createElement('option');
     tempOpt.setAttribute('value', key);
     tempOpt.innerHTML = opts[key];
@@ -358,8 +359,8 @@ function addVideoToTable (video) {
     artists: video.artists.join(', '),
     song: video.song,
     duration: video.duration,
-    album: video.album
-  }
+    album: video.album,
+  };
 
   const row = table.insertRow(-1);
 
@@ -400,7 +401,7 @@ function extractArtistsAndSongFromTitle (title) {
 }
 
 function msToMinutesAndSeconds (ms) {
-  const minutes = Math.floor(ms / 60000);
+  const minutes = Math.floor(ms / 1000 / 60);
   const seconds = ((ms % 60000) / 1000).toFixed(0);
   return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
 }
@@ -460,13 +461,13 @@ function getDateByFilter (channel) {
 function handlePeerError (err) {
   errorMessageElement.removeAttribute('hidden');
   errorMessageElement.innerHTML = err;
-  setTimeout(() => {errorMessageElement.setAttribute('hidden', '');}, 2000);
+  setTimeout(() => { errorMessageElement.setAttribute('hidden', ''); }, 2000);
 }
 
 function handleUserError (err) {
   errorMessageElement.removeAttribute('hidden');
   errorMessageElement.innerHTML = err;
-  setTimeout(() => {errorMessageElement.setAttribute('hidden', '');}, 2000);
+  setTimeout(() => { errorMessageElement.setAttribute('hidden', ''); }, 2000);
 }
 
 async function getAllVideos (link) {
