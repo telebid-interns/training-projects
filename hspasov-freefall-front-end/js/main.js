@@ -278,97 +278,6 @@ function start () {
     }
   }
 
-  // async function jsonRPCRequest (method, params) {
-  //   trace(`jsonRPCRequest(${method}, ${objToString(params)}), typeof arg1=${typeof method}, typeof arg2=${typeof params}`);
-
-  //   const request = {
-  //     jsonrpc: '2.0',
-  //     method,
-  //     params: params,
-  //     id: requestId,
-  //   };
-  //   let result;
-
-  //   try {
-  //     const requestString = JSON.stringify(request);
-  //     const resultString = await sendRequest(SERVER_URL, requestString, {
-  //       contentType: 'application/json',
-  //     });
-  //     result = await resultString.json();
-  //   } catch (error) {
-  //     throw new PeerError({
-  //       msg: `failed to make a post request to server API, url: ${SERVER_URL}, request data: ${request}, error raised: ${error}`,
-  //     });
-  //   }
-
-  //   // increment id only on successful requests
-  //   requestId++;
-
-  //   assertPeer(
-  //     ['jsonrpc', 'id'].every(prop => _.has(result, prop)) &&
-  //     result.result &&
-  //     !result.error &&
-  //     result.id !== null,
-  //     {
-  //       msg: `jsonrpc protocol error. Sent data: ${request}. Got result: ${result}.`,
-  //     }
-  //   );
-
-  //   if (result.id !== request.id) {
-  //     // console.warn('Different id between result and request.');
-  //     // console.warn(
-  //     //   'Ignoring because server always returns id = 1 at the moment.');
-  //     // throw new ApplicationError(
-  //     //     'An unexpected behaviour occurred. Please refresh the page.',
-  //     //     'json rpc result and request id are out of sync',
-  //     //     'request id =', request.id,
-  //     //     'result id =', result.id,
-  //     // );
-  //   }
-
-  //   return result.result;
-  // }
-
-  // async function yamlRPCRequest (method, params) {
-  //   trace(`yamlRPCRequest(${method}, ${objToString(params)}), typeof arg1=${typeof method}, typeof arg2=${typeof params}`);
-
-  //   const request = {
-  //     yamlrpc: '2.0',
-  //     action: method,
-  //     parameters: params,
-  //     id: requestId,
-  //   };
-
-  //   let result;
-
-  //   try {
-  //     const requestString = jsyaml.safeDump(request);
-  //     const resultObj = await sendRequest(SERVER_URL, requestString, {
-  //       contentType: 'text/yaml',
-  //     });
-  //     const resultString = await resultObj.text();
-  //     result = jsyaml.safeLoad(resultString);
-  //   } catch (error) {
-  //     throw new PeerError({
-  //       msg: `failed to make a post request to server API, url: ${SERVER_URL}, request data: ${request}, error raised: ${error}`,
-  //     });
-  //   }
-
-  //   requestId++;
-
-  //   assertPeer(
-  //     ['yamlrpc', 'id'].every(prop => _.has(result, prop)) &&
-  //     result.result &&
-  //     !result.error &&
-  //     result.id !== null,
-  //     {
-  //       msg: `yamlrpc protocol error. Sent data: ${request}. Got result: ${result}.`,
-  //     }
-  //   );
-
-  //   return result.result;
-  // }
-
   async function sendRequest (url, data, protocolName) {
     let serverResponse;
     const parser = getParser(protocolName);
@@ -399,6 +308,8 @@ function start () {
     );
 
     const responseParsed = await parser.parseResponse(serverResponse);
+
+    requestId++;
 
     return {
       result: responseParsed.result || null,
@@ -540,28 +451,6 @@ function start () {
       .text(`${flight.airport_from} -----> ${flight.airport_to}`);
 
     return $clone;
-  }
-
-  function watchInputField ($inputField, callback) {
-    let lastValue = '';
-
-    const callbackOnChange = function callbackOnChange (event) {
-      const newVal = $inputField.serialize();
-      if (newVal !== lastValue) {
-        lastValue = newVal;
-        callback(event);
-      }
-    };
-
-    $inputField.on('keyup', callbackOnChange);
-  }
-
-  function setupAutoComplete ({hash, $textInput, $dataList}) {
-    const keys = Object.keys(hash)
-      .sort();
-    watchInputField($textInput, () => {
-
-    });
   }
 
   function getSearchFormParams ($searchForm) {
@@ -796,18 +685,12 @@ function start () {
     };
   }
 
-  // const closure = (param1) => {
-  //   return (param2) => {
-  //     return param1 + param2;
-  //   }
-  // };
-
   function defineParsers (...args) {
     const parsers = args.map((arg) => arg());
 
     const getParser = (parsers) => (name) => {
       assertApp(typeof name === 'string', {
-        msg: `Can't get parser '${name}', typeof=${typeof name}`
+        msg: `Can't get parser '${name}', typeof=${typeof name}`,
       });
 
       for (const parser of parsers) {

@@ -6,7 +6,7 @@
         .attr('id', $(this).attr('list'))
         .insertAfter($(this));
 
-      const callbackOnChange = (data) => (event) => {
+      const onChange = (data) => (event) => {
         const newVal = $(this).val();
 
         const minCharacters = 1;
@@ -24,7 +24,7 @@
             break;
           }
 
-          if (airportName.indexOf(newVal) !== -1) {
+          if (airportName.toLowerCase().indexOf(newVal.toLowerCase()) !== -1) {
             suggestionsCount += 1;
 
             $(`<option></option>`)
@@ -34,7 +34,7 @@
         }
       };
 
-      $(this).on('keyup', callbackOnChange(data));
+      $(this).on('keyup', onChange(data));
     });
   };
 })(jQuery);
