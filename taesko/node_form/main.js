@@ -4,6 +4,7 @@ const Router = require('koa-router');
 const serve = require('koa-static');
 const views = require('koa-views');
 const logger = require('koa-logger');
+const send = require('koa-send');
 const path = require('path');
 
 const database = require('./database');
@@ -65,10 +66,33 @@ router.post('/names',
     // TODO maybe assert files.file
     database.upload(name, ctx.request.files.file);
     // TODO redirect
-    await renderNamePage(ctx, name);
+    ctx.redirect(`/names/${encodeURIComponent(name)}`);
     await next();
   }
 );
+
+router.get('/names/:name', async(ctx, next) => {
+  const {name} = ctx.params;
+  console.log(name);
+
+  await renderNamePage(ctx, name);
+  await next();
+});
+
+router.get('/names/:name/:file', async(ctx, next) => {
+  const {name, file} = ctx.params;
+  const record = database.getRecord(name);
+
+  if (!record) {
+    ctx.status = 404;
+    await next();
+    return;
+  }
+
+  const filePath = record.files[file].path;
+  await send(ctx, filePath);
+  await next();
+});
 
 app.use(router.routes())
   .use(router.allowedMethods());

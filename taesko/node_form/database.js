@@ -2,7 +2,11 @@ const fs = require('fs');
 const path = require('path');
 const {assertApp} = require('./asserts');
 
-const UPLOADS_DIR = path.join(__dirname, '/uploads');
+const UPLOADS_DIR = './uploads';
+
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR);
+}
 
 // TODO ask ivan
 const database = (() => {
@@ -97,6 +101,7 @@ function handleUploadStream (fileStreamPath, uploadDestination, overwrite = fals
 }
 
 module.exports = {
+  UPLOADS_DIR,
   add,
   upload,
   getRecord,
