@@ -38,7 +38,7 @@ function getRecord (name) {
 }
 
 function exists (name) {
-  return !!database.data[name];
+  return !!database.data[name]; // TODO fails on '' and 0
 }
 
 // TODO maybe rename to register
@@ -68,7 +68,7 @@ function upload (name, file) {
   const existingFile = record.files[file.name];
 
   if (existingFile) {
-    uploadDst = existingFile.path;
+    uploadDst = existingFile.path; // TODO use UIDs for names
     console.log('Uploaded file already exists. Overwriting: ', uploadDst);
   } else {
     uploadDst = path.join(UPLOADS_DIR, name, file.name);

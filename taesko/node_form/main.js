@@ -79,6 +79,7 @@ router.get('/names/:name', async(ctx, next) => {
   await next();
 });
 
+// TODO pass through web server instead of application
 router.get('/names/:name/:file', async(ctx, next) => {
   const {name, file} = ctx.params;
   const record = database.getRecord(name);
