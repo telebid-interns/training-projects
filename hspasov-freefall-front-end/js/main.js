@@ -8,6 +8,11 @@ function start () {
       this.userMessage = userMessage;
       this.msg = msg;
 
+      if(!~str.indexOf(term)) {
+
+      }
+
+      this.shouldSend &&
       sendError({
         msg,
         trace: traceLog,
@@ -21,6 +26,7 @@ function start () {
         userMessage = 'Application encountered an unexpected condition. Please refresh the page.';
       }
       super({userMessage, msg});
+      this.shouldSend = true;
 
       window.alert(userMessage);
     }
@@ -33,6 +39,7 @@ function start () {
                       ' later.';
       }
       super({userMessage, msg});
+      this.shouldSend = true;
     }
   }
 

@@ -19,7 +19,7 @@
         $dataList.empty();
         let suggestionsCount = 0;
 
-        for (const airportName of airportNames) {
+        for (const airportName of data) {
           if (suggestionsCount === maxSuggestions) {
             break;
           }
@@ -28,13 +28,13 @@
             suggestionsCount += 1;
 
             $(`<option></option>`)
-              .attr('value', airportName)
+              .attr('value', data)
               .appendTo($dataList);
           }
         }
       };
 
-      $(this).on('keyup', onChange(data));
+      $(this).on('keyup', onChange(airportNames));
     });
   };
 })(jQuery);
