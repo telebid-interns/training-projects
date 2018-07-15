@@ -18,6 +18,45 @@ function start () {
     },
   ];
 
+  // const n = 7;
+  // const circles = [
+  //   {
+  //     x: 3,
+  //     y: -9,
+  //     r: 4,
+  //   },
+  //   {
+  //     x: -3,
+  //     y: -5,
+  //     r: 2,
+  //   },
+  //   {
+  //     x: 0,
+  //     y: 0,
+  //     r: 7,
+  //   },
+  //   {
+  //     x: 0,
+  //     y: 6,
+  //     r: 3,
+  //   },
+  //   {
+  //     x: 4,
+  //     y: 6,
+  //     r: 3,
+  //   },
+  //   {
+  //     x: 5,
+  //     y: 7,
+  //     r: 4,
+  //   },
+  //   {
+  //     x: 8,
+  //     y: 9,
+  //     r: 1,
+  //   },
+  // ];
+
   if (n < 2 || n > 1000) {
     console.log(`n must be >= 2 and <= 1000, but n=${n}`);
     return;
@@ -44,36 +83,49 @@ function start () {
 
   for (let i = 0; i < circles.length; i++) {
     pathsHash[i + 1] = [];
-    for (let k = i + 1; k < circles.length; k++) {
-      console.log(circles[i]);
-      console.log(circles[k]);
-      console.log(countCirclesIntersections(circles[i], circles[k]));
+    for (let k = 0; k < circles.length; k++) {
+      if (k === i) {
+        continue;
+      }
+      // console.log(circles[i]);
+      // console.log(circles[k]);
+      // console.log(countCirclesIntersections(circles[i], circles[k]));
       if (countCirclesIntersections(circles[i], circles[k]) === 2) {
         pathsHash[i + 1].push(k + 1);
       }
     }
   }
 
+  // console.log(pathsHash);
+
   if (Object.keys(pathsHash).length === 0 || pathsHash[1].length === 0) {
     console.log(-1);
     return;
   }
 
-  const queue = [pathsHash[1]];
-  let pathLength = 0;
+  const queue = [{
+    neighbours: pathsHash[1],
+    depth: 0,
+  }];
+  const checked = [1];
 
   while (queue.length !== 0) {
-    const neighbours = queue.pop();
+    const element = queue.pop();
+    // console.log(element);
 
-    for (const neighbour of neighbours) {
+    for (const neighbour of element.neighbours) {
       if (neighbour === n) {
-        pathLength++;
-        console.log(pathLength);
+        console.log(element.depth + 1);
         return;
       }
-      queue.unshift(pathsHash[neighbour]);
+      if (!checked.includes(neighbour)) {
+        queue.unshift({
+          neighbours: pathsHash[neighbour],
+          depth: element.depth + 1,
+        });
+        checked.push(neighbour);
+      }
     }
-    pathLength++;
   }
 
   console.log(-1);
