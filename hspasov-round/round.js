@@ -2,9 +2,16 @@ const submitBtn = document.getElementById('submit');
 const input = document.getElementById('input');
 const result = document.getElementById('result');
 const canvas = document.getElementById('coordinate-system');
-const GRID_SIZE = 25;
-const X_AXIS_DISTANCE_GRID_LINES = 20;
-const Y_AXIS_DISTANCE_GRID_LINES = 20;
+
+function handleError (error) {
+  displayMessage(error.error);
+}
+
+window.addEventListener('error', handleError);
+
+function displayMessage (message) {
+  window.alert(message);
+}
 
 function parseInput (input) {
   const NUMBERS_ROW_PATTERN = /[-\d ]+(?=\n|$)/g;
@@ -15,6 +22,11 @@ function parseInput (input) {
   }
 
   const numbersRowMatched = input.match(NUMBERS_ROW_PATTERN);
+
+  if (!Array.isArray(numbersRowMatched)) {
+    throw new Error('Invalid input. Expected rows with space separated numbers!');
+  }
+
   const rows = numbersRowMatched.map(row => {
     return row.match(NUMBER_PATTERN).map(Number);
   });
@@ -28,6 +40,10 @@ function parseInput (input) {
   }
 
   const n = rows[0][0];
+
+  if (rows.length - 1 !== n) {
+    throw new Error(`Invalid input. Expected ${n} rows with numbers.`);
+  }
 
   for (let i = 1; i < rows.length; i++) {
     if (
@@ -155,16 +171,8 @@ function countTwoCirclesIntersections (circle1, circle2) {
 }
 
 function calcCircleCentersDistance (circle1, circle2) {
-  let xDiff = circle1.x - circle2.x;
-  let yDiff = circle1.y - circle2.y;
-
-  if (xDiff < 0) {
-    xDiff *= -1;
-  }
-
-  if (yDiff < 0) {
-    yDiff *= -1;
-  }
+  const xDiff = Math.abs(circle1.x - circle2.x);
+  const yDiff = Math.abs(circle1.y - circle2.y);
 
   return calcHypotenuse(xDiff, yDiff);
 }
@@ -173,7 +181,7 @@ function calcHypotenuse (catethus1, catethus2) {
   return Math.sqrt((catethus1 ** 2) + (catethus2 ** 2));
 }
 
-function drawCoordinateSys () {
+function drawCoordinateSys (coordSysSize) {
   // http://usefulangle.com/post/19/html5-canvas-tutorial-how-to-draw-graphical-coordinate-system-with-grids-and-axis
   const font = '9px Arial';
   const axisLineStyle = '#000000';
@@ -181,10 +189,20 @@ function drawCoordinateSys () {
   const xAxisStartingPoint = { number: 1, suffix: '' };
   const yAxisStartingPoint = { number: 1, suffix: '' };
   const ctx = canvas.getContext('2d');
+  canvas.width = (
+    coordSysSize.leftGridLines +
+    coordSysSize.rightGridLines
+  ) * coordSysSize.gridSize;
+  canvas.height = (
+    coordSysSize.topGridLines +
+    coordSysSize.bottomGridLines
+  ) * coordSysSize.gridSize;
   const canvasWidth = canvas.width;
   const canvasHeight = canvas.height;
-  const numLinesX = Math.floor(canvasHeight / GRID_SIZE);
-  const numLinesY = Math.floor(canvasWidth / GRID_SIZE);
+  const numLinesX = Math.floor(canvasHeight / coordSysSize.gridSize);
+  const numLinesY = Math.floor(canvasWidth / coordSysSize.gridSize);
+  const xAxisDistanceGridLines = coordSysSize.topGridLines;
+  const yAxisDistanceGridLines = coordSysSize.leftGridLines;
 
   ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
@@ -193,18 +211,18 @@ function drawCoordinateSys () {
     ctx.beginPath();
     ctx.lineWidth = 1;
 
-    if (i === X_AXIS_DISTANCE_GRID_LINES) {
+    if (i === xAxisDistanceGridLines) {
       ctx.strokeStyle = axisLineStyle;
     } else {
       ctx.strokeStyle = gridLineStyle;
     }
 
     if (i === numLinesX) {
-      ctx.moveTo(0, GRID_SIZE * i);
-      ctx.lineTo(canvasWidth, GRID_SIZE * i);
+      ctx.moveTo(0, coordSysSize.gridSize * i);
+      ctx.lineTo(canvasWidth, coordSysSize.gridSize * i);
     } else {
-      ctx.moveTo(0, GRID_SIZE * i);
-      ctx.lineTo(canvasWidth, GRID_SIZE * i);
+      ctx.moveTo(0, coordSysSize.gridSize * i);
+      ctx.lineTo(canvasWidth, coordSysSize.gridSize * i);
     }
     ctx.stroke();
   }
@@ -214,73 +232,70 @@ function drawCoordinateSys () {
     ctx.beginPath();
     ctx.lineWidth = 1;
 
-    if (i === Y_AXIS_DISTANCE_GRID_LINES) {
+    if (i === yAxisDistanceGridLines) {
       ctx.strokeStyle = axisLineStyle;
     } else {
       ctx.strokeStyle = gridLineStyle;
     }
 
     if (i === numLinesY) {
-      ctx.moveTo(GRID_SIZE * i, 0);
-      ctx.lineTo(GRID_SIZE * i, canvasHeight);
+      ctx.moveTo(coordSysSize.gridSize * i, 0);
+      ctx.lineTo(coordSysSize.gridSize * i, canvasHeight);
     } else {
-      ctx.moveTo(GRID_SIZE * i, 0);
-      ctx.lineTo(GRID_SIZE * i, canvasHeight);
+      ctx.moveTo(coordSysSize.gridSize * i, 0);
+      ctx.lineTo(coordSysSize.gridSize * i, canvasHeight);
     }
     ctx.stroke();
   }
 
-  ctx.translate(
-    Y_AXIS_DISTANCE_GRID_LINES * GRID_SIZE,
-    X_AXIS_DISTANCE_GRID_LINES * GRID_SIZE,
-  );
+  translateToCoordSysCenter(ctx, coordSysSize);
 
   // Draw tick marks along positive X-axis
-  for (let i = 1; i < numLinesY - Y_AXIS_DISTANCE_GRID_LINES; i++) {
+  for (let i = 1; i < numLinesY - yAxisDistanceGridLines; i++) {
     ctx.beginPath();
     ctx.lineWidth = 1;
     ctx.strokeStyle = axisLineStyle;
 
-    ctx.moveTo(GRID_SIZE * i, -3);
-    ctx.lineTo(GRID_SIZE * i, 3);
+    ctx.moveTo(coordSysSize.gridSize * i, -3);
+    ctx.lineTo(coordSysSize.gridSize * i, 3);
     ctx.stroke();
 
     ctx.font = font;
     ctx.textAlign = 'start';
     ctx.fillText(
       xAxisStartingPoint.number * i + xAxisStartingPoint.suffix,
-      GRID_SIZE * i - 2,
+      coordSysSize.gridSize * i - 2,
       15,
     );
   }
 
   // Draw tick marks along negative X-axis
-  for (let i = 1; i < Y_AXIS_DISTANCE_GRID_LINES; i++) {
+  for (let i = 1; i < yAxisDistanceGridLines; i++) {
     ctx.beginPath();
     ctx.lineWidth = 1;
     ctx.strokeStyle = axisLineStyle;
 
-    ctx.moveTo(-GRID_SIZE * i, -3);
-    ctx.lineTo(-GRID_SIZE * i, 3);
+    ctx.moveTo(-coordSysSize.gridSize * i, -3);
+    ctx.lineTo(-coordSysSize.gridSize * i, 3);
     ctx.stroke();
 
     ctx.font = font;
     ctx.textAlign = 'end';
     ctx.fillText(
       -xAxisStartingPoint.number * i + xAxisStartingPoint.suffix,
-      -GRID_SIZE * i + 3,
+      -coordSysSize.gridSize * i + 3,
       15,
     );
   }
 
   // Draw tick marks along positive Y-axis
-  for (let i = 1; i < numLinesX - X_AXIS_DISTANCE_GRID_LINES; i++) {
+  for (let i = 1; i < numLinesX - xAxisDistanceGridLines; i++) {
     ctx.beginPath();
     ctx.lineWidth = 1;
     ctx.strokeStyle = axisLineStyle;
 
-    ctx.moveTo(-3, GRID_SIZE * i);
-    ctx.lineTo(3, GRID_SIZE * i);
+    ctx.moveTo(-3, coordSysSize.gridSize * i);
+    ctx.lineTo(3, coordSysSize.gridSize * i);
     ctx.stroke();
 
     ctx.font = font;
@@ -288,144 +303,170 @@ function drawCoordinateSys () {
     ctx.fillText(
       -yAxisStartingPoint.number * i + yAxisStartingPoint.suffix,
       8,
-      GRID_SIZE * i + 3,
+      coordSysSize.gridSize * i + 3,
     );
   }
 
   // Draw tick marks along negative Y-axis
-  for (let i = 1; i < X_AXIS_DISTANCE_GRID_LINES; i++) {
+  for (let i = 1; i < xAxisDistanceGridLines; i++) {
     ctx.beginPath();
     ctx.lineWidth = 1;
     ctx.strokeStyle = axisLineStyle;
 
-    ctx.moveTo(-3, -GRID_SIZE * i);
-    ctx.lineTo(3, -GRID_SIZE * i);
+    ctx.moveTo(-3, -coordSysSize.gridSize * i);
+    ctx.lineTo(3, -coordSysSize.gridSize * i);
     ctx.stroke();
 
     ctx.font = font;
     ctx.textAlign = 'start';
     ctx.fillText(yAxisStartingPoint.number * i + yAxisStartingPoint.suffix,
       8,
-      -GRID_SIZE * i + 3,
+      -coordSysSize.gridSize * i + 3,
     );
   }
 
-  ctx.translate(
-    -Y_AXIS_DISTANCE_GRID_LINES * GRID_SIZE,
-    -X_AXIS_DISTANCE_GRID_LINES * GRID_SIZE,
-  );
+  resetTranslation(ctx, coordSysSize);
 }
 
-function drawCircle (circle, label) {
+function drawCircle (circle, label, coordSysSize) {
   const ctx = canvas.getContext('2d');
 
-  ctx.translate(
-    Y_AXIS_DISTANCE_GRID_LINES * GRID_SIZE,
-    X_AXIS_DISTANCE_GRID_LINES * GRID_SIZE,
-  );
+  translateToCoordSysCenter(ctx, coordSysSize);
 
-  drawPoint(circle.x, circle.y);
+  drawPoint(circle.x, circle.y, coordSysSize);
 
-  const c = new Path2D();
+  const c = new window.Path2D();
   c.arc(
-    circle.x * GRID_SIZE,
-    circle.y * -GRID_SIZE,
-    circle.r * GRID_SIZE,
+    circle.x * coordSysSize.gridSize,
+    circle.y * -coordSysSize.gridSize,
+    circle.r * coordSysSize.gridSize,
     0,
     2 * Math.PI,
   );
   ctx.stroke(c);
 
-  ctx.fillText(label, circle.x * GRID_SIZE, circle.y * -GRID_SIZE);
-
-  ctx.translate(
-    -Y_AXIS_DISTANCE_GRID_LINES * GRID_SIZE,
-    -X_AXIS_DISTANCE_GRID_LINES * GRID_SIZE,
+  ctx.fillText(
+    label,
+    circle.x * coordSysSize.gridSize,
+    circle.y * -coordSysSize.gridSize
   );
+
+  resetTranslation(ctx, coordSysSize);
 }
 
-function drawPoint (x, y) {
+function drawPoint (x, y, coordSysSize) {
   const ctx = canvas.getContext('2d');
 
-  const c = new Path2D();
-  c.rect(x * GRID_SIZE, y * -GRID_SIZE, 1, 1);
+  const c = new window.Path2D();
+  c.rect(x * coordSysSize.gridSize, y * -coordSysSize.gridSize, 1, 1);
 
   ctx.stroke(c);
 }
 
-function drawLine (point1, point2) {
+function drawLine (point1, point2, coordSysSize) {
   const ctx = canvas.getContext('2d');
   const pathStyle = '#FF0000';
 
-  ctx.translate(
-    Y_AXIS_DISTANCE_GRID_LINES * GRID_SIZE,
-    X_AXIS_DISTANCE_GRID_LINES * GRID_SIZE,
-  );
+  translateToCoordSysCenter(ctx, coordSysSize);
 
   ctx.beginPath();
   ctx.lineWidth = 1;
   ctx.strokeStyle = pathStyle;
 
-  ctx.moveTo(point1.x * GRID_SIZE, point1.y * -GRID_SIZE);
-  ctx.lineTo(point2.x * GRID_SIZE, point2.y * -GRID_SIZE);
+  ctx.moveTo(
+    point1.x * coordSysSize.gridSize,
+    point1.y * -coordSysSize.gridSize
+  );
+  ctx.lineTo(
+    point2.x * coordSysSize.gridSize,
+    point2.y * -coordSysSize.gridSize
+  );
   ctx.stroke();
 
+  resetTranslation(ctx, coordSysSize);
+}
+
+function translateToCoordSysCenter (ctx, coordSysSize) {
   ctx.translate(
-    -Y_AXIS_DISTANCE_GRID_LINES * GRID_SIZE,
-    -X_AXIS_DISTANCE_GRID_LINES * GRID_SIZE,
+    coordSysSize.leftGridLines * coordSysSize.gridSize,
+    coordSysSize.topGridLines * coordSysSize.gridSize,
+  );
+}
+
+function resetTranslation (ctx, coordSysSize) {
+  ctx.translate(
+    -coordSysSize.leftGridLines * coordSysSize.gridSize,
+    -coordSysSize.topGridLines * coordSysSize.gridSize,
   );
 }
 
 function onSubmit () {
-  drawCoordinateSys();
-
   const parsedInput = parseInput(input.value);
 
   const n = parsedInput.n;
   const circles = parsedInput.circles;
 
   if (n < 2 || n > 1000) {
-    return {
-      statusCode: 2000,
-      msg: `n must be >= 2 and <= 1000, but n=${n}`,
-    };
+    throw new Error(`n must be >= 2 and <= 1000, but n=${n}`);
   }
 
   for (const circle of circles) {
     if (circle.x <= -10000 || circle.x >= 10000) {
-      return {
-        statusCode: 2001,
-        msg: `x must be > -10000 and < 10000, but x=${circle.x}`,
-      };
+      throw new Error(`x must be > -10000 and < 10000, but x=${circle.x}`);
     }
 
     if (circle.y <= -10000 || circle.y >= 10000) {
-      return {
-        statusCode: 2002,
-        msg: `y must be > -10000 and < 10000, but y=${circle.y}`,
-      };
+      throw new Error(`y must be > -10000 and < 10000, but y=${circle.y}`);
     }
 
     if (circle.r <= 0 || circle.r >= 10000) {
-      return {
-        statusCode: 2003,
-        msg: `r must be > 0 and < 10000, but r=${circle.r}`,
-      };
+      throw new Error(`r must be > 0 and < 10000, but r=${circle.r}`);
     }
   }
 
+  const leftmostPoint = Math.min(
+    ...circles.map((circle) => circle.x - circle.r)
+  );
+  const rightmostPoint = Math.max(
+    ...circles.map((circle) => circle.x + circle.r)
+  );
+  const bottommostPoint = Math.min(
+    ...circles.map((circle) => circle.y - circle.r)
+  );
+  const topmostPoint = Math.max(
+    ...circles.map((circle) => circle.y + circle.r)
+  );
+
+  const coordSysSize = {
+    leftGridLines: (leftmostPoint < 0) ? Math.abs(leftmostPoint) : 1,
+    rightGridLines: (rightmostPoint > 0) ? Math.abs(rightmostPoint) : 1,
+    bottomGridLines: (bottommostPoint < 0) ? Math.abs(bottommostPoint) : 1,
+    topGridLines: (topmostPoint > 0) ? Math.abs(topmostPoint) : 1,
+    gridSize: 25,
+  };
+
+  drawCoordinateSys(coordSysSize);
+
   for (let i = 0; i < circles.length; i++) {
-    drawCircle(circles[i], `A${i + 1}`);
+    drawCircle(circles[i], `A${i + 1}`, coordSysSize);
   }
 
   const pathsHash = getPaths(circles);
   const shortestPath = calcShortestPath(pathsHash, n);
 
-  const shortestPathNodesFilter = (circle, index) => {
+  result.innerHTML = shortestPath.msg;
+
+  if (shortestPath.statusCode !== 1000) {
+    return;
+  }
+
+  const shortestPathNodesFilter = (shortestPath) => (circle, index) => {
     return shortestPath.pathHistory.includes(index + 1);
   };
 
-  const shortestPathNodes = circles.filter(shortestPathNodesFilter);
+  const shortestPathNodes = circles.filter(
+    shortestPathNodesFilter(shortestPath)
+  );
 
   for (let i = 0; i < shortestPathNodes.length - 1; i++) {
     const point1 = {
@@ -436,10 +477,8 @@ function onSubmit () {
       x: shortestPathNodes[i + 1].x,
       y: shortestPathNodes[i + 1].y,
     };
-    drawLine(point1, point2);
+    drawLine(point1, point2, coordSysSize);
   }
-
-  result.innerHTML = shortestPath.msg;
 }
 
 submitBtn.addEventListener('click', onSubmit);
