@@ -2,17 +2,13 @@
 
 function start () {
   class BaseError extends Error {
-    constructor ({userMessage, msg}) {
+    constructor ({userMessage, msg}, shouldSend) {
       super(userMessage);
 
       this.userMessage = userMessage;
       this.msg = msg;
 
-      if(!~str.indexOf(term)) {
-
-      }
-
-      this.shouldSend &&
+      shouldSend &&
       sendError({
         msg,
         trace: traceLog,
@@ -25,8 +21,7 @@ function start () {
       if (!userMessage) {
         userMessage = 'Application encountered an unexpected condition. Please refresh the page.';
       }
-      super({userMessage, msg});
-      this.shouldSend = true;
+      super({userMessage, msg}, true);
 
       window.alert(userMessage);
     }
@@ -38,14 +33,13 @@ function start () {
         userMessage = 'Service is not available at the moment. Please refresh the page and try' +
                       ' later.';
       }
-      super({userMessage, msg});
-      this.shouldSend = true;
+      super({userMessage, msg}, true);
     }
   }
 
   class UserError extends BaseError {
     constructor ({userMessage, msg}) {
-      super({userMessage, msg});
+      super({userMessage, msg}, true);
     }
   }
 
@@ -76,7 +70,7 @@ function start () {
   }
 
   const MAX_ROUTES_PER_PAGE = 5;
-  const SERVER_URL = 'http://10.20.1.155:3000';
+  const SERVER_URL = 'http://10.20.1.139:3000';
   const MONTH_NAMES = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December',
@@ -138,6 +132,8 @@ function start () {
 
   function getAirport (term) {
     trace(`getAirport(${term}), typeof arg=${typeof term}`);
+
+    assertApp(typeof term === 'string', `In getAirport expected term to be string, but got ${typeof term}, term = "${term}"`);
 
     term = term.toLowerCase();
 
@@ -245,12 +241,11 @@ function start () {
   async function unsubscribe (params, requestFormat) {
     trace(`unsubscribe(${objToString(params)}), typeof arg=${typeof params}`);
 
+    const { email } = params;
+
     assertApp(validateSubscriptionReq(params), {
       msg: 'Params do not adhere to subscriptionRequestSchema',
     });
-
-    const { latinName: fromAirportLatinName } = getAirport(params.fly_from);
-    const { latinName: toAirportLatinName } = getAirport(params.fly_to);
 
     try {
       const { result } = await sendRequest(SERVER_URL, {
@@ -262,13 +257,13 @@ function start () {
         msg: 'Params do not adhere to subscriptionResponseSchema',
       });
       assertUser(result.status_code >= 1000 && result.status_code < 2000, {
-        userMessage: `You aren't subscribed for flights from airport ${fromAirportLatinName} to airport ${toAirportLatinName}.`,
+        userMessage: `There was no subscription with email ${email}.`,
         msg: `Server returned ${result.status_code} status code. Sent params: ${params}. Got result: ${result}`,
       });
 
       return params;
     } catch (e) {
-      e.userMessage = `Failed to unsubscribe for flights from airport ${fromAirportLatinName} to airport ${toAirportLatinName}.`;
+      e.userMessage = `Failed to unsubscribe for flights for email ${email}.`;
       throw e;
     }
   }
@@ -730,25 +725,49 @@ function start () {
     const $routeItemTemplate = $('#flights-list-item-template');
     const $flightItemTemplate = $('#flight-item-template');
 
-    const $flightForm = $('#flight-form-input');
+    const $flightForm = $('#flight-form');
+    const $subscribeForm = $('#subscribe-form');
+    const $unsubscribeForm = $('#unsubscribe-form');
 
-    $('#subscribe-button').click(async () => {
+    $('#subscribe-button').click(async (e) => {
+      e.preventDefault();
       trace(`Subscribe button clicked`);
 
-      let formParams;
-      try {
-        formParams = getSearchFormParams($flightForm);
-      } catch (e) {
-        handleError(e);
-        return false;
-      }
+      const formParams = $subscribeForm
+        .serializeArray()
+        .reduce((acc, current) => {
+          assertApp(_.isObject(current), `Form parameter "${current}" not an object`);
+          assertApp(typeof current.name === 'string', `Expected name of form parameter to be string, but got ${typeof current.name}, name = ${current.name}`);
+          assertApp(typeof current.value === 'string', `Expected value of form parameter to be string, but got ${typeof current.value}, value = ${current.value}`);
+
+          if (current.value.length <= 0) {
+            return acc;
+          }
+
+          if (current.name === 'email') {
+            acc.email = current.value;
+          } else if (current.name === 'from') {
+            acc.fly_from = current.value;
+          } else if (current.name === 'to') {
+            acc.fly_to = current.value;
+          } else if (current.name === 'date-from') {
+            acc.date_from = current.value;
+          } else if (current.name === 'date-to') {
+            acc.date_to = current.value;
+          } else {
+            throw new ApplicationError({
+              msg: `Invalid subscribe form param "${current.name}"`,
+            });
+          }
+
+          return acc;
+        }, {});
 
       try {
         const result = await subscribe({
-          v: formParams.v,
-          fly_from: formParams.fly_from,
-          fly_to: formParams.fly_to,
-        }, formParams.format);
+          v: '2.0',
+          ...formParams,
+        }, 'jsonrpc');
 
         if (result.status_code >= 1000 && result.status_code < 2000) {
           displaySearchResult(
@@ -766,23 +785,35 @@ function start () {
       return false;
     });
 
-    $('#unsubscribe-button').click(async () => {
+    $('#unsubscribe-button').click(async (e) => {
+      e.preventDefault();
       trace(`Unsubscribe button clicked`);
 
-      let formParams;
-      try {
-        formParams = getSearchFormParams($flightForm);
-      } catch (e) {
-        handleError(e);
-        return false;
-      }
+      const formParams = $unsubscribeForm
+        .serializeArray()
+        .reduce((acc, current) => {
+          assertApp(_.isObject(current), `Form parameter "${current}" not an object`);
+          assertApp(typeof current.name === 'string', `Expected name of form parameter to be string, but got ${typeof current.name}, name = ${current.name}`);
+          assertApp(typeof current.value === 'string', `Expected value of form parameter to be string, but got ${typeof current.value}, value = ${current.value}`);
+
+          if (current.value.length <= 0) {
+            return acc;
+          }
+
+          if (current.name === 'email') {
+            acc.email = current.value;
+          } else {
+            throw new ApplicationError(`Invalid unsubscribe form param ${current.name}`);
+          }
+
+          return acc;
+        }, {});
 
       try {
         const result = await unsubscribe({
-          v: formParams.v,
-          fly_from: formParams.fly_from,
-          fly_to: formParams.fly_to,
-        }, formParams.format);
+          v: '2.0',
+          ...formParams,
+        }, 'jsonrpc');
 
         if (result.status_code >= 1000 && result.status_code < 2000) {
           displaySearchResult(
@@ -812,11 +843,7 @@ function start () {
       }
 
       try {
-        const format = formParams.format;
-
-        delete formParams.format;
-
-        const result = await search(formParams, format);
+        const result = await search(formParams, 'jsonrpc');
 
         if (result.status_code >= 1000 && result.status_code < 2000) {
           displaySearchResult(

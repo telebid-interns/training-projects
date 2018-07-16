@@ -24,7 +24,7 @@
     <div class="row">
         <h1 class="text-center">Freefall - fast travel for your convenience</h1>
     </div>
-    <form id="flight-form-input" class="row">
+    <form id="flight-form" class="row">
         <div class="col-md-6 col-md-offset-3">
             <div class="form-group">
                 <div class="form-group fixed-form-height">
@@ -51,17 +51,8 @@
                     <label for="price-to" text-center">Max price</label>
                     <input id="price-to" class="form-control" name="price-to" placeholder="max-price" min="0" type="number">
                 </div>
-                <div class="form-group fixed-form-height">
-                    <label for="request-format" text-center">Request format</label>
-                    <select id="request-format" form="flight-form-input" name="format" class="form-control">
-                        <option>jsonrpc</option>
-                        <option>yamlrpc</option>
-                    </select>
-                </div>
                 <div class="form-group fixed-form-height text-center">
-                    <button id="submit-button" type="submit" class="btn btn-primary">Jump</button>
-                    <button id="subscribe-button" class="btn btn-primary">Subscribe</button>
-                    <button id="unsubscribe-button" class="btn btn-primary">Unsubscribe</button>
+                    <button id="submit-button" type="submit" class="btn btn-primary">Search</button>
                 </div>
             </div>
         </div>
