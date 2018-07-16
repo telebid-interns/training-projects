@@ -156,7 +156,7 @@
      complete: true,
      headers:
       { server: 'openresty',
-        date: 'Mon, 16 Jul 2018 14:38:02 GMT',
+        date: 'Mon, 16 Jul 2018 15:31:02 GMT',
         'content-type': 'application/json; charset=utf-8',
         'content-length': '40',
         connection: 'close',
@@ -168,7 +168,7 @@
       [ 'Server',
         'openresty',
         'Date',
-        'Mon, 16 Jul 2018 14:38:02 GMT',
+        'Mon, 16 Jul 2018 15:31:02 GMT',
         'Content-Type',
         'application/json; charset=utf-8',
         'Content-Length',

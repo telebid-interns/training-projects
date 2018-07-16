@@ -8,6 +8,7 @@ updateDB();
 async function updateDB () {
   const db = await sqlite.open('./../database/forecast.db');
   const reports = await db.all(`select id, city from reports`);
+  resetAPIKeys(db);
 
   for (const report of reports) {
     if (!report.city) {
@@ -83,6 +84,10 @@ async function updateDB () {
       );
     }
   }
+}
+
+function resetAPIKeys (db) {
+   db.run(`update apikeys set use_count = 0`);
 }
 
 function isObject (obj) {

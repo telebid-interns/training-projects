@@ -24,3 +24,9 @@ wind_speed decimal,
 date text,
 foreign key (report_id) references reports(id),
 unique (report_id, date) on conflict replace);
+
+CREATE TABLE apikeys (
+id integer primary key autoincrement,
+key text,
+use_count integer
+);

@@ -5,7 +5,11 @@ const asserts = require('./../asserts/asserts.js');
 const sqlite = require('sqlite');
 
 const PORT = 3001;
+
 const NO_INFO_MSG = 'error: no information for requested city, please try again later';
+const NO_KEY_IN_REQUEST_MSG = 'error: incorrect api key';
+const USED_ALL_REQUESTS_MSG = 'error: you have exceeded your request cap, please try again later';
+
 const app = new Koa();
 
 const server = app.listen(PORT, () => {
@@ -23,12 +27,30 @@ connect();
 
 router.post('/forecast', bodyParser(), async (ctx, next) => {
   asserts.assertUser(typeof ctx.request.body.city === 'string', 'No city in post body');
-  const city = ctx.request.body.city;
+  asserts.assertUser(typeof ctx.request.body.key === 'string', 'No apikey in post body');
+
   const response = {};
-  const report = await db.get(`select * from reports as r where r.city = ?`, city);
+
+  const city = ctx.request.body.city;
+  const key = ctx.request.body.key;
+
+  const report = await db.get(`select * from reports where city = ?`, city);
+  const keyRecord = await db.get(`select * from apikeys where key = ?`, key);
+
+  if (keyRecord == null || typeof keyRecord !== 'object') {
+    ctx.body = { message: NO_KEY_IN_REQUEST_MSG };
+    return;
+  }
+
+  if (keyRecord.use_count >= 10) {
+    ctx.body = { message: USED_ALL_REQUESTS_MSG };
+    return;
+  }
+
+  db.run(`update apikeys set use_count = ? where key = ?`, keyRecord.use_count + 1, key);
 
   if (report == null) {
-    ctx.body = {message: NO_INFO_MSG};
+    ctx.body = { message: NO_INFO_MSG };
     db.run(`insert into reports (city) values(?)`, city);
     return;
   }
@@ -40,7 +62,7 @@ router.post('/forecast', bodyParser(), async (ctx, next) => {
   );
 
   if (conditions.length === 0) {
-    ctx.body = {message: NO_INFO_MSG};
+    ctx.body = { message: NO_INFO_MSG };
     return;
   }
 
