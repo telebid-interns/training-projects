@@ -5,7 +5,7 @@ import json
 import sqlite3
 import sys
 import re
-from datetime import date
+from datetime import date, datetime
 from dateutil.relativedelta import relativedelta
 
 ROUTES_LIMIT = 30
@@ -121,8 +121,6 @@ def select_where(conn, table, columns, where):
     c = conn.cursor()
 
     whereCol = list(where.keys())[0]
-    print(whereCol)
-    print(where[whereCol])
 
     c.execute('SELECT {0} FROM {1} WHERE {2} = ?;'.format(stringify_columns(columns), table, whereCol), [where[whereCol]])
 
@@ -197,7 +195,7 @@ def insert_data_fetch(conn, subscription_id):
 
     c = conn.cursor()
 
-    c.execute('INSERT INTO fetches(timestamp, subscription_id) VALUES (strftime(\'%Y-%m-%dT%H:%M:%SZ\' ,\'now\'), ?);', subscription_id)
+    c.execute('INSERT INTO fetches(timestamp, subscription_id) VALUES (strftime(\'%Y-%m-%dT%H:%M:%SZ\' ,\'now\'), ?);', [subscription_id])
 
     assert_app(isinstance(c.lastrowid, int), 'Expected lastrowid in insert_data_fetch function to be int, but was {0}'.format(type(c.lastrowid)))
 
@@ -258,12 +256,13 @@ def insert_if_not_exists_sub(conn, airport_from_id , airport_to_id):
     return True
 
 
-def get_subscription_data(conn, airport_end_points, fetch_id, offset=0):
+def get_subscription_data(conn, airport_end_points, fetch_id):
     for label, end_point in airport_end_points.items():
         assert_app(
             isinstance(end_point, str),
             'Expected {0} to be str, but got value "{1}" of type "{2}"'.format(label, end_point, type(end_point)))
 
+    offset = 0
     next_page_available = True
 
     while next_page_available:
@@ -348,7 +347,7 @@ def get_subscription_data(conn, airport_end_points, fetch_id, offset=0):
             offset,
             len(flights_dict)))
 
-        for flight_id, flight in flights_dict.entries():
+        for flight_id, flight in flights_dict.items():
             airport_codes = [
                 flight['flyFrom'],
                 flight['flyTo']
@@ -363,8 +362,8 @@ def get_subscription_data(conn, airport_end_points, fetch_id, offset=0):
 
                 assert_app(isinstance(select_result, list), 'Expected airports select result to be a list, but was {0}'.format(type(select_result)))
                 assert_app(len(select_result) == 1, 'Expected only one airports select result, but got {0}'.format(len(select_result)))
-                assert_app(isinstance(select_result[0], sqlite3.Row), 'Expected element in airport select result to be dict, but was {0}'.format(select_result[0]))
-                # assert_app('id' in select_result[0], 'Key "id" not found in airport select result.')
+                assert_app(isinstance(select_result[0], sqlite3.Row), 'Expected element in airport select result to be sqlite3.Row, but was {0}'.format(select_result[0]))
+                assert_app('id' in select_result[0].keys(), 'Key "id" not found in airport select result.')
                 assert_app(isinstance(select_result[0]['id'], int), 'Expected id in airport select result element to be int, but was {0}'.format(select_result[0]['id']))
 
                 airport_ids.append(select_result[0]['id'])
@@ -375,8 +374,8 @@ def get_subscription_data(conn, airport_end_points, fetch_id, offset=0):
 
             assert_app(isinstance(airline_id_result, list), 'Expected airline select result to be a list, but was {0}'.format(type(airline_id_result)))
             assert_app(len(airline_id_result) == 1, 'Expected only one airline select result, but got {0}'.format(len(airline_id_result)))
-            assert_app(isinstance(airline_id_result[0], dict), 'Expected element in airline select result to be dict, but was {0}'.format(airline_id_result[0]))
-            # assert_app('id' in airline_id_result[0], 'Key "id" not found in airline id result.')
+            assert_app(isinstance(airline_id_result[0], sqlite3.Row), 'Expected element in airline select result to be sqlite3.Row, but was {0}'.format(airline_id_result[0]))
+            assert_app('id' in airline_id_result[0].keys(), 'Key "id" not found in airline id result.')
             assert_app(isinstance(airline_id_result[0]['id'], int), 'Expected id in airline select result element to be int, but was {0}'.format(airline_id_result[0]['id']))
 
             log('Inserting if not exists flight {0} {1} from {2} to {3} departure time {4} ...'.format(
@@ -384,15 +383,17 @@ def get_subscription_data(conn, airport_end_points, fetch_id, offset=0):
                 flight['flight_no'],
                 flight['flyFrom'],
                 flight['flyTo'],
-                date.fromtimestamp(flight['dTimeUTC']).strftime(SERVER_TIME_FORMAT)))
+                datetime.fromtimestamp(flight['dTimeUTC']).strftime(SERVER_TIME_FORMAT)))
 
             insert_if_not_exists(conn, 'flights', {
                 'airline_id': airline_id_result[0]['id'],
                 'airport_from_id': airport_ids[0],
                 'airport_to_id': airport_ids[1],
-                'dtime': date.fromtimestamp(flight['dTimeUTC']).strftime(SERVER_TIME_FORMAT),
-                'atime': date.fromtimestamp(flight['aTimeUTC']).strftime(SERVER_TIME_FORMAT),
+                'dtime': datetime.fromtimestamp(flight['dTimeUTC']).strftime(SERVER_TIME_FORMAT),
+                'atime': datetime.fromtimestamp(flight['aTimeUTC']).strftime(SERVER_TIME_FORMAT),
                 'flight_number': flight['flight_no'],
+                'remote_id': flight['id']
+            }, {
                 'remote_id': flight['id']
             })
 
@@ -417,7 +418,7 @@ def get_subscription_data(conn, airport_end_points, fetch_id, offset=0):
                     flight['flight_no'],
                     flight['flyFrom'],
                     flight['flyTo'],
-                    date.fromtimestamp(flight['dTimeUTC']).strftime(SERVER_TIME_FORMAT)))
+                    datetime.fromtimestamp(flight['dTimeUTC']).strftime(SERVER_TIME_FORMAT)))
 
                 flight_id_results = select_where(conn, 'flights', ['id'], {
                     'remote_id': flight['id']
@@ -425,8 +426,8 @@ def get_subscription_data(conn, airport_end_points, fetch_id, offset=0):
 
                 assert_app(isinstance(flight_id_results, list), 'Expected flight_id_results to be a list, but was {0}'.format(type(flight_id_results)))
                 assert_app(len(flight_id_results) == 1, 'Expected only one flight_id_result, but got {0}'.format(len(flight_id_results)))
-                assert_app(isinstance(flight_id_results[0], dict), 'Expected element in flight_id_results to be a dict, but was {0}'.format(type(flight_id_results[0])))
-                # assert_app('id' in flight_id_results[0], 'Key "id" not found in flight_id_results element')
+                assert_app(isinstance(flight_id_results[0], sqlite3.Row), 'Expected element in flight_id_results to be sqlite3.Row, but was {0}'.format(type(flight_id_results[0])))
+                assert_app('id' in flight_id_results[0].keys(), 'Key "id" not found in flight_id_results element')
                 assert_app(isinstance(flight_id_results[0]['id'], int), 'Flight id is not an int, but a {0}'.format(flight_id_results[0]['id']))
 
                 insert(conn, 'routes_flights', {
@@ -437,6 +438,7 @@ def get_subscription_data(conn, airport_end_points, fetch_id, offset=0):
 
         if isinstance(response['_next'], str):
             next_page_available = True
+            offset += ROUTES_LIMIT
 
 
 
@@ -451,8 +453,8 @@ def get_airport_if_not_exists(conn, iata_code):
 
     if len(airports) > 0:
         assert_app(len(airports) == 1, 'Expected one airport, but got {0}'.format(len(airports)))
-        assert_app(isinstance(airports[0], sqlite3.Row), 'Expected airport data to be dict, but got {0}'.format(type(airports[0])))
-        # assert_app('id' in airports[0], 'Key "id" not found in dict airports[0]')
+        assert_app(isinstance(airports[0], sqlite3.Row), 'Expected airport data to be sqlite3.Row, but got {0}'.format(type(airports[0])))
+        assert_app('id' in airports[0].keys(), 'Key "id" not found in dict airports[0]')
         assert_app(
             isinstance(airports[0]['id'], int),
             'Expected id of airport data to be int, but got {0}'.format(type(airports[0]['id'])))
@@ -538,20 +540,19 @@ def start():
 
 
     for sub in subscriptions:
-        print(sub)
         assert_app(
             isinstance(sub, sqlite3.Row),
-            'Expected subscription to be a dict, but was "{0}"'.format(type(sub)))
+            'Expected subscription to be sqlite3.Row, but was "{0}"'.format(type(sub)))
 
         expect_subscription_keys = ['id', 'airport_from_id', 'airport_to_id']
 
         for key in expect_subscription_keys:
-            assert_app(key in sub, 'Key "{0}" not found in subscription'.format(key))
+            assert_app(key in sub.keys(), 'Key "{0}" not found in subscription'.format(key))
             assert_app(
                 isinstance(sub[key], int),
                 'Expected sub[{0}] "{1}" to be int, but was "{2}"'.format(key, sub[key], type(sub[key])))
 
-        fetch_id = insert_data_fetch(sub['id'])
+        fetch_id = insert_data_fetch(conn, sub['id'])
 
         airport_from = select_where(conn, 'airports', ['id', 'iata_code', 'name'], {
             'id': sub['airport_from_id']
@@ -560,7 +561,10 @@ def start():
             'id': sub['airport_to_id']
         })
 
-        get_subscription_data(conn, {'airport_from': airport_from, 'airport_to': airport_to}, fetch_id)
+        # TODO assert airport_from and airport_to
 
+        get_subscription_data(conn, {'airport_from': airport_from[0]['iata_code'], 'airport_to': airport_to[0]['iata_code']}, fetch_id)
+
+        log('Done.')
 
 start()
