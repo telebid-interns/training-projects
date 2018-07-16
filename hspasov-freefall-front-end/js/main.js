@@ -292,7 +292,7 @@ function start () {
     let serverResponse;
     const parser = getParser(protocolName);
 
-    const { id } = getId.next();
+    const { value: id } = getId.next();
 
     try {
       serverResponse = await window.fetch(url, {
