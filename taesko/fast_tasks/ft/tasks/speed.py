@@ -1,3 +1,4 @@
+import argparse
 import collections
 import functools
 import itertools
@@ -288,10 +289,16 @@ def main():
     # print(list(graph_components(cut_map)))
     # print(list(find_solutions(city_dict_1)))
     # print(list(graph_components(cut_graph(city_dict_1, 70, 90))))
-    # test_input(open('sample_1.input', mode='r').read(), (3, 7))
-    # test_input(open('sample_2.input', mode='r').read(), (5, 19))
-    # print(list(all_paths(parse_input(open('large.input', mode='r').read()))))
-    for sol in find_solutions(parse_input(open('large.input', mode='r').read())):
+    # test_input(open('input_2.txt', mode='r').read(), (3, 7))
+    # test_input(open('input_3.txt', mode='r').read(), (5, 19))
+    # print(list(all_paths(parse_input(open('input_1.txt', mode='r').read()))))
+    parser = argparse.ArgumentParser()
+    parser.add_argument('input_file')
+
+    args = parser.parse_args()
+    graph = parse_input(open(args.input_file, mode='r').read())
+
+    for sol in find_solutions(graph):
         print(sol)
 
 
