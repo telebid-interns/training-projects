@@ -52,7 +52,10 @@ def depth_first_search(graph, start, end):
 
 
 def find_path(graph, start, end):
-    return next(depth_first_search(graph, start, end))
+    try:
+        return next(depth_first_search(graph, start, end))
+    except StopIteration:
+        return []
 
 
 def find_shortest_path(graph, start, end):
