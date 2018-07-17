@@ -28,6 +28,10 @@ def checkAllInBox(x1, y1, x2, y2):
     return count
 
 n = input()
+
+if(n < 2 or n > 3):
+    raise Exception('n out of range')
+
 size = n**2
 
 matrix = []
@@ -44,6 +48,9 @@ for i in range(size):
     for j in range(size):
       if matrix[i][j] not in symbols and matrix[i][j] != '0':
         symbols.append(matrix[i][j])
+
+if(len(symbols) < size):
+    raise Exception('not enough elements')
 
 done = False
 while not done:
