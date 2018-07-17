@@ -64,12 +64,12 @@ def dfs(x, y):
                     dfs(nextXY[0], nextXY[1])
         matrix[x][y] = '0'
     else:
-        if nextXY[0] != size-1 or nextXY[1] != size-1:
+        if x != size-1 or y != size-1:
             dfs(nextXY[0], nextXY[1])
 
 def isSolved():
     solved = True
-    for x in range(size): # test if symbol in square
+    for x in range(size):
         for y in range(size):
             if matrix[x][y] == '0':
                 solved = False
@@ -104,3 +104,14 @@ dfs(0, 0)
 # 0 7 0 0 0 5 0 0 6
 # 1 0 0 0 0 0 0 0 0
 # 0 0 0 0 4 7 2 0 0
+
+# 3
+# 3 4 6 0 0 0 2 7 0
+# 0 7 0 0 0 2 5 0 8
+# 0 0 0 3 0 0 0 0 0
+# 0 0 0 8 0 1 0 0 0
+# 4 1 0 0 9 0 0 0 3
+# 0 0 0 0 5 0 0 9 0
+# 9 0 0 0 0 7 0 0 1
+# 0 3 1 0 0 0 0 8 7
+# 0 5 0 0 0 8 0 0 0
