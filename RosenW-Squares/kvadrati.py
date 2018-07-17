@@ -85,6 +85,7 @@ while not done:
 
               if rightPlace and checkAllInBox(boxXStart, boxYStart, boxXEnd, boxYEnd) == 1:
                 matrix[i][j] = s
+                print('assigning ' + s + ' to ' + str(i) + ' - ' + str(j))
 
 print('solved')
 for i in range(size):
@@ -92,14 +93,14 @@ for i in range(size):
 
 
 # 2
-# 0 0 1 2
+# 0 0 1 2  # pass
 # 0 0 0 0
 # 3 0 0 0
 # 0 1 0 4
 
 
 # 3
-# B Y 0 0 P 0 0 0 0
+# B Y 0 0 P 0 0 0 0 # pass
 # L 0 0 R E B 0 0 0
 # 0 E W 0 0 0 0 L 0
 # W 0 0 0 L 0 0 0 Y
@@ -108,3 +109,14 @@ for i in range(size):
 # 0 L 0 0 0 0 O W 0
 # 0 0 0 G R E 0 0 B
 # 0 0 0 0 W 0 0 P E
+
+# 3
+# 0 0 9 0 0 0 0 3 7 # fail
+# 0 0 2 4 0 0 0 0 0
+# 7 0 5 0 6 8 0 9 0
+# 8 0 3 0 0 2 0 5 0
+# 0 0 0 1 0 0 0 0 3
+# 4 0 0 0 8 0 0 0 0
+# 0 7 0 0 0 5 0 0 6
+# 1 0 0 0 0 0 0 0 0
+# 0 0 0 0 4 7 2 0 0
