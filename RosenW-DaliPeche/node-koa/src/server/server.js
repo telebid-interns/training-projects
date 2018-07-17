@@ -3,6 +3,8 @@ const router = require('koa-router')();
 const bodyParser = require('koa-bodyparser');
 const asserts = require('./../asserts/asserts.js');
 const sqlite = require('sqlite');
+const serve = require('koa-static');
+const bcrypt = require('bcrypt');
 
 const PORT = 3001;
 
@@ -16,14 +18,50 @@ const server = app.listen(PORT, () => {
   console.log(`Server listening on port: ${PORT}`);
 });
 
+app.use(serve(__dirname + '/public'));
+app.use(serve(__dirname + '/public/html'));
+
 app.use(router.routes());
 app.use(router.allowedMethods());
 
 app.use(bodyParser());
 
+
 let db;
 
 connect();
+
+router.post('/register', bodyParser(), async (ctx, next) => {
+  const username = ctx.request.body.username;
+  const password = ctx.request.body.password;
+  const repeatPassword = ctx.request.body['repeat-password'];
+  const salt = generateRandomString(5);
+
+  if (password !== repeatPassword) {
+    return; // TODO handle
+  }
+
+  bcrypt.hash(password + salt, 5, function(err, hash) {
+    db.run('insert into accounts (username, password, salt) values(?, ?, ?)', username, hash, salt);
+  });
+});
+
+router.post('/login', bodyParser(), async (ctx, next) => {
+  const username = ctx.request.body.username;
+  const password = ctx.request.body.password;
+  const user = await db.get('select * from accounts where username = ?', username);
+
+  console.log(user);
+
+  bcrypt.compare(password + user.salt, user.password, function(err, res) {
+      if(res === true){
+        console.log('LOGGED IN');
+        // TODO implement
+      } else {
+        console.log('FAILED TO LOG IN');
+      }
+  });
+});
 
 router.post('/forecast', bodyParser(), async (ctx, next) => {
   asserts.assertUser(typeof ctx.request.body.city === 'string', 'No city in post body');
@@ -83,6 +121,17 @@ router.post('/forecast', bodyParser(), async (ctx, next) => {
 
 async function connect () {
   db = await sqlite.open('./src/database/forecast.db');
+}
+
+function generateRandomString(length) {
+  let text = "";
+  const possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+  for (let i = 0; i < length; i++){
+    text += possible.charAt(Math.floor(Math.random() * possible.length));
+  }
+
+  return text;
 }
 
 module.exports = server;
