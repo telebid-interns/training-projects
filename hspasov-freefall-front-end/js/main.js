@@ -70,7 +70,8 @@ function start () {
   }
 
   const MAX_ROUTES_PER_PAGE = 5;
-  const SERVER_URL = 'http://10.20.1.139:3000';
+  // const SERVER_URL = 'http://10.20.1.139:3000';
+  const SERVER_URL = 'http://127.0.0.1:3000';
   const MONTH_NAMES = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December',
@@ -729,9 +730,15 @@ function start () {
     const $subscribeForm = $('#subscribe-form');
     const $unsubscribeForm = $('#unsubscribe-form');
 
-    $('#subscribe-button').click(async (e) => {
+    const subscribeBtn = $('#subscribe-button');
+    const unsubscribeBtn = $('#unsubscribe-button');
+    const submitBtn = $('#submit-button');
+
+    subscribeBtn.click(async (e) => {
       e.preventDefault();
       trace(`Subscribe button clicked`);
+
+      subscribeBtn.prop('disabled', true);
 
       const formParams = $subscribeForm
         .serializeArray()
@@ -782,12 +789,14 @@ function start () {
         handleError(e);
       }
 
-      return false;
+      subscribeBtn.prop('disabled', false);
     });
 
-    $('#unsubscribe-button').click(async (e) => {
+    unsubscribeBtn.click(async (e) => {
       e.preventDefault();
       trace(`Unsubscribe button clicked`);
+
+      unsubscribeBtn.prop('disabled', true);
 
       const formParams = $unsubscribeForm
         .serializeArray()
@@ -827,12 +836,17 @@ function start () {
       } catch (e) {
         handleError(e);
       }
+
+      unsubscribeBtn.prop('disabled', false);
     });
 
-    $('#submit-button').click(async (event) => {
+    submitBtn.click(async (event) => {
       trace(`Submit button clicked`);
 
       event.preventDefault();
+
+      submitBtn.prop('disabled', true);
+
       let formParams;
 
       try {
@@ -858,7 +872,7 @@ function start () {
         handleError(e);
       }
 
-      return false;
+      submitBtn.prop('disabled', false);
     });
 
     $flightForm.on('submit', event => {
