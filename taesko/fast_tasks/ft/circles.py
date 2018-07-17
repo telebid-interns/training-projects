@@ -10,6 +10,7 @@ Circle = collections.namedtuple('Circle', ['x', 'y', 'radius'])
 def distance_between(circle_a, circle_b):
     x_diff = circle_a.x - circle_b.x
     y_diff = circle_a.y - circle_b.y
+
     return math.sqrt(x_diff**2 + y_diff**2)
 
 
@@ -39,6 +40,7 @@ def depth_first_search(graph, start, end):
     while queue:
         path = queue.popleft()
         last_node = path[-1]
+
         if last_node == end:
             yield path
             path = queue.popleft()
@@ -62,6 +64,7 @@ def find_shortest_path(graph, start, end):
     def path_distance(path):
         if not path:
             raise ValueError("Path argument is empty")
+
         distances = [distance_between(a, b) for a, b in zip(path[:-1], path[1:])]
         return sum(distances)
 
@@ -70,12 +73,27 @@ def find_shortest_path(graph, start, end):
     return min(paths, default=[], key=path_distance)
 
 
-def parse_input(string):
-    lines = (line for line in string.splitlines() if line)
-    next(lines)  # skip first
-    for line in lines:
-        numbers = [int(num) for num in line.split() if num]
-        yield Circle(*numbers)
+def parse_input(input_string):
+    def parse(string):
+        lines = (line for line in string.splitlines() if line)
+        next(lines)  # skip first
+
+        for line in lines:
+            numbers = [int(num) for num in line.split() if num]
+            yield Circle(*numbers)
+
+    yield from validate(parse(input_string))
+
+
+def validate(circles):
+    """ But why ?"""
+    for circle in circles:
+        x, y, r = circle
+        if not (-10000 < x < 10000 or
+                -10000 < y < 10000 or
+                0 < r < 10000):
+            raise ValueError("Invalid input for circle: ", circle)
+        yield circle
 
 
 def main():
@@ -86,9 +104,16 @@ def main():
     parser.add_argument('-p', '--path', dest='path', action='store_true',
                         help='find the jumps needed to reach the end fastest')
     args = parser.parse_args()
+
     with open(args.input_file, mode='r') as f:
-        circles = list(parse_input(f.read()))
+        try:
+            circles = list(parse_input(f.read()))
+        except ValueError:
+            print("ERROR: Invalid input")
+            return 1
+
     graph = graph_from_circles(circles)
+
     if args.jumps and args.path:
         print("ERROR: Cannot specify both jumps and path flags at the same time.")
         return 1
@@ -100,6 +125,7 @@ def main():
         path = find_shortest_path(graph, circles[0], circles[-1])
 
     print("Jumps made:", len(path) - 1)
+
     return 0
 
 
