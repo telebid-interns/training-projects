@@ -30,9 +30,8 @@ CREATE TABLE weather_conditions (
 CREATE TABLE apikeys (
 	id integer primary key autoincrement,
 	key text,
-	use_count integer,
 	account_id integer,
-	foreign key (account_id) references accounts(id),
+	foreign key (account_id) references accounts(id)
 );
 
 CREATE TABLE accounts (
@@ -40,5 +39,6 @@ CREATE TABLE accounts (
 	username text,
 	password text,
 	salt text,
+	request_count integer,
 	unique (username) on conflict ignore
 );

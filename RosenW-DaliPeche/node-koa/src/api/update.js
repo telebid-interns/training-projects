@@ -69,25 +69,25 @@ async function updateDB () {
           wind_speed,
           date)
         values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        dbForecast.id,
-        report.weather[0].main,
-        report.weather[0].description,
-        report.clouds.all,
-        report.main.humidity,
-        report.main.temp_max,
-        report.main.temp_min,
-        report.main.sea_level,
-        report.main.grnd_level,
-        report.wind.deg,
-        report.wind.speed,
-        report.dt_txt
+      dbForecast.id,
+      report.weather[0].main,
+      report.weather[0].description,
+      report.clouds.all,
+      report.main.humidity,
+      report.main.temp_max,
+      report.main.temp_min,
+      report.main.sea_level,
+      report.main.grnd_level,
+      report.wind.deg,
+      report.wind.speed,
+      report.dt_txt
       );
     }
   }
 }
 
 function resetAPIKeys (db) {
-   db.run(`update apikeys set use_count = 0`);
+  db.run(`update apikeys set use_count = 0`);
 }
 
 function isObject (obj) {

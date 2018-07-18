@@ -1,10 +1,13 @@
 const Koa = require('koa');
 const router = require('koa-router')();
 const bodyParser = require('koa-bodyparser');
-const asserts = require('./../asserts/asserts.js');
+const asserts = require('./../asserts/asserts.js'); // TODO destruct
 const sqlite = require('sqlite');
 const serve = require('koa-static');
 const bcrypt = require('bcrypt');
+const session = require('koa-session');
+const views = require('koa-views');
+const path = require('path');
 
 const PORT = 3001;
 
@@ -14,56 +17,156 @@ const USED_ALL_REQUESTS_MSG = 'error: you have exceeded your request cap, please
 
 const app = new Koa();
 
+// TODO app.error()
+
 const server = app.listen(PORT, () => {
   console.log(`Server listening on port: ${PORT}`);
 });
 
-app.use(serve(__dirname + '/public'));
-app.use(serve(__dirname + '/public/html'));
+app.keys = ['DaliPecheTaina'];
+
+
+// TODO fix ms
+app.use(session({ maxAge: 86400000 }, app));
+
+app.use(serve(path.join(__dirname, '/public/css')));
+app.use(serve(`${__dirname}/public/js`)); // TODO use path
+
+app.use(views(__dirname + '/views', { // TODO use path
+  extension: 'hbs',
+  map: { hbs: 'handlebars' }
+}));
 
 app.use(router.routes());
 app.use(router.allowedMethods());
 
 app.use(bodyParser());
 
-
 let db;
 
 connect();
 
+// GET root
+router.get('/', async (ctx, next) => {
+  await ctx.redirect('/home');
+});
+
+// GET logout
+router.get('/logout', async (ctx, next) => {
+  ctx.session = null; // docs: "To destroy a session simply set it to null"
+  await ctx.redirect('/login');
+});
+
+// GET docs
+router.get('/docs', async (ctx, next) => {
+  await ctx.render('docs');
+});
+
+// GET example
+router.get('/example', async (ctx, next) => {
+  await ctx.render('example');
+});
+
+// GET home
+router.get('/home', async (ctx, next) => {
+  if (ctx.session.user == null) {
+    ctx.redirect('/login');
+  }
+
+  user = await db.get('select * from accounts where username = ?', ctx.session.user);
+
+  if (user == null) {
+    ctx.redirect('/login');
+  }
+
+  keys = await db.all('select * from apikeys where account_id = ?', user.id);
+
+  await ctx.render(
+    'home',
+    {
+      user: ctx.session.user,
+      keys
+    });
+});
+
+// GET login
+router.get('/login', async (ctx, next) => {
+  if (ctx.session.user != null) {
+    ctx.redirect('/home');
+  }
+  await ctx.render('login');
+});
+
+// GET register
+router.get('/register', async (ctx, next) => {
+  if (ctx.session.user != null) {
+    ctx.redirect('/home');
+  }
+  await ctx.render('register');
+});
+
+// POST register
 router.post('/register', bodyParser(), async (ctx, next) => {
   const username = ctx.request.body.username;
   const password = ctx.request.body.password;
   const repeatPassword = ctx.request.body['repeat-password'];
+
   const salt = generateRandomString(5);
 
-  if (password !== repeatPassword) {
-    return; // TODO handle
+  const account = await db.get('select * from accounts where username = ?', username);
+
+  if (
+    password !== repeatPassword ||
+    password.length < 3 ||
+    username.length < 3 ||
+    account != null
+    ) {
+    ctx.redirect('/register'); // TODO notify client
+    return; // TODO check if necessary
   }
 
-  bcrypt.hash(password + salt, 5, function(err, hash) {
-    db.run('insert into accounts (username, password, salt) values(?, ?, ?)', username, hash, salt);
+  bcrypt.hash(password + salt, 5, (err, hash) => {
+    db.run('insert into accounts (username, password, salt, request_count) values(?, ?, ?, 0)', username, hash, salt);
   });
+  ctx.redirect('/login');
 });
 
+// POST login
 router.post('/login', bodyParser(), async (ctx, next) => {
   const username = ctx.request.body.username;
   const password = ctx.request.body.password;
+
   const user = await db.get('select * from accounts where username = ?', username);
 
-  console.log(user);
+  if (user == null) {
+    ctx.redirect('/login');
+    return;
+  }
 
-  bcrypt.compare(password + user.salt, user.password, function(err, res) {
-      if(res === true){
-        console.log('LOGGED IN');
-        // TODO implement
-      } else {
-        console.log('FAILED TO LOG IN');
-      }
-  });
+  const correct = await bcrypt.compare(password + user.salt, user.password);
+
+  if(correct){
+    ctx.session.user = user.username;
+    ctx.redirect('/home');
+  } else {
+    ctx.redirect('/login');
+  }
 });
 
-router.post('/forecast', bodyParser(), async (ctx, next) => {
+router.post('/generateKey', bodyParser(), async (ctx, next) => {
+  const user = ctx.request.body.name;
+  const key = generateRandomString(16);
+  const account = await db.get('select * from accounts where username = ?', user);
+  if (account == null) {
+    ctx.body = 'User not found';
+    return;
+  }
+  db.run('insert into apikeys (key, account_id) values(?, ?)', key, account.id);
+  ctx.body = { key };
+});
+
+// POST forecast
+router.post('/api/forecast', bodyParser(), async (ctx, next) => {
   asserts.assertUser(typeof ctx.request.body.city === 'string', 'No city in post body');
   asserts.assertUser(typeof ctx.request.body.key === 'string', 'No apikey in post body');
 
@@ -76,16 +179,20 @@ router.post('/forecast', bodyParser(), async (ctx, next) => {
   const keyRecord = await db.get(`select * from apikeys where key = ?`, key);
 
   if (keyRecord == null || typeof keyRecord !== 'object') {
-    ctx.body = { message: NO_KEY_IN_REQUEST_MSG };
+    ctx.body = { message: NO_KEY_IN_REQUEST_MSG }; // TODO add status code
     return;
   }
 
-  if (keyRecord.use_count >= 10) {
+  const account = await db.get(`select * from accounts where id = ?`, keyRecord.account_id);
+
+  const accRequestCount = account.request_count;
+
+  if (accRequestCount >= 10) {
     ctx.body = { message: USED_ALL_REQUESTS_MSG };
     return;
   }
 
-  db.run(`update apikeys set use_count = ? where key = ?`, keyRecord.use_count + 1, key);
+  db.run(`update accounts set request_count = ? where id = ?`, accRequestCount + 1, account.id);
 
   if (report == null) {
     ctx.body = { message: NO_INFO_MSG };
@@ -94,9 +201,9 @@ router.post('/forecast', bodyParser(), async (ctx, next) => {
   }
 
   let conditions = await db.all(`
-      select * from weather_conditions as wc
-      where wc.report_id = ?`,
-      report.id
+    select * from weather_conditions as wc
+    where wc.report_id = ?`,
+    report.id
   );
 
   if (conditions.length === 0) {
@@ -123,11 +230,11 @@ async function connect () {
   db = await sqlite.open('./src/database/forecast.db');
 }
 
-function generateRandomString(length) {
-  let text = "";
-  const possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+function generateRandomString (length) {
+  let text = '';
+  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 
-  for (let i = 0; i < length; i++){
+  for (let i = 0; i < length; i++) {
     text += possible.charAt(Math.floor(Math.random() * possible.length));
   }
 

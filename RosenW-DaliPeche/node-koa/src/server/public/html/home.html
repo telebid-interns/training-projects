@@ -24,3 +24,32 @@
     </ul>
   </body>
 </html>
+
+<script type="text/javascript">
+  const options = {
+    method: "POST",
+    body: { user: 'Gogo' }
+  }
+
+  makeRequest('/user', options);
+
+  async function makeRequest (link, options) {
+    const response = await fetch(link, options);
+  }
+</script>
+
+
+<!-- if (window.localStorage.getItem('channels') == null || window.localStorage.getItem('vids') == null) {
+    console.log('storage is not set, setting storage');
+    updateLocalStorage();
+  } -->
+<!--
+  fetch("/echo/json/",
+{
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    },
+    method: "POST",
+    body: JSON.stringify({a: 1, b: 2})
+}) -->
