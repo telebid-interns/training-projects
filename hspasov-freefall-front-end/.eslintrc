@@ -37,12 +37,7 @@
     "_": true,
     "$": true,
     "airportDump": true,
-    "getValidateSearchReq": true,
-    "getValidateSearchRes": true,
-    "getValidateSubscriptionReq": true,
-    "getValidateSubscriptionRes": true,
-    "getValidateSendErrorReq": true,
-    "getValidateSendErrorRes": true,
+    "validators": true,
     "Ajv": true,
     "jsyaml": true,
     "window": true

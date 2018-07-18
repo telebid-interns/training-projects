@@ -12,31 +12,43 @@ function start () {
       msg: messages.msg,
       trace: traceLog,
     }, 'jsonrpc');
+
+    handleError(messages, 'error');
   }
 
-  BaseError.prototype = Object.create(Error.prototype);
-  BaseError.prototype.constructor = BaseError;
+  // BaseError.prototype = Object.create(Error.prototype);
+  // BaseError.prototype.constructor = BaseError;
 
   function ApplicationError (messages) {
     BaseError.call(this, messages, true);
   }
 
-  ApplicationError.prototype = Object.create(BaseError.prototype);
-  ApplicationError.prototype.constructor = ApplicationError;
+  // ApplicationError.prototype = Object.create(BaseError.prototype);
+  // ApplicationError.prototype.constructor = ApplicationError;
 
   function PeerError (messages) {
     BaseError.call(this, messages, true);
   }
 
-  PeerError.prototype = Object.create(BaseError.prototype);
-  PeerError.prototype.constructor = PeerError;
+  // PeerError.prototype = Object.create(BaseError.prototype);
+  // PeerError.prototype.constructor = PeerError;
 
   function UserError (messages) {
     BaseError.call(this, messages, true);
   }
 
-  UserError.prototype = Object.create(BaseError.prototype);
-  UserError.prototype.constructor = UserError;
+  function inherit (childClass, parentClass) {
+    childClass.prototype = Object.create(parentClass.prototype);
+    childClass.prototype.constructor = childClass;
+  }
+
+  inherit(BaseError, Error);
+  inherit(ApplicationError, BaseError);
+  inherit(PeerError, BaseError);
+  inherit(UserError, BaseError);
+
+  // UserError.prototype = Object.create(BaseError.prototype);
+  // UserError.prototype.constructor = UserError;
 
   function assertApp (condition, errorParams) {
     if (!condition) {
@@ -65,8 +77,8 @@ function start () {
   }
 
   const MAX_ROUTES_PER_PAGE = 5;
-  // const SERVER_URL = 'http://10.20.1.139:3000';
-  const SERVER_URL = 'http://127.0.0.1:3000';
+  const SERVER_URL = 'http://10.20.1.139:3005';
+  // const SERVER_URL = 'http://127.0.0.1:3000';
   const MONTH_NAMES = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December',
@@ -81,14 +93,16 @@ function start () {
     'Sunday',
   ];
   const MAX_TRACE = 300;
-  var $errorBar; // eslint-disable-line no-var
-  const errorMessagesQueue = [];
-  const validateSearchReq = getValidateSearchReq();
-  const validateSearchRes = getValidateSearchRes();
-  const validateSubscriptionReq = getValidateSubscriptionReq();
-  const validateSubscriptionRes = getValidateSubscriptionRes();
-  const validateSendErrorReq = getValidateSendErrorReq();
-  const validateSendErrorRes = getValidateSendErrorRes();
+  var $messageBar; // eslint-disable-line no-var
+  const messagesQueue = [];
+  // TODO: defineValidators
+  const validateSearchReq = validators.getValidateSearchReq();
+  const validateSearchRes = validators.getValidateSearchRes();
+  const validateSubscriptionReq = validators.getValidateSubscriptionReq();
+  const validateSubscriptionRes = validators.getValidateSubscriptionRes();
+  const validateSendErrorReq = validators.getValidateSendErrorReq();
+  const validateSendErrorRes = validators.getValidateSendErrorRes();
+  const validateErrorRes = validators.getValidateErrorRes();
   const traceLog = [];
 
   const getParser = defineParsers([jsonParser, yamlParser]);
@@ -103,21 +117,41 @@ function start () {
 
   (function setupErrorMessages () {
     setInterval(function () { // eslint-disable-line prefer-arrow-callback
-      if (!$errorBar) {
+      if (!$messageBar) {
         return;
       }
 
-      if (errorMessagesQueue.length !== 0) {
-        $errorBar.text(errorMessagesQueue.shift());
+      if (messagesQueue.length !== 0) {
+        const message = messagesQueue.shift();
+        $messageBar.text(message.msg);
+
+        const msgTypeToClassMap = {
+          'info': 'info-msg',
+          'error': 'error-msg',
+          'success': 'success-msg',
+        };
+
+        $messageBar.removeClass().addClass(msgTypeToClassMap[message.type]);
       } else {
-        $errorBar.text('');
+        $messageBar.text('');
       }
     },
     5000);
   })();
 
-  function displayErrorMessage (errMsg) {
-    errorMessagesQueue.push(errMsg);
+  function displayUserMessage (msg, type = 'info') {
+    const allowedMsgTypes = ['info', 'error', 'success'];
+
+    assertApp(
+      typeof type === 'string' &&
+      allowedMsgTypes.indexOf(type) !== -1,
+      'Invalid message type "' + type + '"' // eslint-disable-line prefer-template
+    );
+
+    messagesQueue.push({
+      msg: msg,
+      type: type || 'info',
+    });
   }
 
   const AIRPORT_HASH = airportDump();
@@ -167,6 +201,7 @@ function start () {
    **/
   function search (params, protocolName, callback) {
     trace('search(' + JSON.stringify(params) + '), typeof arg=' + typeof params + ''); // eslint-disable-line prefer-template
+    // JSON.stringify - handle potential exception in a new function - stringifyObject
 
     assertApp(validateSearchReq(params), {
       msg: 'Params do not adhere to searchRequestSchema.',
@@ -180,6 +215,17 @@ function start () {
       },
       protocolName: protocolName,
     }, function (result, error) { // eslint-disable-line prefer-arrow-callback
+      if (error) {
+        assertPeer(validateErrorRes(error), {
+          msg: 'Params do not adhere to errorResponseSchema',
+        });
+
+        trace('Error in search:' + JSON.stringify(error)); // eslint-disable-line prefer-template
+        throw new PeerError({
+          msg: error.message,
+        });
+      }
+
       assertPeer(validateSearchRes(result), {
         msg: 'Params do not adhere to searchResponseSchema.',
       });
@@ -234,6 +280,17 @@ function start () {
       },
       protocolName: protocolName,
     }, function (result, error) { // eslint-disable-line prefer-arrow-callback
+      if (error) {
+        assertPeer(validateErrorRes(error), {
+          msg: 'Params do not adhere to errorResponseSchema',
+        });
+
+        trace('Error in subscribe:' + JSON.stringify(error)); // eslint-disable-line prefer-template
+        throw new PeerError({
+          msg: error.message,
+        });
+      }
+
       assertPeer(validateSubscriptionRes(result), {
         msg: 'Params do not adhere to subscriptionResponseSchema',
       });
@@ -242,7 +299,7 @@ function start () {
         msg: 'Tried to subscribe but subscription already existed. Sent params: ' + params + '. Got result: ' + result + '', // eslint-disable-line prefer-template
       });
 
-      callback(params);
+      callback(result);
     });
   }
 
@@ -263,6 +320,17 @@ function start () {
       },
       protocolName: protocolName,
     }, function (result, error) { // eslint-disable-line prefer-arrow-callback
+      if (error) {
+        assertPeer(validateErrorRes(error), {
+          msg: 'Params do not adhere to errorResponseSchema',
+        });
+
+        trace('Error in unsubscribe:' + JSON.stringify(error)); // eslint-disable-line prefer-template
+        throw new PeerError({
+          msg: error.message,
+        });
+      }
+
       assertPeer(validateSubscriptionRes(result), {
         msg: 'Params do not adhere to subscriptionResponseSchema',
       });
@@ -271,7 +339,7 @@ function start () {
         msg: 'Server returned ' + result.status_code + ' status code. Sent params: ' + params + '. Got result: ' + result + '', // eslint-disable-line prefer-template
       });
 
-      callback(params);
+      callback(result);
     });
   }
 
@@ -304,17 +372,20 @@ function start () {
     xhr.onreadystatechange = function () { // eslint-disable-line prefer-arrow-callback
       if (xhr.readyState === window.XMLHttpRequest.DONE) {
         if (xhr.status === 200) {
-          const responseParsed = parser.parseResponse(xhr.tesponseText);
+          const responseParsed = parser.parseResponse(xhr.responseText);
           callback(responseParsed.result || null, responseParsed.error || null); // TODO handle error;
         } else if (xhr.status !== 204) {
-          handleError('Service is not available at the moment due to network issues');
+          handleError({
+            userMessage: 'Service is not available at the moment due to network issues',
+          });
         }
       }
     };
 
     xhr.open('POST', url);
+    console.log(xhr);
     xhr.setRequestHeader('Content-Type', parser.contentType);
-    xhr.withCredentials = true;
+    console.log(xhr);
     xhr.send(parser.stringifyRequest(data, getId()));
   }
 
@@ -331,12 +402,19 @@ function start () {
   }
 
   function timeStringFromDate (date) {
-    const hours = date.getUTCHours()
-      .toString()
-      .padStart(2, '0');
-    const minutes = date.getUTCMinutes()
-      .toString()
-      .padStart(2, '0');
+    var hours = date.getUTCHours() // eslint-disable-line no-var
+      .toString();
+
+    if (hours.length < 2) {
+      hours += '0';
+    }
+
+    var minutes = date.getUTCMinutes().toString(); // eslint-disable-line no-var
+
+    if (minutes.length < 2) {
+      minutes += '0';
+    }
+
     return '' + hours + ':' + minutes + ''; // eslint-disable-line prefer-template
   }
 
@@ -380,7 +458,7 @@ function start () {
 
     if (searchResult.routes.length === 0) {
       $('#load-more-button').hide();
-      displayErrorMessage('There are no known flights.');
+      displayUserMessage('There are no known flights.', 'info');
     } else {
       $('#load-more-button').show();
     }
@@ -454,6 +532,7 @@ function start () {
     $clone.find('.from-to-display')
       .text('' + flight.airport_from + ' -----> ' + flight.airport_to + ''); // eslint-disable-line prefer-template
 
+    $clone.show();
     return $clone;
   }
 
@@ -479,8 +558,9 @@ function start () {
       }
     );
 
-    const { id: airportFromId } = getAirport(formData.from);
-    const { id: airportToId } = getAirport(formData.to);
+    // TODO - FIX destructurings
+    var airportFromId = getAirport(formData.from).id;
+    var airportToId = getAirport(formData.to).id;
 
     assertUser(airportFromId, {
       userMessage: '' + formData.from + ' is not a location that has an airport!', // eslint-disable-line prefer-template
@@ -727,7 +807,7 @@ function start () {
 
   $(document).ready(function () { // eslint-disable-line prefer-arrow-callback
     // $('#test').autocomplete();
-    $errorBar = $('#errorBar');
+    $messageBar = $('#message-bar');
 
     const $allRoutesList = $('#all-routes-list'); // consts
     const $routeItemTemplate = $('#flights-list-item-template');
@@ -737,15 +817,15 @@ function start () {
     const $subscribeForm = $('#subscribe-form');
     const $unsubscribeForm = $('#unsubscribe-form');
 
-    const subscribeBtn = $('#subscribe-button');
-    const unsubscribeBtn = $('#unsubscribe-button');
-    const submitBtn = $('#submit-button');
+    const $subscribeBtn = $('#subscribe-button');
+    const $unsubscribeBtn = $('#unsubscribe-button');
+    const $submitBtn = $('#submit-button');
 
-    subscribeBtn.click(function (e) { // eslint-disable-line prefer-arrow-callback
+    $subscribeBtn.click(function (e) { // eslint-disable-line prefer-arrow-callback
       e.preventDefault();
       trace('Subscribe button clicked');
 
-      subscribeBtn.prop('disabled', true);
+      $subscribeBtn.prop('disabled', true);
 
       const formParams = $subscribeForm
         .serializeArray()
@@ -761,9 +841,9 @@ function start () {
           if (current.name === 'email') {
             acc.email = current.value;
           } else if (current.name === 'from') {
-            acc.fly_from = current.value;
+            acc.fly_from = getAirport(current.value).id;
           } else if (current.name === 'to') {
-            acc.fly_to = current.value;
+            acc.fly_to = getAirport(current.value).id;
           } else if (current.name === 'date-from') {
             acc.date_from = current.value;
           } else if (current.name === 'date-to') {
@@ -782,27 +862,21 @@ function start () {
 
       subscribe(params, 'jsonrpc', function (result) { // eslint-disable-line prefer-arrow-callback
         if (result.status_code >= 1000 && result.status_code < 2000) {
-          displaySearchResult(
-            result,
-            $allRoutesList,
-            {
-              $routeItemTemplate: $routeItemTemplate,
-              $flightItemTemplate: $flightItemTemplate,
-            }
-          );
+          displayUserMessage('Successfully subscribed!', 'success');
         } else if (result.status_code === 2000) {
-          displayErrorMessage('There is no information about this flight at the moment. Please come back in 15 minutes.');
+          displayUserMessage('There is no information about this flight at the moment. Please come back in 15 minutes.', 'info');
         }
 
-        subscribeBtn.prop('disabled', false);
+        $subscribeBtn.prop('disabled', false);
       });
     });
 
-    unsubscribeBtn.click(function (e) { // eslint-disable-line prefer-arrow-callback
+    $unsubscribeBtn.click(function (e) { // eslint-disable-line prefer-arrow-callback
       e.preventDefault();
       trace('Unsubscribe button clicked');
 
-      unsubscribeBtn.prop('disabled', true);
+      // TODO - disable and enable button - in a closure
+      $unsubscribeBtn.prop('disabled', true);
 
       const formParams = $unsubscribeForm
         .serializeArray()
@@ -829,28 +903,21 @@ function start () {
 
       unsubscribe(params, 'jsonrpc', function (result) { // eslint-disable-line prefer-arrow-callback
         if (result.status_code >= 1000 && result.status_code < 2000) {
-          displaySearchResult(
-            result,
-            $allRoutesList,
-            {
-              $routeItemTemplate: $routeItemTemplate,
-              $flightItemTemplate: $flightItemTemplate,
-            }
-          );
+          displayUserMessage('Successfully unsubscribed!', 'success');
         } else if (result.status_code === 2000) {
-          displayErrorMessage('There is no information about this flight at the moment. Please come back in 15 minutes.');
+          displayUserMessage('There is no information about this flight at the moment. Please come back in 15 minutes.', 'info');
         }
 
-        unsubscribeBtn.prop('disabled', false);
+        $unsubscribeBtn.prop('disabled', false);
       });
     });
 
-    submitBtn.click(function (event) { // eslint-disable-line prefer-arrow-callback
+    $submitBtn.click(function (event) { // eslint-disable-line prefer-arrow-callback
       trace('Submit button clicked');
 
       event.preventDefault();
 
-      submitBtn.prop('disabled', true);
+      $submitBtn.prop('disabled', true);
 
       var formParams; // eslint-disable-line no-var
 
@@ -872,10 +939,10 @@ function start () {
             }
           );
         } else if (result.status_code === 2000) {
-          displayErrorMessage('There is no information about this flight at the moment. Please come back in 15 minutes.');
+          displayUserMessage('There is no information about this flight at the moment. Please come back in 15 minutes.', 'info');
         }
 
-        submitBtn.prop('disabled', false);
+        $submitBtn.prop('disabled', false);
       });
     });
 
@@ -902,11 +969,17 @@ function start () {
       {}
       );
 
-      console.log(airportsByNames);
-      console.log(AIRPORT_HASH);
-
     $('#from-input').autocomplete(airportsByNames);
     $('#to-input').autocomplete(airportsByNames);
+
+    const datepickerOptions = {
+      dateFormat: 'yy-mm-dd',
+    };
+
+    if ($('#date-from').length > 0 && $('#date-to').length > 0) {
+      $('#date-from').datepicker(datepickerOptions);
+      $('#date-to').datepicker(datepickerOptions);
+    }
     setupLoading($('#load-more-button'), $allRoutesList);
   });
 
@@ -921,7 +994,7 @@ function start () {
     console.log(error);
 
     if (error.userMessage) {
-      displayErrorMessage(error.userMessage);
+      displayUserMessage(error.userMessage, 'error');
     }
   }
 }

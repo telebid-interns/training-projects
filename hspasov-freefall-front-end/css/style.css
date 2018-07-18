@@ -13,3 +13,19 @@
     display: flex;
     align-items: center;
 }
+
+.success-msg {
+	color: green;
+}
+
+.error-msg {
+	color: red;
+}
+
+.info-msg {
+	color: black;
+}
+
+.ui-datepicker {
+	background: black;
+}

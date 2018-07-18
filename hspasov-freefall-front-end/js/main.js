@@ -13,6 +13,8 @@ function start () {
         msg,
         trace: traceLog,
       }, 'jsonrpc');
+
+      handleError({userMessage, msg}, 'error');
     }
   }
 
@@ -31,7 +33,7 @@ function start () {
     constructor ({userMessage, msg}) {
       if (!userMessage) {
         userMessage = 'Service is not available at the moment. Please refresh the page and try' +
-                      ' later.';
+                      ' again later.';
       }
       super({userMessage, msg}, true);
     }
@@ -70,8 +72,8 @@ function start () {
   }
 
   const MAX_ROUTES_PER_PAGE = 5;
-  // const SERVER_URL = 'http://10.20.1.139:3000';
-  const SERVER_URL = 'http://127.0.0.1:3000';
+  const SERVER_URL = 'http://10.20.1.139:3000';
+  // const SERVER_URL = 'http://127.0.0.1:3000';
   const MONTH_NAMES = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December',
@@ -86,14 +88,17 @@ function start () {
     'Sunday',
   ];
   const MAX_TRACE = 300;
-  let $errorBar; // closures
-  const errorMessagesQueue = [];
-  const validateSearchReq = getValidateSearchReq();
-  const validateSearchRes = getValidateSearchRes();
-  const validateSubscriptionReq = getValidateSubscriptionReq();
-  const validateSubscriptionRes = getValidateSubscriptionRes();
-  const validateSendErrorReq = getValidateSendErrorReq();
-  const validateSendErrorRes = getValidateSendErrorRes();
+  const MAX_ERROR_SENDS = 100;
+  let errorsSent = 0;
+  let $messageBar; // closures
+  const messagesQueue = [];
+  const validateSearchReq = validators.getValidateSearchReq();
+  const validateSearchRes = validators.getValidateSearchRes();
+  const validateSubscriptionReq = validators.getValidateSubscriptionReq();
+  const validateSubscriptionRes = validators.getValidateSubscriptionRes();
+  const validateSendErrorReq = validators.getValidateSendErrorReq();
+  const validateSendErrorRes = validators.getValidateSendErrorRes();
+  const validateErrorRes = validators.getValidateErrorRes();
   const traceLog = [];
 
   const getParser = defineParsers(jsonParser, yamlParser);
@@ -110,23 +115,43 @@ function start () {
     return Object.entries(obj).map(pair => pair.join(':')).join(',');
   }
 
-  (function setupErrorMessages () {
+  (function setupMessages () {
     setInterval(() => {
-      if (!$errorBar) {
+      if (!$messageBar) {
         return;
       }
 
-      if (errorMessagesQueue.length !== 0) {
-        $errorBar.text(errorMessagesQueue.shift());
+      if (messagesQueue.length !== 0) {
+        const { msg, type } = messagesQueue.shift();
+        $messageBar.text(msg);
+
+        const msgTypeToClassMap = {
+          'info': 'info-msg',
+          'error': 'error-msg',
+          'success': 'success-msg',
+        };
+
+        $messageBar.removeClass().addClass(msgTypeToClassMap[type]);
       } else {
-        $errorBar.text('');
+        $messageBar.text('');
       }
     },
     5000);
   })();
 
-  function displayErrorMessage (errMsg) {
-    errorMessagesQueue.push(errMsg);
+  function displayUserMessage (msg, type = 'info') {
+    const allowedMsgTypes = ['info', 'error', 'success'];
+
+    assertApp(
+      typeof type === 'string' &&
+      allowedMsgTypes.includes(type),
+      `Invalid message type "${type}"`
+    );
+
+    messagesQueue.push({
+      msg: msg,
+      type: type,
+    });
   }
 
   const AIRPORT_HASH = airportDump();
@@ -172,10 +197,21 @@ function start () {
       msg: 'Params do not adhere to searchRequestSchema.',
     });
 
-    const { result } = await sendRequest(SERVER_URL, {
+    const { result, error } = await sendRequest(SERVER_URL, {
       method: 'search',
       params,
     }, requestFormat);
+
+    if (error) {
+      assertPeer(validateErrorRes(error), {
+        msg: 'Params do not adhere to errorResponseSchema',
+      });
+
+      trace(`Error in search: ${JSON.stringify(error)}`);
+      throw new PeerError({
+        msg: error.message,
+      });
+    }
 
     assertPeer(validateSearchRes(result), {
       msg: 'Params do not adhere to searchResponseSchema.',
@@ -219,10 +255,21 @@ function start () {
     const { latinName: toAirportLatinName } = getAirport(params.fly_to);
 
     try {
-      const { result } = await sendRequest(SERVER_URL, {
+      const { result, error } = await sendRequest(SERVER_URL, {
         method: 'subscribe',
         params,
       }, requestFormat);
+
+      if (error) {
+        assertPeer(validateErrorRes(error), {
+          msg: 'Params do not adhere to errorResponseSchema',
+        });
+
+        trace(`Error in subscribe: ${JSON.stringify(error)}`);
+        throw new PeerError({
+          msg: error.message,
+        });
+      }
 
       assertPeer(validateSubscriptionRes(result), {
         msg: 'Params do not adhere to subscriptionResponseSchema',
@@ -232,7 +279,7 @@ function start () {
         msg: `Tried to subscribe but subscription already existed. Sent params: ${params}. Got result: ${result}`,
       });
 
-      return params;
+      return result;
     } catch (e) {
       e.userMessage = `Failed to subscribe for flights from airport ${fromAirportLatinName} to airport ${toAirportLatinName}.`;
       throw e;
@@ -249,10 +296,21 @@ function start () {
     });
 
     try {
-      const { result } = await sendRequest(SERVER_URL, {
+      const { result, error } = await sendRequest(SERVER_URL, {
         method: 'unsubscribe',
         params,
       }, requestFormat);
+
+      if (error) {
+        assertPeer(validateErrorRes(error), {
+          msg: 'Params do not adhere to errorResponseSchema',
+        });
+
+        trace(`Error in unsubscribe: ${JSON.stringify(error)}`);
+        throw new PeerError({
+          msg: error.message,
+        });
+      }
 
       assertPeer(validateSubscriptionRes(result), {
         msg: 'Params do not adhere to subscriptionResponseSchema',
@@ -262,7 +320,7 @@ function start () {
         msg: `Server returned ${result.status_code} status code. Sent params: ${params}. Got result: ${result}`,
       });
 
-      return params;
+      return result;
     } catch (e) {
       e.userMessage = `Failed to unsubscribe for flights for email ${email}.`;
       throw e;
@@ -270,6 +328,12 @@ function start () {
   }
 
   async function sendError (params, requestFormat) {
+    if (errorsSent > MAX_ERROR_SENDS) {
+      return;
+    }
+
+    errorsSent++;
+
     assertApp(validateSendErrorReq(params), {
       msg: 'Params do not adhere to sendErrorRequestSchema',
     });
@@ -306,7 +370,7 @@ function start () {
       });
     } catch (e) {
       // TODO - check if JSON.stringify threw an error
-      throw new PeerError({
+      handleError({
         userMessage: 'Service is not available at the moment due to network issues',
         msg: `Couldn't connect to server at url: ${url}. Sent POST request with data: ${data}`,
       });
@@ -390,7 +454,7 @@ function start () {
 
     if (searchResult.routes.length === 0) {
       $('#load-more-button').hide();
-      displayErrorMessage(`There are no known flights.`);
+      displayUserMessage(`There are no known flights.`, 'info');
     } else {
       $('#load-more-button').show();
     }
@@ -461,6 +525,7 @@ function start () {
     $clone.find('.from-to-display')
       .text(`${flight.airport_from} -----> ${flight.airport_to}`);
 
+    $clone.show();
     return $clone;
   }
 
@@ -720,7 +785,7 @@ function start () {
 
   $(document).ready(() => {
     // $('#test').autocomplete();
-    $errorBar = $('#errorBar');
+    $messageBar = $('#message-bar');
 
     const $allRoutesList = $('#all-routes-list'); // consts
     const $routeItemTemplate = $('#flights-list-item-template');
@@ -754,9 +819,11 @@ function start () {
           if (current.name === 'email') {
             acc.email = current.value;
           } else if (current.name === 'from') {
-            acc.fly_from = current.value;
+            const airport = getAirport(current.value);
+            acc.fly_from = airport.id;
           } else if (current.name === 'to') {
-            acc.fly_to = current.value;
+            const airport = getAirport(current.value);
+            acc.fly_to = airport.id;
           } else if (current.name === 'date-from') {
             acc.date_from = current.value;
           } else if (current.name === 'date-to') {
@@ -777,13 +844,9 @@ function start () {
         }, 'jsonrpc');
 
         if (result.status_code >= 1000 && result.status_code < 2000) {
-          displaySearchResult(
-            result,
-            $allRoutesList,
-            { $routeItemTemplate, $flightItemTemplate }
-          );
+          displayUserMessage('Successfully subscribed!', 'success');
         } else if (result.status_code === 2000) {
-          displayErrorMessage('There is no information about this flight at the moment. Please come back in 15 minutes.');
+          displayUserMessage('There is no information about this flight at the moment. Please come back in 15 minutes.', 'info');
         }
       } catch (e) {
         handleError(e);
@@ -825,13 +888,9 @@ function start () {
         }, 'jsonrpc');
 
         if (result.status_code >= 1000 && result.status_code < 2000) {
-          displaySearchResult(
-            result,
-            $allRoutesList,
-            { $routeItemTemplate, $flightItemTemplate }
-          );
+          displayUserMessage('Successfully unsubscribed!', 'success');
         } else if (result.status_code === 2000) {
-          displayErrorMessage('There is no information about this flight at the moment. Please come back in 15 minutes.');
+          displayUserMessage('There is no information about this flight at the moment. Please come back in 15 minutes.', 'info');
         }
       } catch (e) {
         handleError(e);
@@ -866,7 +925,7 @@ function start () {
             { $routeItemTemplate, $flightItemTemplate }
           );
         } else if (result.status_code === 2000) {
-          displayErrorMessage('There is no information about this flight at the moment. Please come back in 15 minutes.');
+          displayUserMessage('There is no information about this flight at the moment. Please come back in 15 minutes.', 'info');
         }
       } catch (e) {
         handleError(e);
@@ -906,7 +965,7 @@ function start () {
     console.log(error);
 
     if (error.userMessage) {
-      displayErrorMessage(error.userMessage);
+      displayUserMessage(error.userMessage, 'error');
     }
   }
 }
