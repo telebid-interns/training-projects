@@ -9,12 +9,29 @@
         <label for="username">Username:</label>
         <input type="text" id='username' name='username' placeholder="Enter Your Username" class="form-control">
         <label for="username">Password:</label>
-        <input type="text" id='password' name='password' placeholder="Enter Your Password" class="form-control">
-
+        <input type="password" id='password' name='password' placeholder="Enter Your Password" class="form-control">
         <br>
+        <p id="noacc-err" hidden="true" class="text-danger">No account registered with given username</p>
+        <p id="wrong-pass-err" hidden="true" class="text-danger">invalid password</p>
         <a href="./register">Don't have an account ?</a>
         <input type="submit" id='sub-btn' class='btn btn-default pull-right' value="Log In"></input>
       </form>
     </ul>
   </body>
 </html>
+
+<script type="text/javascript">
+  const noAccErrorMsg = document.getElementById('noacc-err');
+  const wrongPassErrorMsg = document.getElementById('wrong-pass-err');
+
+  const error = "{{err}}";
+
+  if (Number(error) === 1) {
+    noAccErrorMsg.removeAttribute('hidden');
+    setTimeout(() => {noAccErrorMsg.setAttribute('hidden', 'true')}, 4000);
+  }
+  if (Number(error) === 2) {
+    wrongPassErrorMsg.removeAttribute('hidden');
+    setTimeout(() => {wrongPassErrorMsg.setAttribute('hidden', 'true')}, 4000);
+  }
+</script>

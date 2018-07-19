@@ -8,12 +8,15 @@ const bcrypt = require('bcrypt');
 const session = require('koa-session');
 const views = require('koa-views');
 const path = require('path');
+const requester = require('request-promise');
 
 const PORT = 3001;
 
 const NO_INFO_MSG = 'error: no information for requested city, please try again later';
 const NO_KEY_IN_REQUEST_MSG = 'error: incorrect api key';
 const USED_ALL_REQUESTS_MSG = 'error: you have exceeded your request cap, please try again later';
+
+const MAX_REQUESTS_PER_HOUR = 60;
 
 const app = new Koa();
 
@@ -71,6 +74,7 @@ router.get('/example', async (ctx, next) => {
 router.get('/home', async (ctx, next) => {
   if (ctx.session.user == null) {
     ctx.redirect('/login');
+    return;
   }
 
   user = await db.get('select * from accounts where username = ?', ctx.session.user);
@@ -85,6 +89,8 @@ router.get('/home', async (ctx, next) => {
     'home',
     {
       user: ctx.session.user,
+      requests: user.request_count,
+      limit: MAX_REQUESTS_PER_HOUR,
       keys
     });
 });
@@ -94,7 +100,7 @@ router.get('/login', async (ctx, next) => {
   if (ctx.session.user != null) {
     ctx.redirect('/home');
   }
-  await ctx.render('login');
+  await ctx.render('login', {err: ctx.query.err});
 });
 
 // GET register
@@ -102,7 +108,7 @@ router.get('/register', async (ctx, next) => {
   if (ctx.session.user != null) {
     ctx.redirect('/home');
   }
-  await ctx.render('register');
+  await ctx.render('register', {err: ctx.query.err});
 });
 
 // POST register
@@ -111,19 +117,25 @@ router.post('/register', bodyParser(), async (ctx, next) => {
   const password = ctx.request.body.password;
   const repeatPassword = ctx.request.body['repeat-password'];
 
-  const salt = generateRandomString(5);
+  const salt = generateRandomString(10);
 
   const account = await db.get('select * from accounts where username = ?', username);
 
-  if (
-    password !== repeatPassword ||
-    password.length < 3 ||
-    username.length < 3 ||
-    account != null
-    ) {
-    ctx.redirect('/register'); // TODO notify client
-    return; // TODO check if necessary
+  if (password !== repeatPassword) {
+    ctx.redirect('/register');
+    return;
   }
+
+  if (password.length < 3 || username.length < 3) {
+    ctx.redirect('/register');
+    return;
+  }
+
+  if (account != null) {
+    ctx.redirect('/register?err=1');
+    return;
+  }
+
 
   bcrypt.hash(password + salt, 5, (err, hash) => {
     db.run('insert into accounts (username, password, salt, request_count) values(?, ?, ?, 0)', username, hash, salt);
@@ -139,7 +151,7 @@ router.post('/login', bodyParser(), async (ctx, next) => {
   const user = await db.get('select * from accounts where username = ?', username);
 
   if (user == null) {
-    ctx.redirect('/login');
+    ctx.redirect('/login?err=1');
     return;
   }
 
@@ -149,7 +161,7 @@ router.post('/login', bodyParser(), async (ctx, next) => {
     ctx.session.user = user.username;
     ctx.redirect('/home');
   } else {
-    ctx.redirect('/login');
+    ctx.redirect('/login?err=2');
   }
 });
 
@@ -167,13 +179,40 @@ router.post('/generateKey', bodyParser(), async (ctx, next) => {
 
 // POST forecast
 router.post('/api/forecast', bodyParser(), async (ctx, next) => {
-  asserts.assertUser(typeof ctx.request.body.city === 'string', 'No city in post body');
+  asserts.assertUser(typeof ctx.request.body.city === 'string' || typeof ctx.request.body.iataCode === 'string', 'No city in post body');
   asserts.assertUser(typeof ctx.request.body.key === 'string', 'No apikey in post body');
+
+  // http://www.airport-data.com/api/ap_info.json?icao=KJFK
 
   const response = {};
 
-  const city = ctx.request.body.city;
+  let city = ctx.request.body.city;
+  const iataCode = ctx.request.body.iataCode;
   const key = ctx.request.body.key;
+
+  if (
+      typeof ctx.request.body.city !== 'string' &&
+      typeof ctx.request.body.iataCode === 'string'
+    ) {
+    const options = {
+      uri: 'http://www.airport-data.com/api/ap_info.json',
+      qs: {
+        iata: iataCode
+      },
+      headers: {
+        'User-Agent': 'Request-Promise',
+      },
+      json: true, // Automatically parses the JSON string in the response
+    };
+
+    const data = await requester(options);
+    asserts.assertPeer(
+      isObject(data) &&
+      typeof data.location === 'string',
+      'API responded with wrong data'
+      );
+    city = data.location.split(',')[0];
+  }
 
   const report = await db.get(`select * from reports where city = ?`, city);
   const keyRecord = await db.get(`select * from apikeys where key = ?`, key);
@@ -187,7 +226,7 @@ router.post('/api/forecast', bodyParser(), async (ctx, next) => {
 
   const accRequestCount = account.request_count;
 
-  if (accRequestCount >= 10) {
+  if (accRequestCount >= MAX_REQUESTS_PER_HOUR) {
     ctx.body = { message: USED_ALL_REQUESTS_MSG };
     return;
   }
@@ -239,6 +278,10 @@ function generateRandomString (length) {
   }
 
   return text;
+}
+
+function isObject (obj) {
+  return typeof obj === 'object' && obj != null;
 }
 
 module.exports = server;

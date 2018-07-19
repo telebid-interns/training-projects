@@ -8,11 +8,15 @@
         <form method="post" action="/register">
           <label for="username">Username:</label>
           <input type="text" id='username' name='username' placeholder="Enter Your Username" class="form-control">
+          <p id="username-length-err" hidden="true" class="text-danger">Username must be at least 3 symbols</p>
           <label for="username">Password:</label>
-          <input type="text" id='password' name='password' placeholder="Enter Your Password" class="form-control">
+          <input type="password" id='password' name='password' placeholder="Enter Your Password" class="form-control">
+          <p id="password-length-err" hidden="true" class="text-danger">Password must be at least 3 symbols</p>
           <label for="username">Repeat Password:</label>
-          <input type="text" id='repeat-password' name='repeat-password' placeholder="Repeat Your Password" class="form-control">
-
+          <input type="password" id='repeat-password' name='repeat-password' placeholder="Repeat Your Password" class="form-control">
+          <br>
+          <p id="pass-err" hidden="true" class="text-danger">Passwords don't match</p>
+          <p id="exists-err" hidden="true" class="text-danger">an account with this username already exists</p>
           <br>
           <a href="./login">Already have an account ?</a>
           <input type="submit" id='sub-btn' class='btn btn-default pull-right' value="Register"></input>
@@ -20,3 +24,48 @@
     </ul>
   </body>
 </html>
+
+<script type="text/javascript">
+  const MINIMUM_PASS_LENGTH = 3;
+  const usernameBox = document.getElementById('username');
+  const passwordBox = document.getElementById('password');
+  const repeatPasswordBox = document.getElementById('repeat-password');
+
+  const passwordsDontMatchErrorMsg = document.getElementById('pass-err');
+  const usernameLengthErrorMsg = document.getElementById('username-length-err');
+  const passwordLengthErrorMsg = document.getElementById('password-length-err');
+  const accExistsErrorMsg = document.getElementById('exists-err');
+
+  const error = "{{err}}";
+
+  usernameBox.addEventListener('keyup', checkUsernameField);
+  passwordBox.addEventListener('keyup', checkPasswordFields);
+  repeatPasswordBox.addEventListener('keyup', checkPasswordFields);
+
+  if (Number(error) === 1) {
+    accExistsErrorMsg.removeAttribute('hidden');
+    setTimeout(() => {accExistsErrorMsg.setAttribute('hidden', 'true')}, 4000);
+  }
+
+  function checkUsernameField () {
+    if (usernameBox.value.length < MINIMUM_PASS_LENGTH) {
+      usernameLengthErrorMsg.removeAttribute('hidden');
+    } else {
+      usernameLengthErrorMsg.setAttribute('hidden', 'true');
+    }
+  }
+
+  function checkPasswordFields () {
+    if (passwordBox.value.length < MINIMUM_PASS_LENGTH) {
+      passwordLengthErrorMsg.removeAttribute('hidden');
+    } else {
+      passwordLengthErrorMsg.setAttribute('hidden', 'true');
+    }
+
+    if (passwordBox.value !== repeatPasswordBox.value) {
+      passwordsDontMatchErrorMsg.removeAttribute('hidden');
+    } else {
+      passwordsDontMatchErrorMsg.setAttribute('hidden', 'true');
+    }
+  }
+</script>

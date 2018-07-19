@@ -20,12 +20,15 @@
           {{/each}}
         </ul>
         <br>
+        <p>Requests used: {{requests}} / {{limit}} (refreshes every hour)</p>
+        <br>
         <p class="pull-right"><a href="/logout">Log out</a></p>
         <p class="pull-left"><a href="/docs">Documentation</a></p>
       </form>
     </ul>
   </body>
 </html>
+
 <script type="text/javascript">
   const generateBtn = document.getElementById('generate-btn');
   const copyBtn = document.getElementById('copy-btn');
