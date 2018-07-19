@@ -1,7 +1,11 @@
 const Koa = require('koa');
 const router = require('koa-router')();
 const bodyParser = require('koa-bodyparser');
-const asserts = require('./../asserts/asserts.js'); // TODO destruct
+const {
+    assert,
+    assertUser,
+    assertPeer
+  } = require('./../asserts/asserts.js');
 const sqlite = require('sqlite');
 const serve = require('koa-static');
 const bcrypt = require('bcrypt');
@@ -16,11 +20,15 @@ const NO_INFO_MSG = 'error: no information for requested city, please try again 
 const NO_KEY_IN_REQUEST_MSG = 'error: incorrect api key';
 const USED_ALL_REQUESTS_MSG = 'error: you have exceeded your request cap, please try again later';
 
+const MINIMUM_USERNAME_LENGTH = 3;
+const MINIMUM_PASSWORD_LENGTH = 3;
+
+const ADMIN_USERNAME = 'admin';
+const ADMIN_PASSWORD = 'admin';
+
 const MAX_REQUESTS_PER_HOUR = 60;
 
 const app = new Koa();
-
-// TODO app.error()
 
 const server = app.listen(PORT, () => {
   console.log(`Server listening on port: ${PORT}`);
@@ -28,14 +36,13 @@ const server = app.listen(PORT, () => {
 
 app.keys = ['DaliPecheTaina'];
 
-
-// TODO fix ms
-app.use(session({ maxAge: 86400000 }, app));
+// maxAge: (Milliseconds)
+app.use(session({ maxAge: 1000 * 60 * 60 * 24 }, app));
 
 app.use(serve(path.join(__dirname, '/public/css')));
-app.use(serve(`${__dirname}/public/js`)); // TODO use path
+app.use(serve(path.join(__dirname, '/public/js')));
 
-app.use(views(__dirname + '/views', { // TODO use path
+app.use(views(path.join(__dirname, '/views'), {
   extension: 'hbs',
   map: { hbs: 'handlebars' }
 }));
@@ -48,6 +55,11 @@ app.use(bodyParser());
 let db;
 
 connect();
+
+// TODO stop 500 from happening
+// app.on('error', (err, ctx) => {
+//   console.log('Error Caught');
+// });
 
 // GET root
 router.get('/', async (ctx, next) => {
@@ -111,6 +123,24 @@ router.get('/register', async (ctx, next) => {
   await ctx.render('register', {err: ctx.query.err});
 });
 
+// GET admin
+router.get('/admin', async (ctx, next) => {
+  if (ctx.session.admin == null) {
+    await ctx.render('admin_login');
+  } else {
+    await ctx.render('admin');
+  }
+});
+
+// POST admin
+// router.get('/admin', async (ctx, next) => {
+//   if (ctx.session.admin == null) {
+//     await ctx.render('admin_login');
+//   } else {
+//     await ctx.render('admin');
+//   }
+// });
+
 // POST register
 router.post('/register', bodyParser(), async (ctx, next) => {
   const username = ctx.request.body.username;
@@ -126,7 +156,7 @@ router.post('/register', bodyParser(), async (ctx, next) => {
     return;
   }
 
-  if (password.length < 3 || username.length < 3) {
+  if (password.length < MINIMUM_PASSWORD_LENGTH || username.length < MINIMUM_USERNAME_LENGTH) {
     ctx.redirect('/register');
     return;
   }
@@ -135,7 +165,6 @@ router.post('/register', bodyParser(), async (ctx, next) => {
     ctx.redirect('/register?err=1');
     return;
   }
-
 
   bcrypt.hash(password + salt, 5, (err, hash) => {
     db.run('insert into accounts (username, password, salt, request_count) values(?, ?, ?, 0)', username, hash, salt);
@@ -165,6 +194,17 @@ router.post('/login', bodyParser(), async (ctx, next) => {
   }
 });
 
+// POST login
+router.post('/admin', bodyParser(), async (ctx, next) => {
+  const username = ctx.request.body.username;
+  const password = ctx.request.body.password;
+
+  if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+    ctx.session.admin = true;
+  }
+  ctx.redirect('/admin');
+});
+
 router.post('/generateKey', bodyParser(), async (ctx, next) => {
   const user = ctx.request.body.name;
   const key = generateRandomString(16);
@@ -179,10 +219,12 @@ router.post('/generateKey', bodyParser(), async (ctx, next) => {
 
 // POST forecast
 router.post('/api/forecast', bodyParser(), async (ctx, next) => {
-  asserts.assertUser(typeof ctx.request.body.city === 'string' || typeof ctx.request.body.iataCode === 'string', 'No city in post body');
-  asserts.assertUser(typeof ctx.request.body.key === 'string', 'No apikey in post body');
-
-  // http://www.airport-data.com/api/ap_info.json?icao=KJFK
+  assertUser(
+      typeof ctx.request.body.city === 'string' ||
+      typeof ctx.request.body.iataCode === 'string',
+      'No city or iataCode in post body'
+    );
+  assertUser(typeof ctx.request.body.key === 'string', 'No apikey in post body');
 
   const response = {};
 
@@ -206,19 +248,22 @@ router.post('/api/forecast', bodyParser(), async (ctx, next) => {
     };
 
     const data = await requester(options);
-    asserts.assertPeer(
+    assertPeer(
       isObject(data) &&
       typeof data.location === 'string',
       'API responded with wrong data'
       );
-    city = data.location.split(',')[0];
+    city = data.location.split(',')[0]; // dubious
   }
 
   const report = await db.get(`select * from reports where city = ?`, city);
   const keyRecord = await db.get(`select * from apikeys where key = ?`, key);
 
   if (keyRecord == null || typeof keyRecord !== 'object') {
-    ctx.body = { message: NO_KEY_IN_REQUEST_MSG }; // TODO add status code
+    ctx.body = {
+      message: NO_KEY_IN_REQUEST_MSG,
+      statusCode: 10
+    };
     return;
   }
 
@@ -227,14 +272,20 @@ router.post('/api/forecast', bodyParser(), async (ctx, next) => {
   const accRequestCount = account.request_count;
 
   if (accRequestCount >= MAX_REQUESTS_PER_HOUR) {
-    ctx.body = { message: USED_ALL_REQUESTS_MSG };
+    ctx.body = {
+      message: USED_ALL_REQUESTS_MSG,
+      statusCode: 11
+    };
     return;
   }
 
   db.run(`update accounts set request_count = ? where id = ?`, accRequestCount + 1, account.id);
 
   if (report == null) {
-    ctx.body = { message: NO_INFO_MSG };
+    ctx.body = {
+      message: NO_INFO_MSG,
+      statusCode: 12
+    };
     db.run(`insert into reports (city) values(?)`, city);
     return;
   }
@@ -246,7 +297,10 @@ router.post('/api/forecast', bodyParser(), async (ctx, next) => {
   );
 
   if (conditions.length === 0) {
-    ctx.body = { message: NO_INFO_MSG };
+    ctx.body = {
+      message: NO_INFO_MSG,
+      statusCode: 12
+    };
     return;
   }
 
