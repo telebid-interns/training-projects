@@ -12,25 +12,13 @@
   </head>
   <body>
     <div class="container">
-      <div class="row">
-        <h1 class="text-center">Freefall<small> - fast travel for your convenience</small></h1>
-      </div>
-      <div class="row">
-        <div class="col-md-6 col-md-offset-3">
-          <nav class="navbar navbar-default navbar-static-top">
-            <ul class="nav navbar-nav">
-              <li><a href="index.html">Search</a></li>
-              <li><a href="subscribe.html">Subscribe</a></li>
-              <li class="active"><a href="#">Unsubscribe</a></li>
-            </ul>
-          </nav>
-        </div>
-      </div>
+      {{> heading }}
+      {{> menu }}
       <form id="unsubscribe-form" class="row">
         <div class="col-md-6 col-md-offset-3">
           <div class="form-group">
             <div class="form-group fixed-form-height">
-              <label for="email" text-center">Email</labeL>
+              <label for="email" text-center">Email</label>
               <input id="email" class="form-control" name="email" type="email" placeholder="Email" required>
             </div>
             <div class="form-group fixed-form-height text-center">
@@ -40,9 +28,7 @@
         </div>
       </form>
     </div>
-    <div id="messages-row" class="row text-center">
-      <p id="message-bar"></p>
-    </div>
+    {{> messages }}
     <script src="https://cdn.jsdelivr.net/g/lodash@4(lodash.min.js)"></script>
     <script src="js/jquery/jquery-2.2.4.js"></script>
     <script src="css/bootstrap/js/bootstrap.min.js"></script>

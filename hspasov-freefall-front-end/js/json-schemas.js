@@ -280,4 +280,37 @@ const validators = { // eslint-disable-line no-unused-vars
     };
     return ajv.compile(errorResponseSchema);
   },
+
+  getValidateListAirportsRes: function () {
+    const listAirportsSchema = {
+      '$schema': 'http://json-schema.org/draft-07/schema#',
+      '$id': 'http://10.20.1.155:3000/listairportsresponse.schema.json',
+      'title': 'List airports response',
+      'type': 'object',
+      'properties': {
+        'airports': {
+          'type': 'array',
+          'title': 'Airports list',
+          'items': {
+            'type': 'object',
+            'properties': {
+              'id': {
+                'title': 'Airport id from database',
+                'type': 'string',
+              },
+              'iata_code': {
+                'title': 'Airport IATA code',
+                'type': 'string',
+              },
+              'name': {
+                'title': 'Airport name',
+                'type': 'string',
+              },
+            },
+          },
+        },
+      },
+    };
+    return ajv.compile(listAirportsSchema);
+  },
 };

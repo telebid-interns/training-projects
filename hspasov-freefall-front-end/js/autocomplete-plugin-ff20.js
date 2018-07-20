@@ -36,7 +36,7 @@
         };
       };
 
-      $(this).on('input', onInput(Object.keys(data).sort()));
+      $(this).on('input', onInput(data));
     });
   };
 })(jQuery);

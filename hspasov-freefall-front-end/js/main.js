@@ -72,7 +72,7 @@ function start () {
   }
 
   const MAX_ROUTES_PER_PAGE = 5;
-  const SERVER_URL = 'http://10.20.1.139:3000';
+  const SERVER_URL = '/';
   // const SERVER_URL = 'http://127.0.0.1:3000';
   const MONTH_NAMES = [
     'January', 'February', 'March', 'April', 'May', 'June',
