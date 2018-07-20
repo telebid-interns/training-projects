@@ -2,10 +2,10 @@ const Koa = require('koa');
 const router = require('koa-router')();
 const bodyParser = require('koa-bodyparser');
 const {
-    assert,
-    assertUser,
-    assertPeer
-  } = require('./../asserts/asserts.js');
+  assert,
+  assertUser,
+  assertPeer,
+} = require('./../asserts/asserts.js');
 const sqlite = require('sqlite');
 const serve = require('koa-static');
 const bcrypt = require('bcrypt');
@@ -34,7 +34,7 @@ const server = app.listen(PORT, () => {
   console.log(`Server listening on port: ${PORT}`);
 });
 
-app.keys = ['DaliPecheTaina'];
+app.keys = ['DaliKrieTaini'];
 
 // maxAge: (Milliseconds)
 app.use(session({ maxAge: 1000 * 60 * 60 * 24 }, app));
@@ -44,7 +44,7 @@ app.use(serve(path.join(__dirname, '/public/js')));
 
 app.use(views(path.join(__dirname, '/views'), {
   extension: 'hbs',
-  map: { hbs: 'handlebars' }
+  map: { hbs: 'handlebars' },
 }));
 
 app.use(router.routes());
@@ -89,13 +89,13 @@ router.get('/home', async (ctx, next) => {
     return;
   }
 
-  user = await db.get('select * from accounts where username = ?', ctx.session.user);
+  const user = await db.get('select * from accounts where username = ?', ctx.session.user);
 
   if (user == null) {
     ctx.redirect('/login');
   }
 
-  keys = await db.all('select * from apikeys where account_id = ?', user.id);
+  const keys = await db.all('select * from apikeys where account_id = ?', user.id);
 
   await ctx.render(
     'home',
@@ -103,7 +103,7 @@ router.get('/home', async (ctx, next) => {
       user: ctx.session.user,
       requests: user.request_count,
       limit: MAX_REQUESTS_PER_HOUR,
-      keys
+      keys,
     });
 });
 
@@ -128,18 +128,25 @@ router.get('/admin', async (ctx, next) => {
   if (ctx.session.admin == null) {
     await ctx.render('admin_login');
   } else {
-    await ctx.render('admin');
+    const users = await db.all('select * from accounts');
+    await ctx.render('admin', {
+      users,
+      maxRequests: MAX_REQUESTS_PER_HOUR
+    });
   }
 });
 
 // POST admin
-// router.get('/admin', async (ctx, next) => {
-//   if (ctx.session.admin == null) {
-//     await ctx.render('admin_login');
-//   } else {
-//     await ctx.render('admin');
-//   }
-// });
+router.post('/admin', bodyParser(), async (ctx, next) => {
+  const username = ctx.request.body.username;
+  const password = ctx.request.body.password;
+
+  if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+    ctx.session.admin = true;
+  }
+
+  ctx.redirect('/admin');
+});
 
 // POST register
 router.post('/register', bodyParser(), async (ctx, next) => {
@@ -156,7 +163,10 @@ router.post('/register', bodyParser(), async (ctx, next) => {
     return;
   }
 
-  if (password.length < MINIMUM_PASSWORD_LENGTH || username.length < MINIMUM_USERNAME_LENGTH) {
+  if (
+      password.length < MINIMUM_PASSWORD_LENGTH ||
+      username.length < MINIMUM_USERNAME_LENGTH
+  ) {
     ctx.redirect('/register');
     return;
   }
@@ -167,8 +177,22 @@ router.post('/register', bodyParser(), async (ctx, next) => {
   }
 
   bcrypt.hash(password + salt, 5, (err, hash) => {
-    db.run('insert into accounts (username, password, salt, request_count) values(?, ?, ?, 0)', username, hash, salt);
+    db.run(`
+        insert into accounts (
+            username,
+            password,
+            salt,
+            request_count,
+            date_registered
+          )
+        values(?, ?, ?, 0, ?)`,
+          username,
+          hash,
+          salt,
+          formatDate(new Date())
+      );
   });
+
   ctx.redirect('/login');
 });
 
@@ -184,9 +208,9 @@ router.post('/login', bodyParser(), async (ctx, next) => {
     return;
   }
 
-  const correct = await bcrypt.compare(password + user.salt, user.password);
+  const isPassCorrect = await bcrypt.compare(password + user.salt, user.password);
 
-  if(correct){
+  if (isPassCorrect) {
     ctx.session.user = user.username;
     ctx.redirect('/home');
   } else {
@@ -194,16 +218,6 @@ router.post('/login', bodyParser(), async (ctx, next) => {
   }
 });
 
-// POST login
-router.post('/admin', bodyParser(), async (ctx, next) => {
-  const username = ctx.request.body.username;
-  const password = ctx.request.body.password;
-
-  if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-    ctx.session.admin = true;
-  }
-  ctx.redirect('/admin');
-});
 
 router.post('/generateKey', bodyParser(), async (ctx, next) => {
   const user = ctx.request.body.name;
@@ -217,29 +231,47 @@ router.post('/generateKey', bodyParser(), async (ctx, next) => {
   ctx.body = { key };
 });
 
+router.post('/getUsersByTerm', bodyParser(), async (ctx, next) => {
+  const term = `%${ctx.request.body.term}%`;
+  const accounts = await db.all(`
+      select
+        username,
+        request_count,
+        date_registered
+      from accounts
+      where username like ?`,
+        term
+    );
+
+  ctx.body = {
+      maxRequests: MAX_REQUESTS_PER_HOUR,
+      accounts
+    };
+});
+
 // POST forecast
 router.post('/api/forecast', bodyParser(), async (ctx, next) => {
   assertUser(
-      typeof ctx.request.body.city === 'string' ||
+    typeof ctx.request.body.city === 'string' ||
       typeof ctx.request.body.iataCode === 'string',
-      'No city or iataCode in post body'
-    );
+    'No city or iataCode in post body'
+  );
   assertUser(typeof ctx.request.body.key === 'string', 'No apikey in post body');
 
   const response = {};
 
-  let city = ctx.request.body.city;
   const iataCode = ctx.request.body.iataCode;
   const key = ctx.request.body.key;
+  let city = ctx.request.body.city;
 
   if (
-      typeof ctx.request.body.city !== 'string' &&
+    typeof ctx.request.body.city !== 'string' &&
       typeof ctx.request.body.iataCode === 'string'
-    ) {
+  ) {
     const options = {
       uri: 'http://www.airport-data.com/api/ap_info.json',
       qs: {
-        iata: iataCode
+        iata: iataCode,
       },
       headers: {
         'User-Agent': 'Request-Promise',
@@ -252,7 +284,7 @@ router.post('/api/forecast', bodyParser(), async (ctx, next) => {
       isObject(data) &&
       typeof data.location === 'string',
       'API responded with wrong data'
-      );
+    );
     city = data.location.split(',')[0]; // dubious
   }
 
@@ -262,7 +294,7 @@ router.post('/api/forecast', bodyParser(), async (ctx, next) => {
   if (keyRecord == null || typeof keyRecord !== 'object') {
     ctx.body = {
       message: NO_KEY_IN_REQUEST_MSG,
-      statusCode: 10
+      statusCode: 10,
     };
     return;
   }
@@ -274,7 +306,7 @@ router.post('/api/forecast', bodyParser(), async (ctx, next) => {
   if (accRequestCount >= MAX_REQUESTS_PER_HOUR) {
     ctx.body = {
       message: USED_ALL_REQUESTS_MSG,
-      statusCode: 11
+      statusCode: 11,
     };
     return;
   }
@@ -284,7 +316,7 @@ router.post('/api/forecast', bodyParser(), async (ctx, next) => {
   if (report == null) {
     ctx.body = {
       message: NO_INFO_MSG,
-      statusCode: 12
+      statusCode: 12,
     };
     db.run(`insert into reports (city) values(?)`, city);
     return;
@@ -293,13 +325,13 @@ router.post('/api/forecast', bodyParser(), async (ctx, next) => {
   let conditions = await db.all(`
     select * from weather_conditions as wc
     where wc.report_id = ?`,
-    report.id
+  report.id
   );
 
   if (conditions.length === 0) {
     ctx.body = {
       message: NO_INFO_MSG,
-      statusCode: 12
+      statusCode: 12,
     };
     return;
   }
@@ -336,6 +368,17 @@ function generateRandomString (length) {
 
 function isObject (obj) {
   return typeof obj === 'object' && obj != null;
+}
+
+function formatDate(date) {
+  const year = date.getFullYear();
+  let month = '' + (date.getMonth() + 1); // months start from 0
+  let day = '' + date.getDate();
+
+  if (month.length < 2) month = '0' + month;
+  if (day.length < 2) day = '0' + day;
+
+  return [day, month, year].join('-');
 }
 
 module.exports = server;
