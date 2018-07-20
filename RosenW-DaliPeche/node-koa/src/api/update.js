@@ -87,7 +87,7 @@ async function updateDB () {
 }
 
 function resetAPIKeys (db) {
-  db.run(`update apikeys set use_count = 0`);
+  db.run(`update accounts set request_count = 0`);
 }
 
 function isObject (obj) {

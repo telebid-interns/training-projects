@@ -1,9 +1,10 @@
 const requester = require('request-promise');
 const API_KEY = '3324c849124277736f1fefdc58dfc561';
+const FORECAST_API_LINK = 'https://api.openweathermap.org/data/2.5/forecast';
 
 async function getForecast (city) {
   const options = {
-    uri: 'https://api.openweathermap.org/data/2.5/forecast',
+    uri: FORECAST_API_LINK,
     qs: {
       q: city,
       units: 'metric',

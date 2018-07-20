@@ -26,7 +26,9 @@ const MINIMUM_PASSWORD_LENGTH = 3;
 const ADMIN_USERNAME = 'admin';
 const ADMIN_PASSWORD = 'admin';
 
-const MAX_REQUESTS_PER_HOUR = 60;
+const AIRPORT_API_LINK = 'http://www.airport-data.com/api/ap_info.json';
+
+const MAX_REQUESTS_PER_HOUR = 10;
 
 const app = new Koa();
 
@@ -36,7 +38,7 @@ const server = app.listen(PORT, () => {
 
 app.keys = ['DaliKrieTaini'];
 
-// maxAge: (Milliseconds)
+// (cookie lifetime): (Milliseconds)
 app.use(session({ maxAge: 1000 * 60 * 60 * 24 }, app));
 
 app.use(serve(path.join(__dirname, '/public/css')));
@@ -54,12 +56,11 @@ app.use(bodyParser());
 
 let db;
 
-connect();
+async function connect () {
+  db = await sqlite.open('./src/database/forecast.db');
+}
 
-// TODO stop 500 from happening
-// app.on('error', (err, ctx) => {
-//   console.log('Error Caught');
-// });
+connect();
 
 // GET root
 router.get('/', async (ctx, next) => {
@@ -131,7 +132,7 @@ router.get('/admin', async (ctx, next) => {
     const users = await db.all('select * from accounts');
     await ctx.render('admin', {
       users,
-      maxRequests: MAX_REQUESTS_PER_HOUR
+      maxRequests: MAX_REQUESTS_PER_HOUR,
     });
   }
 });
@@ -160,7 +161,7 @@ router.post('/register', bodyParser(), async (ctx, next) => {
 
   if (password !== repeatPassword) {
     ctx.redirect('/register');
-    return;
+    return; // TODO return next();
   }
 
   if (
@@ -175,7 +176,7 @@ router.post('/register', bodyParser(), async (ctx, next) => {
     ctx.redirect('/register?err=1');
     return;
   }
-
+  // TODO change to saltedPass
   bcrypt.hash(password + salt, 5, (err, hash) => {
     db.run(`
         insert into accounts (
@@ -186,11 +187,11 @@ router.post('/register', bodyParser(), async (ctx, next) => {
             date_registered
           )
         values(?, ?, ?, 0, ?)`,
-          username,
-          hash,
-          salt,
-          formatDate(new Date())
-      );
+    username,
+    hash,
+    salt,
+    formatDate(new Date())
+    );
   });
 
   ctx.redirect('/login');
@@ -207,8 +208,8 @@ router.post('/login', bodyParser(), async (ctx, next) => {
     ctx.redirect('/login?err=1');
     return;
   }
-
-  const isPassCorrect = await bcrypt.compare(password + user.salt, user.password);
+  const saltedPassword = password + user.salt;
+  const isPassCorrect = await bcrypt.compare(saltedPassword, user.password);
 
   if (isPassCorrect) {
     ctx.session.user = user.username;
@@ -218,15 +219,17 @@ router.post('/login', bodyParser(), async (ctx, next) => {
   }
 });
 
-
+// TODO /api/generateApiKey?
 router.post('/generateKey', bodyParser(), async (ctx, next) => {
   const user = ctx.request.body.name;
   const key = generateRandomString(16);
   const account = await db.get('select * from accounts where username = ?', user);
-  if (account == null) {
-    ctx.body = 'User not found';
+
+  if (account == null) { // assert
+    ctx.body = 'User not found'; // make hash
     return;
   }
+
   db.run('insert into apikeys (key, account_id) values(?, ?)', key, account.id);
   ctx.body = { key };
 });
@@ -240,13 +243,13 @@ router.post('/getUsersByTerm', bodyParser(), async (ctx, next) => {
         date_registered
       from accounts
       where username like ?`,
-        term
-    );
+  term
+  );
 
   ctx.body = {
-      maxRequests: MAX_REQUESTS_PER_HOUR,
-      accounts
-    };
+    maxRequests: MAX_REQUESTS_PER_HOUR,
+    accounts,
+  };
 });
 
 // POST forecast
@@ -266,10 +269,10 @@ router.post('/api/forecast', bodyParser(), async (ctx, next) => {
 
   if (
     typeof ctx.request.body.city !== 'string' &&
-      typeof ctx.request.body.iataCode === 'string'
+    typeof ctx.request.body.iataCode === 'string'
   ) {
     const options = {
-      uri: 'http://www.airport-data.com/api/ap_info.json',
+      uri: AIRPORT_API_LINK,
       qs: {
         iata: iataCode,
       },
@@ -280,11 +283,13 @@ router.post('/api/forecast', bodyParser(), async (ctx, next) => {
     };
 
     const data = await requester(options);
+
     assertPeer(
       isObject(data) &&
       typeof data.location === 'string',
       'API responded with wrong data'
     );
+
     city = data.location.split(',')[0]; // dubious
   }
 
@@ -293,10 +298,10 @@ router.post('/api/forecast', bodyParser(), async (ctx, next) => {
 
   if (keyRecord == null || typeof keyRecord !== 'object') {
     ctx.body = {
-      message: NO_KEY_IN_REQUEST_MSG,
+      message: NO_KEY_IN_REQUEST_MSG, // dont use const
       statusCode: 10,
     };
-    return;
+    return; // ?
   }
 
   const account = await db.get(`select * from accounts where id = ?`, keyRecord.account_id);
@@ -311,9 +316,10 @@ router.post('/api/forecast', bodyParser(), async (ctx, next) => {
     return;
   }
 
+  // should be function, lock ?
   db.run(`update accounts set request_count = ? where id = ?`, accRequestCount + 1, account.id);
 
-  if (report == null) {
+  if (report == null) { // move up
     ctx.body = {
       message: NO_INFO_MSG,
       statusCode: 12,
@@ -351,10 +357,6 @@ router.post('/api/forecast', bodyParser(), async (ctx, next) => {
   ctx.body = response;
 });
 
-async function connect () {
-  db = await sqlite.open('./src/database/forecast.db');
-}
-
 function generateRandomString (length) {
   let text = '';
   const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -370,13 +372,13 @@ function isObject (obj) {
   return typeof obj === 'object' && obj != null;
 }
 
-function formatDate(date) {
+function formatDate (date) {
   const year = date.getFullYear();
-  let month = '' + (date.getMonth() + 1); // months start from 0
-  let day = '' + date.getDate();
+  let month = `${date.getMonth() + 1}`; // months start from 0
+  let day = `${date.getDate()}`;
 
-  if (month.length < 2) month = '0' + month;
-  if (day.length < 2) day = '0' + day;
+  if (month.length < 2) month = `0${month}`;
+  if (day.length < 2) day = `0${day}`;
 
   return [day, month, year].join('-');
 }

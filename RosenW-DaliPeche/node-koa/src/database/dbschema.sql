@@ -1,4 +1,4 @@
-CREATE TABLE reports (
+CREATE TABLE reports ( --bad name
   id integer primary key autoincrement,
   city text,
   country_code text,
@@ -22,12 +22,12 @@ CREATE TABLE weather_conditions (
   ground_pressure decimal,
   wind_direction decimal,
   wind_speed decimal,
-  date text,
+  date text, -- TODO change name
   foreign key (report_id) references reports(id),
   unique (report_id, date) on conflict replace
 );
 
-CREATE TABLE apikeys (
+CREATE TABLE apikeys ( -- TODO change name api_keys
   id integer primary key autoincrement,
   key text,
   account_id integer,
