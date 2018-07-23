@@ -45,8 +45,8 @@ app.use(serve(path.join(__dirname, '/public/css')));
 app.use(serve(path.join(__dirname, '/public/js')));
 
 app.use(views(path.join(__dirname, '/views'), {
-  extension: 'hbs',
-  map: { hbs: 'handlebars' },
+  extension: 'hbs', // looks for .html on removal
+  map: { hbs: 'handlebars' }, // hbs specifies engine, "Engine not found for the ".hbs" file extension" on removal
 }));
 
 app.use(router.routes());
@@ -90,13 +90,13 @@ router.get('/home', async (ctx, next) => {
     return;
   }
 
-  const user = await db.get('select * from accounts where username = ?', ctx.session.user);
+  const user = await db.get('SELECT * FROM accounts WHERE username = ?', ctx.session.user);
 
   if (user == null) {
     ctx.redirect('/login');
   }
 
-  const keys = await db.all('select * from apikeys where account_id = ?', user.id);
+  const keys = await db.all('SELECT * FROM apikeys WHERE account_id = ?', user.id);
 
   await ctx.render(
     'home',
@@ -129,7 +129,22 @@ router.get('/admin', async (ctx, next) => {
   if (ctx.session.admin == null) {
     await ctx.render('admin_login');
   } else {
-    const users = await db.all('select * from accounts');
+    let users;
+    if (ctx.query.term == null) {
+      users = await db.all(`SELECT * FROM accounts`);
+    } else {
+      const term = `%${ctx.query.term}%`;
+      users = await db.all(`
+          SELECT
+            username,
+            request_count,
+            date_registered
+          FROM accounts
+          WHERE username LIKE ?`,
+      term
+      );
+    }
+
     await ctx.render('admin', {
       users,
       maxRequests: MAX_REQUESTS_PER_HOUR,
@@ -138,7 +153,9 @@ router.get('/admin', async (ctx, next) => {
 });
 
 // POST admin
-router.post('/admin', bodyParser(), async (ctx, next) => {
+router.post('/admin', async (ctx, next) => {
+  await next();
+
   const username = ctx.request.body.username;
   const password = ctx.request.body.password;
 
@@ -150,14 +167,16 @@ router.post('/admin', bodyParser(), async (ctx, next) => {
 });
 
 // POST register
-router.post('/register', bodyParser(), async (ctx, next) => {
+router.post('/register', async (ctx, next) => {
+  await next();
+
   const username = ctx.request.body.username;
   const password = ctx.request.body.password;
   const repeatPassword = ctx.request.body['repeat-password'];
 
   const salt = generateRandomString(10);
 
-  const account = await db.get('select * from accounts where username = ?', username);
+  const account = await db.get('SELECT * FROM accounts WHERE username = ?', username);
 
   if (password !== repeatPassword) {
     ctx.redirect('/register');
@@ -179,14 +198,14 @@ router.post('/register', bodyParser(), async (ctx, next) => {
   // TODO change to saltedPass
   bcrypt.hash(password + salt, 5, (err, hash) => {
     db.run(`
-        insert into accounts (
+        INSERT INTO accounts (
             username,
             password,
             salt,
             request_count,
             date_registered
           )
-        values(?, ?, ?, 0, ?)`,
+        VALUES (?, ?, ?, 0, ?)`,
     username,
     hash,
     salt,
@@ -198,11 +217,13 @@ router.post('/register', bodyParser(), async (ctx, next) => {
 });
 
 // POST login
-router.post('/login', bodyParser(), async (ctx, next) => {
+router.post('/login', async (ctx, next) => {
+  await next();
+
   const username = ctx.request.body.username;
   const password = ctx.request.body.password;
 
-  const user = await db.get('select * from accounts where username = ?', username);
+  const user = await db.get('SELECT * FROM accounts WHERE username = ?', username);
 
   if (user == null) {
     ctx.redirect('/login?err=1');
@@ -220,40 +241,26 @@ router.post('/login', bodyParser(), async (ctx, next) => {
 });
 
 // TODO /api/generateApiKey?
-router.post('/generateKey', bodyParser(), async (ctx, next) => {
+router.post('/generateKey', async (ctx, next) => {
+  await next();
+
   const user = ctx.request.body.name;
   const key = generateRandomString(16);
-  const account = await db.get('select * from accounts where username = ?', user);
+  const account = await db.get('SELECT * FROM accounts WHERE username = ?', user);
 
   if (account == null) { // assert
     ctx.body = 'User not found'; // make hash
     return;
   }
 
-  db.run('insert into apikeys (key, account_id) values(?, ?)', key, account.id);
+  db.run('INSERT INTO apikeys (key, account_id) VALUES (?, ?)', key, account.id);
   ctx.body = { key };
 });
 
-router.post('/getUsersByTerm', bodyParser(), async (ctx, next) => {
-  const term = `%${ctx.request.body.term}%`;
-  const accounts = await db.all(`
-      select
-        username,
-        request_count,
-        date_registered
-      from accounts
-      where username like ?`,
-  term
-  );
-
-  ctx.body = {
-    maxRequests: MAX_REQUESTS_PER_HOUR,
-    accounts,
-  };
-});
-
 // POST forecast
-router.post('/api/forecast', bodyParser(), async (ctx, next) => {
+router.post('/api/forecast', async (ctx, next) => {
+  await next();
+
   assertUser(
     typeof ctx.request.body.city === 'string' ||
     typeof ctx.request.body.iataCode === 'string',
@@ -291,10 +298,15 @@ router.post('/api/forecast', bodyParser(), async (ctx, next) => {
     );
 
     city = data.location.split(',')[0];
+  } else if (
+    typeof ctx.request.body.city === 'string' &&
+    typeof ctx.request.body.iataCode !== 'string'
+    ) {
+    city = cityNameToPascal(city);
   }
 
-  const report = await db.get(`select * from reports where city = ?`, city);
-  const keyRecord = await db.get(`select * from apikeys where key = ?`, key);
+  const report = await db.get(`SELECT * FROM reports WHERE city = ?`, city);
+  const keyRecord = await db.get(`SELECT * FROM apikeys WHERE key = ?`, key);
 
   if (keyRecord == null || typeof keyRecord !== 'object') {
     ctx.body = {
@@ -304,7 +316,7 @@ router.post('/api/forecast', bodyParser(), async (ctx, next) => {
     return; // ?
   }
 
-  const account = await db.get(`select * from accounts where id = ?`, keyRecord.account_id);
+  const account = await db.get(`SELECT * FROM accounts WHERE id = ?`, keyRecord.account_id);
 
   const accRequestCount = account.request_count;
 
@@ -317,20 +329,20 @@ router.post('/api/forecast', bodyParser(), async (ctx, next) => {
   }
 
   // should be function, lock ?
-  db.run(`update accounts set request_count = ? where id = ?`, accRequestCount + 1, account.id);
+  db.run(`UPDATE accounts SET request_count = ? WHERE id = ?`, accRequestCount + 1, account.id);
 
   if (report == null) { // move up
     ctx.body = {
       message: NO_INFO_MSG,
       statusCode: 12,
     };
-    db.run(`insert into reports (city) values(?)`, city);
+    db.run(`INSERT INTO reports (city) VALUES (?)`, city);
     return;
   }
 
   let conditions = await db.all(`
-    select * from weather_conditions as wc
-    where wc.report_id = ?`,
+    SELECT * FROM weather_conditions AS wc
+    WHERE wc.report_id = ?`,
   report.id
   );
 
@@ -378,13 +390,24 @@ function isObject (obj) {
 
 function formatDate (date) {
   const year = date.getFullYear();
-  let month = `${date.getMonth() + 1}`; // months start from 0
+  let month = `${date.getMonth() + 1}`; // months start FROM 0
   let day = `${date.getDate()}`;
 
   if (month.length < 2) month = `0${month}`;
   if (day.length < 2) day = `0${day}`;
 
   return [day, month, year].join('-');
+}
+
+function cityNameToPascal (city) {
+  const newCityName = [];
+  const cityTokens = city.split(' ');
+
+  for (const token of cityTokens) {
+    newCityName.push(token.substr(0, 1).toUpperCase() + token.substr(1, token.length));
+  }
+
+  return newCityName.join(' ');
 }
 
 module.exports = server;

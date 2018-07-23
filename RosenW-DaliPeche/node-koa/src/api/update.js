@@ -7,7 +7,7 @@ updateDB();
 // TODO error handling
 async function updateDB () {
   const db = await sqlite.open('./../database/forecast.db');
-  const reports = await db.all(`select id, city from reports`);
+  const reports = await db.all(`SELECT id, city FROM reports`);
   resetAPIKeys(db);
 
   for (const report of reports) {
@@ -30,20 +30,20 @@ async function updateDB () {
       'API responded with wrong data');
 
     db.run(`
-      update reports
-      set
+      UPDATE reports
+      SET
         country_code=?,
         lat=?,
         lng=?,
         observed_at=?
-      where city=?`,
+      WHERE city=?`,
     forecast.city.country,
     forecast.city.coord.lat,
     forecast.city.coord.lon,
     new Date(),
     forecast.city.name);
 
-    const dbForecast = await db.get(`select id from reports where city = ?`, report.city);
+    const dbForecast = await db.get(`SELECT id FROM reports WHERE city = ?`, report.city);
 
     for (const report of forecast.list) {
       asserts.assertPeer(
@@ -55,7 +55,7 @@ async function updateDB () {
 
       // "Unique on conflict replace" takes care of updating
       db.run(`
-        insert into weather_conditions (
+        INSERT INTO weather_conditions (
           report_id,
           weather,
           weather_description,
@@ -68,7 +68,7 @@ async function updateDB () {
           wind_direction,
           wind_speed,
           date)
-        values(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       dbForecast.id,
       report.weather[0].main,
       report.weather[0].description,
@@ -87,7 +87,7 @@ async function updateDB () {
 }
 
 function resetAPIKeys (db) {
-  db.run(`update accounts set request_count = 0`);
+  db.run(`UPDATE accounts SET request_count = 0`);
 }
 
 function isObject (obj) {
