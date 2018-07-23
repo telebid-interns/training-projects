@@ -4,7 +4,7 @@ CREATE TABLE reports ( --bad name
   country_code text,
   lng decimal,
   lat decimal,
-  observed_at date
+  observed_at text
 );
 
 CREATE UNIQUE INDEX citynameindex on reports(city);

@@ -256,7 +256,7 @@ router.post('/getUsersByTerm', bodyParser(), async (ctx, next) => {
 router.post('/api/forecast', bodyParser(), async (ctx, next) => {
   assertUser(
     typeof ctx.request.body.city === 'string' ||
-      typeof ctx.request.body.iataCode === 'string',
+    typeof ctx.request.body.iataCode === 'string',
     'No city or iataCode in post body'
   );
   assertUser(typeof ctx.request.body.key === 'string', 'No apikey in post body');
@@ -290,7 +290,7 @@ router.post('/api/forecast', bodyParser(), async (ctx, next) => {
       'API responded with wrong data'
     );
 
-    city = data.location.split(',')[0]; // dubious
+    city = data.location.split(',')[0];
   }
 
   const report = await db.get(`select * from reports where city = ?`, city);
@@ -334,6 +334,15 @@ router.post('/api/forecast', bodyParser(), async (ctx, next) => {
   report.id
   );
 
+  // filters dates before now, cant compare dates in db
+  conditions = conditions.filter((c) => {
+    return c.date > new Date().getTime();
+  });
+  conditions = conditions.map((c) => {
+    c.date = new Date(parseInt(c.date));
+    return c;
+  });
+
   if (conditions.length === 0) {
     ctx.body = {
       message: NO_INFO_MSG,
@@ -342,12 +351,7 @@ router.post('/api/forecast', bodyParser(), async (ctx, next) => {
     return;
   }
 
-  // filters dates before now, cant compare dates in db
-  conditions = conditions.filter((c) => {
-    return Date.parse(c.date) > new Date().getTime();
-  });
-
-  response.observed_at = report.observed_at;
+  response.observed_at = new Date(report.observed_at);
   response.city = report.city;
   response.country_code = report.country_code;
   response.lng = report.lng;

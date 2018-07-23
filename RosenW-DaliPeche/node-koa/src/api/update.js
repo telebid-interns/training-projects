@@ -40,7 +40,7 @@ async function updateDB () {
     forecast.city.country,
     forecast.city.coord.lat,
     forecast.city.coord.lon,
-    new Date().toString(),
+    new Date(),
     forecast.city.name);
 
     const dbForecast = await db.get(`select id from reports where city = ?`, report.city);
@@ -80,7 +80,7 @@ async function updateDB () {
       report.main.grnd_level,
       report.wind.deg,
       report.wind.speed,
-      report.dt_txt
+      new Date(report.dt_txt)
       );
     }
   }
