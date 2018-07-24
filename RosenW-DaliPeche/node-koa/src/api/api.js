@@ -105,8 +105,8 @@ const getForecast = async (ctx, next) => {
     city = cityNameToPascal(city);
   }
 
-  const report = await db.get(`SELECT * FROM reports WHERE city = ?`, city);
-  const keyRecord = await db.get(`SELECT * FROM api_keys WHERE key = ?`, key);
+  const report = await db.select(`reports`, { city }, { one: true });
+  const keyRecord = await db.select(`api_keys`, { key }, {one: true });
 
   assertUser(
       keyRecord != null &&
@@ -119,19 +119,15 @@ const getForecast = async (ctx, next) => {
       'you have exceeded your request cap, please try again later'
     );
 
-  // should be function, lock ?
+  // should be function, lock ? also replace with wrapper when wrapper done
   db.run(`UPDATE api_keys SET use_count = ? WHERE id = ?`, keyRecord.use_count + 1, keyRecord.id);
 
   if (report == null) {
-    db.run(`INSERT INTO reports (city) VALUES (?)`, city);
+    db.insert(`reports`, { city });
     throw new UserError('no information for requested city, please try again later');
   }
 
-  let conditions = await db.all(`
-    SELECT * FROM weather_conditions AS wc
-    WHERE wc.report_id = ?`,
-  report.id
-  );
+  let conditions = await db.select(`weather_conditions`, {report_id: report.id}, {});
 
   // filters dates before now, cant compare dates in db
   conditions = conditions.filter((c) => {

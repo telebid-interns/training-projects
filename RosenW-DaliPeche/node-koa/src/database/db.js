@@ -7,10 +7,6 @@ async function connect () {
   console.log('connected');
 }
 
-const update = (table, values, where) => {
-
-}
-
 const select = (table, where, { one, like, count }) => {
   if (one == null) one = false;
   if (like == null) like = false;
@@ -61,6 +57,36 @@ const insert = (table, data) => {
 
   return db.run(wholeStatement, values);
 }
+
+// TODO FINISH UPDATE
+
+// const update = (table, data, where) => {
+// //   const columns = Object.keys(data);
+// //   const values = Object.values(data);
+
+// }
+
+// const update = (table, data, where) => {
+//   const whereKeys = Object.keys(where);
+//   const whereValues = Object.values(where);
+
+//   let whereStatement = '';
+
+//   let first = true;
+//   for (const key of whereKeys) {
+//     if (first) {
+//       whereStatement += `WHERE ${key} = ?`;
+//       first = false;
+//     } else {
+//       whereStatement += ` AND ${key} = ?`;
+//     }
+//   }
+
+//   const wholeStatement = `DELETE FROM ${table} ${whereStatement}`;
+
+//   return db.run(wholeStatement, whereValues);
+// }
+
 
 const del = (table, where) => {
   const whereKeys = Object.keys(where);
