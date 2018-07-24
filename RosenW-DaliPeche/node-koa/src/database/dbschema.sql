@@ -27,19 +27,19 @@ CREATE TABLE weather_conditions (
   unique (report_id, date) on conflict replace
 );
 
-CREATE TABLE apikeys ( -- TODO change name api_keys
+CREATE TABLE api_keys (
   id integer primary key autoincrement,
   key text,
-  account_id integer,
-  foreign key (account_id) references accounts(id)
+  user_id integer,
+  use_count integer default 0,
+  foreign key (user_id) references users(id)
 );
 
-CREATE TABLE accounts (
+CREATE TABLE users (
   id integer primary key autoincrement,
   username text,
   password text,
   salt text,
-  request_count integer,
   date_registered text,
   unique (username) on conflict ignore
 );

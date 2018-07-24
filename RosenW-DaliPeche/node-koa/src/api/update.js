@@ -1,11 +1,14 @@
 const sqlite = require('sqlite');
 const api = require('./api.js');
 const asserts = require('./../asserts/asserts.js');
+const { trace } = require('./../debug/tracer.js');
+const { isObject } = require('./../utils/utils.js');
 
 updateDB();
 
-// TODO error handling
 async function updateDB () {
+  trace(`Function updateDB`);
+
   const db = await sqlite.open('./../database/forecast.db');
   const reports = await db.all(`SELECT id, city FROM reports`);
   resetAPIKeys(db);
@@ -18,7 +21,7 @@ async function updateDB () {
     let forecast;
 
     try {
-      forecast = await api.getForecast(report.city);
+      forecast = await api.getWeatherAPIData(report.city);
     } catch (err) {
       console.error(err);
       continue;
@@ -87,9 +90,7 @@ async function updateDB () {
 }
 
 function resetAPIKeys (db) {
-  db.run(`UPDATE accounts SET request_count = 0`);
-}
+  trace(`Function resetAPIKeys`);
 
-function isObject (obj) {
-  return typeof obj === 'object' && obj != null;
+  db.run(`UPDATE api_keys SET use_count = 0`);
 }

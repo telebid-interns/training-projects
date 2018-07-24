@@ -16,11 +16,10 @@
         <p>Your API keys:</p>
         <ul id="keys">
           {{#each keys}}
-            <li>{{key}}</li>
+            <li>{{key}} ({{use_count}} / {{../limit}}) <a href="api/del/{{key}}" class="text-danger">x</a></li>
           {{/each}}
         </ul>
         <br>
-        <p>Requests used: {{requests}} / {{limit}} (refreshes every hour)</p>
         <br>
         <p class="pull-right"><a href="/logout">Log out</a></p>
         <p class="pull-left"><a href="/docs">Documentation</a></p>
@@ -32,6 +31,7 @@
 <script type="text/javascript">
   const generateBtn = document.getElementById('generate-btn');
   const copyBtn = document.getElementById('copy-btn');
+  const APIKeyBox = document.getElementById('apikey-box');
 
   copyBtn.addEventListener('click', async (event) => {
     event.preventDefault();
@@ -48,8 +48,9 @@
   generateBtn.addEventListener('click', async (event) => {
     event.preventDefault();
     const username = "{{user}}";
+    const limit = "{{limit}}";
     const response = await fetch(
-      '/generateKey',
+      'api/generateAPIKey',
     {
       headers: {
             "Content-Type": "application/json"
@@ -58,9 +59,20 @@
       body: JSON.stringify({ name: username })
     });
     const keyObj = await response.json();
-    document.getElementById('apikey-box').value = keyObj.key;
-    const keyElement = document.createElement('li');
-    keyElement.innerHTML = keyObj.key;
-    document.getElementById('keys').appendChild(keyElement);
+    const key = keyObj.key;
+
+    if (key == null && typeof keyObj.msg == 'string') {
+      APIKeyBox.value = keyObj.msg;
+    } else {
+      APIKeyBox.value = key;
+      const keyElement = document.createElement('li');
+      const deleteElement = document.createElement('a');
+      deleteElement.setAttribute('href', `api/del/${key}`);
+      deleteElement.setAttribute('class', `text-danger`);
+      deleteElement.innerHTML = 'x';
+      keyElement.innerHTML = `${key} (0 / ${limit}) `;
+      keyElement.appendChild(deleteElement);
+      document.getElementById('keys').appendChild(keyElement);
+    }
   });
 </script>

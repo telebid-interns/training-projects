@@ -1,21 +1,4 @@
-class CustomError extends Error {
-  constructor (err) {
-    super(err);
-  }
-}
-class UserError extends CustomError {
-  constructor (err) {
-    super(err);
-  }
-}
-
-class PeerError extends CustomError {
-  constructor (err) {
-    super(err);
-  }
-}
-
-class AppError extends CustomError {}
+const { AppError, PeerError, UserError } = require('./exceptions.js');
 
 const assert = (condition, msg) => {
   if (condition) {
