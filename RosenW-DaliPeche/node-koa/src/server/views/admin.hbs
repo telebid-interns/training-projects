@@ -14,13 +14,11 @@
     <table id="users-table" class="table table-hover">
       <tr>
         <th>User</th>
-        <th>Requests Made / Limit (per hour)</th>
         <th>Date Registered</th>
       </tr>
       {{#each users}}
         <tr class="gen-tr">
           <td>{{username}}</td>
-          <td>{{request_count}} / {{../maxRequests}}</td>
           <td>{{date_registered}}</td>
         </tr>
       {{/each}}
@@ -40,7 +38,6 @@
   for (const account of data.accounts) {
     const cellValues = {
       username: account.username,
-      request_count: `${account.request_count} / ${data.maxRequests}`,
       date_registered: account.date_registered
     };
 
@@ -54,7 +51,7 @@
   }
 
   function cleanTable () {
-    const tableHeaders = ['User', 'Requests Made / Limit (per hour)', 'Date Registered'];
+    const tableHeaders = ['User', 'Date Registered'];
     const headers = tableHeaders.map((header) => `<th>${header}</th>`).join('');
     table.innerHTML = `<tr>${headers}</tr>`;
   }

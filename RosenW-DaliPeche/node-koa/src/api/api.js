@@ -1,14 +1,15 @@
 const requester = require('request-promise');
 const { trace } = require('./../debug/tracer.js');
-const API_KEY = '3324c849124277736f1fefdc58dfc561';
-const db = require('./../database/db.js');
 const { assert, assertUser, assertPeer } = require('./../asserts/asserts.js');
+const { AppError, PeerError, UserError } = require('./../asserts/exceptions.js');
 const { generateRandomString, isObject, formatDate, cityNameToPascal } = require('./../utils/utils.js');
-
-const FORECAST_API_LINK = 'https://api.openweathermap.org/data/2.5/forecast';
-const MAX_API_KEYS_PER_USER = 5;
-
-db.connect();
+const {
+    FORECAST_API_LINK,
+    FORECAST_API_KEY,
+    MAX_API_KEYS_PER_USER,
+    MAX_REQUESTS_PER_HOUR
+  } = require('./../utils/consts.js');
+const db = require('./../database/db.js');
 
 const getWeatherAPIData = async (city) => {
   trace(`Function getWeatherAPIData`);
@@ -18,7 +19,7 @@ const getWeatherAPIData = async (city) => {
     qs: {
       q: city,
       units: 'metric',
-      appid: API_KEY,
+      appid: FORECAST_API_KEY,
     },
     headers: {
       'User-Agent': 'Request-Promise',
@@ -120,7 +121,7 @@ const getForecast = async (ctx, next) => {
     );
 
   // should be function, lock ? also replace with wrapper when wrapper done
-  db.run(`UPDATE api_keys SET use_count = ? WHERE id = ?`, keyRecord.use_count + 1, keyRecord.id);
+  db.update(`api_keys`, { use_count: keyRecord.use_count + 1 }, { id: keyRecord.id });
 
   if (report == null) {
     db.insert(`reports`, { city });
@@ -151,4 +152,13 @@ const getForecast = async (ctx, next) => {
   ctx.body = response;
 }
 
-module.exports = { getWeatherAPIData, getForecast, generateAPIKey, deleteAPIKey };
+const updateAPIKeyUsage = () => {
+
+}
+
+module.exports = {
+    getWeatherAPIData,
+    getForecast,
+    generateAPIKey,
+    deleteAPIKey
+  };

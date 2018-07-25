@@ -1,6 +1,3 @@
-(node:8405) UnhandledPromiseRejectionWarning: Error: SQLITE_CANTOPEN: unable to open database file
-(node:8405) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 1)
-(node:8405) [DEP0018] DeprecationWarning: Unhandled promise rejections are deprecated. In the future, promise rejections that are not handled will terminate the Node.js process with a non-zero exit code.
 { StatusCodeError: 404 - {"cod":"404","message":"city not found"}
     at new StatusCodeError (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/node_modules/request-promise-core/lib/errors.js:32:15)
     at Request.plumbing.callback (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/node_modules/request-promise-core/lib/plumbing.js:104:33)
@@ -103,7 +100,7 @@
         _httpMessage: [ClientRequest],
         write: [Function: writeAfterFIN],
         [Symbol(res)]: [TLSWrap],
-        [Symbol(asyncId)]: 147,
+        [Symbol(asyncId)]: 349,
         [Symbol(lastWriteQueueSize)]: 0,
         [Symbol(timeout)]: null,
         [Symbol(kBytesRead)]: 375,
@@ -147,7 +144,7 @@
         _httpMessage: [ClientRequest],
         write: [Function: writeAfterFIN],
         [Symbol(res)]: [TLSWrap],
-        [Symbol(asyncId)]: 147,
+        [Symbol(asyncId)]: 349,
         [Symbol(lastWriteQueueSize)]: 0,
         [Symbol(timeout)]: null,
         [Symbol(kBytesRead)]: 375,
@@ -159,7 +156,7 @@
      complete: true,
      headers:
       { server: 'openresty',
-        date: 'Tue, 24 Jul 2018 15:38:05 GMT',
+        date: 'Wed, 25 Jul 2018 08:22:05 GMT',
         'content-type': 'application/json; charset=utf-8',
         'content-length': '40',
         connection: 'close',
@@ -171,7 +168,7 @@
       [ 'Server',
         'openresty',
         'Date',
-        'Tue, 24 Jul 2018 15:38:05 GMT',
+        'Wed, 25 Jul 2018 08:22:05 GMT',
         'Content-Type',
         'application/json; charset=utf-8',
         'Content-Length',
@@ -232,7 +229,7 @@
         _httpMessage: [ClientRequest],
         write: [Function: writeAfterFIN],
         [Symbol(res)]: [TLSWrap],
-        [Symbol(asyncId)]: 147,
+        [Symbol(asyncId)]: 349,
         [Symbol(lastWriteQueueSize)]: 0,
         [Symbol(timeout)]: null,
         [Symbol(kBytesRead)]: 375,

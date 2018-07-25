@@ -21,7 +21,7 @@ const assertUser = (condition, msg) => {
 };
 
 module.exports = {
-  assert,
-  assertUser,
-  assertPeer,
-};
+    assert,
+    assertUser,
+    assertPeer,
+  };

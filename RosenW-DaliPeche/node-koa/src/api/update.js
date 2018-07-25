@@ -3,15 +3,14 @@ const api = require('./api.js');
 const asserts = require('./../asserts/asserts.js');
 const { trace } = require('./../debug/tracer.js');
 const { isObject } = require('./../utils/utils.js');
+const db = require('./../database/db.js');
 
 updateDB();
 
 async function updateDB () {
   trace(`Function updateDB`);
-
-  const db = await sqlite.open('./../database/forecast.db');
-  const reports = await db.all(`SELECT id, city FROM reports`);
-  resetAPIKeys(db);
+  const reports = await db.select(`reports`, {}, {});
+  resetAPIKeys();
 
   for (const report of reports) {
     if (!report.city) {
@@ -32,21 +31,16 @@ async function updateDB () {
       isObject(forecast.city.coord),
       'API responded with wrong data');
 
-    db.run(`
-      UPDATE reports
-      SET
-        country_code=?,
-        lat=?,
-        lng=?,
-        observed_at=?
-      WHERE city=?`,
-    forecast.city.country,
-    forecast.city.coord.lat,
-    forecast.city.coord.lon,
-    new Date(),
-    forecast.city.name);
+    db.update(`reports`, {
+      country_code: forecast.city.country,
+      lat: forecast.city.coord.lat,
+      lng: forecast.city.coord.lon,
+      observed_at: new Date()
+    }, {
+      city: forecast.city.name
+    });
 
-    const dbForecast = await db.get(`SELECT id FROM reports WHERE city = ?`, report.city);
+    const dbForecast = await db.select(`reports`, { city: report.city }, { one: true });
 
     for (const report of forecast.list) {
       asserts.assertPeer(
@@ -57,40 +51,25 @@ async function updateDB () {
         'API responded with wrong data');
 
       // "Unique on conflict replace" takes care of updating
-      db.run(`
-        INSERT INTO weather_conditions (
-          report_id,
-          weather,
-          weather_description,
-          cloudiness,
-          humidity,
-          max_temperature,
-          min_temperature,
-          sea_pressure,
-          ground_pressure,
-          wind_direction,
-          wind_speed,
-          date)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      dbForecast.id,
-      report.weather[0].main,
-      report.weather[0].description,
-      report.clouds.all,
-      report.main.humidity,
-      report.main.temp_max,
-      report.main.temp_min,
-      report.main.sea_level,
-      report.main.grnd_level,
-      report.wind.deg,
-      report.wind.speed,
-      new Date(report.dt_txt)
-      );
+      db.insert(`weather_conditions`, {
+          report_id: dbForecast.id,
+          weather: report.weather[0].main,
+          weather_description: report.weather[0].description,
+          cloudiness: report.clouds.all,
+          humidity: report.main.humidity,
+          max_temperature: report.main.temp_max,
+          min_temperature: report.main.temp_min,
+          sea_pressure: report.main.sea_level,
+          ground_pressure: report.main.grnd_level,
+          wind_direction: report.wind.deg,
+          wind_speed: report.wind.speed,
+          date: new Date(report.dt_txt)
+        });
     }
   }
 }
 
-function resetAPIKeys (db) {
+function resetAPIKeys () {
   trace(`Function resetAPIKeys`);
-
-  db.run(`UPDATE api_keys SET use_count = 0`);
+  db.update(`api_keys`, { use_count: 0 }, {});
 }

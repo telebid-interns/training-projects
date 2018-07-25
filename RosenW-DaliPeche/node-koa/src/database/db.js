@@ -2,19 +2,21 @@ const sqlite = require('sqlite');
 
 let db;
 
-async function connect () {
-  db = await sqlite.open('./src/database/forecast.db');
+init();
+
+async function init () {
+  db = await sqlite.open('/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/database/forecast.db');
   console.log('connected');
 }
 
-const select = (table, where, { one, like, count }) => {
+const select = async (table, where, { one, like, count }) => {
+  if (db == null) {
+    await init();
+  }
+
   if (one == null) one = false;
   if (like == null) like = false;
   if (count == null) count = false;
-
-  console.log(one);
-  console.log(like);
-  console.log(count);
 
   let selectValue = count ? 'COUNT(*) as count' : '*';
   let operator = like ? 'LIKE' : '=';
@@ -23,7 +25,6 @@ const select = (table, where, { one, like, count }) => {
   const whereValues = Object.values(where);
 
   let whereStatement = '';
-
 
   let first = true;
   for (const key of whereKeys) {
@@ -37,9 +38,6 @@ const select = (table, where, { one, like, count }) => {
 
   const wholeStatement = `SELECT ${selectValue} FROM ${table} ${whereStatement}`;
 
-  console.log(selectValue);
-  console.log(wholeStatement);
-
   if (one) {
     return db.get(wholeStatement, whereValues);
   }
@@ -47,7 +45,11 @@ const select = (table, where, { one, like, count }) => {
   return db.all(wholeStatement, whereValues);
 }
 
-const insert = (table, data) => {
+const insert = async (table, data) => {
+  if (db == null) {
+    await init();
+  }
+
   const columns = Object.keys(data);
   const values = Object.values(data);
 
@@ -55,40 +57,49 @@ const insert = (table, data) => {
     INSERT INTO ${table} (${columns.join(', ')})
     VALUES (${values.map((v) => '?').join(', ')})`;
 
+  console.log(wholeStatement);
+
   return db.run(wholeStatement, values);
 }
 
-// TODO FINISH UPDATE
+const update = async (table, updateData, where) => {
+  if (db == null) {
+    await init();
+  }
 
-// const update = (table, data, where) => {
-// //   const columns = Object.keys(data);
-// //   const values = Object.values(data);
+  const updateKeys = Object.keys(updateData);
+  const updateValues = Object.values(updateData);
 
-// }
+  const whereKeys = Object.keys(where);
+  const whereValues = Object.values(where);
 
-// const update = (table, data, where) => {
-//   const whereKeys = Object.keys(where);
-//   const whereValues = Object.values(where);
+  const updateStatement = updateKeys.map((key) => `${key} = ?`).join(', ');
 
-//   let whereStatement = '';
+  let whereStatement = '';
 
-//   let first = true;
-//   for (const key of whereKeys) {
-//     if (first) {
-//       whereStatement += `WHERE ${key} = ?`;
-//       first = false;
-//     } else {
-//       whereStatement += ` AND ${key} = ?`;
-//     }
-//   }
+  let first = true;
+  for (const key of whereKeys) {
+    if (first) {
+      whereStatement += `WHERE ${key} = ?`;
+      first = false;
+    } else {
+      whereStatement += ` AND ${key} = ?`;
+    }
+  }
 
-//   const wholeStatement = `DELETE FROM ${table} ${whereStatement}`;
+  const wholeStatement = `UPDATE ${table} SET ${updateStatement} ${whereStatement}`;
 
-//   return db.run(wholeStatement, whereValues);
-// }
+  console.log(wholeStatement);
+
+  return db.run(wholeStatement, updateValues.concat(whereValues));
+}
 
 
-const del = (table, where) => {
+const del = async (table, where) => {
+  if (db == null) {
+    await init();
+  }
+
   const whereKeys = Object.keys(where);
   const whereValues = Object.values(where);
 
@@ -106,7 +117,14 @@ const del = (table, where) => {
 
   const wholeStatement = `DELETE FROM ${table} ${whereStatement}`;
 
+  console.log(wholeStatement);
+
   return db.run(wholeStatement, whereValues);
 }
 
-module.exports = { connect, update, select, insert, del };
+module.exports = {
+    update,
+    select,
+    insert,
+    del
+  };

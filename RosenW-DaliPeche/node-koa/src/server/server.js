@@ -13,18 +13,15 @@ const session = require('koa-session');
 const views = require('koa-views');
 const path = require('path');
 const requester = require('request-promise');
-
-const PORT = 3001;
-
-const MINIMUM_USERNAME_LENGTH = 3;
-const MINIMUM_PASSWORD_LENGTH = 3;
-
-const ADMIN_USERNAME = 'admin';
-const ADMIN_PASSWORD = 'admin';
-
-const AIRPORT_API_LINK = 'http://www.airport-data.com/api/ap_info.json';
-
-const MAX_REQUESTS_PER_HOUR = 10;
+const {
+    PORT,
+    MINIMUM_USERNAME_LENGTH,
+    MINIMUM_PASSWORD_LENGTH,
+    ADMIN_USERNAME,
+    ADMIN_PASSWORD,
+    AIRPORT_API_LINK,
+    MAX_REQUESTS_PER_HOUR
+  } = require('./../utils/consts.js');
 
 const app = new Koa();
 
@@ -45,10 +42,9 @@ app.use(views(path.join(__dirname, '/views'), {
   map: { hbs: 'handlebars' }, // hbs specifies engine, "Engine not found for the ".hbs" file extension" on removal
 }));
 
-app.use(bodyParser());
-
 renewLog();
-db.connect();
+
+app.use(bodyParser());
 
 app.use(async (ctx, next) => {
   try {
