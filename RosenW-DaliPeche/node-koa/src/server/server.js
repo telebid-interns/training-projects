@@ -4,7 +4,7 @@ const bodyParser = require('koa-bodyparser');
 const { assert, assertUser, assertPeer } = require('./../asserts/asserts.js');
 const { AppError, PeerError, UserError } = require('./../asserts/exceptions.js');
 const { trace, renewLog } = require('./../debug/tracer.js');
-const { generateRandomString, isObject, formatDate, cityNameToPascal } = require('./../utils/utils.js');
+const { generateRandomString, formatDate, validateEmail } = require('./../utils/utils.js');
 const { getWeatherAPIData, getForecast, generateAPIKey, deleteAPIKey } = require('./../api/api.js');
 const db = require('./../database/db.js');
 const serve = require('koa-static');
@@ -52,7 +52,7 @@ app.use(async (ctx, next) => {
   } catch (err) {
     if (err instanceof AppError) {
       console.log(`Application Error: ${err.message}`);
-      ctx.body = 'An error occured';
+      ctx.body = 'An error occured please clear your cookies and try again';
     } else if (err instanceof UserError) {
       ctx.body = err.message;
     } else if (err instanceof PeerError) {
@@ -87,7 +87,7 @@ router.get('/docs', async (ctx, next) => {
 
   if (ctx.session.user == null) {
     ctx.redirect('/login');
-    return;
+    return next();
   }
 
   await ctx.render('docs');
@@ -99,7 +99,7 @@ router.get('/example', async (ctx, next) => {
 
   if (ctx.session.user == null) {
     ctx.redirect('/login');
-    return;
+    return next();
   }
 
   await ctx.render('example');
@@ -111,7 +111,7 @@ router.get('/home', async (ctx, next) => {
 
   if (ctx.session.user == null) {
     ctx.redirect('/login');
-    return;
+    return next();
   }
 
   const user = await db.select('users', { username: ctx.session.user }, { one: true });
@@ -137,7 +137,7 @@ router.get('/login', async (ctx, next) => {
     ctx.redirect('/home');
   }
 
-  await ctx.render('login', {err: ctx.query.err});
+  await ctx.render('login', {err: ctx.query.err, success: ctx.query.success});
 });
 
 // GET register
@@ -191,15 +191,29 @@ router.post('/admin', async (ctx, next) => {
 router.post('/register', async (ctx, next) => {
   trace(`POST '/register'`);
 
+  assertUser(
+      typeof ctx.request.body.username == 'string' &&
+      typeof ctx.request.body.email == 'string' &&
+      typeof ctx.request.body.password == 'string' &&
+      typeof ctx.request.body['repeat-password'] == 'string',
+      'Invalid information'
+    );
+
   const username = ctx.request.body.username;
+  const email = ctx.request.body.email.toLowerCase();
   const password = ctx.request.body.password;
   const repeatPassword = ctx.request.body['repeat-password'];
 
   const salt = generateRandomString(10);
 
+  if (!validateEmail(email)) {
+    ctx.redirect('/register?err=2');
+    return next();
+  }
+
   if (password !== repeatPassword) {
     ctx.redirect('/register');
-    return; // TODO return next();
+    return next();
   }
 
   if (
@@ -207,14 +221,19 @@ router.post('/register', async (ctx, next) => {
       username.length < MINIMUM_USERNAME_LENGTH
   ) {
     ctx.redirect('/register');
-    return;
+    return next();
   }
 
   const user = await db.select('users', { username }, { one: true });
 
-  if (user != null) {
+  if (user.username === username) {
     ctx.redirect('/register?err=1');
-    return;
+    return next();
+  }
+
+  if (user.email === email) {
+    ctx.redirect('/register?err=3');
+    return next();
   }
 
   const saltedPassword = password + salt;
@@ -224,11 +243,12 @@ router.post('/register', async (ctx, next) => {
   db.insert(`users`, {
     date_registered: formatDate(new Date()),
     password: hash,
+    email,
     username,
     salt,
   });
 
-  ctx.redirect('/login');
+  ctx.redirect('/login?success=1');
 });
 
 // POST login
@@ -242,7 +262,7 @@ router.post('/login', async (ctx, next) => {
 
   if (user == null) {
     ctx.redirect('/login?err=1');
-    return;
+    return next();
   }
 
   const saltedPassword = password + user.salt;

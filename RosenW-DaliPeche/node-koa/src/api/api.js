@@ -7,7 +7,8 @@ const {
     FORECAST_API_LINK,
     FORECAST_API_KEY,
     MAX_API_KEYS_PER_USER,
-    MAX_REQUESTS_PER_HOUR
+    MAX_REQUESTS_PER_HOUR,
+    AIRPORT_API_LINK
   } = require('./../utils/consts.js');
 const db = require('./../database/db.js');
 
@@ -73,7 +74,7 @@ const getForecast = async (ctx, next) => {
 
   const iataCode = ctx.request.body.iataCode;
   const key = ctx.request.body.key;
-  let city = ctx.request.body.city;
+  let cityName = ctx.request.body.city;
 
   if (
     typeof ctx.request.body.city !== 'string' &&
@@ -98,16 +99,16 @@ const getForecast = async (ctx, next) => {
       'API responded with wrong data'
     );
 
-    city = data.location.split(',')[0];
+    cityName = data.location.split(',')[0];
   } else if (
     typeof ctx.request.body.city === 'string' &&
     typeof ctx.request.body.iataCode !== 'string'
     ) {
-    city = cityNameToPascal(city);
+    cityName = cityNameToPascal(cityName);
   }
 
-  const report = await db.select(`reports`, { city }, { one: true });
-  const keyRecord = await db.select(`api_keys`, { key }, {one: true });
+  const city = await db.select(`cities`, { name: cityName }, { one: true });
+  const keyRecord = await db.select(`api_keys`, { key }, { one: true });
 
   assertUser(
       keyRecord != null &&
@@ -123,30 +124,30 @@ const getForecast = async (ctx, next) => {
   // should be function, lock ? also replace with wrapper when wrapper done
   db.update(`api_keys`, { use_count: keyRecord.use_count + 1 }, { id: keyRecord.id });
 
-  if (report == null) {
-    db.insert(`reports`, { city });
+  if (city == null) {
+    db.insert(`cities`, { name: cityName });
     throw new UserError('no information for requested city, please try again later');
   }
 
-  let conditions = await db.select(`weather_conditions`, {report_id: report.id}, {});
+  let conditions = await db.select(`weather_conditions`, {city_id: city.id}, {});
 
   // filters dates before now, cant compare dates in db
   conditions = conditions.filter((c) => {
-    return c.date > new Date().getTime();
+    return c.forecast_time > new Date().getTime();
   });
 
   conditions = conditions.map((c) => {
-    c.date = new Date(parseInt(c.date));
+    c.forecast_time = new Date(parseInt(c.forecast_time));
     return c;
   });
 
   assertUser(conditions.length !== 0, 'no information for requested city, please try again later');
 
-  response.observed_at = new Date(report.observed_at);
-  response.city = report.city;
-  response.country_code = report.country_code;
-  response.lng = report.lng;
-  response.lat = report.lat;
+  response.observed_at = new Date(parseInt(city.observed_at));
+  response.city = city.city;
+  response.country_code = city.country_code;
+  response.lng = city.lng;
+  response.lat = city.lat;
   response.conditions = conditions;
 
   ctx.body = response;

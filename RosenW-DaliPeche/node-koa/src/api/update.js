@@ -9,61 +9,62 @@ updateDB();
 
 async function updateDB () {
   trace(`Function updateDB`);
-  const reports = await db.select(`reports`, {}, {});
+  const cities = await db.select(`cities`, {}, {});
   resetAPIKeys();
 
-  for (const report of reports) {
-    if (!report.city) {
+  for (const city of cities) {
+    if (!city.name) {
       continue;
     }
 
     let forecast;
 
     try {
-      forecast = await api.getWeatherAPIData(report.city);
+      forecast = await api.getWeatherAPIData(city.name);
     } catch (err) {
       console.error(err);
       continue;
     }
 
     asserts.assertPeer(
-      isObject(forecast.city) &&
-      isObject(forecast.city.coord),
-      'API responded with wrong data');
+        isObject(forecast.city) &&
+        isObject(forecast.city.coord),
+        'API responded with wrong data'
+      );
 
-    db.update(`reports`, {
+    db.update(`cities`, {
       country_code: forecast.city.country,
       lat: forecast.city.coord.lat,
       lng: forecast.city.coord.lon,
       observed_at: new Date()
     }, {
-      city: forecast.city.name
+      name: forecast.city.name
     });
 
-    const dbForecast = await db.select(`reports`, { city: report.city }, { one: true });
+    const dbCity = await db.select(`cities`, { name: city.name }, { one: true });
 
-    for (const report of forecast.list) {
+    for (const city of forecast.list) {
       asserts.assertPeer(
-        Array.isArray(report.weather) &&
-        isObject(report.clouds) &&
-        isObject(report.main) &&
-        isObject(report.wind),
+        Array.isArray(city.weather) &&
+        isObject(city.clouds) &&
+        isObject(city.main) &&
+        isObject(city.wind),
         'API responded with wrong data');
 
       // "Unique on conflict replace" takes care of updating
       db.insert(`weather_conditions`, {
-          report_id: dbForecast.id,
-          weather: report.weather[0].main,
-          weather_description: report.weather[0].description,
-          cloudiness: report.clouds.all,
-          humidity: report.main.humidity,
-          max_temperature: report.main.temp_max,
-          min_temperature: report.main.temp_min,
-          sea_pressure: report.main.sea_level,
-          ground_pressure: report.main.grnd_level,
-          wind_direction: report.wind.deg,
-          wind_speed: report.wind.speed,
-          date: new Date(report.dt_txt)
+          city_id: dbCity.id,
+          weather: city.weather[0].main,
+          weather_description: city.weather[0].description,
+          cloudiness: city.clouds.all,
+          humidity: city.main.humidity,
+          max_temperature: city.main.temp_max,
+          min_temperature: city.main.temp_min,
+          sea_pressure: city.main.sea_level,
+          ground_pressure: city.main.grnd_level,
+          wind_direction: city.wind.deg,
+          wind_speed: city.wind.speed,
+          forecast_time: new Date(city.dt_txt)
         });
     }
   }

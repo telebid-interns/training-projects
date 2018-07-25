@@ -1,4 +1,5 @@
 const { trace } = require('./../debug/tracer.js');
+const { EMAIL_VALIDATION_REGEX } = require('./../utils/consts.js');
 
 const generateRandomString = (length) => {
   trace(`Function generateRandomString`);
@@ -43,9 +44,14 @@ const cityNameToPascal = (city) => {
   return newCityName.join(' ');
 }
 
+function validateEmail(email) {
+    return EMAIL_VALIDATION_REGEX.test(String(email));
+}
+
 module.exports = {
     generateRandomString,
     isObject,
     formatDate,
-    cityNameToPascal
+    cityNameToPascal,
+    validateEmail
   }

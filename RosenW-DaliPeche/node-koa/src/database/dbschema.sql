@@ -1,17 +1,15 @@
-CREATE TABLE reports ( --bad name
+CREATE TABLE cities (
   id integer primary key autoincrement,
-  city text,
+  name text not null unique,
   country_code text,
   lng decimal,
   lat decimal,
   observed_at text
 );
 
-CREATE UNIQUE INDEX citynameindex on reports(city);
-
 CREATE TABLE weather_conditions (
   id integer primary key autoincrement,
-  report_id integer,
+  city_id integer not null,
   weather text,
   weather_description text,
   cloudiness decimal,
@@ -22,24 +20,25 @@ CREATE TABLE weather_conditions (
   ground_pressure decimal,
   wind_direction decimal,
   wind_speed decimal,
-  date text, -- TODO change name
-  foreign key (report_id) references reports(id),
-  unique (report_id, date) on conflict replace
+  forecast_time text not null,
+  foreign key (city_id) references cities(id),
+  unique (city_id, forecast_time) on conflict replace
 );
 
 CREATE TABLE api_keys (
   id integer primary key autoincrement,
-  key text,
-  user_id integer,
+  key text not null,
+  user_id integer not null,
   use_count integer default 0,
   foreign key (user_id) references users(id)
 );
 
 CREATE TABLE users (
   id integer primary key autoincrement,
-  username text,
-  password text,
-  salt text,
-  date_registered text,
+  username text not null,
+  email text not null,
+  password text not null,
+  salt text not null,
+  date_registered text not null,
   unique (username) on conflict ignore
 );
