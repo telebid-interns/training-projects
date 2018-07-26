@@ -6,7 +6,8 @@ const { AppError, PeerError, UserError } = require('./../asserts/exceptions.js')
 const { trace, renewLog } = require('./../debug/tracer.js');
 const { generateRandomString, formatDate, validateEmail } = require('./../utils/utils.js');
 const { getWeatherAPIData, getForecast, generateAPIKey, deleteAPIKey } = require('./../api/api.js');
-const db = require('./../database/db.js');
+const db = require('./../database/pg_db.js');
+// const postgre = require('./../database/pg_db.js');
 const serve = require('koa-static');
 const bcrypt = require('bcrypt');
 const session = require('koa-session');
@@ -54,9 +55,9 @@ app.use(async (ctx, next) => {
       console.log(`Application Error: ${err.message}`);
       ctx.body = 'An error occured please clear your cookies and try again';
     } else if (err instanceof UserError) {
-      ctx.body = err.message;
+      ctx.body = { message: err.message };
     } else if (err instanceof PeerError) {
-      ctx.body = err.message;
+      ctx.body = { message: err.message };
     } else {
       console.log(err);
     }
@@ -137,7 +138,10 @@ router.get('/login', async (ctx, next) => {
     ctx.redirect('/home');
   }
 
-  await ctx.render('login', {err: ctx.query.err, success: ctx.query.success});
+  await ctx.render('login', {
+      err: ctx.query.err,
+      success: ctx.query.success
+    });
 });
 
 // GET register
@@ -165,6 +169,15 @@ router.get('/admin', async (ctx, next) => {
       const term = `%${ctx.query.term}%`;
       users = await db.select(`users`, {username: term}, {like: true});
     }
+
+    users = users.sort((u1, u2) => {
+      return new Date(parseInt(u1.date_registered)) - new Date(parseInt(u2.date_registered));
+    });
+
+    users = users.map((user) => {
+      user.date_registered = formatDate(user.date_registered);
+      return user;
+    });
 
     await ctx.render('admin', {
       users,
@@ -224,24 +237,31 @@ router.post('/register', async (ctx, next) => {
     return next();
   }
 
-  const user = await db.select('users', { username }, { one: true });
+  const user = await db.select('users',
+      {
+      username,
+      email
+    }, {
+      one: true,
+      or: true
+    });
 
-  if (user.username === username) {
-    ctx.redirect('/register?err=1');
-    return next();
-  }
 
-  if (user.email === email) {
-    ctx.redirect('/register?err=3');
-    return next();
+  if (user != null) {
+    if (user.username === username) {
+      ctx.redirect('/register?err=1'); // username exists
+      return next();
+    } else {
+      ctx.redirect('/register?err=3'); // email exists
+      return next();
+    }
   }
 
   const saltedPassword = password + salt;
-
-  let hash = await bcrypt.hash(saltedPassword, 5);
+  const hash = await bcrypt.hash(saltedPassword, 5);
 
   db.insert(`users`, {
-    date_registered: formatDate(new Date()),
+    date_registered: new Date(),
     password: hash,
     email,
     username,

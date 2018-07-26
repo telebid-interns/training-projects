@@ -9,20 +9,23 @@ async function init () {
   console.log('connected');
 }
 
-const select = async (table, where, { one, like, count }) => {
+const select = async (table, where, { one, like, count, or }) => {
   if (db == null) {
     await init();
   }
 
+  if (or == null) or = false;
   if (one == null) one = false;
   if (like == null) like = false;
   if (count == null) count = false;
 
-  let selectValue = count ? 'COUNT(*) as count' : '*';
-  let operator = like ? 'LIKE' : '=';
-
   const whereKeys = Object.keys(where);
   const whereValues = Object.values(where);
+
+  const selectValue = count ? 'COUNT(*) as count' : '*';
+  const operator = like ? 'LIKE' : '=';
+  // TODO choose a name
+  // const operator = or ? 'OR' : 'AND';
 
   let whereStatement = '';
 
@@ -32,11 +35,13 @@ const select = async (table, where, { one, like, count }) => {
       whereStatement += `WHERE ${key} ${operator} ?`;
       first = false;
     } else {
-      whereStatement += ` AND ${key} ${operator} ?`;
+      whereStatement += ` ${or ? 'OR' : 'AND'} ${key} ${operator} ?`;
     }
   }
 
   const wholeStatement = `SELECT ${selectValue} FROM ${table} ${whereStatement}`;
+
+  console.log(wholeStatement);
 
   if (one) {
     return db.get(wholeStatement, whereValues);

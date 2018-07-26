@@ -10,7 +10,7 @@ const {
     MAX_REQUESTS_PER_HOUR,
     AIRPORT_API_LINK
   } = require('./../utils/consts.js');
-const db = require('./../database/db.js');
+const db = require('./../database/pg_db.js');
 
 const getWeatherAPIData = async (city) => {
   trace(`Function getWeatherAPIData`);
@@ -46,7 +46,10 @@ const generateAPIKey = async (ctx, next) => {
   if (APIKeyCountData.count >= MAX_API_KEYS_PER_USER) {
     ctx.body = { msg: 'API key limit exceeded' };
   } else {
-    db.insert(`api_keys`, { key, user_id: user.id });
+    db.insert(`api_keys`, {
+      key,
+      user_id: user.id
+    });
     ctx.body = { key };
   }
 }
@@ -108,6 +111,7 @@ const getForecast = async (ctx, next) => {
   }
 
   const city = await db.select(`cities`, { name: cityName }, { one: true });
+
   const keyRecord = await db.select(`api_keys`, { key }, { one: true });
 
   assertUser(
@@ -121,29 +125,18 @@ const getForecast = async (ctx, next) => {
       'you have exceeded your request cap, please try again later'
     );
 
-  // should be function, lock ? also replace with wrapper when wrapper done
-  db.update(`api_keys`, { use_count: keyRecord.use_count + 1 }, { id: keyRecord.id });
+  updateAPIKeyUsage(keyRecord);
 
   if (city == null) {
     db.insert(`cities`, { name: cityName });
-    throw new UserError('no information for requested city, please try again later');
+    throw new UserError('no information found, please try again later');
   }
 
-  let conditions = await db.select(`weather_conditions`, {city_id: city.id}, {});
+  const conditions = await db.select(`weather_conditions`, {city_id: city.id}, {});
 
-  // filters dates before now, cant compare dates in db
-  conditions = conditions.filter((c) => {
-    return c.forecast_time > new Date().getTime();
-  });
+  assertUser(conditions.length !== 0, 'no information found, please try again later');
 
-  conditions = conditions.map((c) => {
-    c.forecast_time = new Date(parseInt(c.forecast_time));
-    return c;
-  });
-
-  assertUser(conditions.length !== 0, 'no information for requested city, please try again later');
-
-  response.observed_at = new Date(parseInt(city.observed_at));
+  response.observed_at = city.observed_at;
   response.city = city.city;
   response.country_code = city.country_code;
   response.lng = city.lng;
@@ -153,8 +146,9 @@ const getForecast = async (ctx, next) => {
   ctx.body = response;
 }
 
-const updateAPIKeyUsage = () => {
-
+const updateAPIKeyUsage = (keyRecord) => {
+  // lock ?
+  db.update(`api_keys`, { use_count: keyRecord.use_count + 1 }, { id: keyRecord.id });
 }
 
 module.exports = {

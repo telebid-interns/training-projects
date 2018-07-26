@@ -3,7 +3,7 @@ const api = require('./api.js');
 const asserts = require('./../asserts/asserts.js');
 const { trace } = require('./../debug/tracer.js');
 const { isObject } = require('./../utils/utils.js');
-const db = require('./../database/db.js');
+const db = require('./../database/pg_db.js');
 
 updateDB();
 
@@ -43,6 +43,8 @@ async function updateDB () {
 
     const dbCity = await db.select(`cities`, { name: city.name }, { one: true });
 
+    db.del(`weather_conditions`, { city_id: dbCity.id })
+
     for (const city of forecast.list) {
       asserts.assertPeer(
         Array.isArray(city.weather) &&
@@ -51,7 +53,6 @@ async function updateDB () {
         isObject(city.wind),
         'API responded with wrong data');
 
-      // "Unique on conflict replace" takes care of updating
       db.insert(`weather_conditions`, {
           city_id: dbCity.id,
           weather: city.weather[0].main,
