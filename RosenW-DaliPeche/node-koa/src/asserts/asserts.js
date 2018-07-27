@@ -1,6 +1,6 @@
 const { AppError, PeerError, UserError } = require('./exceptions.js');
 
-const assert = (condition, msg) => {
+const assert = (condition, msg/*, code*/) => {
   if (condition) {
     return;
   }

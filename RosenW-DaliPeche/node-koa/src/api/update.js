@@ -1,6 +1,6 @@
 const sqlite = require('sqlite');
 const api = require('./api.js');
-const asserts = require('./../asserts/asserts.js');
+const { assert, assertUser, assertPeer } = require('./../asserts/asserts.js');
 const { trace } = require('./../debug/tracer.js');
 const { isObject } = require('./../utils/utils.js');
 const db = require('./../database/pg_db.js');
@@ -26,7 +26,7 @@ async function updateDB () {
       continue;
     }
 
-    asserts.assertPeer(
+    assertPeer(
         isObject(forecast.city) &&
         isObject(forecast.city.coord),
         'API responded with wrong data'
@@ -46,14 +46,15 @@ async function updateDB () {
     db.del(`weather_conditions`, { city_id: dbCity.id })
 
     for (const city of forecast.list) {
-      asserts.assertPeer(
-        Array.isArray(city.weather) &&
-        isObject(city.clouds) &&
-        isObject(city.main) &&
-        isObject(city.wind),
-        'API responded with wrong data');
+      assertPeer(
+          Array.isArray(city.weather) &&
+          isObject(city.clouds) &&
+          isObject(city.main) &&
+          isObject(city.wind),
+          'API responded with wrong data'
+        );
 
-      db.insert(`weather_conditions`, {
+      await db.insert(`weather_conditions`, {
           city_id: dbCity.id,
           weather: city.weather[0].main,
           weather_description: city.weather[0].description,
@@ -69,6 +70,8 @@ async function updateDB () {
         });
     }
   }
+
+  db.close();
 }
 
 function resetAPIKeys () {

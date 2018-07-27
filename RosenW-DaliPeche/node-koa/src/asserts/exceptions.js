@@ -1,4 +1,4 @@
-class CustomError extends Error {
+class CustomError extends Error { // TODO code + default code
   constructor (err) {
     super(err);
   }

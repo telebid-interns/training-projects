@@ -1,6 +1,6 @@
 CREATE TABLE cities (
-  id serial primary key,
-  name text not null unique,
+  id serial PRIMARY KEY,
+  name text NOT NULL unique,
   country_code text,
   lng numeric,
   lat numeric,
@@ -8,8 +8,8 @@ CREATE TABLE cities (
 );
 
 CREATE TABLE weather_conditions (
-  id serial primary key,
-  city_id integer not null,
+  id serial PRIMARY KEY,
+  city_id integer NOT NULL,
   weather text,
   weather_description text,
   cloudiness numeric,
@@ -20,25 +20,35 @@ CREATE TABLE weather_conditions (
   ground_pressure numeric,
   wind_direction numeric,
   wind_speed numeric,
-  forecast_time text not null,
-  foreign key (city_id) references cities(id),
+  forecast_time text NOT NULL,
+  FOREIGN KEY (city_id) REFERENCES cities(id),
   unique (city_id, forecast_time)
 );
 
 CREATE TABLE users (
-  id serial primary key,
-  username text not null,
-  email text not null,
-  password text not null,
-  salt text not null,
-  date_registered text not null,
+  id serial PRIMARY KEY,
+  username text NOT NULL,
+  email text NOT NULL,
+  credits numeric DEFAULT 0 NOT NULL,
+  failed_requests integer DEFAULT 0 NOT NULL,
+  successful_requests integer DEFAULT 0 NOT NULL,
+  password text NOT NULL,
+  salt text NOT NULL,
+  date_registered text NOT NULL,
   unique (username)
 );
 
 CREATE TABLE api_keys (
-  id serial primary key,
-  key text not null,
-  user_id integer not null,
-  use_count integer default 0,
-  foreign key (user_id) references users(id)
+  id serial PRIMARY KEY,
+  key text NOT NULL,
+  user_id integer NOT NULL,
+  use_count integer DEFAULT 0 NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE requests (
+  id serial PRIMARY KEY,
+  iata_code text,
+  city text,
+  call_count integer DEFAULT 1 NOT NULL
 );

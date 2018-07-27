@@ -7,7 +7,6 @@ const { trace, renewLog } = require('./../debug/tracer.js');
 const { generateRandomString, formatDate, validateEmail } = require('./../utils/utils.js');
 const { getWeatherAPIData, getForecast, generateAPIKey, deleteAPIKey } = require('./../api/api.js');
 const db = require('./../database/pg_db.js');
-// const postgre = require('./../database/pg_db.js');
 const serve = require('koa-static');
 const bcrypt = require('bcrypt');
 const session = require('koa-session');
@@ -43,9 +42,7 @@ app.use(views(path.join(__dirname, '/views'), {
   map: { hbs: 'handlebars' }, // hbs specifies engine, "Engine not found for the ".hbs" file extension" on removal
 }));
 
-renewLog();
-
-app.use(bodyParser());
+renewLog(); // change name, use stdout
 
 app.use(async (ctx, next) => {
   try {
@@ -64,7 +61,9 @@ app.use(async (ctx, next) => {
   }
 });
 
-app.use(router.routes());
+app.use(bodyParser());
+
+app.use(router.routes()); // TODO check docs
 app.use(router.allowedMethods());
 
 // GET root

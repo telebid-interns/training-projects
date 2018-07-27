@@ -21,7 +21,11 @@ const isObject = (obj) => {
 const formatDate = (date) => {
   trace(`Function formatDate`);
 
+  return date.substr(0, 10);
+
   date = new Date(parseInt(date));
+
+  console.log("P" + date);
 
   const year = date.getFullYear();
   let month = `${date.getMonth() + 1}`; // months start FROM 0

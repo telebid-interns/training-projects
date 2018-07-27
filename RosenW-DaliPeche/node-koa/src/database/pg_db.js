@@ -1,4 +1,5 @@
 let pg = require('pg');
+let { trace } = require('./../debug/tracer.js');
 // Database connection
 const client = new pg.Client({
     user: 'postgres',
@@ -10,10 +11,6 @@ const client = new pg.Client({
 client.connect();
 
 const select = async (table, where, { one, like, count, or }) => {
-  // if (db == null) {
-  //   await init();
-  // }
-
   if (or == null) or = false;
   if (one == null) one = false;
   if (like == null) like = false;
@@ -31,6 +28,7 @@ const select = async (table, where, { one, like, count, or }) => {
 
   let first = true;
   let index = 0;
+  // TODO key -> column, Object.keys
   for (const key of whereKeys) {
     if (first) {
       whereStatement += `WHERE ${key} ${operator} $${++index}`;
@@ -42,7 +40,7 @@ const select = async (table, where, { one, like, count, or }) => {
 
   const wholeStatement = `SELECT ${selectValue} FROM ${table} ${whereStatement}`;
 
-  console.log(wholeStatement);
+  trace(wholeStatement);
 
   if (one) {
     return (await client.query(wholeStatement, whereValues)).rows[0];
@@ -57,9 +55,9 @@ const insert = async (table, data) => {
 
   const wholeStatement = `
     INSERT INTO ${table} (${columns.join(', ')})
-    VALUES (${values.map((v, index) => `$${++index}`).join(', ')})`;
+    VALUES (${values.map((v, index) => `$${index + 1}`).join(', ')})`;
 
-  console.log(wholeStatement);
+  trace(wholeStatement);
 
   return client.query(wholeStatement, values);
 }
@@ -83,7 +81,7 @@ const del = async (table, where) => {
 
   const wholeStatement = `DELETE FROM ${table} ${whereStatement}`;
 
-  console.log(wholeStatement);
+  trace(wholeStatement);
 
   return client.query(wholeStatement, whereValues);
 }
@@ -112,7 +110,7 @@ const update = async (table, updateData, where) => {
 
   const wholeStatement = `UPDATE ${table} SET ${updateStatement} ${whereStatement}`;
 
-  console.log(wholeStatement);
+  trace(wholeStatement);
 
   return client.query(wholeStatement, updateValues.concat(whereValues));
 }
@@ -121,10 +119,15 @@ const query = async (sql, values) => {
   return client.query(sql, values);
 }
 
+const close = async () => {
+  await client.end();
+}
+
 module.exports = {
     select,
     update,
     insert,
     del,
-    query
+    query,
+    close
   };
