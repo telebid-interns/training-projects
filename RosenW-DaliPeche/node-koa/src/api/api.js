@@ -1,6 +1,6 @@
 const requester = require('request-promise');
 const { trace } = require('./../debug/tracer.js');
-const { assert, assertUser, assertPeer } = require('./../asserts/asserts.js');
+const { assert, assertPeer } = require('./../asserts/asserts.js');
 const { UserError } = require('./../asserts/exceptions.js');
 const { generateRandomString, isObject, cityNameToPascal } = require('./../utils/utils.js');
 const {
@@ -50,13 +50,12 @@ const getForecast = async (ctx, next) => {
   let iataCode = ctx.request.body.iataCode;
   let cityName = ctx.request.body.city;
 
-  // TODO assert peer
-  assertUser(
+  assertPeer(
     typeof cityName === 'string' ||
     typeof iataCode === 'string',
     'No city or iataCode in post body'
   );
-  assertUser(typeof ctx.request.body.key === 'string', 'No API key in post body');
+  assertPeer(typeof ctx.request.body.key === 'string', 'No API key in post body');
 
   if (
     typeof cityName !== 'string' &&
@@ -90,7 +89,7 @@ const getForecast = async (ctx, next) => {
 
   const keyRecord = await db.select(`api_keys`, { key }, { one: true });
 
-  assertUser(
+  assertPeer(
     keyRecord != null &&
       typeof keyRecord === 'object',
     'invalid API key'
@@ -100,7 +99,7 @@ const getForecast = async (ctx, next) => {
 
   addToUserRequestCount(user, true); // hack.. TODO fix
 
-  assertUser(
+  assertPeer(
     keyRecord.use_count < MAX_REQUESTS_PER_HOUR,
     'you have exceeded your request cap, please try again later'
   );
@@ -115,7 +114,7 @@ const getForecast = async (ctx, next) => {
 
   const conditions = await db.select(`weather_conditions`, {city_id: city.id}, {});
 
-  assertUser(conditions.length !== 0, 'no information found, please try again later');
+  assertPeer(conditions.length !== 0, 'no information found, please try again later');
 
   response.observed_at = city.observed_at;
   response.city = city.name;
@@ -165,7 +164,6 @@ const addToUserRequestCount = (user, failedRequest) => {
 };
 
 module.exports = {
-  getWeatherAPIData,
   getForecast,
   generateAPIKey,
   deleteAPIKey,

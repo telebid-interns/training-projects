@@ -92,7 +92,7 @@ async function getWeatherAPIData (city) {
     headers: {
       'User-Agent': 'Request-Promise',
     },
-    json: true, // Automatically parses the JSON string in the response
+    json: true, // parses the JSON string in the response
   };
 
   return requester(options);
