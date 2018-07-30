@@ -99,11 +99,6 @@ const getForecast = async (ctx, next) => {
 
   addToUserRequestCount(user, true); // hack.. TODO fix
 
-  assertPeer(
-    keyRecord.use_count < MAX_REQUESTS_PER_HOUR,
-    'you have exceeded your request cap, please try again later'
-  );
-
   // TODO get result
   await updateAPIKeyUsage(keyRecord);
 
@@ -130,9 +125,21 @@ const getForecast = async (ctx, next) => {
   ctx.body = response;
 };
 
-const updateAPIKeyUsage = (keyRecord) => {
-  // transaction ?
-  return db.update(`api_keys`, { use_count: keyRecord.use_count + 1 }, { id: keyRecord.id });
+const updateAPIKeyUsage = async (keyRecord) => {
+  try {
+    await db.query('BEGIN');
+
+    assertPeer(
+      keyRecord.use_count < MAX_REQUESTS_PER_HOUR,
+      'you have exceeded your request cap, please try again later'
+    );
+
+    await db.update(`api_keys`, { use_count: keyRecord.use_count + 1 }, { id: keyRecord.id });
+    await db.query('COMMIT');
+  } catch (err) {
+    await db.query('ROLLBACK');
+    throw err;
+  }
 };
 
 const updateRequests = async (iataCode, city) => {

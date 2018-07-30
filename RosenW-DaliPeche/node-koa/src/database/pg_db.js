@@ -72,7 +72,7 @@ const update = async (table, updateData, where) => {
   return client.query(wholeStatement, Object.values(updateData).concat(Object.values(where)));
 };
 
-const query = async (sql, values) => {
+const query = async (sql, values = []) => {
   return client.query(sql, values);
 };
 
@@ -101,4 +101,5 @@ module.exports = {
   del,
   query,
   close,
+  client
 };

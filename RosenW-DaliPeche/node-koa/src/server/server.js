@@ -32,13 +32,13 @@ app.keys = ['DaliKrieTaini'];
 // (cookie lifetime): (Milliseconds)
 app.use(session({ maxAge: 1000 * 60 * 60 * 24 }, app));
 
-app.use(serve(`${__dirname}/public/css`));
-app.use(serve(`${__dirname}/public/js`));
+app.use(serve(path.join(__dirname, '/public/css')));
+app.use(serve(path.join(__dirname, '/public/js')));
 
-app.use(views(`${__dirname}/views`), {
+app.use(views(path.join(__dirname, '/views'), {
   extension: 'hbs',
   map: { hbs: 'handlebars' }, // marks engine for extensions
-});
+}));
 
 clearTraceLog();
 
