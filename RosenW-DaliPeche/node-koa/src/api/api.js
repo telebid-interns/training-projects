@@ -17,7 +17,7 @@ const generateAPIKey = async (ctx, next) => {
   const key = generateRandomString(16);
   const user = await db.select(`users`, { username }, { one: true });
 
-  assert(user != null, 'User not found');
+  assert(user != null, 'User not found when generating API key', 11);
 
   const APIKeyCountData = await db.select('api_keys', { user_id: user.id }, { one: true, count: true });
 
@@ -44,6 +44,8 @@ const deleteAPIKey = async (ctx, next) => {
 const getForecast = async (ctx, next) => {
   trace(`POST '/api/forecast'`);
 
+  assertPeer(isObject(ctx.request.body), 'No request body provided', 38);
+
   const response = {};
 
   const key = ctx.request.body.key;
@@ -53,9 +55,10 @@ const getForecast = async (ctx, next) => {
   assertPeer(
     typeof cityName === 'string' ||
     typeof iataCode === 'string',
-    'No city or iataCode in post body'
+    'No city or iataCode in post body',
+    30
   );
-  assertPeer(typeof ctx.request.body.key === 'string', 'No API key in post body');
+  assertPeer(typeof ctx.request.body.key === 'string', 'No API key in post body', 31);
 
   if (
     typeof cityName !== 'string' &&
@@ -69,6 +72,7 @@ const getForecast = async (ctx, next) => {
       },
       headers: {
         'User-Agent': 'Request-Promise',
+        'Access-Control-Allow-Origin': '*'
       },
       json: true, // Automatically parses the JSON string in the response
     };
@@ -77,7 +81,8 @@ const getForecast = async (ctx, next) => {
     assertPeer(
       isObject(data) &&
       typeof data.location === 'string',
-      'API responded with wrong data'
+      'Could not find city based on given iata code',
+      32
     );
 
     cityName = data.location.split(',')[0];
@@ -92,24 +97,24 @@ const getForecast = async (ctx, next) => {
   assertPeer(
     keyRecord != null &&
       typeof keyRecord === 'object',
-    'invalid API key'
+    'invalid API key',
+    33
   );
 
   const user = await db.select(`users`, { id: keyRecord.user_id }, { one: true });
 
   addToUserRequestCount(user, true); // hack.. TODO fix
 
-  // TODO get result
   await updateAPIKeyUsage(keyRecord);
 
   if (city == null) {
     db.insert(`cities`, { name: cityName });
-    throw new UserError('no information found, please try again later');
+    throw new UserError('no information found, please try again later', 39);
   }
 
   const conditions = await db.select(`weather_conditions`, {city_id: city.id}, {});
 
-  assertPeer(conditions.length !== 0, 'no information found, please try again later');
+  assertPeer(conditions.length !== 0, 'no information found, please try again later', 34);
 
   response.observed_at = city.observed_at;
   response.city = city.name;
@@ -131,7 +136,8 @@ const updateAPIKeyUsage = async (keyRecord) => {
 
     assertPeer(
       keyRecord.use_count < MAX_REQUESTS_PER_HOUR,
-      'you have exceeded your request cap, please try again later'
+      'you have exceeded your request cap, please try again later',
+      35
     );
 
     await db.update(`api_keys`, { use_count: keyRecord.use_count + 1 }, { id: keyRecord.id });

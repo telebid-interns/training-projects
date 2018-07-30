@@ -11,7 +11,6 @@ const serve = require('koa-static');
 const bcrypt = require('bcrypt');
 const session = require('koa-session');
 const views = require('koa-views');
-const path = require('path');
 const {
   PORT,
   MINIMUM_USERNAME_LENGTH,
@@ -32,10 +31,10 @@ app.keys = ['DaliKrieTaini'];
 // (cookie lifetime): (Milliseconds)
 app.use(session({ maxAge: 1000 * 60 * 60 * 24 }, app));
 
-app.use(serve(path.join(__dirname, '/public/css')));
-app.use(serve(path.join(__dirname, '/public/js')));
+app.use(serve(`${__dirname}/public/css`));
+app.use(serve(`${__dirname}/public/js`));
 
-app.use(views(path.join(__dirname, '/views'), {
+app.use(views(`${__dirname}/views`, {
   extension: 'hbs',
   map: { hbs: 'handlebars' }, // marks engine for extensions
 }));
@@ -46,15 +45,19 @@ app.use(async (ctx, next) => {
   try {
     await next();
   } catch (err) {
-    if (err instanceof AppError) {
-      console.log(`Application Error: ${err.message}`);
-      ctx.body = 'An error occured please clear your cookies and try again';
-    } else if (err instanceof UserError) {
-      ctx.body = { message: err.message };
+    if (err instanceof UserError) {
+      ctx.body = {
+        message: err.message,
+        statusCode: err.statusCode
+      };
     } else if (err instanceof PeerError) {
-      ctx.body = { message: err.message };
+      ctx.body = {
+        message: err.message,
+        statusCode: err.statusCode
+      };
     } else {
-      console.log(err);
+      console.log(`Application Error: ${ err.message }, Status code: ${err.statusCode}`);
+      ctx.body = 'An error occured please clear your cookies and try again';
     }
   }
 });
@@ -87,7 +90,7 @@ router.get('/home', async (ctx, next) => {
 
   const user = await db.select('users', { username: ctx.session.user }, { one: true });
 
-  assert(user != null, 'No user in database');
+  assert(user != null, 'cookie contained username not in database', 10);
 
   const keys = await db.select('api_keys', { user_id: user.id }, {});
 
@@ -122,7 +125,7 @@ router.get('/register', async (ctx, next) => {
     ctx.redirect('/home');
   }
 
-  await ctx.render('register', {err: ctx.query.err});
+  await ctx.render('register', { err: ctx.query.err });
 });
 
 // GET admin
@@ -130,14 +133,14 @@ router.get('/admin', async (ctx, next) => {
   trace(`GET '/admin'`);
 
   if (ctx.session.admin == null) {
-    await ctx.render('admin_login');
+    await ctx.render('admin_login', { err: ctx.query.err });
   } else {
     let users;
     if (ctx.query.term == null) {
       users = await db.select(`users`, {}, {});
     } else {
       const term = `%${ctx.query.term}%`;
-      users = await db.select(`users`, {username: term}, {like: true});
+      users = await db.select(`users`, { username: term }, {like: true});
     }
 
     users = users.sort((u1, u2) => {
@@ -167,9 +170,10 @@ router.post('/admin', async (ctx, next) => {
 
   if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
     ctx.session.admin = true;
+    return ctx.redirect('/admin');
   }
 
-  ctx.redirect('/admin');
+  ctx.redirect('/admin?err=1');
 });
 
 // POST register
@@ -181,7 +185,8 @@ router.post('/register', async (ctx, next) => {
       typeof ctx.request.body.email === 'string' &&
       typeof ctx.request.body.password === 'string' &&
       typeof ctx.request.body['repeat-password'] === 'string',
-    'Invalid information'
+    'Invalid information',
+    20
   );
 
   const username = ctx.request.body.username;

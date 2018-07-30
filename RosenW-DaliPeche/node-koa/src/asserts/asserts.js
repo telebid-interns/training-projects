@@ -1,23 +1,23 @@
 const { AppError, PeerError, UserError } = require('./exceptions.js');
 
-const assert = (condition, msg/*, code*/) => {
+const assert = (condition, msg, statusCode) => {
   if (condition) {
     return;
   }
 
-  throw new AppError(msg);
+  throw new AppError(msg, statusCode);
 };
 
-const assertPeer = (condition, msg) => {
+const assertPeer = (condition, msg, statusCode) => {
   if (condition) return;
 
-  throw new PeerError(msg);
+  throw new PeerError(msg, statusCode);
 };
 
-const assertUser = (condition, msg) => {
+const assertUser = (condition, msg, statusCode) => {
   if (condition) return;
 
-  throw new UserError(msg);
+  throw new UserError(msg, statusCode);
 };
 
 module.exports = {

@@ -1,5 +1,4 @@
 const fs = require('fs');
-const { assert } = require('./../asserts/asserts.js');
 
 function trace (msg) {
   fs.appendFile('./src/debug/trace.log', `${msg}\n`, (err) => {

@@ -32,7 +32,8 @@ async function updateDB () {
     assertPeer(
       isObject(forecast.city) &&
         isObject(forecast.city.coord),
-      'API responded with wrong data'
+      'API responded with wrong data',
+      36
     );
 
     db.update(`cities`, {
@@ -54,7 +55,8 @@ async function updateDB () {
           isObject(city.clouds) &&
           isObject(city.main) &&
           isObject(city.wind),
-        'API responded with wrong data'
+        'API responded with wrong data',
+        37
       );
 
       await db.insert(`weather_conditions`, {
