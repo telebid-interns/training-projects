@@ -1,13 +1,12 @@
-let pg = require('pg');
-let { trace } = require('./../debug/tracer.js');
-// Database connection
+const pg = require('pg');
 const client = new pg.Client({
-    user: 'postgres',
-    host: 'localhost',
-    database: 'forecast',
-    password: '1234',
-    port: 5432
+  user: 'postgres',
+  host: 'localhost',
+  database: 'forecast',
+  password: '1234',
+  port: 5432,
 });
+
 client.connect();
 
 const select = async (table, where, { one, like, count, or }) => {
@@ -16,118 +15,90 @@ const select = async (table, where, { one, like, count, or }) => {
   if (like == null) like = false;
   if (count == null) count = false;
 
-  const whereKeys = Object.keys(where);
-  const whereValues = Object.values(where);
-
-  const selectValue = count ? 'COUNT(*) as count' : '*';
   const operator = like ? 'LIKE' : '=';
-  // TODO choose a name
-  // const operator = or ? 'OR' : 'AND';
-
   let whereStatement = '';
 
   let first = true;
   let index = 0;
-  // TODO key -> column, Object.keys
+  for (const col of Object.keys(where)) {
+    if (first) {
+      whereStatement += `WHERE ${col} ${operator} $${++index}`;
+      first = false;
+    } else {
+      whereStatement += ` ${or ? 'OR' : 'AND'} ${col} ${operator} $${++index}`;
+    }
+  }
+
+  const wholeStatement = `
+      SELECT ${count ? 'COUNT(*) as count' : '*'}
+      FROM ${table}
+      ${whereStatement}
+    `;
+
+  if (one) {
+    return (await client.query(wholeStatement, Object.values(where))).rows[0];
+  }
+
+  return (await client.query(wholeStatement, Object.values(where))).rows;
+};
+
+const insert = async (table, data) => {
+  const wholeStatement = `
+      INSERT INTO ${table} (${Object.keys(data).join(', ')})
+      VALUES (${Object.values(data).map((v, index) => `$${index + 1}`).join(', ')})
+    `;
+
+  return client.query(wholeStatement, Object.values(data));
+};
+
+const del = async (table, where) => {
+  const whereStatement = buildWhereStatement(Object.keys(where));
+  const wholeStatement = `DELETE FROM ${table} ${whereStatement}`;
+
+  return client.query(wholeStatement, Object.values(where));
+};
+
+const update = async (table, updateData, where) => {
+  let index = 0;
+
+  const updateStatement = Object.keys(updateData).map((key) => `${key} = $${++index}`).join(', ');
+  const whereStatement = buildWhereStatement(Object.keys(where), '=', index);
+  const wholeStatement = `
+      UPDATE ${table}
+      SET ${updateStatement}
+      ${whereStatement}
+    `;
+
+  return client.query(wholeStatement, Object.values(updateData).concat(Object.values(where)));
+};
+
+const query = async (sql, values) => {
+  return client.query(sql, values);
+};
+
+const close = async () => {
+  await client.end();
+};
+
+const buildWhereStatement = (whereKeys, operator = '=', index = 0) => {
+  let whereStatement = '';
+  let first = true;
   for (const key of whereKeys) {
     if (first) {
       whereStatement += `WHERE ${key} ${operator} $${++index}`;
       first = false;
     } else {
-      whereStatement += ` ${ or ? 'OR' : 'AND' } ${key} ${operator} $${++index}`;
+      whereStatement += ` AND ${key} ${operator} $${++index}`;
     }
   }
-
-  const wholeStatement = `SELECT ${selectValue} FROM ${table} ${whereStatement}`;
-
-  trace(wholeStatement);
-
-  if (one) {
-    return (await client.query(wholeStatement, whereValues)).rows[0];
-  }
-
-  return (await client.query(wholeStatement, whereValues)).rows;
-}
-
-const insert = async (table, data) => {
-  const columns = Object.keys(data);
-  const values = Object.values(data);
-
-  const wholeStatement = `
-    INSERT INTO ${table} (${columns.join(', ')})
-    VALUES (${values.map((v, index) => `$${index + 1}`).join(', ')})`;
-
-  trace(wholeStatement);
-
-  return client.query(wholeStatement, values);
-}
-
-const del = async (table, where) => {
-  const whereKeys = Object.keys(where);
-  const whereValues = Object.values(where);
-
-  let whereStatement = '';
-
-  let first = true;
-  let index = 0;
-  for (const key of whereKeys) {
-    if (first) {
-      whereStatement += `WHERE ${key} = $${++index}`;
-      first = false;
-    } else {
-      whereStatement += ` AND ${key} = $${++index}`;
-    }
-  }
-
-  const wholeStatement = `DELETE FROM ${table} ${whereStatement}`;
-
-  trace(wholeStatement);
-
-  return client.query(wholeStatement, whereValues);
-}
-
-const update = async (table, updateData, where) => {
-  const updateKeys = Object.keys(updateData);
-  const updateValues = Object.values(updateData);
-
-  const whereKeys = Object.keys(where);
-  const whereValues = Object.values(where);
-
-  let index = 0;
-  const updateStatement = updateKeys.map((key) => `${key} = $${++index}`).join(', ');
-
-  let whereStatement = '';
-
-  let first = true;
-  for (const key of whereKeys) {
-    if (first) {
-      whereStatement += `WHERE ${key} = $${++index}`;
-      first = false;
-    } else {
-      whereStatement += ` AND ${key} = $${++index}`;
-    }
-  }
-
-  const wholeStatement = `UPDATE ${table} SET ${updateStatement} ${whereStatement}`;
-
-  trace(wholeStatement);
-
-  return client.query(wholeStatement, updateValues.concat(whereValues));
-}
-
-const query = async (sql, values) => {
-  return client.query(sql, values);
-}
-
-const close = async () => {
-  await client.end();
+  return whereStatement;
 }
 
 module.exports = {
-    select,
-    update,
-    insert,
-    del,
-    query,
-    close
-  };
+  select,
+  update,
+  insert,
+  del,
+  query,
+  close,
+};

@@ -1,27 +1,25 @@
 const Koa = require('koa');
 const router = require('koa-router')();
 const bodyParser = require('koa-bodyparser');
-const { assert, assertUser, assertPeer } = require('./../asserts/asserts.js');
+const { assert, assertUser } = require('./../asserts/asserts.js');
 const { AppError, PeerError, UserError } = require('./../asserts/exceptions.js');
-const { trace, renewLog } = require('./../debug/tracer.js');
+const { trace, clearTraceLog } = require('./../debug/tracer.js');
 const { generateRandomString, formatDate, validateEmail } = require('./../utils/utils.js');
-const { getWeatherAPIData, getForecast, generateAPIKey, deleteAPIKey } = require('./../api/api.js');
+const { getForecast, generateAPIKey, deleteAPIKey } = require('./../api/api.js');
 const db = require('./../database/pg_db.js');
 const serve = require('koa-static');
 const bcrypt = require('bcrypt');
 const session = require('koa-session');
 const views = require('koa-views');
 const path = require('path');
-const requester = require('request-promise');
 const {
-    PORT,
-    MINIMUM_USERNAME_LENGTH,
-    MINIMUM_PASSWORD_LENGTH,
-    ADMIN_USERNAME,
-    ADMIN_PASSWORD,
-    AIRPORT_API_LINK,
-    MAX_REQUESTS_PER_HOUR
-  } = require('./../utils/consts.js');
+  PORT,
+  MINIMUM_USERNAME_LENGTH,
+  MINIMUM_PASSWORD_LENGTH,
+  ADMIN_USERNAME,
+  ADMIN_PASSWORD,
+  MAX_REQUESTS_PER_HOUR,
+} = require('./../utils/consts.js');
 
 const app = new Koa();
 
@@ -34,15 +32,15 @@ app.keys = ['DaliKrieTaini'];
 // (cookie lifetime): (Milliseconds)
 app.use(session({ maxAge: 1000 * 60 * 60 * 24 }, app));
 
-app.use(serve(path.join(__dirname, '/public/css')));
-app.use(serve(path.join(__dirname, '/public/js')));
+app.use(serve(`${__dirname}/public/css`));
+app.use(serve(`${__dirname}/public/js`));
 
-app.use(views(path.join(__dirname, '/views'), {
-  extension: 'hbs', // looks for .html on removal
-  map: { hbs: 'handlebars' }, // hbs specifies engine, "Engine not found for the ".hbs" file extension" on removal
-}));
+app.use(views(`${__dirname}/views`), {
+  extension: 'hbs',
+  map: { hbs: 'handlebars' }, // marks engine for extensions
+});
 
-renewLog(); // change name, use stdout
+clearTraceLog();
 
 app.use(async (ctx, next) => {
   try {
@@ -63,9 +61,6 @@ app.use(async (ctx, next) => {
 
 app.use(bodyParser());
 
-app.use(router.routes()); // TODO check docs
-app.use(router.allowedMethods());
-
 // GET root
 router.get('/', async (ctx, next) => {
   trace(`GET '/'`);
@@ -79,30 +74,6 @@ router.get('/logout', async (ctx, next) => {
 
   ctx.session = null; // docs: "To destroy a session simply set it to null"
   await ctx.redirect('/login');
-});
-
-// GET docs
-router.get('/docs', async (ctx, next) => {
-  trace(`GET '/docs'`);
-
-  if (ctx.session.user == null) {
-    ctx.redirect('/login');
-    return next();
-  }
-
-  await ctx.render('docs');
-});
-
-// GET example
-router.get('/example', async (ctx, next) => {
-  trace(`GET '/example'`);
-
-  if (ctx.session.user == null) {
-    ctx.redirect('/login');
-    return next();
-  }
-
-  await ctx.render('example');
 });
 
 // GET home
@@ -138,9 +109,9 @@ router.get('/login', async (ctx, next) => {
   }
 
   await ctx.render('login', {
-      err: ctx.query.err,
-      success: ctx.query.success
-    });
+    err: ctx.query.err,
+    success: ctx.query.success,
+  });
 });
 
 // GET register
@@ -170,7 +141,9 @@ router.get('/admin', async (ctx, next) => {
     }
 
     users = users.sort((u1, u2) => {
-      return new Date(parseInt(u1.date_registered)) - new Date(parseInt(u2.date_registered));
+      const first = new Date(parseInt(u1.date_registered));
+      const second = new Date(parseInt(u2.date_registered));
+      return first - second;
     });
 
     users = users.map((user) => {
@@ -204,12 +177,12 @@ router.post('/register', async (ctx, next) => {
   trace(`POST '/register'`);
 
   assertUser(
-      typeof ctx.request.body.username == 'string' &&
-      typeof ctx.request.body.email == 'string' &&
-      typeof ctx.request.body.password == 'string' &&
-      typeof ctx.request.body['repeat-password'] == 'string',
-      'Invalid information'
-    );
+    typeof ctx.request.body.username === 'string' &&
+      typeof ctx.request.body.email === 'string' &&
+      typeof ctx.request.body.password === 'string' &&
+      typeof ctx.request.body['repeat-password'] === 'string',
+    'Invalid information'
+  );
 
   const username = ctx.request.body.username;
   const email = ctx.request.body.email.toLowerCase();
@@ -229,7 +202,7 @@ router.post('/register', async (ctx, next) => {
   }
 
   if (
-      password.length < MINIMUM_PASSWORD_LENGTH ||
+    password.length < MINIMUM_PASSWORD_LENGTH ||
       username.length < MINIMUM_USERNAME_LENGTH
   ) {
     ctx.redirect('/register');
@@ -237,14 +210,13 @@ router.post('/register', async (ctx, next) => {
   }
 
   const user = await db.select('users',
-      {
+    {
       username,
-      email
+      email,
     }, {
       one: true,
-      or: true
+      or: true,
     });
-
 
   if (user != null) {
     if (user.username === username) {
@@ -295,7 +267,7 @@ router.post('/login', async (ctx, next) => {
   }
 });
 
-// POST generateAPIKey
+// POST generate API key
 router.post('/api/generateAPIKey', generateAPIKey);
 
 // GET delete key
@@ -303,5 +275,7 @@ router.get('/api/del/:key', deleteAPIKey);
 
 // POST forecast
 router.post('/api/forecast', getForecast);
+
+app.use(router.routes());
 
 module.exports = server;
