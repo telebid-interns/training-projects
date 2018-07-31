@@ -33,7 +33,7 @@ function makeTransaction (func) {
   return async (ctx, next) => {
     await db.query('BEGIN');
     try {
-      await func(ctx, next, db);
+      await func(ctx, next);
       await db.query('COMMIT');
     } catch(err) {
       await db.query('ROLLBACK');

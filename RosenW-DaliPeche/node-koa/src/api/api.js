@@ -43,7 +43,7 @@ const deleteAPIKey = async (ctx, next) => {
   ctx.redirect('/home');
 };
 
-const getForecast = async (ctx, next, db) => {
+const getForecast = async (ctx, next) => {
   trace(`POST '/api/forecast'`);
 
   assertPeer(isObject(ctx.request.body), 'No request body provided', 38);
@@ -129,11 +129,12 @@ const getForecast = async (ctx, next, db) => {
 
 const updateAPIKeyUsage = async (user, keyRecord) => {
   if (keyRecord.use_count >= MAX_REQUESTS_PER_HOUR) {
-    saveRequest(user, true);
+    await saveRequest(user, true);
     throw new PeerError('you have exceeded your request cap, please try again later', 35);
   }
 
   await db.update(`api_keys`, { use_count: keyRecord.use_count + 1 }, { id: keyRecord.id });
+  await db.query('COMMIT');
 };
 
 const updateRequests = async (iataCode, city) => {
@@ -147,33 +148,30 @@ const updateRequests = async (iataCode, city) => {
   const request = await db.select(`requests`, selectWhere, { one: true });
 
   if (request == null) {
-    db.insert(`requests`, selectWhere);
+    await db.insert(`requests`, selectWhere);
   } else {
-    db.update(`requests`, { call_count: request.call_count + 1 }, selectWhere);
+    await db.update(`requests`, { call_count: request.call_count + 1 }, selectWhere);
   }
+  await db.query('COMMIT');
 };
 
 const saveRequest = async (user, failedRequest) => {
   assertPeer(user.credits >= CREDITS_FOR_SUCCESSFUL_REQUEST, `Not enough credits to make a request`, 21);
+  let updateData;
   if (failedRequest) {
-    await db.update(
-      `users`,
-      {
-        failed_requests: user.failed_requests + 1,
-        credits: user.credits - CREDITS_FOR_FAILED_REQUEST
-      },
-      { id: user.id }
-    );
+    update = {
+      failed_requests: user.failed_requests + 1,
+      credits: user.credits - CREDITS_FOR_FAILED_REQUEST
+    }
   } else {
-    await db.update(
-      `users`,
-      {
-        successful_requests: user.successful_requests + 1,
-        credits: user.credits - CREDITS_FOR_SUCCESSFUL_REQUEST
-      },
-      { id: user.id }
-    );
+    update = {
+      successful_requests: user.successful_requests + 1,
+      credits: user.credits - CREDITS_FOR_SUCCESSFUL_REQUEST
+    }
   }
+
+  await db.update(`users`, update, { id: user.id });
+  await db.query('COMMIT');
 };
 
 module.exports = {
