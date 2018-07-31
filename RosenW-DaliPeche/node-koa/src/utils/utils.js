@@ -1,5 +1,6 @@
 const { trace } = require('./../debug/tracer.js');
 const { EMAIL_VALIDATION_REGEX } = require('./../utils/consts.js');
+const db = require('./../database/pg_db.js');
 
 const generateRandomString = (length) => {
   trace(`Function generateRandomString`);
@@ -28,9 +29,23 @@ function validateEmail (email) {
   return EMAIL_VALIDATION_REGEX.test(String(email));
 }
 
+function makeTransaction (func) {
+  return async (ctx, next) => {
+    await db.query('BEGIN');
+    try {
+      await func(ctx, next, db);
+      await db.query('COMMIT');
+    } catch(err) {
+      await db.query('ROLLBACK');
+      throw err;
+    }
+  }
+}
+
 module.exports = {
   generateRandomString,
   isObject,
   formatDate,
   validateEmail,
+  makeTransaction
 };

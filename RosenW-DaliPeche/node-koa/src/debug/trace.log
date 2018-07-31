@@ -1,2 +1,8 @@
-GET '/login'
-POST '/api/forecast'
+GET '/home'
+GET '/admin'
+POST '/admin'
+GET '/admin'
+Function formatDate
+Function formatDate
+Function formatDate
+Function formatDate

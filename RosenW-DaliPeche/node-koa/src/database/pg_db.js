@@ -30,7 +30,7 @@ const select = async (table, where, { one, like, count, or }) => {
   }
 
   const wholeStatement = `
-      SELECT ${count ? 'COUNT(*) as count' : '*'}
+      SELECT ${ count ? 'COUNT(*) as count' : '*' }
       FROM ${table}
       ${whereStatement}
     `;

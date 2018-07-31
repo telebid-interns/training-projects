@@ -1,12 +1,14 @@
 const requester = require('request-promise');
 const { trace } = require('./../debug/tracer.js');
-const { assert, assertPeer } = require('./../asserts/asserts.js');
-const { UserError } = require('./../asserts/exceptions.js');
-const { generateRandomString, isObject, cityNameToPascal } = require('./../utils/utils.js');
+const { assert, assertPeer, assertUser } = require('./../asserts/asserts.js');
+const { UserError, PeerError } = require('./../asserts/exceptions.js');
+const { generateRandomString, isObject, cityNameToPascal, makeTransaction } = require('./../utils/utils.js');
 const {
   MAX_API_KEYS_PER_USER,
   MAX_REQUESTS_PER_HOUR,
   AIRPORT_API_LINK,
+  CREDITS_FOR_SUCCESSFUL_REQUEST,
+  CREDITS_FOR_FAILED_REQUEST
 } = require('./../utils/consts.js');
 const db = require('./../database/pg_db.js');
 
@@ -41,7 +43,7 @@ const deleteAPIKey = async (ctx, next) => {
   ctx.redirect('/home');
 };
 
-const getForecast = async (ctx, next) => {
+const getForecast = async (ctx, next, db) => {
   trace(`POST '/api/forecast'`);
 
   assertPeer(isObject(ctx.request.body), 'No request body provided', 38);
@@ -49,16 +51,24 @@ const getForecast = async (ctx, next) => {
   const response = {};
 
   const key = ctx.request.body.key;
+
   let iataCode = ctx.request.body.iataCode;
   let cityName = ctx.request.body.city;
 
-  assertPeer(
-    typeof cityName === 'string' ||
-    typeof iataCode === 'string',
-    'No city or iataCode in post body',
-    30
-  );
   assertPeer(typeof ctx.request.body.key === 'string', 'No API key in post body', 31);
+
+  const keyRecord = await db.select(`api_keys`, { key }, { one: true });
+
+  assertPeer(isObject(keyRecord), 'invalid API key', 33);
+
+  const user = await db.select(`users`, { id: keyRecord.user_id }, { one: true });
+
+  assert(isObject(user), 'No user found when searching by api key', 13);
+
+  if (typeof cityName !== 'string' && typeof iataCode !== 'string') {
+    await saveRequest(user, true);
+    throw new PeerError('No city or iataCode in post body', 30);
+  }
 
   if (
     typeof cityName !== 'string' &&
@@ -78,12 +88,10 @@ const getForecast = async (ctx, next) => {
     };
     const data = await requester(options);
 
-    assertPeer(
-      isObject(data) &&
-      typeof data.location === 'string',
-      'Could not find city based on given iata code',
-      32
-    );
+    if (!isObject(data) || typeof data.location !== 'string') {
+      await saveRequest(user, true);
+      throw new PeerError('Could not find city based on given iata code', 32);
+    }
 
     cityName = data.location.split(',')[0];
   }
@@ -92,20 +100,7 @@ const getForecast = async (ctx, next) => {
 
   const city = await db.select(`cities`, { name: cityName }, { one: true });
 
-  const keyRecord = await db.select(`api_keys`, { key }, { one: true });
-
-  assertPeer(
-    keyRecord != null &&
-      typeof keyRecord === 'object',
-    'invalid API key',
-    33
-  );
-
-  const user = await db.select(`users`, { id: keyRecord.user_id }, { one: true });
-
-  addToUserRequestCount(user, true); // hack.. TODO fix
-
-  await updateAPIKeyUsage(keyRecord);
+  await updateAPIKeyUsage(user, keyRecord);
 
   if (city == null) {
     db.insert(`cities`, { name: cityName });
@@ -114,7 +109,10 @@ const getForecast = async (ctx, next) => {
 
   const conditions = await db.select(`weather_conditions`, {city_id: city.id}, {});
 
-  assertPeer(conditions.length !== 0, 'no information found, please try again later', 34);
+  if(conditions.length === 0){
+    await saveRequest(user, true);
+    throw new PeerError('no information found, please try again later', 34);
+  };
 
   response.observed_at = city.observed_at;
   response.city = city.name;
@@ -123,29 +121,19 @@ const getForecast = async (ctx, next) => {
   response.lat = city.lat;
   response.conditions = conditions;
 
-
-  addToUserRequestCount(user, false);
+  await saveRequest(user, false);
   updateRequests(iataCode, cityName);
 
   ctx.body = response;
 };
 
-const updateAPIKeyUsage = async (keyRecord) => {
-  try {
-    await db.query('BEGIN');
-
-    assertPeer(
-      keyRecord.use_count < MAX_REQUESTS_PER_HOUR,
-      'you have exceeded your request cap, please try again later',
-      35
-    );
-
-    await db.update(`api_keys`, { use_count: keyRecord.use_count + 1 }, { id: keyRecord.id });
-    await db.query('COMMIT');
-  } catch (err) {
-    await db.query('ROLLBACK');
-    throw err;
+const updateAPIKeyUsage = async (user, keyRecord) => {
+  if (keyRecord.use_count >= MAX_REQUESTS_PER_HOUR) {
+    saveRequest(user, true);
+    throw new PeerError('you have exceeded your request cap, please try again later', 35);
   }
+
+  await db.update(`api_keys`, { use_count: keyRecord.use_count + 1 }, { id: keyRecord.id });
 };
 
 const updateRequests = async (iataCode, city) => {
@@ -165,19 +153,31 @@ const updateRequests = async (iataCode, city) => {
   }
 };
 
-const addToUserRequestCount = (user, failedRequest) => {
+const saveRequest = async (user, failedRequest) => {
+  assertPeer(user.credits >= CREDITS_FOR_SUCCESSFUL_REQUEST, `Not enough credits to make a request`, 21);
   if (failedRequest) {
-    db.update(`users`, { failed_requests: user.failed_requests + 1 }, { id: user.id });
+    await db.update(
+      `users`,
+      {
+        failed_requests: user.failed_requests + 1,
+        credits: user.credits - CREDITS_FOR_FAILED_REQUEST
+      },
+      { id: user.id }
+    );
   } else {
-    db.update(`users`, {
-      successful_requests: user.successful_requests + 1,
-      failed_requests: user.failed_requests, // TODO remove hack
-    }, { id: user.id });
+    await db.update(
+      `users`,
+      {
+        successful_requests: user.successful_requests + 1,
+        credits: user.credits - CREDITS_FOR_SUCCESSFUL_REQUEST
+      },
+      { id: user.id }
+    );
   }
 };
 
 module.exports = {
-  getForecast,
+  getForecast: makeTransaction(getForecast),
   generateAPIKey,
   deleteAPIKey,
 };

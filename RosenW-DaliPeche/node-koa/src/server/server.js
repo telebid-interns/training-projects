@@ -4,7 +4,7 @@ const bodyParser = require('koa-bodyparser');
 const { assert, assertUser } = require('./../asserts/asserts.js');
 const { AppError, PeerError, UserError } = require('./../asserts/exceptions.js');
 const { trace, clearTraceLog } = require('./../debug/tracer.js');
-const { generateRandomString, formatDate, validateEmail } = require('./../utils/utils.js');
+const { generateRandomString, formatDate, validateEmail, isObject } = require('./../utils/utils.js');
 const { getForecast, generateAPIKey, deleteAPIKey } = require('./../api/api.js');
 const db = require('./../database/pg_db.js');
 const serve = require('koa-static');
@@ -98,6 +98,7 @@ router.get('/home', async (ctx, next) => {
     'home',
     {
       user: ctx.session.user,
+      credits: user.credits,
       limit: MAX_REQUESTS_PER_HOUR,
       keys,
     });
@@ -159,6 +160,36 @@ router.get('/admin', async (ctx, next) => {
       maxRequests: MAX_REQUESTS_PER_HOUR,
     });
   }
+});
+
+// GET buy
+router.get('/buy', async (ctx, next) => {
+  trace(`GET '/buy'`);
+
+  await ctx.render('buy', { success: ctx.query.success, error: ctx.query.err});
+});
+
+// POST buy
+router.post('/buy', async (ctx, next) => {
+  trace(`POST '/buy'`);
+
+  assert(isObject(ctx.request.body), 'Post buy has no body', 12);
+
+  if (!Number.isInteger(Number(ctx.request.body.credits))) {
+    await ctx.redirect('/buy?err=1');
+    return next();
+  }
+
+  const credits = ctx.request.body.credits;
+  const user = await db.select(`users`, { username: ctx.session.user }, { one: true });
+
+  await db.update(
+    `users`,
+    { credits: Number(user.credits) + Number(credits) },
+    { username: ctx.session.user }
+  );
+
+  await ctx.redirect('/buy?success=1');
 });
 
 // POST admin
