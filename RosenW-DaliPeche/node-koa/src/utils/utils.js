@@ -29,17 +29,22 @@ function validateEmail (email) {
   return EMAIL_VALIDATION_REGEX.test(String(email));
 }
 
-function makeTransaction (func) {
-  return async (ctx, next) => {
-    await db.query('BEGIN');
-    try {
-      await func(ctx, next);
-      await db.query('COMMIT');
-    } catch(err) {
-      await db.query('ROLLBACK');
-      throw err;
-    }
+async function makeTransaction (func) {
+  await db.query('BEGIN');
+  console.log('BEGIN');
+  try {
+    await func();
+    await db.query('COMMIT');
+    console.log('COMMIT');
+  } catch(err) {
+    await db.query('ROLLBACK');
+    console.log('ROLLBACK');
+    throw err;
   }
+}
+
+function isInteger(num) {
+  return (typeof num === 'number') && (num % 1 === 0);
 }
 
 module.exports = {
@@ -47,5 +52,6 @@ module.exports = {
   isObject,
   formatDate,
   validateEmail,
-  makeTransaction
+  makeTransaction,
+  isInteger
 };

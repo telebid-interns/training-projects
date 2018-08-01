@@ -4,7 +4,14 @@ const bodyParser = require('koa-bodyparser');
 const { assert, assertUser } = require('./../asserts/asserts.js');
 const { AppError, PeerError, UserError } = require('./../asserts/exceptions.js');
 const { trace, clearTraceLog } = require('./../debug/tracer.js');
-const { generateRandomString, formatDate, validateEmail, isObject } = require('./../utils/utils.js');
+const {
+  generateRandomString,
+  formatDate,
+  validateEmail,
+  isObject,
+  makeTransaction,
+  isInteger,
+} = require('./../utils/utils.js');
 const { getForecast, generateAPIKey, deleteAPIKey } = require('./../api/api.js');
 const db = require('./../database/pg_db.js');
 const serve = require('koa-static');
@@ -18,6 +25,7 @@ const {
   ADMIN_USERNAME,
   ADMIN_PASSWORD,
   MAX_REQUESTS_PER_HOUR,
+  MAXIMUM_CREDITS_ALLOWED
 } = require('./../utils/consts.js');
 
 const app = new Koa();
@@ -56,7 +64,7 @@ app.use(async (ctx, next) => {
         statusCode: err.statusCode
       };
     } else {
-      console.log(`Application Error: ${ err.message }, Status code: ${err.statusCode}`);
+      console.log(`Application Error: ${ err.message }, Status code: ${ err.statusCode }`);
       ctx.body = 'An error occured please clear your cookies and try again';
     }
   }
@@ -172,25 +180,48 @@ router.get('/buy', async (ctx, next) => {
 // POST buy
 router.post('/buy', async (ctx, next) => {
   trace(`POST '/buy'`);
+  // TODO if session.user not str
 
   assert(isObject(ctx.request.body), 'Post buy has no body', 12);
 
-  if (!Number.isInteger(Number(ctx.request.body.credits))) {
+  const credits = ctx.request.body.credits;
+
+  const user = await db.select(`users`, { username: ctx.session.user }, { one: true });
+  assert(isObject(user), 'User not an object', 13);
+
+  if (!isInteger(Number(credits)) || Number(credits) <= 0) {
     await ctx.redirect('/buy?err=1');
     return next();
   }
 
-  const credits = ctx.request.body.credits;
-  const user = await db.select(`users`, { username: ctx.session.user }, { one: true });
+  if (Number(credits) + Number(user.credits) > MAXIMUM_CREDITS_ALLOWED) {
+    await ctx.redirect('/buy?err=2');
+    return next();
+  }
 
-  await db.update(
-    `users`,
-    { credits: Number(user.credits) + Number(credits) },
-    { username: ctx.session.user }
-  );
+  await addCreditsToUser(user, credits);
 
   await ctx.redirect('/buy?success=1');
 });
+
+const addCreditsToUser = async (user, credits) => {
+  makeTransaction(async () => {
+    await db.update(
+      `users`,
+      { credits: Number(user.credits) + Number(credits) },
+      { id: user.id }
+    );
+    await db.insert(
+      `credit_transfers`,
+      {
+        user_id: user.id,
+        credits_bought: credits,
+        event: 'Credit purchase',
+        transfer_date: new Date()
+      }
+    );
+  });
+}
 
 // POST admin
 router.post('/admin', async (ctx, next) => {
