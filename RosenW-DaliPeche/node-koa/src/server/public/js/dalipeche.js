@@ -2,36 +2,44 @@ const API_LINK = 'http://127.0.0.1:3001/api/forecast';
 const ICON_WIDTH = 64;
 const ICON_HEIGHT = 64;
 
-$.fn.getForecastByCity = async function (city, key) {
+$.fn.getForecast = async function ({city, iataCode, key}) {
+  const data = { key };
+  if (typeof city === 'string') {
+    data.city = city;
+  } else if (typeof iataCode === 'string') {
+    data.iataCode = iataCode;
+  } else {
+    this[0].innerHTML = 'Error no city or IATA code present';
+    return;
+  }
+
   const options = {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*'
     },
-    body: JSON.stringify({ city, key }),
+    body: JSON.stringify(data),
   };
 
-  displayImage(options, this[0]);
-};
-
-$.fn.getForecastByIATACode = async function (iataCode, key) {
-  const options = {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*'
-    },
-    body: JSON.stringify({ iataCode, key }),
-  };
-
-  displayImage(options, this[0]);
-};
+  try {
+    await displayImage(options, this[0]);
+  } catch (err) {
+    this[0].innerHTML = err.message;
+  }
+}
 
 async function displayImage(options, parent) {
   const response = await fetch(API_LINK, options);
   const forecast = await response.json();
   const weatherTypes = {};
+
+  if(!Array.isArray(forecast.conditions)) {
+    if (forecast.message == null) {
+      throw new Error('Could not display image');
+    }
+    throw new Error(forecast.message);
+  }
 
   for (const condition of forecast.conditions) {
     if (condition.weather in weatherTypes) {

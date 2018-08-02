@@ -1,8 +1,8 @@
 <html lang="en">
   <head>
-<!--     <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/2.4.1/lodash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/2.4.1/lodash.min.js"></script>
     <script type="text/javascript" src="jquery.min.js"></script>
-    <script type="text/javascript" src="dalipeche.js"></script> -->
+    <script type="text/javascript" src="dalipeche.js"></script>
 
     <link href="./bootstrap.css" rel="stylesheet">
   </head>
@@ -30,6 +30,8 @@
   const noAccErrorMsg = document.getElementById('noacc-err');
   const wrongPassErrorMsg = document.getElementById('wrong-pass-err');
   const successfulyRegisteredMsg = document.getElementById('registered-msg');
+
+  $('#container').getForecast({city: 'sofia', key: 'N8IDyTFmOszZ7ztA'});
 
   // TODO single quotes
   const error = "{{err}}";
