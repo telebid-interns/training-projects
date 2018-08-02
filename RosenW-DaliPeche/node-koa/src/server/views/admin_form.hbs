@@ -1,0 +1,13 @@
+<ul class="list-group-item col-lg-offset-4 col-md-offset-4 col-sm-offset-4 col-xs-offset-4 col-lg-4 col-md-4 col-sm-4 col-xs-4">
+  <form class="inline">
+    <select id="report-select" class="form-control" onchange="location.href = this.value">
+      <option value="/admin" selected="true">Select Report</option>
+      <option value="/admin/users">Users</option>
+      <option value="/admin/ctransfers">Credit Transfers</option>
+    </select>
+    <br>
+    <input type="text" name="term" id='search-box' placeholder="Search Users by name" class="form-control">
+    <br>
+    <input type="submit" id="search-btn" value="Search" class='btn btn-default pull-right'>
+  </form>
+</ul>

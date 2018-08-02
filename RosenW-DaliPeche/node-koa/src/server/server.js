@@ -45,6 +45,15 @@ app.use(serve(`${__dirname}/public/js`));
 app.use(views(`${__dirname}/views`, {
   extension: 'hbs',
   map: { hbs: 'handlebars' }, // marks engine for extensions
+  options: {
+    helpers: {
+      uppercase: (str) => str.toUpperCase()
+    },
+
+    partials: {
+      adminForm: './admin_form' // requires ./admin_form.hbs
+    }
+  }
 }));
 
 clearTraceLog();
@@ -138,37 +147,95 @@ router.get('/register', async (ctx, next) => {
   await ctx.render('register', { err: ctx.query.err });
 });
 
+
 // GET admin
 router.get('/admin', async (ctx, next) => {
   trace(`GET '/admin'`);
 
+  await ctx.render('admin');
+});
+
+// GET admin/users
+router.get('/admin/users', async (ctx, next) => {
+  trace(`GET '/admin/users'`);
+
   if (ctx.session.admin == null) {
     await ctx.render('admin_login', { err: ctx.query.err });
-  } else {
-    let users;
-    if (ctx.query.term == null) {
-      users = (await db.query(`SELECT * FROM users`)).rows;
-    } else {
-      const term = `%${ctx.query.term}%`;
-      users = (await db.query(`SELECT * FROM users WHERE username LIKE $1`, term)).rows;
-    }
-
-    users = users.sort((u1, u2) => {
-      const first = new Date(parseInt(u1.date_registered));
-      const second = new Date(parseInt(u2.date_registered));
-      return first - second;
-    });
-
-    users = users.map((user) => {
-      user.date_registered = formatDate(user.date_registered);
-      return user;
-    });
-
-    await ctx.render('admin', {
-      users,
-      maxRequests: MAX_REQUESTS_PER_HOUR,
-    });
+    return next();
   }
+
+  const term = ctx.query.term;
+
+  let users;
+  if (term == null) {
+    users = (await db.query(`SELECT * FROM users`)).rows;
+  } else {
+    users = (await db.query(`
+      SELECT * FROM users
+      WHERE LOWER(username)
+      LIKE LOWER($1)`,
+      `%${term}%`
+    )).rows;
+  }
+
+  users = users.sort((u1, u2) => {
+    const first = new Date(parseInt(u1.date_registered));
+    const second = new Date(parseInt(u2.date_registered));
+    return first - second;
+  });
+
+  users = users.map((user) => {
+    user.date_registered = formatDate(user.date_registered);
+    return user;
+  });
+
+  await ctx.render('admin_users', {
+    users,
+    maxRequests: MAX_REQUESTS_PER_HOUR,
+  });
+});
+
+// GET admin/ctransfers
+router.get('/admin/ctransfers', async (ctx, next) => {
+  trace(`GET '/admin/ctransfers'`);
+
+  if (ctx.session.admin == null) {
+    await ctx.render('admin_login', { err: ctx.query.err });
+    return next();
+  }
+
+  const term = ctx.query.term;
+
+  let transfers;
+  if (term == null) {
+    transfers = (await db.query(`
+      SELECT * FROM users as u
+      JOIN credit_transfers as ct
+      ON ct.user_id = u.id
+    `)).rows;
+  } else {
+    transfers = (await db.query(`
+      SELECT * FROM users as u
+      JOIN credit_transfers as ct
+      ON ct.user_id = u.id
+      WHERE LOWER(username)
+      LIKE LOWER($1)`,
+      `%${term}%`
+    )).rows;
+  }
+
+  transfers = transfers.sort((t1, t2) => {
+    const first = new Date(parseInt(t1.transfer_date));
+    const second = new Date(parseInt(t2.transfer_date));
+    return first - second;
+  });
+
+  transfers = transfers.map((transfer) => {
+    transfer.transfer_date = formatDate(transfer.transfer_date);
+    return transfer;
+  });
+
+  await ctx.render('admin_transfers', { transfers });
 });
 
 // GET buy

@@ -22,8 +22,17 @@ const isObject = (obj) => {
 const formatDate = (date) => {
   trace(`Function formatDate`);
 
-  return date.substr(0, 10);
-};
+  if (typeof date === 'string') return date.substr(0, 10);
+
+  const year = date.getFullYear();
+  let month = `${date.getMonth() + 1}`; // months start FROM 0
+  let day = `${date.getDate()}`;
+
+  if (month.length < 2) month = `0${month}`;
+  if (day.length < 2) day = `0${day}`;
+
+  return [day, month, year].join('-');
+}
 
 function validateEmail (email) {
   return EMAIL_VALIDATION_REGEX.test(String(email));
