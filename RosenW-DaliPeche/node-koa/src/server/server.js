@@ -147,8 +147,12 @@ router.get('/register', async (ctx, next) => {
 // GET admin
 router.get('/admin', async (ctx, next) => {
   trace(`GET '/admin'`);
+  if (ctx.session.admin == null) {
+    await ctx.render('admin_login', { err: ctx.query.err });
+    return next();
+  }
 
-  await ctx.render('admin');
+  await ctx.redirect('admin/users');
 });
 
 // GET admin/users
@@ -295,7 +299,7 @@ router.post('/admin', async (ctx, next) => {
 
   if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
     ctx.session.admin = true;
-    return ctx.redirect('/admin');
+    return ctx.redirect('/admin/users');
   }
 
   ctx.redirect('/admin?err=1');
