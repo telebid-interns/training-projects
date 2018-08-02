@@ -46,10 +46,6 @@ app.use(views(`${__dirname}/views`, {
   extension: 'hbs',
   map: { hbs: 'handlebars' }, // marks engine for extensions
   options: {
-    helpers: {
-      uppercase: (str) => str.toUpperCase()
-    },
-
     partials: {
       adminForm: './admin_form' // requires ./admin_form.hbs
     }

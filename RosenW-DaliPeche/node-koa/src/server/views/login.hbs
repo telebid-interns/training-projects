@@ -1,8 +1,8 @@
 <html lang="en">
   <head>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/2.4.1/lodash.min.js"></script>
+<!--     <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/2.4.1/lodash.min.js"></script>
     <script type="text/javascript" src="jquery.min.js"></script>
-    <script type="text/javascript" src="dalipeche.js"></script>
+    <script type="text/javascript" src="dalipeche.js"></script> -->
 
     <link href="./bootstrap.css" rel="stylesheet">
   </head>
@@ -20,7 +20,7 @@
         <p id="registered-msg" hidden="true" class="text-success">Successfuly Registered</p>
         <a href="./register">Don't have an account ?</a>
         <input type="submit" id='sub-btn' class='btn btn-default pull-right' value="Log In"></input>
-        <div id="container"></div>
+<!--         <div id="container"></div> -->
       </form>
     </ul>
   </body>
@@ -31,11 +31,10 @@
   const wrongPassErrorMsg = document.getElementById('wrong-pass-err');
   const successfulyRegisteredMsg = document.getElementById('registered-msg');
 
-  $('#container').getForecast({city: 'sofia', key: 'N8IDyTFmOszZ7ztA'});
+  // $('#container').getForecast({city: 'sofia', key: 'N8IDyTFmOszZ7ztA'});
 
-  // TODO single quotes
-  const error = "{{err}}";
-  const success = "{{success}}";
+  const error = '{{err}}';
+  const success = '{{success}}';
 
   if (Number(error) === 1) {
     noAccErrorMsg.removeAttribute('hidden');
