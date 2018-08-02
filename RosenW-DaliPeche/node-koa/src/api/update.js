@@ -10,7 +10,7 @@ const {
 updateDB();
 
 async function updateDB () {
-  const cities = await db.select(`cities`, {}, {});
+  const cities = (await db.query(`SELECT * FROM cities`)).rows;
   resetAPIKeys();
 
   for (const city of cities) {
@@ -27,8 +27,6 @@ async function updateDB () {
       continue;
     }
 
-    console.log(forecast.list.length);
-
     assertPeer(
       isObject(forecast.city) &&
         isObject(forecast.city.coord),
@@ -36,18 +34,20 @@ async function updateDB () {
       36
     );
 
-    db.update(`cities`, {
-      country_code: forecast.city.country,
-      lat: forecast.city.coord.lat,
-      lng: forecast.city.coord.lon,
-      observed_at: new Date(),
-    }, {
-      name: city.name,
-    });
+    db.query(
+      `UPDATE cities
+        SET country_code = $1, lat = $2, lng = $3, observed_at = $4
+        WHERE name = $5`,
+      forecast.city.country,
+      forecast.city.coord.lat,
+      forecast.city.coord.lon,
+      new Date(),
+      city.name
+    );
 
-    const dbCity = await db.select(`cities`, { name: city.name }, { one: true });
+    const dbCity = (await db.query(`SELECT * FROM cities WHERE name = $1`, city.name)).rows[0];
 
-    db.del(`weather_conditions`, { city_id: dbCity.id });
+    db.query(`DELETE FROM weather_conditions WHERE city_id = $1`, dbCity.id);
 
     for (const city of forecast.list) {
       assertPeer(
@@ -59,20 +59,35 @@ async function updateDB () {
         37
       );
 
-      await db.insert(`weather_conditions`, {
-        city_id: dbCity.id,
-        weather: city.weather[0].main,
-        weather_description: city.weather[0].description,
-        cloudiness: city.clouds.all,
-        humidity: city.main.humidity,
-        max_temperature: city.main.temp_max,
-        min_temperature: city.main.temp_min,
-        sea_pressure: city.main.sea_level,
-        ground_pressure: city.main.grnd_level,
-        wind_direction: city.wind.deg,
-        wind_speed: city.wind.speed,
-        forecast_time: new Date(city.dt_txt),
-      });
+      db.query(
+        `INSERT INTO weather_conditions (
+          city_id,
+          weather,
+          weather_description,
+          cloudiness,
+          humidity,
+          max_temperature,
+          min_temperature,
+          sea_pressure,
+          ground_pressure,
+          wind_direction,
+          wind_speed,
+          forecast_time
+        )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+        dbCity.id,
+        city.weather[0].main,
+        city.weather[0].description,
+        city.clouds.all,
+        city.main.humidity,
+        city.main.temp_max,
+        city.main.temp_min,
+        city.main.sea_level,
+        city.main.grnd_level,
+        city.wind.deg,
+        city.wind.speed,
+        new Date(city.dt_txt)
+      );
     }
   }
 
@@ -80,7 +95,8 @@ async function updateDB () {
 }
 
 function resetAPIKeys () {
-  db.update(`api_keys`, { use_count: 0 }, {});
+  db.query(`UPDATE api_keys SET use_count = 0`);
+  // db.update(`api_keys`, { use_count: 0 }, {});
 }
 
 async function getWeatherAPIData (city) {

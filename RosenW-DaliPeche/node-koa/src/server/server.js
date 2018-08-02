@@ -64,6 +64,7 @@ app.use(async (ctx, next) => {
         statusCode: err.statusCode
       };
     } else {
+      console.log(err);
       console.log(`Application Error: ${ err.message }, Status code: ${ err.statusCode }`);
       ctx.body = 'An error occured please clear your cookies and try again';
     }
@@ -96,11 +97,11 @@ router.get('/home', async (ctx, next) => {
     return next();
   }
 
-  const user = await db.select('users', { username: ctx.session.user }, { one: true });
-
+  const user = (await db.query(`SELECT * FROM users WHERE username = $1`, ctx.session.user)).rows[0];
   assert(user != null, 'cookie contained username not in database', 10);
 
-  const keys = await db.select('api_keys', { user_id: user.id }, {});
+  const keys = (await db.query(`SELECT * FROM api_keys WHERE user_id = $1`, user.id)).rows;
+  assert(Array.isArray(keys), 'keys expected to be array but wasnt', 15);
 
   await ctx.render(
     'home',
@@ -146,10 +147,10 @@ router.get('/admin', async (ctx, next) => {
   } else {
     let users;
     if (ctx.query.term == null) {
-      users = await db.select(`users`, {}, {});
+      users = (await db.query(`SELECT * FROM users`)).rows;
     } else {
       const term = `%${ctx.query.term}%`;
-      users = await db.select(`users`, { username: term }, {like: true});
+      users = (await db.query(`SELECT * FROM users WHERE username LIKE $1`, term)).rows;
     }
 
     users = users.sort((u1, u2) => {
@@ -186,7 +187,7 @@ router.post('/buy', async (ctx, next) => {
 
   const credits = ctx.request.body.credits;
 
-  const user = await db.select(`users`, { username: ctx.session.user }, { one: true });
+  const user = (await db.query(`SELECT * FROM users WHERE username = $1`, ctx.session.user)).rows[0];
   assert(isObject(user), 'User not an object', 13);
 
   if (!isInteger(Number(credits)) || Number(credits) <= 0) {
@@ -206,19 +207,18 @@ router.post('/buy', async (ctx, next) => {
 
 const addCreditsToUser = async (user, credits) => {
   makeTransaction(async () => {
-    await db.update(
-      `users`,
-      { credits: Number(user.credits) + Number(credits) },
-      { id: user.id }
+    await db.query(`
+      UPDATE users SET credits = $1 WHERE id = $2`,
+      Number(user.credits) + Number(credits),
+      user.id
     );
-    await db.insert(
-      `credit_transfers`,
-      {
-        user_id: user.id,
-        credits_bought: credits,
-        event: 'Credit purchase',
-        transfer_date: new Date()
-      }
+    await db.query(`
+      INSERT INTO credit_transfers (user_id, credits_bought, event, transfer_date)
+        VALUES ($1, $2, $3, $4)`,
+      user.id,
+      credits,
+      'Credit purchase',
+      new Date()
     );
   });
 }
@@ -276,14 +276,7 @@ router.post('/register', async (ctx, next) => {
     return next();
   }
 
-  const user = await db.select('users',
-    {
-      username,
-      email,
-    }, {
-      one: true,
-      or: true,
-    });
+  const user = (await db.query(`SELECT * FROM users WHERE username = $1 or email = $2`, username, email)).rows[0];
 
   if (user != null) {
     if (user.username === username) {
@@ -298,13 +291,15 @@ router.post('/register', async (ctx, next) => {
   const saltedPassword = password + salt;
   const hash = await bcrypt.hash(saltedPassword, 5);
 
-  db.insert(`users`, {
-    date_registered: new Date(),
-    password: hash,
+  db.query(
+    `INSERT INTO users (date_registered, password, email, username, salt)
+      VALUES ($1, $2, $3, $4, $5)`,
+    new Date(),
+    hash,
     email,
     username,
-    salt,
-  });
+    salt
+  )
 
   ctx.redirect('/login?success=1');
 });
@@ -316,7 +311,7 @@ router.post('/login', async (ctx, next) => {
   const username = ctx.request.body.username;
   const password = ctx.request.body.password;
 
-  const user = await db.select(`users`, { username }, { one: true });
+  const user = (await db.query(`SELECT * FROM users where username = $1`, username)).rows[0];
 
   if (user == null) {
     ctx.redirect('/login?err=1');

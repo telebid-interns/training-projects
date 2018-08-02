@@ -18,12 +18,10 @@ const generateAPIKey = async (ctx, next) => {
   const username = ctx.request.body.name;
   const key = generateRandomString(16);
   const user = (await db.query(`SELECT * FROM users WHERE username = $1`, username)).rows[0];
-  // const user = await db.select(`users`, { username }, { one: true });
 
   assert(user != null, 'User not found when generating API key', 11);
 
   const APIKeyCountData = (await db.query(`SELECT COUNT(*) FROM api_keys WHERE user_id = $1`, user.id)).rows[0];
-  // const APIKeyCountData = await db.select('api_keys', { user_id: user.id }, { one: true, count: true });
 
   if (APIKeyCountData.count >= MAX_API_KEYS_PER_USER) {
     ctx.body = { msg: 'API key limit exceeded' };
@@ -42,7 +40,6 @@ const deleteAPIKey = async (ctx, next) => {
   const key = ctx.params.key;
 
   await db.query(`DELETE FROM api_keys WHERE key = $1`, key);
-  // await db.del(`api_keys`, { key });
   ctx.redirect('/home');
 };
 
@@ -60,11 +57,9 @@ const getForecast = async (ctx, next) => {
   assertPeer(typeof key === 'string', 'No API key in post body', 31);
 
   const keyRecord = (await db.query(`SELECT * FROM api_keys WHERE key = $1`, key)).rows[0];
-  // const keyRecord = await db.select(`api_keys`, { key }, { one: true });
   assertPeer(isObject(keyRecord), 'invalid API key', 33);
 
   const user = (await db.query(`SELECT * FROM users WHERE id = $1`, keyRecord.user_id)).rows[0];
-  // const user = await db.select(`users`, { id: keyRecord.user_id }, { one: true });
   assert(isObject(user), 'No user found when searching by api key', 13);
 
   try {
@@ -86,11 +81,9 @@ const getForecast = async (ctx, next) => {
     cityName = cityName.toLowerCase().trim();
 
     const city = (await db.query(`SELECT * FROM cities WHERE name = $1`, cityName)).rows[0];
-    // const city = await db.select(`cities`, { name: cityName }, { one: true });
     assertPeer(isObject(city), 'no information found, please try again later', 39);
 
     const conditions = (await db.query(`SELECT * FROM weather_conditions WHERE city_id = $1`, city.id)).rows;
-    // const conditions = await db.select(`weather_conditions`, {city_id: city.id}, {});
     assert(Array.isArray(conditions), `expected conditions to be array but wasn't`, 14);
     assertPeer(conditions.length > 0, 'no information found, please try again later', 34);
 
@@ -102,7 +95,7 @@ const getForecast = async (ctx, next) => {
     response.conditions = conditions;
   } catch (err) {
     if (err.statusCode === 39) db.insert(`cities`, { name: cityName });
-    await taxUser(user, true);
+    if (err.statusCode !== 35) await taxUser(user, true);
     throw err;
   }
 
@@ -117,38 +110,33 @@ const updateAPIKeyUsage = async (keyRecord) => {
     keyRecord.use_count < MAX_REQUESTS_PER_HOUR,
     'you have exceeded your request cap, please try again later',
     35
-  )
+  );
 
   await db.query(`UPDATE api_keys SET use_count = $1 WHERE id = $2`, keyRecord.use_count + 1, keyRecord.id);
-  // await db.update(`api_keys`, { use_count: keyRecord.use_count + 1 }, { id: keyRecord.id });
 };
 
 const updateRequests = async (iataCode, city) => {
-  const whereKey = iataCode === 'string' ? 'iata_code' : 'city';
+  const whereCol = iataCode === 'string' ? 'iata_code' : 'city';
   const whereValue = iataCode === 'string' ? iataCode : city;
 
-  const request = (await db.query(`SELECT * FROM requests WHERE $1 = $2`, whereKey, whereValue)).rows[0];
-  // const request = await db.select(`requests`, selectWhere, { one: true });
+  const request = (await db.query(`SELECT * FROM requests WHERE ${ whereCol } = $1`, whereValue)).rows[0];
 
   if (request == null) {
-    await db.query(`INSERT INTO requests ($1) VALUES ($2)`, whereKey, whereValue);
-    // await db.insert(`requests`, selectWhere);
+    await db.query(`INSERT INTO requests (${whereCol}) VALUES ($1)`, whereValue);
   } else {
-    await db.query(`UPDATE requests SET call_count = $1 WHERE $2 = $3`, request.call_count + 1, whereKey, whereValue);
-    // await db.update(`requests`, { call_count: request.call_count + 1 }, selectWhere);
+    await db.query(`UPDATE requests SET call_count = $1 WHERE ${whereCol} = $2`, request.call_count + 1, whereValue);
   }
 };
 
 const taxUser = async (user, isFailedRequest) => {
+  assertPeer(user.credits >= CREDITS_FOR_SUCCESSFUL_REQUEST, `Not enough credits to make a request`, 300);
   makeTransaction(async () => {
-    assertPeer(user.credits >= CREDITS_FOR_SUCCESSFUL_REQUEST, `Not enough credits to make a request`, 300);
     let updateData;
-    const requestsKey = isFailedRequest ? 'failed_requests' : 'successful_requests';
+    const requestColumn = isFailedRequest ? 'failed_requests' : 'successful_requests';
     const requestsValue = isFailedRequest ? user.failed_requests + 1 : user.successful_requests + 1;
     const credits = isFailedRequest ? CREDITS_FOR_FAILED_REQUEST : CREDITS_FOR_SUCCESSFUL_REQUEST;
 
-    await db.query(`UPDATE users SET $1 = $2, credits = $3 WHERE id = $4`, requestsKey, requestsValue, credits, user.id );
-    // await db.update(`users`, updateData, { id: user.id });
+    await db.query(`UPDATE users SET ${requestColumn} = $1, credits = $2 WHERE id = $3`, requestsValue, user.credits - credits, user.id);
 
     await saveTransfer(user, isFailedRequest);
   });
