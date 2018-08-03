@@ -1,4 +1,4 @@
-const PORT = 3000;
+const PORT = 3001;
 
 const MINIMUM_USERNAME_LENGTH = 3;
 const MINIMUM_PASSWORD_LENGTH = 3;

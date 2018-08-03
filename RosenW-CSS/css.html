@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>CSSource</title>
+  <style type="text/css">
+    body {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      background-color: #000010;
+    }
+    #header {
+      height: 150px;
+      width: 100%;
+      top: 0px;
+      position: fixed;
+      background: url('./img/header.png');
+      background-size: 100% 100%;
+    }
+    #footer {
+      height: 150px;
+      width: 100%;
+      bottom: 0px;
+      position: fixed;
+      background: url('./img/footer.png');
+      background-size: 100% 100%;
+    }
+    #container {
+      margin-top: 100px;
+      margin-left: 250px;
+      color: white;
+      overflow: auto;
+    }
+    .side-bar-container-enlarged {
+      position: fixed;
+      float: left;
+      width: 200px;
+      height: 100%;
+      margin-top: -100px;
+      background: #102040;
+    }
+    .side-bar-container-enlarged #side-bar {
+      margin-top: 100px;
+      color: white;
+    }
+    .side-bar-container-enlarged #side-bar {
+      margin-top: 150px;
+    }
+    .side-bar-container-enlarged #side-bar div {
+      display: none;
+      margin-left: 25px;
+      margin-top: 10px;
+    }
+    .side-bar-container-enlarged #side-bar div a {
+      display: block;
+      font-size: 16px;
+      color: white;
+    }
+    .side-bar-container-enlarged #side-bar label {
+      display: block;
+      font-size: 25px;
+      margin-left: 40px;
+      margin-top: 20px;
+    }
+    .side-bar-container-enlarged #side-bar label img {
+      display: none;
+    }
+    .side-bar-container-enlarged #side-bar label:hover {
+      color: red;
+    }
+    .side-bar-container-enlarged #side-bar div a:hover {
+      color: red;
+    }
+    .side-bar-container-enlarged #side-bar label:before {
+      content: '➤ ';
+    }
+    .side-bar-container-enlarged #side-bar input[type=checkbox]:checked + label:before {
+      content: '⮟ ';
+    }
+    .side-bar-container-enlarged #side-bar input[type=checkbox]:checked + label div {
+      display: block
+    }
+    .side-bar-container-enlarged #side-bar input[type=checkbox] {
+      display: none;
+    }
+    /**/
+    .side-bar-container-minimized {
+      position: relative;
+      float: left;
+      height: 100%;
+      margin-top: -100px;
+    }
+    .side-bar-container-minimized #side-bar {
+      margin-top: 100px;
+      color: white;
+    }
+    .side-bar-container-minimized #side-bar {
+      margin-top: 150px;
+    }
+    .side-bar-container-minimized #side-bar div {
+      display: none;
+      margin-left: 25px;
+      margin-top: 10px;
+    }
+    .side-bar-container-minimized #side-bar div a {
+      display: block;
+      margin-left: 45px;
+      color: white;
+    }
+    .side-bar-container-minimized #side-bar label {
+      display: block;
+    }
+    .side-bar-container-minimized #side-bar label img {
+      display: block;
+      width: 50px;
+      height: 50px;
+    }
+    .side-bar-container-minimized #side-bar label:hover {
+      color: red;
+    }
+    .side-bar-container-minimized #side-bar div a:hover {
+      color: red;
+    }
+    .side-bar-container-minimized #side-bar input[type=checkbox] + label:hover div {
+      display: block;
+      margin-top: -50px;
+      position: absolute;
+    }
+    .side-bar-container-minimized #side-bar input[type=checkbox] {
+      display: none;
+    }
+    #toggle-menu {
+      display: none;
+    }
+    input[type=checkbox]:checked + label #toggle-image {
+      content: url('./img/toggleon.png');
+    }
+    input[type=checkbox]:checked + label #toggle-image {
+      content: url('./img/toggleon.png');
+    }
+    #toggle-label {
+      margin-left: 70px;
+    }
+    #toggle-image {
+      width: 32px;
+      height: 32px;
+      top: 30px;
+      position: fixed;
+    }
+    #rocket {
+      position: fixed;
+      left: 220px;
+      width: 64px;
+      height: 64px;
+      animation: liftoff 15s infinite;
+    }
+    #logo h2 {
+      position: fixed;
+      left: 280px;
+      top: 25px;
+      color: white;
+    }
+
+    @keyframes liftoff {
+        0% {top: 20px;}
+        20% {top: 20px;}
+        22% {top: 21px;}
+        24% {top: 20px;}
+        26% {top: 21px;}
+        28% {top: 20px;}
+        30% {top: 21px;}
+        31% {top: 20px;}
+        32% {top: 21px;}
+        33% {top: 20px;}
+        34% {top: 21px;}
+        35% {top: 20px;}
+        36% {top: 21px;}
+        37% {top: 20px;}
+        38% {top: 21px;}
+        39% {top: 20px;}
+        70% {top: -200px;}
+        100% {top: 20px;}
+    }
+  </style>
+</head>
+<body>
+
+<div id="side-bar-container" class="side-bar-container-enlarged">
+  <div id="side-bar">
+    <input type="checkbox" id="menu-one">
+    <label for="menu-one">Rockets<img src="./img/rocket.png">
+      <div>
+        <a href="#">Submenu 1</a>
+        <a href="#">Submenu 2</a>
+        <a href="#">Submenu 3</a>
+        <a href="#">Submenu 4</a>
+      </div>
+    </label>
+    <input type="checkbox" id="menu-two">
+    <label for="menu-two">Pictures<img src="./img/picicon.png">
+      <div>
+        <a href="#">Submenu 1</a>
+        <a href="#">Submenu 2</a>
+        <a href="#">Submenu 3</a>
+        <a href="#">Submenu 4</a>
+        <a href="#">Submenu 5</a>
+        <a href="#">Submenu 6</a>
+        <a href="#">Submenu 7</a>
+        <a href="#">Submenu 8</a>
+      </div>
+    </label>
+    <input type="checkbox" id="menu-three">
+    <label for="menu-three">About<img src="./img/questionicon.png">
+      <div>
+        <a href="#">Submenu 1</a>
+        <a href="#">Submenu 2</a>
+        <a href="#">Submenu 3</a>
+        <a href="#">Submenu 4</a>
+        <a href="#">Submenu 5</a>
+        <a href="#">Submenu 6</a>
+        <a href="#">Submenu 7</a>
+        <a href="#">Submenu 8</a>
+        <a href="#">Submenu 9</a>
+        <a href="#">Submenu 10</a>
+        <a href="#">Submenu 11</a>
+        <a href="#">Submenu 12</a>
+      </div>
+    </label>
+  </div>
+</div>
+<div id="header">
+  <input type="checkbox" id="toggle-menu">
+  <label for="toggle-menu" id="toggle-label"><img id="toggle-image" src="./img/toggleoff.png"></label>
+
+  <div id="logo">
+    <img src="./img/rocket.png" id="rocket">
+    <h2>Space Flights</h2>
+  </div>
+</div>
+<div id="container">
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+  <p>AAAAAAAAAAAAAAAAA</p>
+</div>
+<div id="footer"></div>
+</body>
+</html>
+
+<script type="text/javascript">
+  document.getElementById('toggle-menu').addEventListener('change', (event) => {
+    sideBar = document.getElementById('side-bar-container');
+    const sideBarClass = event.target.checked ? 'side-bar-container-minimized' : 'side-bar-container-enlarged';
+    sideBar.setAttribute('class', sideBarClass);
+  });
+</script>
