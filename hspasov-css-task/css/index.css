@@ -1,3 +1,10 @@
+#container {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
 #alert {
   position: fixed;
   height: 20%;
@@ -7,20 +14,120 @@
   background-color: #bbb33b;
 }
 
+.subitems, #alert {
+  display: none;
+}
+
 input[type=checkbox] {
   display: none;
 }
 
-input[type=checkbox]:checked ~ ul, input[type=checkbox]:checked ~ div#alert, input[type=checkbox]:checked ~ nav#side-menu-collapsed {
+input[type=checkbox]:checked ~ .subitems, input[type=checkbox]:checked ~ div#alert, input[type=checkbox]:checked ~ div#side-menu-collapsed {
   display: block;
 }
 
-input[type=checkbox]:not(:checked) ~ nav#side-menu {
+input[type=checkbox]:checked span.item-button {
+  background-color: green;
+}
+
+input[type=checkbox]:not(:checked) ~ div#side-menu {
   display: block;
 }
 
-ul.suboptions, #alert, #side-menu-collapsed, #side-menu {
+input[type=checkbox]:checked ~ div#side-menu {
   display: none;
+}
+
+input[type=checkbox]:not(:checked) ~ div#side-menu-collapsed {
+  display: none;
+}
+
+div#side-menu-collapsed:hover {
+  width: 20%;
+}
+
+span.item-button {
+  display: block;
+  height: 70px;
+  text-align: center;
+  background-color: blue;
+}
+
+span.item-button:active {
+  background-color: green;
+}
+
+input[type=checkbox]:checked ~ div#content-wrap {
+  height: 100%;
+  right: 0;
+  left: 0;
+  top: 10%;
+  bottom: 10%;
+  float: right;
+  width: 95%;
+  background-color: #aaaaaa;
+}
+
+input[type=checkbox]:not(:checked) ~ div#content-wrap {
+  height: 100%;
+  right: 0;
+  left: 0;
+  top: 10%;
+  bottom: 10%;
+  float: right;
+  width: 80%;
+  background-color: #aaaaaa;
+}
+
+#side-menu-button {
+  height: 100%;
+  background-color: purple;
+  width: 100%;
+  display: block;
+}
+
+#side-menu-button:active {
+  background-color: white;
+}
+
+#side-menu-toggle-label {
+  position: inherit;
+  display: block;
+  height: 8%;
+  width: 150px;
+}
+
+#top-bar-logo {
+  position: relative;
+  left: 150px;
+}
+
+#side-menu-item-label-1 {
+  display: block;
+}
+
+#side-menu-item-label-2 {
+  display: block;
+}
+
+#side-menu-item-label-3 {
+  display: block;
+}
+
+#side-menu-item-label-4 {
+  display: block;
+}
+
+#open-alert {
+  display:block;
+  height: 60px;
+  width: 120px;
+  background-color: pink;
+  text-align: center;
+}
+
+#open-alert-label {
+  display: block;
 }
 
 .logo {
@@ -28,7 +135,7 @@ ul.suboptions, #alert, #side-menu-collapsed, #side-menu {
   animation-iteration-count: infinite;
   animation-duration: 4000ms;
   overflow:hidden;
-}  
+}
 
 @keyframes sad-spin {
   0% {
@@ -42,29 +149,40 @@ ul.suboptions, #alert, #side-menu-collapsed, #side-menu {
   }
 }
 
+.container-item {
+  margin: 1%;
+  width: 18%;
+}
+
+img.container-image {
+  width: 100%;
+  height: auto;
+}
+
 #content {
-  top: 10%;
-  bottom: 10%;
+  border:1px solid black;
+  position: inherit;
+  margin-top: 20%;
+  margin-botton: 20%;
 }
 
-#content-wrap {
-  height: 100%;
-  right: 0;
-  left: 0;
-  top: 10%;
-  bottom: 10%;
-  float: right;
-  width: 80%;
-  background-color: #aaaaaa;
-}
-
-#side-bar {
+#side-menu {
   position: fixed;
   right: 0;
   left: 0;
   bottom: 0;
   height: 92%;
   width: 20%;
+  background-color: yellow;
+}
+
+#side-menu-collapsed {
+  position: fixed;
+  right: 0;
+  left: 0;
+  bottom: 0;
+  height: 92%;
+  width: 5%;
   background-color: yellow;
 }
 
@@ -75,10 +193,10 @@ ul.suboptions, #alert, #side-menu-collapsed, #side-menu {
   right: 0;
   height: 8%;
   background-color: #abcdef;
-}​
+}
 
 #middle {
-  position: fixed;
+  width: 100%;
 }
 
 #bottom-bar {
@@ -88,4 +206,4 @@ ul.suboptions, #alert, #side-menu-collapsed, #side-menu {
   right: 0;
   height: 8%;
   background-color: #abcdef;
-}​
+}

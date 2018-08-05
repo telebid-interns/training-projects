@@ -6,9 +6,10 @@
   </head>
   <body>
     <div id="top-bar">
-      <img src="images/Okay-Face-Meme-PNG.png" width="10%" height="100%" class="logo">
-      Top bar
-      <label for="side-menu-toggle">Side menu</label>
+      <label id="side-menu-toggle-label" for="side-menu-toggle">
+        <span id="side-menu-button"></span>
+      </label>
+      <img src="images/Okay-Face-Meme-PNG.png" width="10%" height="100%" class="logo" id="top-bar-logo">
     </div>
     <input type="checkbox" id="alert-toggle">
     <div id="alert">
@@ -16,145 +17,73 @@
       <label for="alert-toggle">Close alert</label>
     </div>
     <div id="middle">
-      <div id="side-bar">
-        <input type="checkbox" id="side-menu-toggle">
-        <nav id="side-menu">
-          <ul>
-            <li>
-              <input type="checkbox" id="checkbox-toggle">
-              <label for="checkbox-toggle">Option</label>
-              <ul class="suboptions">
-                <li>Suboption</li>
-                <li>Suboption</li>
-                <li>Suboption</li>
-                <li>Suboption</li>
-              </ul>
-            </li>
-            <li>Option</li>
-            <li>Option</li>
-            <li>Option</li>
-            <li>Option</li>
-            <li>Option</li>
-            <li>Option</li>
-            <li>Option</li>
-          </ul>
-        </nav>
-        <nav id="side-menu-collapsed">
-          <ul>
-            <li>Collapsed</li>
-            <li>Collapsed</li>
-            <li>Collapsed</li>
-            <li>Collapsed</li>
-            <li>Collapsed</li>
-            <li>Collapsed</li>
-            <li>Collapsed</li>
-          </ul>
-        </nav>
+      <input type="checkbox" id="side-menu-toggle">
+      <div id="side-menu">
+        <div class="item">
+          <input type="checkbox" id="checkbox-toggle-1">
+          <label id="side-menu-item-label-1" for="checkbox-toggle-1">
+            <span class="item-button">Item</span>
+          </label>
+          <div class="subitems">
+            <div>Subitem</div>
+            <div>Subitem</div>
+            <div>Subitem</div>
+            <div>Subitem</div>
+          </div>
+        </div>
+        <div class="item">
+          <input type="checkbox" id="checkbox-toggle-2">
+          <label id="side-menu-item-label-2" for="checkbox-toggle-2">
+            <span class="item-button">Item</span>
+          </label>
+          <div class="subitems">
+            <div>Subitem</div>
+            <div>Subitem</div>
+            <div>Subitem</div>
+            <div>Subitem</div>
+          </div>
+        </div>
+        <div class="item">
+          <input type="checkbox" id="checkbox-toggle-3">
+          <label id="side-menu-item-label-3" for="checkbox-toggle-3">
+            <span class="item-button">Item</span>
+          </label>
+          <div class="subitems">
+            <div>Subitem</div>
+            <div>Subitem</div>
+            <div>Subitem</div>
+            <div>Subitem</div>
+          </div>
+        </div>
+        <div class="item">
+          <input type="checkbox" id="checkbox-toggle-4">
+          <label id="side-menu-item-label-4" for="checkbox-toggle-4">
+            <span class="item-button">Item</span>
+          </label>
+          <div class="subitems">
+            <div>Subitem</div>
+            <div>Subitem</div>
+            <div>Subitem</div>
+            <div>Subitem</div>
+          </div>
+        </div>
+      </div>
+      <div id="side-menu-collapsed">
       </div>
       <div id="content-wrap">
-        <div class="space"></div>
         <div id="content">
-        <label for="alert-toggle">Open alert</label>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-        <p>Content</p>
-      </div>
-      <div class="space"></div>
+          <button id="add-content-btn">+</button>
+          <button id="remove-content-btn">-</button>
+          <div id="container">
+          </div>
+        </div>
       </div>
     </div>
-    <div id="bottom-bar">Bottom bar</div>    
+    <div id="bottom-bar">
+      <label id="open-alert-label" for="alert-toggle">
+        <span id="open-alert">Open alert</span>
+      </label>
+    </div>
+    <script src="./js/index.js"></script>
   </body>
 </html>
