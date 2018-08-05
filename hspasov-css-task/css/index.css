@@ -14,8 +14,38 @@
   background-color: #bbb33b;
 }
 
+.subitem {
+  border: 1px solid black;
+  height: 40px;
+  width: 100%;
+  text-align: center;
+  background-color: red;
+}
+
+.collapsed-subitem {
+  width: 400%;
+  border: 1px solid black;
+  height: 40px;
+  text-align: center;
+  background-color: red;
+}
+
+.subitem:active {
+  background-color: green;
+}
+
 .subitems, #alert {
   display: none;
+}
+
+.top-bar-img {
+  width: 100px;
+  height: 100%;
+}
+
+.item-icon {
+  height: 70px;
+  float: left;
 }
 
 input[type=checkbox] {
@@ -42,15 +72,12 @@ input[type=checkbox]:not(:checked) ~ div#side-menu-collapsed {
   display: none;
 }
 
-div#side-menu-collapsed:hover {
-  width: 20%;
-}
-
 span.item-button {
   display: block;
   height: 70px;
   text-align: center;
   background-color: blue;
+  border:1px solid black;
 }
 
 span.item-button:active {
@@ -80,6 +107,7 @@ input[type=checkbox]:not(:checked) ~ div#content-wrap {
 }
 
 #side-menu-button {
+  text-align: center;
   height: 100%;
   background-color: purple;
   width: 100%;
@@ -116,6 +144,22 @@ input[type=checkbox]:not(:checked) ~ div#content-wrap {
 
 #side-menu-item-label-4 {
   display: block;
+}
+
+.collapsed-item-button {
+  display: block;
+  height: 70px;
+  text-align: center;
+  background-color: blue;
+  border:1px solid black;
+}
+
+.collapsed-item-button:hover ~ .subitems {
+  display: block;
+}
+
+.collapsed-item-button ~ .subitems {
+  display: none;
 }
 
 #open-alert {
@@ -156,6 +200,11 @@ input[type=checkbox]:not(:checked) ~ div#content-wrap {
 
 img.container-image {
   width: 100%;
+  height: auto;
+}
+
+img.container-image:hover {
+  width: 110%;
   height: auto;
 }
 
