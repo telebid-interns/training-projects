@@ -1,16 +1,22 @@
-n = input()
+n = int(input())
 
 if(n < 2 or n > 3):
     raise Exception('n out of range')
 
 size = n**2
 
+initialMatrix = []
 matrix = []
 symbols = []
 
 for i in range(size):
-    line = raw_input().split()
+    line = input().split()
+    newArray = []
+    for x in range(len(line)):
+        newArray.append(line[x])
+
     matrix.append(line)
+    initialMatrix.append(newArray)
 
 for i in range(size):
     for j in range(size):
@@ -19,8 +25,6 @@ for i in range(size):
 
 if(len(symbols) < size):
     raise Exception('not enough elements')
-
-print('start')
 
 def isValid(x, y, s):
     valid = True
@@ -59,7 +63,12 @@ def dfs(x, y):
                 if isSolved():
                     print('solved')
                     for i in range(size):
-                        print(' '.join(matrix[i]))
+                        for j in range(size):
+                            if matrix[i][j] == initialMatrix[i][j]:
+                                print('\33[33;5;33m' + matrix[i][j] + '\33[0m', end=" | ")
+                            else:
+                                print('\33[32;5;32m' + matrix[i][j] + '\33[0m', end=" | ")
+                        print('\n' + size*4*'-')
                 else:
                     dfs(nextXY[0], nextXY[1])
         matrix[x][y] = '0'
