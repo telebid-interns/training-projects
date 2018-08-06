@@ -1,7 +1,76 @@
+window.addEventListener('error', onError);
+
+function onError (event) {
+  window.alert(event.error.message);
+}
+
+function parseInput (input) {
+  const NUMBERS_ROW_PATTERN = /[\d ]+(?=\n|$)/g;
+  const FIRST_ROW_PATTERN = /\d+ \d+/g;
+
+  if (typeof input !== 'string') {
+    throw new Error('Invalid input. Expected string.');
+  }
+
+  const numbersRowMatched = input.match(NUMBERS_ROW_PATTERN);
+
+  if (!Array.isArray(numbersRowMatched)) {
+    throw new Error('Invalid input. Expected rows with space separated numbers!');
+  }
+
+  if (numbersRowMatched.length !== 2) {
+    throw new Error('Expected only two rows of numbers!');
+  }
+
+  const firstRowNumbers = numbersRowMatched[0].match(/\d+/g);
+  
+  if (firstRowNumbers.length !== 2) {
+    throw new Error('Expected two numbers on first line!');
+  }
+
+  const n = Number(firstRowNumbers[0]);
+  const k = Number(firstRowNumbers[1]);
+
+  if (n < 1 || n > 1000) {
+    throw new Error('Expected n to be 1 <= n <= 1000');
+  }
+
+  if (k < 1 || k > 1000) {
+    throw new Error('Expected k to be 1 <= k <= 1000');
+  }
+
+  const secondRowNumbers = numbersRowMatched[1].match(/\d+/g);
+
+  if (secondRowNumbers.length !== n) {
+    throw new Error('Expected the amount of weights given to be equal to n!');
+  }
+
+  const weights = secondRowNumbers.map(Number);
+
+  for (const weight of weights) {
+    if (!Number.isInteger(weight)) {
+      throw new Error('Expected weights to be integers!');
+    }
+
+    if (weight < 1 || weight > 100000) {
+      throw new Error('Expected weight to be 1 <= weight <= 100000');
+    }
+  }
+
+  return {
+    n,
+    k,
+    weights,
+  };
+}
+
+
 function start () {
-  const n = 15;
-  const k = 3;
-  const weights = [666, 42, 7, 13, 400, 511, 600, 200, 202, 111, 313, 94, 280, 72, 42]; // later, the same array is sorted!!
+  const parsedInput = parseInput(document.getElementById('input').value);
+  const n = parsedInput.n;
+  const k = parsedInput.k;
+  const weights = parsedInput.weights; // later, the same array is sorted!!
+  const goatsWeightsOriginal = weights.slice();
 
   weights.sort((a, b) => { // desc
     if (a < b) {
@@ -19,7 +88,11 @@ function start () {
   if (k === 1) {
     // min boat size must be equal to the sum of the goats
     // in order to transfer all of them
-    console.log(weightsSum);
+    showResult({
+      boatSize: weightsSum,
+      goatWeightsOriginal,
+      riverCrossings: goatWeightsOriginal,
+    });
     return;
   }
 
@@ -28,12 +101,18 @@ function start () {
     let trips = 0;
     let index = 0;
     const sortedGoatsIsTransfered = [];
+    const riverCrossings = [];
 
     for (let i = 0; i < weights.length; i++) {
       sortedGoatsIsTransfered.push(false);
     }
 
     while (sortedGoatsIsTransfered.findIndex(e => e === false) !== -1) {
+      if (index === 0) {
+        // initialize for a new trip
+        riverCrossings.push([]);
+      }
+
       if (sortedGoatsIsTransfered[index]) {
         if (index === sortedGoatsIsTransfered.length - 1) {
           // at the end of the array, and current goat is transfered
@@ -43,13 +122,11 @@ function start () {
 
           // at the end of the array, but while loop did not finish,
           // so there must still be a goat that is not transfered at previous index
-
           index = 0;
         } else {
           // not at the end of the array,
           // goat is transfered,
           // nothing else to do except check next array element
-
           index++;
         }
       } else {
@@ -59,10 +136,7 @@ function start () {
           // so adding goat to boat, marking goat as transfered
           boatCarry += weights[index];
           sortedGoatsIsTransfered[index] = true;
-        } else {
-          // console.log('boatCarry: ', boatCarry);
-          // console.log('weights[index]: ', weights[index]);
-          // console.log('boatSize: ', boatSize);
+          riverCrossings[trips].push(weights[index]);
         }
 
         if (
@@ -92,10 +166,33 @@ function start () {
     }
 
     if (trips <= k) {
-      console.log(boatSize);
+      showResult({
+        riverCrossings,
+        boatSize,
+        goatsWeightsOriginal,
+      });
       break;
     }
   }
 }
 
-start();
+function showResult (props) {
+  document.getElementById('goats-weights').innerHTML = props.goatsWeightsOriginal.join(', ');
+  document.getElementById('result').innerHTML = props.boatSize;
+
+  const riverCrossings = props.riverCrossings;
+  const riverCrossingsListElement = document.getElementById('river-crossings');
+
+  while (riverCrossings.firstChild) {
+    riverCrossings.removeChild(riverCrossings.firstChild);
+  }
+
+  for (const crossing of riverCrossings) {
+    const listItem = document.createElement('li');
+    listItem.innerHTML = `${crossing.join(', ')} (sum: ${crossing.reduce((sum, weight) => sum + weight)})`;
+    riverCrossingsListElement.appendChild(listItem);
+  }
+}
+
+document.getElementById('submit-input').addEventListener('click', start);
+
