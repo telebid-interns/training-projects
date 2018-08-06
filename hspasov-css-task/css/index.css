@@ -1,3 +1,8 @@
+* {
+  font-size: 100%;
+  font-family: Arial;
+}
+
 #container {
   display: flex;
   flex-direction: row;
@@ -7,11 +12,12 @@
 
 #alert {
   position: fixed;
-  height: 20%;
+  padding: 20px;
+  height: 200px;
   width: 20%;
   top: 10%;
   right: 10%;
-  background-color: #bbb33b;
+  background-color: #ECF0F1;
 }
 
 .subitem {
@@ -19,19 +25,19 @@
   height: 40px;
   width: 100%;
   text-align: center;
-  background-color: red;
+  background-color: #EBF5FB;
 }
 
 .collapsed-subitem {
-  width: 400%;
+  width: 200%;
   border: 1px solid black;
   height: 40px;
   text-align: center;
-  background-color: red;
+  background-color: #EBF5FB;
 }
 
 .subitem:active {
-  background-color: green;
+  background-color: white;
 }
 
 .subitems, #alert {
@@ -57,7 +63,7 @@ input[type=checkbox]:checked ~ .subitems, input[type=checkbox]:checked ~ div#ale
 }
 
 input[type=checkbox]:checked span.item-button {
-  background-color: green;
+  background-color: white;
 }
 
 input[type=checkbox]:not(:checked) ~ div#side-menu {
@@ -73,15 +79,16 @@ input[type=checkbox]:not(:checked) ~ div#side-menu-collapsed {
 }
 
 span.item-button {
+  padding: 5px;
   display: block;
   height: 70px;
   text-align: center;
-  background-color: blue;
+  background-color: #A9CCE3;
   border:1px solid black;
 }
 
 span.item-button:active {
-  background-color: green;
+  background-color: white;
 }
 
 input[type=checkbox]:checked ~ div#content-wrap {
@@ -91,8 +98,7 @@ input[type=checkbox]:checked ~ div#content-wrap {
   top: 10%;
   bottom: 10%;
   float: right;
-  width: 95%;
-  background-color: #aaaaaa;
+  width: 90%;
 }
 
 input[type=checkbox]:not(:checked) ~ div#content-wrap {
@@ -103,13 +109,12 @@ input[type=checkbox]:not(:checked) ~ div#content-wrap {
   bottom: 10%;
   float: right;
   width: 80%;
-  background-color: #aaaaaa;
 }
 
 #side-menu-button {
   text-align: center;
   height: 100%;
-  background-color: purple;
+  background-color: #0B5345;
   width: 100%;
   display: block;
 }
@@ -122,7 +127,7 @@ input[type=checkbox]:not(:checked) ~ div#content-wrap {
   position: inherit;
   display: block;
   height: 8%;
-  width: 150px;
+  width: 120px;
 }
 
 #top-bar-logo {
@@ -150,7 +155,7 @@ input[type=checkbox]:not(:checked) ~ div#content-wrap {
   display: block;
   height: 70px;
   text-align: center;
-  background-color: blue;
+  background-color: #A9CCE3;
   border:1px solid black;
 }
 
@@ -164,14 +169,20 @@ input[type=checkbox]:not(:checked) ~ div#content-wrap {
 
 #open-alert {
   display:block;
-  height: 60px;
+  height: 100%;
   width: 120px;
-  background-color: pink;
+  background-color: white;
   text-align: center;
 }
 
 #open-alert-label {
+  height: 100%;
   display: block;
+}
+
+#close-alert {
+  float: right;
+  font-size: 40px;
 }
 
 .logo {
@@ -208,11 +219,38 @@ img.container-image:hover {
   height: auto;
 }
 
+button {
+  width: 100px;
+  height: 100px;
+  font-size: 40px;
+  background-color: #E3F4FB;
+}
+
+button:active {
+  background-color: white;
+}
+
 #content {
   border:1px solid black;
   position: inherit;
-  margin-top: 20%;
-  margin-botton: 20%;
+}
+
+#content-wrap {
+  margin-top: 100px;
+  margin-bottom: 100px;
+}
+
+@media (max-aspect-ratio: 3/5) {
+  #content-wrap {
+    margin-top: 200px;
+    margin-bottom: 200px;
+  }
+}
+
+@media (max-width: 500px) {
+  #side-menu-collapsed {
+    width: 10%;
+  }
 }
 
 #side-menu {
@@ -222,7 +260,7 @@ img.container-image:hover {
   bottom: 0;
   height: 92%;
   width: 20%;
-  background-color: yellow;
+  background-color: #ABEBC6;
 }
 
 #side-menu-collapsed {
@@ -231,8 +269,8 @@ img.container-image:hover {
   left: 0;
   bottom: 0;
   height: 92%;
-  width: 5%;
-  background-color: yellow;
+  width: 10%;
+  background-color: #ABEBC6;
 }
 
 #top-bar {
@@ -241,7 +279,8 @@ img.container-image:hover {
   left: 0;
   right: 0;
   height: 8%;
-  background-color: #abcdef;
+  background-color: #73C6B6;
+  border: 1px solid black;
 }
 
 #middle {
@@ -254,5 +293,6 @@ img.container-image:hover {
   left: 0;
   right: 0;
   height: 8%;
-  background-color: #abcdef;
+  background-color: #73C6B6;
+  border: 1px solid black;
 }
