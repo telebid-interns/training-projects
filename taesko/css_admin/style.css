@@ -1,0 +1,139 @@
+html {
+    font-size: 40px;
+    min-width: 100%;
+    min-height: 100%;
+}
+
+#main-header {
+    width: 100%;
+    height: 10%;
+    position: fixed;
+    top: 0;
+    padding: 0 2em;
+    margin: 0;
+    display: flex;
+    justify-content: flex-start;
+    background: gray;
+    color: yellow;
+}
+
+#main-header #header-logos {
+    float: left;
+}
+
+#header-logos button {
+    height: 100%;
+}
+
+#header-text {
+    height: 100%;
+    max-height: 100%;
+    display: flex;
+    justify-content: center;
+}
+#header-text * {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+.fit-img {
+    height: 100%;
+    width: auto;
+    max-width: 512px;
+    max-height: 512px;
+}
+
+#sidebar {
+    width: 20%;
+    height: 100%;
+    position: fixed;
+    top: 10%;
+    margin: 0;
+    background: darkgoldenrod;
+}
+
+#sidebar.hide-sidebar {
+    display: none;
+}
+
+.hide-link {
+    display: none;
+}
+
+.show-link {
+    display: block;
+}
+
+.submenu ul {
+    display:none;
+}
+
+.submenu:target ul {
+    display: block;
+}
+
+.submenu:target .hide-link {
+    display: block;
+}
+
+.submenu:target .show-link {
+    display: none;
+}
+
+#main-content {
+    width: 100%;
+    height: auto;
+    font-size: 1.3em;
+    /*position: fixed;*/
+    /*top: 10%;*/
+    /*left: 20%;*/
+    /*margin: 5%;*/
+    border: 1px solid dodgerblue;
+    margin-top: 7em;
+    margin-left: 7em;
+}
+
+#main-content.fill-sidebar {
+    margin-left: 0;
+}
+
+.gallery-controls {
+    width: 100%;
+    height: 4em;
+}
+
+.gallery-controls button {
+    font-size: 0.8em;
+    width: 33%;
+    height: 100%;
+}
+
+#gallery {
+    display: flex;
+    flex-wrap: wrap;
+    list-style: none;
+    padding: 0;
+}
+
+#gallery li {
+    width: 100%;
+    height: auto;
+}
+
+#gallery li img {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+
+#main-footer {
+    width: 100%;
+    height: 10%;
+    position: fixed;
+    bottom: 0;
+    z-index: 1;
+    background: ghostwhite;
+}
+
+#main-footer p {
+    text-align: center;
+}
