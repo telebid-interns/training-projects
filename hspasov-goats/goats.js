@@ -183,8 +183,8 @@ function showResult (props) {
   const riverCrossings = props.riverCrossings;
   const riverCrossingsListElement = document.getElementById('river-crossings');
 
-  while (riverCrossings.firstChild) {
-    riverCrossings.removeChild(riverCrossings.firstChild);
+  while (riverCrossingsListElement.firstChild) {
+    riverCrossingsListElement.removeChild(riverCrossingsListElement.firstChild);
   }
 
   for (const crossing of riverCrossings) {
