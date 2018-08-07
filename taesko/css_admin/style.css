@@ -1,3 +1,20 @@
+.rotating {
+    animation-name: rotate;
+    animation-delay: 1s;
+    animation-duration: 3s;
+    animation-iteration-count: infinite;
+}
+
+@keyframes rotate {
+    from {
+        transform: rotate(0);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 html {
     /*font-size: 40px;*/
     min-width: 100%;
@@ -7,6 +24,7 @@ html {
 body {
     margin: 0;
 }
+
 #main-header {
     width: 100%;
     height: 2em;
@@ -31,6 +49,12 @@ body {
 #header-logos button {
     height: 100%;
     vertical-align: top;
+}
+
+#menu-button {
+    width: 3em;
+    background-image: url('menu-button.png');
+    background-size: 100% 100%;
 }
 
 #header-text {
@@ -143,6 +167,31 @@ body {
 
 .gallery-controls {
     margin-bottom: 0.5em;
+    display: flex;
+    justify-content: flex-start;
+}
+
+.gallery-controls button {
+    display: block;
+    width: 3em;
+    height: 3em;
+    padding: 0;
+    margin: 0.3em;
+    color: inherit;
+    background: none;
+    border: none;
+    font: inherit;
+    cursor: pointer;
+    outline: inherit;
+}
+#add-button {
+    background-image: url("plus.png");
+    background-size: 100% 100%;
+}
+
+#remove-button {
+    background-image: url("minus.png");
+    background-size: 100% 100%;
 }
 
 #gallery {
