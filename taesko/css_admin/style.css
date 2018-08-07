@@ -179,12 +179,11 @@ body {
     max-height: 100%;
 }
 
-#gallery li:hover {
-    width: auto; /* TODO maybe use a media query here as well */
-}
 #gallery li:hover img {
-    max-width: none;
-    max-height: none;
+    position: sticky;
+    z-index: 5;
+    max-width: 150%;
+    max-height: 150%;
 }
 
 #all-the-css {
