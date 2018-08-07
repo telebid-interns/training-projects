@@ -10,7 +10,13 @@ document.getElementById('add-button').addEventListener('click', () => {
 });
 
 document.getElementById('remove-button').addEventListener('click', () => {
-  gallery.removeChild(gallery.children[0]);
+  const child = gallery.children[1]; // skip #all-the-css child
+
+  if (child == null) {
+    return;
+  }
+
+  gallery.removeChild(child);
 });
 
 document.getElementById('menu-button').addEventListener('click', () => {
