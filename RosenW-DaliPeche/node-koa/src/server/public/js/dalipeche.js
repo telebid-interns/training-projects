@@ -50,9 +50,7 @@ async function displayImage(options, parent) {
     weatherTypes[condition.weather] = 1;
   }
 
-  const mainWeather = Object.keys(weatherTypes).reduce(function(a, b){
-    return weatherTypes[a] > weatherTypes[b] ? a : b
-  });
+  const mainWeather = Object.keys(weatherTypes).reduce((a, b) => weatherTypes[a] > weatherTypes[b] ? a : b);
 
   const image = document.createElement('img');
   image.setAttribute('src', getWeatherImage(mainWeather));

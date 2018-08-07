@@ -1,0 +1,25 @@
+<html lang="en">
+  <head>
+    <link rel="stylesheet" type="text/css" href="./../bootstrap.css">
+  </head>
+   <body>
+    {{> adminForm }}
+    <h2 class="col-lg-12 col-md-12 col-sm-12 col-xs-12 text-center">Credit Transfers</h2>
+    <table id="users-table" class="table table-hover">
+      <tr>
+        <th>ID</th>
+        <th>IATA Code</th>
+        <th>City</th>
+        <th>Call Count</th>
+      </tr>
+      {{#each requests}}
+        <tr class="gen-tr">
+          <td>{{id}}</td>
+          <td>{{iata_code}}</td>
+          <td>{{city}}</td>
+          <td>{{call_count}}</td>
+        </tr>
+      {{/each}}
+    </table>
+  </body>
+</html>

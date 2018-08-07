@@ -195,6 +195,67 @@ router.get('/admin/users', async (ctx, next) => {
   });
 });
 
+// GET admin/cities
+router.get('/admin/cities', async (ctx, next) => {
+  trace(`GET '/admin/cities'`);
+
+  if (ctx.session.admin == null) {
+    await ctx.render('admin_login', { err: ctx.query.err });
+    return next();
+  }
+
+  const term = ctx.query.term;
+
+  let cities;
+  if (term == null) {
+    cities = (await db.query(`SELECT * FROM cities`)).rows;
+  } else {
+    cities = (await db.query(`
+      SELECT * FROM cities
+      WHERE LOWER(username)
+      LIKE LOWER($1)`,
+      `%${term}%`
+    )).rows;
+  }
+
+  cities = cities.sort((c1, c2) => c1.id - c2.id);
+
+  cities = cities.map((city) => {
+    if (city.observed_at != null) city.observed_at = formatDate(city.observed_at);
+    return city;
+  });
+
+  await ctx.render('admin_cities', { cities });
+});
+
+// GET admin/requests
+router.get('/admin/requests', async (ctx, next) => {
+  trace(`GET '/admin/requests'`);
+
+  if (ctx.session.admin == null) {
+    await ctx.render('admin_login', { err: ctx.query.err });
+    return next();
+  }
+
+  const term = ctx.query.term;
+
+  let requests;
+  if (term == null) {
+    requests = (await db.query(`SELECT * FROM requests`)).rows;
+  } else {
+    requests = (await db.query(`
+      SELECT * FROM requests
+      WHERE LOWER(username)
+      LIKE LOWER($1)`,
+      `%${term}%`
+    )).rows;
+  }
+
+  requests = requests.sort((c1, c2) => c2.call_count - c1.call_count);
+
+  await ctx.render('admin_requests', { requests });
+});
+
 // GET admin/ctransfers
 router.get('/admin/ctransfers', async (ctx, next) => {
   trace(`GET '/admin/ctransfers'`);
