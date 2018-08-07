@@ -8,6 +8,7 @@
   flex-direction: row;
   flex-wrap: wrap;
   justify-content: space-between;
+  transition: all 1s;
 }
 
 #alert {
@@ -18,6 +19,7 @@
   top: 10%;
   right: 10%;
   background-color: #ECF0F1;
+  transition: all 1s;
 }
 
 .subitem {
@@ -85,6 +87,11 @@ span.item-button {
   text-align: center;
   background-color: #A9CCE3;
   border:1px solid black;
+  transition: all 1s;
+}
+
+span.item-button:hover, span.item-button:active {
+  background-color: white;
 }
 
 span.item-button:active {
@@ -114,9 +121,13 @@ input[type=checkbox]:not(:checked) ~ div#content-wrap {
 #side-menu-button {
   text-align: center;
   height: 100%;
-  background-color: #0B5345;
   width: 100%;
+  transition: all 0.5s;
   display: block;
+}
+
+#side-menu-button:hover {
+  background-color: white;
 }
 
 #side-menu-button:active {
@@ -155,8 +166,7 @@ input[type=checkbox]:not(:checked) ~ div#content-wrap {
   display: block;
   height: 70px;
   text-align: center;
-  background-color: #A9CCE3;
-  border:1px solid black;
+  transition: all 1s;
 }
 
 .collapsed-item-button:hover ~ .subitems {
@@ -173,6 +183,11 @@ input[type=checkbox]:not(:checked) ~ div#content-wrap {
   width: 120px;
   background-color: white;
   text-align: center;
+  transition: all 1s;
+}
+
+#open-alert:hover {
+  background-color: yellow;
 }
 
 #open-alert-label {
@@ -247,12 +262,6 @@ button:active {
   }
 }
 
-@media (max-width: 500px) {
-  #side-menu-collapsed {
-    width: 10%;
-  }
-}
-
 #side-menu {
   position: fixed;
   right: 0;
@@ -260,7 +269,7 @@ button:active {
   bottom: 0;
   height: 92%;
   width: 20%;
-  background-color: #ABEBC6;
+  background-color: rgb(10, 10, 10, 0.5);
 }
 
 #side-menu-collapsed {
@@ -270,7 +279,6 @@ button:active {
   bottom: 0;
   height: 92%;
   width: 10%;
-  background-color: #ABEBC6;
 }
 
 #top-bar {
@@ -280,6 +288,7 @@ button:active {
   right: 0;
   height: 8%;
   background-color: #73C6B6;
+  background-image: linear-gradient(#D9E7EC,#A9BEC5 );
   border: 1px solid black;
 }
 
@@ -293,6 +302,7 @@ button:active {
   left: 0;
   right: 0;
   height: 8%;
-  background-color: #73C6B6;
+  background-color: #336D84;
   border: 1px solid black;
 }
+
