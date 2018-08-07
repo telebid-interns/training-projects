@@ -6,9 +6,18 @@
      <input type="text" id='rows' placeholder="Rows">
      <input type="text" id='cols' placeholder="Cols">
      <input type="text" id='days' placeholder="Days">
-     <input type="text" id='first' placeholder="First strawberry coordinates">
-     <input type="text" id='second' placeholder="Second strawberry coordinates">
-     <button id='submit'> submit </button>
+     <br>
+     <br>
+     <label>First Strawberry</label>
+     <br>
+     <input type="text" id='firstX' placeholder="X">
+     <input type="text" id='firstY' placeholder="Y">
+     <br>
+     <label>Second Strawberry (optional)</label>
+     <br>
+     <input type="text" id='secondX' placeholder="X">
+     <input type="text" id='secondY' placeholder="Y">
+     <button id='submit'>submit</button>
      <p id='result'> </p>
      <canvas id="myCanvas" width="5000" height="5000">
      </canvas>
@@ -16,96 +25,93 @@
 </html>
 
 <script>
-  function draw(matrix, cols, rows){
+  function draw(matrix, cols, rows) {
     let canvas = document.getElementById("myCanvas");
-      let ctx = canvas.getContext("2d");
+    let ctx = canvas.getContext("2d");
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      for(let i = 0; i < cols; i++){
-        for(let j = 0; j < rows; j++){
-          if(matrix[i][j]=='1'){
-            ctx.fillStyle = "#AAFFAA";
-              ctx.strokeRect(32 + (i*32), 32 + (j*32), 32, 32);
-              ctx.fillRect(32 + (i*32), 32 + (j*32), 32, 32);
-          }else if(matrix[i][j]=='0'){
-            ctx.fillStyle = "#FFAAAA";
-              ctx.strokeRect(32 + (i*32), 32 + (j*32), 32, 32);
-              ctx.fillRect(32 + (i*32), 32 + (j*32), 32, 32);
-          }
+    for(let i = 0; i < cols; i++){
+      for(let j = 0; j < rows; j++){
+        if(matrix[i][j]=='1'){
+          ctx.fillStyle = "#AAFFAA";
+            ctx.strokeRect(32 + (i*32), 32 + (j*32), 32, 32);
+            ctx.fillRect(32 + (i*32), 32 + (j*32), 32, 32);
+        }else if(matrix[i][j]=='0'){
+          ctx.fillStyle = "#FFAAAA";
+            ctx.strokeRect(32 + (i*32), 32 + (j*32), 32, 32);
+            ctx.fillRect(32 + (i*32), 32 + (j*32), 32, 32);
         }
       }
-
+    }
   }
 
-  $('#submit').click(function(){
+  $('#submit').click(function () {
     let rows = $('#rows').val();
     let cols = $('#cols').val();
     let days = $('#days').val();
-    let first = $('#first').val().split(' ');
-    let second = $('#second').val().split(' ');
 
     matrix = [];
 
-    for(let i = 0; i<cols; i++){
+    for (let i = 0; i < cols; i++) {
       matrix[i] = [];
-      for(let j = 0; j<rows; j++){
+      for (let j = 0; j < rows; j++) {
         matrix[i][j] = 0;
       }
     }
 
-    let firstX = first[0];
-    let firstY = first[1];
-
+    let firstX = $('#firstX').val();
+    let firstY = $('#firstY').val();
+    let secondX = $('#secondX').val();
+    let secondY = $('#secondY').val();
 
     matrix[firstY-1][firstX-1] = 1;
-    
-    if(second.length==2){
-      let secondX = second[0];
-      let secondY = second[1];
+
+    if (secondX.length > 0 && secondY.length > 0) {
       matrix[secondY-1][secondX-1] = 1;
     }
 
     console.log(matrix.join('\n'));
 
-    for(let k = 0; k<days; k++){
-      for(let i = 0; i<cols; i++){
-        for(let j = 0; j<rows; j++){
-          if(matrix[i][j] == 1){
-            try{
-              if (matrix[i-1][j] == 0){
+    for (let k = 0; k<days; k++) {
+      for (let i = 0; i<cols; i++) {
+        for (let j = 0; j<rows; j++) {
+          if (matrix[i][j] == 1){
+            try {
+              if (matrix[i-1][j] == 0) {
                 matrix[i-1][j] = 2;
-              } 
-            }catch(err){
+              }
+            } catch (err) {
 
             }
-            try{
-              if (matrix[i+1][j] == 0){
+            try {
+              if (matrix[i+1][j] == 0) {
                 matrix[i+1][j] = 2;
-              } 
-            }catch(err){
+              }
+            } catch (err) {
 
             }
-            try{
-              if (matrix[i][j+1] == 0){
+            try {
+              if (matrix[i][j+1] == 0) {
                 matrix[i][j+1] = 2;
-              } 
-            }catch(err){
+              }
+            } catch (err) {
 
             }
-            try{
-              if (matrix[i][j-1] == 0){
+            try {
+              if (matrix[i][j-1] == 0) {
                 matrix[i][j-1] = 2;
-              } 
-            }catch(err){
+              }
+            } catch (err) {
 
             }
           }
-        } 
+        }
       }
-      for(let i = 0; i<cols; i++){
-        for(let j = 0; j<rows; j++){
-          if(matrix[i][j]==2){
+
+      for (let i = 0; i<cols; i++) {
+        for (let j = 0; j<rows; j++) {
+          if (matrix[i][j] == 2) {
             matrix[i][j] = 1;
           }
         }
@@ -113,9 +119,9 @@
     }
 
     let count = 0;
-    for(let i = 0; i<cols; i++){
-      for(let j = 0; j<rows; j++){
-        if (matrix[i][j] == 0){
+    for (let i = 0; i<cols; i++) {
+      for (let j = 0; j<rows; j++) {
+        if (matrix[i][j] == 0) {
           count+=1
         }
       }
