@@ -1,0 +1,77 @@
+<html lang="en">
+  <head>
+  </head>
+   <body>
+     <label>Max Courses</label>
+     <input type="text" id='courses' placeholder="Max Courses">
+     <label>Sheep</label>
+     <input type="text" id='sheep' placeholder="eg: '5 3 5 1 18'">
+     <button id='submit'> submit </button>
+     <canvas id="myCanvas" width="5000" height="5000">
+     </canvas>
+    </body>
+</html>
+
+<script type="text/javascript">
+  function draw(groups, shipSize) {
+    console.log(groups);
+    console.log(shipSize);
+    let canvas = document.getElementById("myCanvas");
+    let ctx = canvas.getContext("2d");
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.font = '22px serif';
+
+    ctx.fillText(`Minimum Ship Size: ${shipSize}`, 32, 32);
+    for (let i = 0; i < groups.length; i++) {
+      ctx.fillText(`(${groups[i]}) ${groups[i].reduce((a, b) => a + b)}/${shipSize}`, 32, 64 + (32 * i));
+    }
+  }
+
+  document.getElementById('submit').addEventListener('click', (e) => {
+    const maxCourses = document.getElementById('courses').value;
+    const sheep =
+    document.getElementById('sheep')
+      .value
+      .split(' ')
+      .map((e) => parseInt(e))
+      .sort((a, b) => b - a);
+
+    let shipSize = sheep[0];
+    console.log(sheep);
+
+    let cycle = 0;
+    let sheepLeft = [];
+    let groups = [];
+    sheep.forEach((s) => sheepLeft.push(s));
+    while (true) {
+      cycle++;
+      let weightOnShip = 0;
+
+      let group = [];
+      for (let i = 0; i < sheepLeft.length; i++) {
+        const currentSheepWeight = sheepLeft[i];
+        if (weightOnShip + currentSheepWeight <= shipSize) {
+          weightOnShip += currentSheepWeight;
+          group.push(currentSheepWeight);
+          sheepLeft.splice(i--, 1);
+        }
+      }
+      groups.push(group)
+
+
+      if (cycle >= maxCourses) {
+        if (sheepLeft.length === 0) {
+          draw(groups, shipSize);
+          break;
+        } else {
+          groups = [];
+          shipSize++;
+          cycle=0;
+          sheepLeft = [];
+          sheep.forEach((s) => sheepLeft.push(s));
+        }
+      }
+    }
+  });
+</script>
