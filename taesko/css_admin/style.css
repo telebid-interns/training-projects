@@ -4,19 +4,23 @@ html {
     min-height: 100%;
 }
 
+body {
+    margin: 0;
+}
 #main-header {
     width: 100%;
     height: 2em;
     position: fixed;
     top: 0;
     left: 0;
-    z-index: 9999;
+    z-index: 10000;
     /*padding: 0 2em;*/
     /*margin: 0;*/
     display: flex;
     justify-content: flex-start;
     background: #ddd;
-    color: #4a6fff
+    color: #4a6fff;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.16), 0 3px 6px rgba(0,0,0,0.23);
 }
 
 #main-header #header-logos {
@@ -52,25 +56,40 @@ html {
     position: fixed;
     bottom: 0;
     left: 0;
-    z-index: 9999;
+    z-index: 10000;
     background-color: #ccc;
+    box-shadow: 0 -3px 6px rgba(0,0,0,0.16), 0 -3px 6px rgba(0,0,0,0.23);
 }
 
-#main-footer h3 {
+#main-footer-text {
     width: 100%;
     margin: 0;
     vertical-align: top;
+    display: flex;
+    justify-content: flex-start;
+}
+
+#main-footer h3 {
+    width: 70%;
+    margin: 0;
+    text-align: center;
+}
+
+#main-footer a {
+    width: 30%;
     text-align: center;
 }
 
 #sidebar {
+    width: 10em;
     height: 100%;
     position: fixed;
     top: 2em;
     left: 0;
-    z-index:9999;
+    z-index: 9999;
     margin: 0;
     background: #b5b8b3;
+    box-shadow: 3px 0 6px rgba(0,0,0,0.16), 3px 0 6px rgba(0,0,0,0.23); /* what does this do ? */
 }
 
 #sidebar.hide-sidebar {
@@ -113,22 +132,17 @@ html {
     display: none;
 }
 
-/*#main-content {*/
-    /*width: 100%;*/
-    /*height: auto;*/
-    /*font-size: 1.3em;*/
-    /*!*position: fixed;*!*/
-    /*!*top: 10%;*!*/
-    /*!*left: 20%;*!*/
-    /*!*margin: 5%;*!*/
-    /*border: 1px solid dodgerblue;*/
-    /*margin-top: 7em;*/
-    /*margin-left: 7em;*/
-/*}*/
+#main-content {
+    width: 90%; /* TODO use a media query */
+    border: 1px solid dodgerblue;
+    height: 90%; /* TODO use a media query */
+    margin: 3em 1em 5em 11em; /* margin right not working when width is set to 100% */
+    padding: 2em;
+}
 
-/*#main-content.fill-sidebar {*/
-    /*margin-left: 0;*/
-/*}*/
+#main-content.fill-sidebar {
+    margin-left: 1em;
+}
 
 /*.gallery-controls {*/
     /*width: 100%;*/
@@ -141,19 +155,47 @@ html {
     /*height: 100%;*/
 /*}*/
 
-/*#gallery {*/
-    /*display: flex;*/
-    /*flex-wrap: wrap;*/
-    /*list-style: none;*/
-    /*padding: 0;*/
-/*}*/
+.gallery-controls {
+    margin-bottom: 0.5em;
+}
+#gallery {
+    display: flex;
+    flex-wrap: wrap;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    position: relative;
+}
 
-/*#gallery li {*/
-    /*width: 100%;*/
-    /*height: auto;*/
-/*}*/
+#gallery li {
+    width: 18%;
+    height: auto;
+    padding: 0.4%;
+}
 
-/*#gallery li img {*/
-    /*max-width: 100%;*/
-    /*max-height: 100%;*/
-/*}*/
+#gallery li img {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+#gallery li:hover {
+    flex-grow: 2;
+}
+
+#all-the-css {
+    display: none;
+    width: 8em;
+    height: auto;
+    position: absolute;
+    top: -4em;
+    right: 5%;
+    border: 1px solid turquoise;
+}
+
+#all-the-css img {
+    max-width: 100%;
+    max-height: 100%;
+}
+#all-the-css:target {
+    display: block;
+}
