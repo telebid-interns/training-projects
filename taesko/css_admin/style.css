@@ -157,8 +157,10 @@ body {
 .gallery-controls {
     margin-bottom: 0.5em;
 }
+
 #gallery {
     display: flex;
+    justify-content: flex-start;
     flex-wrap: wrap;
     list-style: none;
     padding: 0;
@@ -178,7 +180,11 @@ body {
 }
 
 #gallery li:hover {
-    flex-grow: 2;
+    width: auto; /* TODO maybe use a media query here as well */
+}
+#gallery li:hover img {
+    max-width: none;
+    max-height: none;
 }
 
 #all-the-css {
