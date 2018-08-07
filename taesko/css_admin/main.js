@@ -4,7 +4,7 @@ let sidebarShowed = true;
 document.getElementById('add-button').addEventListener('click', () => {
   const li = document.createElement('li');
   const img = document.createElement('img');
-  img.setAttribute('src', 'hell.jpg');
+  img.setAttribute('src', 'hell.gif');
   li.appendChild(img);
   gallery.appendChild(li);
 });

@@ -2,10 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <!--
-    TODO what does this do exactly?
-     <meta name="viewport" content="width=device-width, initial-scale=1">
-    -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>TITLE OF MY WONDERFUL PAGE</title>
     <link rel="stylesheet" href="style.css">
     <script type="application/javascript" src="main.js" defer></script>
@@ -19,32 +16,49 @@
             <img width="512" height="512" src="hanging_man.png" class="fit-img">
         </div>
         <div id="header-text">
-            <h2>
+            <h3>
                 Hello Heaven.
-            </h2>
+            </h3>
         </div>
     </header>
-    <div id="sidebar">
-        <ul>
+    <nav id="sidebar">
+        <ul id="sidebar-menu">
             <li id="menu-1" class="submenu">
+                <img src="menu-entry-icon.png" alt="Icon of the menu">
                 <a class="show-link" href="#menu-1">What</a>
                 <a class="hide-link" href="#sidebar">What</a>
                 <ul>
-                    <li>is</li>
-                    <li>css</li>
-                    <li>even</li>
+                    <li>
+                        <img src="submenu-entry-icon.png" alt="Icon of the submenu">
+                        is
+                    </li>
+                    <li>
+                        <img src="submenu-entry-icon.png" alt="Icon of the submenu">
+                        css
+                    </li>
+                    <li>
+                        <img src="submenu-entry-icon.png" alt="Icon of the submenu">
+                        even
+                    </li>
                 </ul>
             </li>
             <li id="menu-2" class="submenu">
+                <img src="menu-entry-icon.png" alt="Icon of the menu">
                 <a class="show-link" href="#menu-2">Why</a>
                 <a class="hide-link" href="#sidebar">Why</a>
                 <ul>
-                    <li>even</li>
-                    <li>live</li>
+                    <li>
+                        <img src="submenu-entry-icon.png" alt="Icon of the submenu">
+                        even
+                    </li>
+                    <li>
+                        <img src="submenu-entry-icon.png" alt="Icon of the submenu">
+                        live
+                    </li>
                 </ul>
             </li>
         </ul>
-    </div>
+    </nav>
     <main id="main-content">
         <h4>
             Sanctuary
@@ -59,14 +73,12 @@
                 </button>
             </div>
             <ul id="gallery">
-                <li><img src="hell.jpg"></li>
+                <li><img src="hell.gif"></li>
             </ul>
         </article>
     </main>
     <footer id="main-footer">
-        <p>
-            Road map
-        </p>
+        <h3> SOS </h3>
     </footer>
 </body>
 </html>
