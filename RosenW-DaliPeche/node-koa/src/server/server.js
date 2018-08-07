@@ -160,7 +160,7 @@ router.get('/admin/users', async (ctx, next) => {
   trace(`GET '/admin/users'`);
 
   if (ctx.session.admin == null) {
-    await ctx.render('admin_login', { err: ctx.query.err });
+    await ctx.redirect('/admin');
     return next();
   }
 
@@ -200,7 +200,7 @@ router.get('/admin/cities', async (ctx, next) => {
   trace(`GET '/admin/cities'`);
 
   if (ctx.session.admin == null) {
-    await ctx.render('admin_login', { err: ctx.query.err });
+    await ctx.redirect('/admin');
     return next();
   }
 
@@ -233,7 +233,7 @@ router.get('/admin/requests', async (ctx, next) => {
   trace(`GET '/admin/requests'`);
 
   if (ctx.session.admin == null) {
-    await ctx.render('admin_login', { err: ctx.query.err });
+    await ctx.redirect('/admin');
     return next();
   }
 
@@ -261,7 +261,7 @@ router.get('/admin/ctransfers', async (ctx, next) => {
   trace(`GET '/admin/ctransfers'`);
 
   if (ctx.session.admin == null) {
-    await ctx.render('admin_login', { err: ctx.query.err });
+    await ctx.redirect('/admin');
     return next();
   }
 
