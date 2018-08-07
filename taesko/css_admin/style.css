@@ -70,13 +70,13 @@ body {
 }
 
 #main-footer h3 {
-    width: 70%;
+    width: 100%;
     margin: 0;
     text-align: center;
 }
 
 #main-footer a {
-    width: 30%;
+    white-space: nowrap;
     text-align: center;
 }
 
