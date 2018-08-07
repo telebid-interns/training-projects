@@ -133,7 +133,6 @@ body {
 }
 
 #main-content {
-    width: 90%; /* TODO use a media query */
     border: 1px solid dodgerblue;
     height: 90%; /* TODO use a media query */
     margin: 3em 1em 5em 11em; /* margin right not working when width is set to 100% */
