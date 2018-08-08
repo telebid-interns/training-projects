@@ -14,7 +14,7 @@ stop = False
 n = input()
 if n < 2 or n > 1000:
 	raise Exception('n out of range')
-	
+
 circles = []
 
 for i in range(n):
