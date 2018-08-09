@@ -6,7 +6,6 @@ const { AppError, PeerError, UserError } = require('./../asserts/exceptions.js')
 const { trace, clearTraceLog } = require('./../debug/tracer.js');
 const {
   generateRandomString,
-  formatDate,
   validateEmail,
   isObject,
   makeTransaction,
@@ -148,7 +147,7 @@ router.get('/register', async (ctx, next) => {
 router.get('/admin', async (ctx, next) => {
   trace(`GET '/admin'`);
   if (ctx.session.admin == null) {
-    await ctx.render('admin_login', { err: ctx.query.err });
+    await ctx.render('admin_login');
     return next();
   }
 
@@ -168,25 +167,20 @@ router.get('/admin/users', async (ctx, next) => {
 
   let users;
   if (term == null) {
-    users = (await db.query(`SELECT * FROM users`)).rows;
+    users = (await db.query(`SELECT * FROM users ORDER BY id`)).rows;
   } else {
     users = (await db.query(`
       SELECT * FROM users
       WHERE LOWER(username)
-      LIKE LOWER($1)`,
+      LIKE LOWER($1)
+      ORDER BY id`,
       `%${term}%`
     )).rows;
   }
 
-  users = users.sort((u1, u2) => {
-    const first = new Date(parseInt(u1.date_registered));
-    const second = new Date(parseInt(u2.date_registered));
-    return first - second;
-  });
-
-  users = users.map((user) => {
-    user.date_registered = formatDate(user.date_registered);
-    return user;
+  users = users.map((u) => {
+    u.date_registered = u.date_registered.toISOString();
+    return u;
   });
 
   await ctx.render('admin_users', {
@@ -218,12 +212,11 @@ router.get('/admin/cities', async (ctx, next) => {
     )).rows;
   }
 
-  cities = cities.sort((c1, c2) => c1.id - c2.id);
-
-  cities = cities.map((city) => {
-    if (city.observed_at != null) city.observed_at = formatDate(city.observed_at);
-    return city;
-  });
+  cities = cities.map((c) => {
+    c.observed_at = c.observed_at.toISOString();
+    return c;
+  })
+  .sort((c1, c2) => c1.id - c2.id);
 
   await ctx.render('admin_cities', { cities });
 });
@@ -270,30 +263,40 @@ router.get('/admin/ctransfers', async (ctx, next) => {
   let transfers;
   if (term == null) {
     transfers = (await db.query(`
-      SELECT * FROM users as u
+      SELECT
+        ct.id,
+        transfer_date,
+        username,
+        credits_bought,
+        credits_spent,
+        event
+      FROM users as u
       JOIN credit_transfers as ct
       ON ct.user_id = u.id
+      ORDER BY id DESC
     `)).rows;
   } else {
     transfers = (await db.query(`
-      SELECT * FROM users as u
+      SELECT
+        id,
+        transfer_date,
+        username,
+        credits_bought,
+        credits_spent,
+        event
+      FROM users as u
       JOIN credit_transfers as ct
       ON ct.user_id = u.id
       WHERE LOWER(username)
-      LIKE LOWER($1)`,
+      LIKE LOWER($1)
+      ORDER BY ct.id DESC`,
       `%${term}%`
     )).rows;
   }
 
-  transfers = transfers.sort((t1, t2) => {
-    const first = new Date(parseInt(t1.transfer_date));
-    const second = new Date(parseInt(t2.transfer_date));
-    return first - second;
-  });
-
-  transfers = transfers.map((transfer) => {
-    transfer.transfer_date = formatDate(transfer.transfer_date);
-    return transfer;
+  transfers = transfers.map((t) => {
+    t.transfer_date = t.transfer_date.toISOString();
+    return t;
   });
 
   await ctx.render('admin_transfers', { transfers });
@@ -303,13 +306,20 @@ router.get('/admin/ctransfers', async (ctx, next) => {
 router.get('/buy', async (ctx, next) => {
   trace(`GET '/buy'`);
 
-  await ctx.render('buy', { success: ctx.query.success, error: ctx.query.err});
+  await ctx.render('buy',
+    {
+      success: ctx.query.success,
+      error: ctx.query.err
+    }
+  );
 });
 
 // POST buy
 router.post('/buy', async (ctx, next) => {
   trace(`POST '/buy'`);
-  // TODO if session.user not str
+  if (ctx.session.user == null) {
+    ctx.redirect('/home');
+  }
 
   assert(isObject(ctx.request.body), 'Post buy has no body', 12);
 
@@ -319,18 +329,18 @@ router.post('/buy', async (ctx, next) => {
   assert(isObject(user), 'User not an object', 13);
 
   if (!isInteger(Number(credits)) || Number(credits) <= 0) {
-    await ctx.redirect('/buy?err=1');
+    await ctx.render('buy', { error: 'Credits must be a positive whole number' });
     return next();
   }
 
   if (Number(credits) + Number(user.credits) > MAXIMUM_CREDITS_ALLOWED) {
-    await ctx.redirect('/buy?err=2');
+    await ctx.render('buy', { error: 'Maximum credits allowed is 1000000 per user' });
     return next();
   }
 
   await addCreditsToUser(user, credits);
 
-  await ctx.redirect('/buy?success=1');
+  await ctx.render('buy', { credits });
 });
 
 const addCreditsToUser = async (user, credits) => {
@@ -363,7 +373,7 @@ router.post('/admin', async (ctx, next) => {
     return ctx.redirect('/admin/users');
   }
 
-  ctx.redirect('/admin?err=1');
+  await ctx.render('admin_login', { error: 'Invalid log in information' });
 });
 
 // POST register
@@ -372,9 +382,9 @@ router.post('/register', async (ctx, next) => {
 
   assertUser(
     typeof ctx.request.body.username === 'string' &&
-      typeof ctx.request.body.email === 'string' &&
-      typeof ctx.request.body.password === 'string' &&
-      typeof ctx.request.body['repeat-password'] === 'string',
+    typeof ctx.request.body.email === 'string' &&
+    typeof ctx.request.body.password === 'string' &&
+    typeof ctx.request.body['repeat-password'] === 'string',
     'Invalid information',
     20
   );
@@ -387,12 +397,12 @@ router.post('/register', async (ctx, next) => {
   const salt = generateRandomString(10);
 
   if (!validateEmail(email)) {
-    ctx.redirect('/register?err=2');
+    await ctx.render('register', { error: 'Invalid Email'});
     return next();
   }
 
   if (password !== repeatPassword) {
-    ctx.redirect('/register');
+    await ctx.render('register', { error: 'Passwords must match' });
     return next();
   }
 
@@ -400,7 +410,7 @@ router.post('/register', async (ctx, next) => {
     password.length < MINIMUM_PASSWORD_LENGTH ||
       username.length < MINIMUM_USERNAME_LENGTH
   ) {
-    ctx.redirect('/register');
+    await ctx.render('register', { error: 'username and password must be around 4 symbols'});
     return next();
   }
 
@@ -408,10 +418,10 @@ router.post('/register', async (ctx, next) => {
 
   if (user != null) {
     if (user.username === username) {
-      ctx.redirect('/register?err=1'); // username exists
+      await ctx.render('register', { error: 'a user with this username already exists'});
       return next();
     } else {
-      ctx.redirect('/register?err=3'); // email exists
+      await ctx.render('register', { error: 'a user with this email already exists'});
       return next();
     }
   }
@@ -429,7 +439,7 @@ router.post('/register', async (ctx, next) => {
     salt
   )
 
-  ctx.redirect('/login?success=1');
+  await ctx.render('login', { msg: 'Successfuly Registered' });
 });
 
 // POST login
@@ -442,7 +452,7 @@ router.post('/login', async (ctx, next) => {
   const user = (await db.query(`SELECT * FROM users where username = $1`, username)).rows[0];
 
   if (user == null) {
-    ctx.redirect('/login?err=1');
+    await ctx.render('login', { error: 'No user registered with given username' });
     return next();
   }
 
@@ -453,7 +463,7 @@ router.post('/login', async (ctx, next) => {
     ctx.session.user = user.username;
     ctx.redirect('/home');
   } else {
-    ctx.redirect('/login?err=2');
+    await ctx.render('login', { error: 'Invalid Password'});
   }
 });
 

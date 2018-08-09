@@ -8,25 +8,15 @@
       <form method="post">
         <input type="number" name="credits" id='credit-box' placeholder="Enter credits" class="form-control">
         <br>
-        <p id="success-msg" hidden="true" class="text-success">Successfuly added credits</p>
-        <p id="credits-not-number-error-msg" hidden="true" class="text-danger">Credits must be a positive whole number</p>
-        <p id="max-credits-error-msg" hidden="true" class="text-danger">Maximum credits allowed is 1000000 per user</p>
+        {{#if credits}}
+          <p id="success-msg" class="text-success">Successfuly added {{credits}} credits</p>
+        {{/if}}
+        {{#if error}}
+          <p class="text-danger">{{error}}</p>
+        {{/if}}
         <input type="submit" id="buy-btn" value="Buy" class='btn btn-default pull-right'>
         <a href="home" class='pull-left'>Back</a>
       </form>
     </ul>
   </body>
 </html>
-
-<script type="text/javascript">
-const successMsg = document.getElementById('success-msg');
-const notNumberErrorMsg = document.getElementById('credits-not-number-error-msg');
-const maxCreditsErrorMsg = document.getElementById('max-credits-error-msg');
-
-const success = "{{success}}";
-const error = "{{error}}";
-
-if (Number(success) === 1) successMsg.removeAttribute('hidden');
-if (Number(error) === 1) notNumberErrorMsg.removeAttribute('hidden');
-if (Number(error) === 2) maxCreditsErrorMsg.removeAttribute('hidden');
-</script>

@@ -11,19 +11,11 @@
         <label for="username">Password:</label>
         <input type="password" id='password' name='password' placeholder="Enter Password" class="form-control">
         <br>
-        <p id="wrong-info-err" hidden="true" class="text-danger">Invalid log in information</p>
+        {{#if error}}
+          <p class="text-danger">{{error}}</p>
+        {{/if}}
         <input type="submit" id='sub-btn' class='btn btn-default pull-right' value="Log In"></input>
       </form>
     </ul>
   </body>
 </html>
-
-<script type="text/javascript">
-  const invalidInfoErrorMsg = document.getElementById('wrong-info-err');
-
-  const error = "{{err}}";
-
-  if (Number(error) === 1) {
-    invalidInfoErrorMsg.removeAttribute('hidden');
-  }
-</script>

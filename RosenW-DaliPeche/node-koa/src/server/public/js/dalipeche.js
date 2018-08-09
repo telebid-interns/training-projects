@@ -2,8 +2,8 @@ const API_LINK = 'http://127.0.0.1:3001/api/forecast';
 const ICON_WIDTH = 64;
 const ICON_HEIGHT = 64;
 
-$.fn.getForecast = async function ({city, iataCode, key}) {
-  const data = { key };
+$.fn.getForecast = async function ({city, iataCode, APIKey}) {
+  const data = { APIKey };
   if (typeof city === 'string') {
     data.city = city;
   } else if (typeof iataCode === 'string') {

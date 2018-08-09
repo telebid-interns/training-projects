@@ -19,11 +19,8 @@
           <label for="username">Repeat Password:</label>
           <input type="password" id='repeat-password' name='repeat-password' placeholder="Repeat Your Password" class="form-control">
           <br>
+          <p class="text-danger">{{error}}</p>
           <p id="pass-err" hidden="true" class="text-danger">Passwords don't match</p>
-          <p id="email-err" hidden="true" class="text-danger">Invalid Email</p>
-          <p id="name-exists-err" hidden="true" class="text-danger">a user with this username already exists</p>
-          <p id="email-exists-err" hidden="true" class="text-danger">a user with this email already exists</p>
-          <br>
           <a href="./login">Already have an account ?</a>
           <input type="submit" id='sub-btn' class='btn btn-default pull-right' value="Register"></input>
         </form>
@@ -38,29 +35,12 @@
   const repeatPasswordBox = document.getElementById('repeat-password');
 
   const passwordsDontMatchErrorMsg = document.getElementById('pass-err');
-  const invalidEmailErrorMsg = document.getElementById('email-err');
   const usernameLengthErrorMsg = document.getElementById('username-err');
   const passwordLengthErrorMsg = document.getElementById('password-err');
-  const usernameExistsErrorMsg = document.getElementById('name-exists-err');
-  const emailExistsErrorMsg = document.getElementById('email-exists-err');
-
-  const error = "{{err}}";
 
   usernameBox.addEventListener('keyup', checkUsernameField);
   passwordBox.addEventListener('keyup', checkPasswordFields);
   repeatPasswordBox.addEventListener('keyup', checkPasswordFields);
-
-  if (Number(error) === 1) {
-    usernameExistsErrorMsg.removeAttribute('hidden');
-  }
-
-  if (Number(error) === 2) {
-    invalidEmailErrorMsg.removeAttribute('hidden');
-  }
-
-  if (Number(error) === 3) {
-    emailExistsErrorMsg.removeAttribute('hidden');
-  }
 
   function checkUsernameField () {
     if (usernameBox.value.length < MINIMUM_PASS_LENGTH) {

@@ -15,9 +15,8 @@
         <label for="username">Password:</label>
         <input type="password" id='password' name='password' placeholder="Enter Your Password" class="form-control">
         <br>
-        <p id="noacc-err" hidden="true" class="text-danger">No account registered with given username</p>
-        <p id="wrong-pass-err" hidden="true" class="text-danger">invalid password</p>
-        <p id="registered-msg" hidden="true" class="text-success">Successfuly Registered</p>
+        <p class="text-danger">{{error}}</p>
+        <p class="text-success">{{msg}}</p>
         <a href="./register">Don't have an account ?</a>
         <input type="submit" id='sub-btn' class='btn btn-default pull-right' value="Log In"></input>
 <!--         <div id="container"></div> -->
@@ -25,26 +24,3 @@
     </ul>
   </body>
 </html>
-
-<script type="text/javascript">
-  const noAccErrorMsg = document.getElementById('noacc-err');
-  const wrongPassErrorMsg = document.getElementById('wrong-pass-err');
-  const successfulyRegisteredMsg = document.getElementById('registered-msg');
-
-  // $('#container').getForecast({city: 'sofia', key: 'N8IDyTFmOszZ7ztA'});
-
-  const error = '{{err}}';
-  const success = '{{success}}';
-
-  if (Number(error) === 1) {
-    noAccErrorMsg.removeAttribute('hidden');
-  }
-
-  if (Number(error) === 2) {
-    wrongPassErrorMsg.removeAttribute('hidden');
-  }
-
-  if (Number(success) === 1) {
-    successfulyRegisteredMsg.removeAttribute('hidden');
-  }
-</script>
