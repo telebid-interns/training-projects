@@ -1,4 +1,3 @@
-GET '/admin/requests'
-GET '/admin/ctransfers'
-GET '/admin/requests'
-GET '/admin/credits'
+GET '/home'
+GET '/logout'
+GET '/login'

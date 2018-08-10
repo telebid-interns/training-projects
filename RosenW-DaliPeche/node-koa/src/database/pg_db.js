@@ -10,7 +10,7 @@ const client = new pg.Client({
 client.connect();
 
 const query = async (sql, ...values) => {
-  return client.query(sql, values);
+  return (await client.query(sql, values)).rows;
 };
 
 const select = async (table, where, { one, like, count, or }) => {

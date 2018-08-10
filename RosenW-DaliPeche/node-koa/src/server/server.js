@@ -112,10 +112,10 @@ router.get('/home', async (ctx, next) => {
     return next();
   }
 
-  const user = (await db.query(`SELECT * FROM users WHERE username = $1`, ctx.session.user)).rows[0];
+  const user = (await db.query(`SELECT * FROM users WHERE username = $1`, ctx.session.user))[0];
   assert(user != null, 'cookie contained username not in database', 10);
 
-  const keys = (await db.query(`SELECT * FROM api_keys WHERE user_id = $1`, user.id)).rows;
+  const keys = (await db.query(`SELECT * FROM api_keys WHERE user_id = $1`, user.id));
   assert(Array.isArray(keys), 'keys expected to be array but wasnt', 15);
 
   await ctx.render(
@@ -181,7 +181,7 @@ router.get('/admin/users', async (ctx, next) => {
     LIKE LOWER($1)
     ORDER BY id`,
     `%${term}%`
-  )).rows.map((u) => {
+  )).map((u) => {
     u.date_registered = u.date_registered.toISOString();
     return u;
   });
@@ -212,7 +212,7 @@ router.get('/admin/credits', async (ctx, next) => {
       ON ct.user_id = u.id
       WHERE LOWER(u.username) LIKE LOWER($1)
       GROUP BY (u.username, u.credits)
-    `, `%${term}%`)).rows;
+    `, `%${term}%`));
 
   const total = (await db.query(`
     SELECT
@@ -230,7 +230,7 @@ router.get('/admin/credits', async (ctx, next) => {
       ON ct.user_id = u.id
       WHERE LOWER(u.username) LIKE LOWER($1)
       GROUP BY (u.username, u.credits)) as total_by_user
-    `, `%${term}%`)).rows[0];
+    `, `%${term}%`))[0];
 
   await ctx.render('admin_credits', {
     users,
@@ -256,7 +256,7 @@ router.get('/admin/cities', async (ctx, next) => {
     WHERE LOWER(name)
     LIKE LOWER($1)`,
     `%${term}%`
-  )).rows.map((c) => {
+  )).map((c) => {
     c.observed_at = c.observed_at.toISOString();
     return c;
   })
@@ -275,7 +275,7 @@ router.get('/admin/requests', async (ctx, next) => {
   }
 
   const requests = (await db.query(`SELECT * FROM requests`))
-  .rows
+
   .sort((c1, c2) => c2.call_count - c1.call_count);
 
   await ctx.render('admin_requests', { requests });
@@ -307,7 +307,7 @@ router.get('/admin/ctransfers', async (ctx, next) => {
     LIKE LOWER($1)
     ORDER BY ct.id DESC`,
     `%${term}%`
-  )).rows.map((t) => {
+  )).map((t) => {
     t.transfer_date = t.transfer_date.toISOString();
     return t;
   });
@@ -346,7 +346,7 @@ router.post('/buy', async (ctx, next) => {
   });
 
   const credits = ctx.request.body.credits;
-  const user = (await db.query(`SELECT * FROM users WHERE username = $1`, ctx.session.user)).rows[0];
+  const user = (await db.query(`SELECT * FROM users WHERE username = $1`, ctx.session.user))[0];
   assert(isObject(user), 'User not an object', 13);
 
   if (!isInteger(Number(credits)) || Number(credits) <= 0) {
@@ -450,7 +450,7 @@ router.post('/register', async (ctx, next) => {
     return next();
   }
 
-  const user = (await db.query(`SELECT * FROM users WHERE username = $1 or email = $2`, username, email)).rows[0];
+  const user = (await db.query(`SELECT * FROM users WHERE username = $1 or email = $2`, username, email))[0];
 
   if (user != null) {
     if (user.username === username) {
@@ -493,7 +493,7 @@ router.post('/login', async (ctx, next) => {
   const username = ctx.request.body.username;
   const password = ctx.request.body.password;
 
-  const user = (await db.query(`SELECT * FROM users where username = $1`, username)).rows[0];
+  const user = (await db.query(`SELECT * FROM users where username = $1`, username))[0];
 
   if (user == null) {
     await ctx.render('login', { error: 'No user registered with given username' });

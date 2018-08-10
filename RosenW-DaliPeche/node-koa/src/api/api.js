@@ -17,11 +17,11 @@ const generateAPIKey = async (ctx, next) => {
 
   const username = ctx.request.body.name;
   const key = generateRandomString(16);
-  const user = (await db.query(`SELECT * FROM users WHERE username = $1`, username)).rows[0];
+  const user = (await db.query(`SELECT * FROM users WHERE username = $1`, username))[0];
 
   assert(user != null, 'User not found when generating API key', 11);
 
-  const APIKeyCountData = (await db.query(`SELECT COUNT(*) FROM api_keys WHERE user_id = $1`, user.id)).rows[0];
+  const APIKeyCountData = (await db.query(`SELECT COUNT(*) FROM api_keys WHERE user_id = $1`, user.id))[0];
 
   if (APIKeyCountData.count >= MAX_API_KEYS_PER_USER) {
     ctx.body = { msg: 'API key limit exceeded' };
@@ -56,10 +56,10 @@ const getForecast = async (ctx, next) => {
 
   assertPeer(typeof key === 'string', 'No API key in post body', 31);
 
-  const keyRecord = (await db.query(`SELECT * FROM api_keys WHERE key = $1`, key)).rows[0];
+  const keyRecord = (await db.query(`SELECT * FROM api_keys WHERE key = $1`, key))[0];
   assertPeer(isObject(keyRecord), 'invalid API key', 33);
 
-  const user = (await db.query(`SELECT * FROM users WHERE id = $1`, keyRecord.user_id)).rows[0];
+  const user = (await db.query(`SELECT * FROM users WHERE id = $1`, keyRecord.user_id))[0];
   assert(isObject(user), 'No user found when searching by api key', 13);
 
   try {
@@ -80,10 +80,10 @@ const getForecast = async (ctx, next) => {
 
     cityName = cityName.toLowerCase().trim();
 
-    const city = (await db.query(`SELECT * FROM cities WHERE name = $1`, cityName)).rows[0];
+    const city = (await db.query(`SELECT * FROM cities WHERE name = $1`, cityName))[0];
     assertPeer(isObject(city), 'no information found, please try again later', 39);
 
-    const conditions = (await db.query(`SELECT * FROM weather_conditions WHERE city_id = $1`, city.id)).rows;
+    const conditions = (await db.query(`SELECT * FROM weather_conditions WHERE city_id = $1`, city.id));
     assert(Array.isArray(conditions), `expected conditions to be array but wasn't`, 14);
     assertPeer(conditions.length > 0, 'no information found, please try again later', 34);
 
@@ -119,7 +119,7 @@ const updateRequests = async (iataCode, city) => {
   const whereCol = iataCode === 'string' ? 'iata_code' : 'city';
   const whereValue = iataCode === 'string' ? iataCode : city;
 
-  const request = (await db.query(`SELECT * FROM requests WHERE ${ whereCol } = $1`, whereValue)).rows[0];
+  const request = (await db.query(`SELECT * FROM requests WHERE ${ whereCol } = $1`, whereValue))[0];
 
   if (request == null) {
     await db.query(`INSERT INTO requests (${whereCol}) VALUES ($1)`, whereValue);

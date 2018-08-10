@@ -10,7 +10,7 @@ const {
 updateDB();
 
 async function updateDB () {
-  const cities = (await db.query(`SELECT * FROM cities`)).rows;
+  const cities = (await db.query(`SELECT * FROM cities`));
   resetAPIKeys();
   const timePerRequest = cities.length > 60 ? 1000 : 0;
   for (const [index, city] of cities.entries()) {
@@ -41,7 +41,7 @@ async function updateDB () {
         city.name
       );
 
-      const dbCity = (await db.query(`SELECT * FROM cities WHERE name = $1`, city.name)).rows[0];
+      const dbCity = (await db.query(`SELECT * FROM cities WHERE name = $1`, city.name))[0];
 
       db.query(`DELETE FROM weather_conditions WHERE city_id = $1`, dbCity.id);
 
