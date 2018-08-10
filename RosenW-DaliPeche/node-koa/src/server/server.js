@@ -173,22 +173,15 @@ router.get('/admin/users', async (ctx, next) => {
     return next();
   }
 
-  const term = ctx.query.term;
+  const term = ctx.query.term == null ? '' : ctx.query.term;
 
-  let users;
-  if (term == null) {
-    users = (await db.query(`SELECT * FROM users ORDER BY id`)).rows;
-  } else {
-    users = (await db.query(`
-      SELECT * FROM users
-      WHERE LOWER(username)
-      LIKE LOWER($1)
-      ORDER BY id`,
-      `%${term}%`
-    )).rows;
-  }
-
-  users = users.map((u) => {
+  const users = (await db.query(`
+    SELECT * FROM users
+    WHERE LOWER(username)
+    LIKE LOWER($1)
+    ORDER BY id`,
+    `%${term}%`
+  )).rows.map((u) => {
     u.date_registered = u.date_registered.toISOString();
     return u;
   });
@@ -196,6 +189,54 @@ router.get('/admin/users', async (ctx, next) => {
   await ctx.render('admin_users', {
     users,
     maxRequests: MAX_REQUESTS_PER_HOUR,
+  });
+});
+
+// GET admin/credits
+router.get('/admin/credits', async (ctx, next) => {
+  trace(`GET '/admin/credits'`);
+
+  if (ctx.session.admin == null) {
+    await ctx.redirect('/admin');
+    return next();
+  }
+  const term = ctx.query.term == null ? '' : ctx.query.term;
+  const users = (await db.query(`
+      SELECT
+        u.username,
+        SUM(ct.credits_bought) AS credits_purchased,
+        SUM(ct.credits_spent) AS credits_spent,
+        u.credits AS credits_remaining
+      FROM users AS u
+      JOIN credit_transfers AS ct
+      ON ct.user_id = u.id
+      WHERE LOWER(u.username) LIKE LOWER($1)
+      GROUP BY (u.username, u.credits)
+    `, `%${term}%`)).rows;
+
+  const total = (await db.query(`
+    SELECT
+      SUM(credits_purchased) as total_credits_purchased,
+      SUM(credits_spent) as total_credits_spent,
+      SUM(credits_remaining) as total_credits_remaining
+    FROM (
+      SELECT
+        u.username,
+        SUM(ct.credits_bought) AS credits_purchased,
+        SUM(ct.credits_spent) AS credits_spent,
+        u.credits AS credits_remaining
+      FROM users AS u
+      JOIN credit_transfers AS ct
+      ON ct.user_id = u.id
+      WHERE LOWER(u.username) LIKE LOWER($1)
+      GROUP BY (u.username, u.credits)) as total_by_user
+    `, `%${term}%`)).rows[0];
+
+  await ctx.render('admin_credits', {
+    users,
+    total_credits_purchased: total.total_credits_purchased,
+    total_credits_spent: total.total_credits_spent,
+    total_credits_remaining: total.total_credits_remaining
   });
 });
 
@@ -208,21 +249,14 @@ router.get('/admin/cities', async (ctx, next) => {
     return next();
   }
 
-  const term = ctx.query.term;
+  const term = ctx.query.term == null ? '' : ctx.query.term;
 
-  let cities;
-  if (term == null) {
-    cities = (await db.query(`SELECT * FROM cities`)).rows;
-  } else {
-    cities = (await db.query(`
-      SELECT * FROM cities
-      WHERE LOWER(username)
-      LIKE LOWER($1)`,
-      `%${term}%`
-    )).rows;
-  }
-
-  cities = cities.map((c) => {
+  const cities = (await db.query(`
+    SELECT * FROM cities
+    WHERE LOWER(name)
+    LIKE LOWER($1)`,
+    `%${term}%`
+  )).rows.map((c) => {
     c.observed_at = c.observed_at.toISOString();
     return c;
   })
@@ -240,21 +274,9 @@ router.get('/admin/requests', async (ctx, next) => {
     return next();
   }
 
-  const term = ctx.query.term;
-
-  let requests;
-  if (term == null) {
-    requests = (await db.query(`SELECT * FROM requests`)).rows;
-  } else {
-    requests = (await db.query(`
-      SELECT * FROM requests
-      WHERE LOWER(username)
-      LIKE LOWER($1)`,
-      `%${term}%`
-    )).rows;
-  }
-
-  requests = requests.sort((c1, c2) => c2.call_count - c1.call_count);
+  const requests = (await db.query(`SELECT * FROM requests`))
+  .rows
+  .sort((c1, c2) => c2.call_count - c1.call_count);
 
   await ctx.render('admin_requests', { requests });
 });
@@ -268,43 +290,24 @@ router.get('/admin/ctransfers', async (ctx, next) => {
     return next();
   }
 
-  const term = ctx.query.term;
+  const term = ctx.query.term == null ? '' : ctx.query.term;
 
-  let transfers;
-  if (term == null) {
-    transfers = (await db.query(`
-      SELECT
-        ct.id,
-        transfer_date,
-        username,
-        credits_bought,
-        credits_spent,
-        event
-      FROM users as u
-      JOIN credit_transfers as ct
-      ON ct.user_id = u.id
-      ORDER BY id DESC
-    `)).rows;
-  } else {
-    transfers = (await db.query(`
-      SELECT
-        id,
-        transfer_date,
-        username,
-        credits_bought,
-        credits_spent,
-        event
-      FROM users as u
-      JOIN credit_transfers as ct
-      ON ct.user_id = u.id
-      WHERE LOWER(username)
-      LIKE LOWER($1)
-      ORDER BY ct.id DESC`,
-      `%${term}%`
-    )).rows;
-  }
-
-  transfers = transfers.map((t) => {
+  const transfers = (await db.query(`
+    SELECT
+      u.id,
+      transfer_date,
+      username,
+      credits_bought,
+      credits_spent,
+      event
+    FROM users as u
+    JOIN credit_transfers as ct
+    ON ct.user_id = u.id
+    WHERE LOWER(username)
+    LIKE LOWER($1)
+    ORDER BY ct.id DESC`,
+    `%${term}%`
+  )).rows.map((t) => {
     t.transfer_date = t.transfer_date.toISOString();
     return t;
   });

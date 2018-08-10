@@ -9,6 +9,10 @@ const client = new pg.Client({
 
 client.connect();
 
+const query = async (sql, ...values) => {
+  return client.query(sql, values);
+};
+
 const select = async (table, where, { one, like, count, or }) => {
   if (or == null) or = false;
   if (one == null) one = false;
@@ -70,10 +74,6 @@ const update = async (table, updateData, where) => {
     `;
 
   return client.query(wholeStatement, Object.values(updateData).concat(Object.values(where)));
-};
-
-const query = async (sql, ...values) => {
-  return client.query(sql, values);
 };
 
 const close = async () => {

@@ -1,8 +1,4 @@
-GET '/register'
-POST '/register'
-Function generateRandomString
-POST '/register'
-Function generateRandomString
-GET '/register'
-POST '/register'
-Function generateRandomString
+GET '/admin/requests'
+GET '/admin/ctransfers'
+GET '/admin/requests'
+GET '/admin/credits'
