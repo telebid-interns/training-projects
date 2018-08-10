@@ -418,12 +418,20 @@ router.post('/register', async (ctx, next) => {
   const salt = generateRandomString(10);
 
   if (!validateEmail(email)) {
-    await ctx.render('register', { error: 'Invalid Email'});
+    await ctx.render('register', {
+      error: 'Invalid Email',
+      username,
+      email
+    });
     return next();
   }
 
   if (password !== repeatPassword) {
-    await ctx.render('register', { error: 'Passwords must match' });
+    await ctx.render('register', {
+      error: 'Passwords must match',
+      username,
+      email
+    });
     return next();
   }
 
@@ -431,7 +439,11 @@ router.post('/register', async (ctx, next) => {
     password.length < MINIMUM_PASSWORD_LENGTH ||
       username.length < MINIMUM_USERNAME_LENGTH
   ) {
-    await ctx.render('register', { error: 'username and password must be around 4 symbols'});
+    await ctx.render('register', {
+      error: 'username and password must be around 4 symbols',
+      username,
+      email
+    });
     return next();
   }
 
@@ -439,10 +451,18 @@ router.post('/register', async (ctx, next) => {
 
   if (user != null) {
     if (user.username === username) {
-      await ctx.render('register', { error: 'a user with this username already exists'});
+      await ctx.render('register', {
+        error: 'a user with this username already exists',
+        username,
+        email
+      });
       return next();
     } else {
-      await ctx.render('register', { error: 'a user with this email already exists'});
+      await ctx.render('register', {
+        error: 'a user with this email already exists',
+        username,
+        email
+      });
       return next();
     }
   }
