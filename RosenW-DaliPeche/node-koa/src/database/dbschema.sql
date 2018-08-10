@@ -1,3 +1,5 @@
+CREATE DOMAIN email AS text CHECK ( value ~ '^[a-zA-Z0-9.!#$%&''*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$' );
+
 CREATE TABLE requests (
   id serial PRIMARY KEY,
   iata_code text, -- not null for both
@@ -34,7 +36,7 @@ CREATE TABLE weather_conditions (
 CREATE TABLE users (
   id serial PRIMARY KEY,
   username text NOT NULL unique,
-  email text NOT NULL,
+  email email NOT NULL,
   credits numeric DEFAULT 0 NOT NULL,
   failed_requests integer DEFAULT 0 NOT NULL,
   successful_requests integer DEFAULT 0 NOT NULL,

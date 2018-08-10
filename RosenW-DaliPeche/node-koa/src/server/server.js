@@ -2,7 +2,7 @@ const Koa = require('koa');
 const router = require('koa-router')();
 const bodyParser = require('koa-bodyparser');
 const { assert, assertUser } = require('./../asserts/asserts.js');
-const { AppError, PeerError, UserError } = require('./../asserts/exceptions.js');
+const { PeerError, UserError } = require('./../asserts/exceptions.js');
 const { trace, clearTraceLog } = require('./../debug/tracer.js');
 const {
   generateRandomString,
@@ -27,15 +27,17 @@ const {
   MAXIMUM_CREDITS_ALLOWED,
   MERCHANT_ID,
   CREDIT_CARD_PRIVATE_KEY,
-  CREDIT_CARD_PUBLIC_KEY
+  CREDIT_CARD_PUBLIC_KEY,
+  SALT_ROUNDS,
+  SALT_LENGTH,
 } = require('./../utils/consts.js');
 const braintree = require('braintree');
 
 const gateway = braintree.connect({
-    environment: braintree.Environment.Sandbox,
-    merchantId: MERCHANT_ID,
-    publicKey: CREDIT_CARD_PUBLIC_KEY,
-    privateKey: CREDIT_CARD_PRIVATE_KEY
+  environment: braintree.Environment.Sandbox,
+  merchantId: MERCHANT_ID,
+  publicKey: CREDIT_CARD_PUBLIC_KEY,
+  privateKey: CREDIT_CARD_PRIVATE_KEY,
 });
 
 const app = new Koa();
@@ -57,9 +59,9 @@ app.use(views(`${__dirname}/views`, {
   map: { hbs: 'handlebars' }, // marks engine for extensions
   options: {
     partials: {
-      adminForm: './admin_form' // requires ./admin_form.hbs
-    }
-  }
+      adminForm: './admin_form', // requires ./admin_form.hbs
+    },
+  },
 }));
 
 clearTraceLog();
@@ -71,16 +73,16 @@ app.use(async (ctx, next) => {
     if (err instanceof UserError) {
       ctx.body = {
         message: err.message,
-        statusCode: err.statusCode
+        statusCode: err.statusCode,
       };
     } else if (err instanceof PeerError) {
       ctx.body = {
         message: err.message,
-        statusCode: err.statusCode
+        statusCode: err.statusCode,
       };
     } else {
       console.log(err);
-      console.log(`Application Error: ${ err.message }, Status code: ${ err.statusCode }`);
+      console.log(`Application Error: ${err.message}, Status code: ${err.statusCode}`);
       ctx.body = 'An error occured please clear your cookies and try again';
     }
   }
@@ -115,7 +117,7 @@ router.get('/home', async (ctx, next) => {
   const user = (await db.query(`SELECT * FROM users WHERE username = $1`, ctx.session.user))[0];
   assert(user != null, 'cookie contained username not in database', 10);
 
-  const keys = (await db.query(`SELECT * FROM api_keys WHERE user_id = $1`, user.id));
+  const keys = await db.query(`SELECT * FROM api_keys WHERE user_id = $1`, user.id);
   assert(Array.isArray(keys), 'keys expected to be array but wasnt', 15);
 
   await ctx.render(
@@ -124,7 +126,8 @@ router.get('/home', async (ctx, next) => {
       credits: user.credits,
       limit: MAX_REQUESTS_PER_HOUR,
       keys,
-    });
+    }
+  );
 });
 
 // GET login
@@ -151,7 +154,6 @@ router.get('/register', async (ctx, next) => {
 
   await ctx.render('register', { err: ctx.query.err });
 });
-
 
 // GET admin
 router.get('/admin', async (ctx, next) => {
@@ -180,7 +182,7 @@ router.get('/admin/users', async (ctx, next) => {
     WHERE LOWER(username)
     LIKE LOWER($1)
     ORDER BY id`,
-    `%${term}%`
+  `%${term}%`
   )).map((u) => {
     u.date_registered = u.date_registered.toISOString();
     return u;
@@ -201,7 +203,7 @@ router.get('/admin/credits', async (ctx, next) => {
     return next();
   }
   const term = ctx.query.term == null ? '' : ctx.query.term;
-  const users = (await db.query(`
+  const users = await db.query(`
       SELECT
         u.username,
         SUM(ct.credits_bought) AS credits_purchased,
@@ -212,7 +214,7 @@ router.get('/admin/credits', async (ctx, next) => {
       ON ct.user_id = u.id
       WHERE LOWER(u.username) LIKE LOWER($1)
       GROUP BY (u.username, u.credits)
-    `, `%${term}%`));
+    `, `%${term}%`);
 
   const total = (await db.query(`
     SELECT
@@ -236,7 +238,7 @@ router.get('/admin/credits', async (ctx, next) => {
     users,
     total_credits_purchased: total.total_credits_purchased,
     total_credits_spent: total.total_credits_spent,
-    total_credits_remaining: total.total_credits_remaining
+    total_credits_remaining: total.total_credits_remaining,
   });
 });
 
@@ -255,12 +257,12 @@ router.get('/admin/cities', async (ctx, next) => {
     SELECT * FROM cities
     WHERE LOWER(name)
     LIKE LOWER($1)`,
-    `%${term}%`
+  `%${term}%`
   )).map((c) => {
     c.observed_at = c.observed_at.toISOString();
     return c;
   })
-  .sort((c1, c2) => c1.id - c2.id);
+    .sort((c1, c2) => c1.id - c2.id);
 
   await ctx.render('admin_cities', { cities });
 });
@@ -274,9 +276,8 @@ router.get('/admin/requests', async (ctx, next) => {
     return next();
   }
 
-  const requests = (await db.query(`SELECT * FROM requests`))
-
-  .sort((c1, c2) => c2.call_count - c1.call_count);
+  const requests = await db.query(`SELECT * FROM requests`)
+    .sort((c1, c2) => c2.call_count - c1.call_count);
 
   await ctx.render('admin_requests', { requests });
 });
@@ -306,7 +307,7 @@ router.get('/admin/ctransfers', async (ctx, next) => {
     WHERE LOWER(username)
     LIKE LOWER($1)
     ORDER BY ct.id DESC`,
-    `%${term}%`
+  `%${term}%`
   )).map((t) => {
     t.transfer_date = t.transfer_date.toISOString();
     return t;
@@ -322,10 +323,10 @@ router.get('/buy', async (ctx, next) => {
   const response = await gateway.clientToken.generate();
 
   await ctx.render('buy', {
-      success: ctx.query.success,
-      error: ctx.query.err,
-      clientToken: response.clientToken
-    }
+    success: ctx.query.success,
+    error: ctx.query.err,
+    clientToken: response.clientToken,
+  }
   );
 });
 
@@ -333,16 +334,16 @@ router.get('/buy', async (ctx, next) => {
 router.post('/buy', async (ctx, next) => {
   trace(`POST '/buy'`);
   assert(isObject(ctx.request.body), 'Post buy has no body', 12);
-  assert(ctx.request.body.total != null, 'No total in post buy', 13);
-  assert(ctx.request.body.nonce != null, 'No nonce in post buy', 14);
-  assert(ctx.request.body.credits != null, 'No credits in post buy', 15);
+  assert(ctx.request.body.total != null, 'No total in post buy', 14);
+  assert(ctx.request.body.nonce != null, 'No nonce in post buy', 15);
+  assert(ctx.request.body.credits != null, 'No credits in post buy', 16);
 
   const sale = await gateway.transaction.sale({
     amount: ctx.request.body.total,
     paymentMethodNonce: ctx.request.body.nonce,
     options: {
-      submitForSettlement: true
-    }
+      submitForSettlement: true,
+    },
   });
 
   const credits = ctx.request.body.credits;
@@ -371,19 +372,19 @@ const addCreditsToUser = async (user, credits) => {
   makeTransaction(async () => {
     await db.query(`
       UPDATE users SET credits = $1 WHERE id = $2`,
-      Number(user.credits) + Number(credits),
-      user.id
+    Number(user.credits) + Number(credits),
+    user.id
     );
     await db.query(`
       INSERT INTO credit_transfers (user_id, credits_bought, event, transfer_date)
         VALUES ($1, $2, $3, $4)`,
-      user.id,
-      credits,
-      'Credit purchase',
-      new Date()
+    user.id,
+    credits,
+    'Credit purchase',
+    new Date()
     );
   });
-}
+};
 
 // POST admin
 router.post('/admin', async (ctx, next) => {
@@ -418,13 +419,13 @@ router.post('/register', async (ctx, next) => {
   const password = ctx.request.body.password;
   const repeatPassword = ctx.request.body['repeat-password'];
 
-  const salt = generateRandomString(10);
+  const salt = generateRandomString(SALT_LENGTH);
 
   if (!validateEmail(email)) {
     await ctx.render('register', {
       error: 'Invalid Email',
       username,
-      email
+      email,
     });
     return next();
   }
@@ -433,7 +434,7 @@ router.post('/register', async (ctx, next) => {
     await ctx.render('register', {
       error: 'Passwords must match',
       username,
-      email
+      email,
     });
     return next();
   }
@@ -445,7 +446,7 @@ router.post('/register', async (ctx, next) => {
     await ctx.render('register', {
       error: 'username and password must be around 4 symbols',
       username,
-      email
+      email,
     });
     return next();
   }
@@ -457,21 +458,21 @@ router.post('/register', async (ctx, next) => {
       await ctx.render('register', {
         error: 'a user with this username already exists',
         username,
-        email
+        email,
       });
       return next();
     } else {
       await ctx.render('register', {
         error: 'a user with this email already exists',
         username,
-        email
+        email,
       });
       return next();
     }
   }
 
   const saltedPassword = password + salt;
-  const hash = await bcrypt.hash(saltedPassword, 5);
+  const hash = await bcrypt.hash(saltedPassword, SALT_ROUNDS);
 
   db.query(
     `INSERT INTO users (date_registered, password, email, username, salt)
@@ -481,7 +482,7 @@ router.post('/register', async (ctx, next) => {
     email,
     username,
     salt
-  )
+  );
 
   await ctx.render('login', { msg: 'Successfuly Registered' });
 });
@@ -507,7 +508,7 @@ router.post('/login', async (ctx, next) => {
     ctx.session.user = user.username;
     ctx.redirect('/home');
   } else {
-    await ctx.render('login', { error: 'Invalid Password'});
+    await ctx.render('login', { error: 'Invalid Password' });
   }
 });
 

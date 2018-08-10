@@ -1,4 +1,4 @@
-(node:1402) UnhandledPromiseRejectionWarning: error: date/time field value out of range: "1533906002435"
+(node:7193) UnhandledPromiseRejectionWarning: error: date/time field value out of range: "1533909602482"
     at Connection.parseE (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/node_modules/pg/lib/connection.js:553:11)
     at Connection.parseMessage (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/node_modules/pg/lib/connection.js:378:19)
     at Socket.<anonymous> (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/node_modules/pg/lib/connection.js:119:22)
@@ -7,5 +7,5 @@
     at readableAddChunk (_stream_readable.js:264:11)
     at Socket.Readable.push (_stream_readable.js:219:10)
     at TCP.onread (net.js:638:20)
-(node:1402) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 1)
-(node:1402) [DEP0018] DeprecationWarning: Unhandled promise rejections are deprecated. In the future, promise rejections that are not handled will terminate the Node.js process with a non-zero exit code.
+(node:7193) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 1)
+(node:7193) [DEP0018] DeprecationWarning: Unhandled promise rejections are deprecated. In the future, promise rejections that are not handled will terminate the Node.js process with a non-zero exit code.

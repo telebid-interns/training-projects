@@ -10,7 +10,7 @@ const {
 updateDB();
 
 async function updateDB () {
-  const cities = (await db.query(`SELECT * FROM cities`));
+  const cities = await db.query(`SELECT * FROM cities`);
   resetAPIKeys();
   const timePerRequest = cities.length > 60 ? 1000 : 0;
   for (const [index, city] of cities.entries()) {
@@ -85,13 +85,12 @@ async function updateDB () {
           new Date(city.dt_txt)
         );
       }
-    }, timePerRequest*index);
+    }, timePerRequest * index);
   }
 }
 
 function resetAPIKeys () {
   db.query(`UPDATE api_keys SET use_count = 0`);
-  // db.update(`api_keys`, { use_count: 0 }, {});
 }
 
 async function getWeatherAPIData (city) {
@@ -109,4 +108,4 @@ async function getWeatherAPIData (city) {
   };
 
   return requester(options);
-};
+}

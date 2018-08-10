@@ -1,14 +1,14 @@
 const requester = require('request-promise');
 const { trace } = require('./../debug/tracer.js');
-const { assert, assertPeer, assertUser } = require('./../asserts/asserts.js');
-const { UserError, PeerError } = require('./../asserts/exceptions.js');
-const { generateRandomString, isObject, cityNameToPascal, makeTransaction } = require('./../utils/utils.js');
+const { assert, assertPeer } = require('./../asserts/asserts.js');
+const { PeerError } = require('./../asserts/exceptions.js');
+const { generateRandomString, isObject, makeTransaction } = require('./../utils/utils.js');
 const {
   MAX_API_KEYS_PER_USER,
   MAX_REQUESTS_PER_HOUR,
   AIRPORT_API_LINK,
   CREDITS_FOR_SUCCESSFUL_REQUEST,
-  CREDITS_FOR_FAILED_REQUEST
+  CREDITS_FOR_FAILED_REQUEST,
 } = require('./../utils/consts.js');
 const db = require('./../database/pg_db.js');
 
@@ -83,7 +83,7 @@ const getForecast = async (ctx, next) => {
     const city = (await db.query(`SELECT * FROM cities WHERE name = $1`, cityName))[0];
     assertPeer(isObject(city), 'no information found, please try again later', 39);
 
-    const conditions = (await db.query(`SELECT * FROM weather_conditions WHERE city_id = $1`, city.id));
+    const conditions = await db.query(`SELECT * FROM weather_conditions WHERE city_id = $1`, city.id);
     assert(Array.isArray(conditions), `expected conditions to be array but wasn't`, 14);
     assertPeer(conditions.length > 0, 'no information found, please try again later', 34);
 
@@ -119,7 +119,7 @@ const updateRequests = async (iataCode, city) => {
   const whereCol = iataCode === 'string' ? 'iata_code' : 'city';
   const whereValue = iataCode === 'string' ? iataCode : city;
 
-  const request = (await db.query(`SELECT * FROM requests WHERE ${ whereCol } = $1`, whereValue))[0];
+  const request = (await db.query(`SELECT * FROM requests WHERE ${whereCol} = $1`, whereValue))[0];
 
   if (request == null) {
     await db.query(`INSERT INTO requests (${whereCol}) VALUES ($1)`, whereValue);
@@ -131,7 +131,6 @@ const updateRequests = async (iataCode, city) => {
 const taxUser = async (user, isFailedRequest) => {
   assertPeer(user.credits >= CREDITS_FOR_SUCCESSFUL_REQUEST, `Not enough credits to make a request`, 300);
   makeTransaction(async () => {
-    let updateData;
     const requestColumn = isFailedRequest ? 'failed_requests' : 'successful_requests';
     const requestsValue = isFailedRequest ? user.failed_requests + 1 : user.successful_requests + 1;
     const credits = isFailedRequest ? CREDITS_FOR_FAILED_REQUEST : CREDITS_FOR_SUCCESSFUL_REQUEST;
@@ -147,32 +146,31 @@ const saveTransfer = async (user, isFailedRequest) => {
     user_id: user.id,
     credits_spent: isFailedRequest ? CREDITS_FOR_FAILED_REQUEST : CREDITS_FOR_SUCCESSFUL_REQUEST,
     event: isFailedRequest ? 'Failed request' : 'Successful request',
-    transfer_date: new Date()
+    transfer_date: new Date(),
   });
-}
+};
 
 const getCityByIATACode = async (iataCode) => {
-    iataCode = iataCode.toLowerCase();
-    const options = {
-      uri: AIRPORT_API_LINK,
-      qs: {
-        iata: iataCode,
-      },
-      headers: {
-        'User-Agent': 'Request-Promise',
-        'Access-Control-Allow-Origin': '*'
-      },
-      json: true, // Automatically parses the JSON string in the response
-    };
-    const data = await requester(options);
+  iataCode = iataCode.toLowerCase();
+  const options = {
+    uri: AIRPORT_API_LINK,
+    qs: {
+      iata: iataCode,
+    },
+    headers: {
+      'User-Agent': 'Request-Promise',
+      'Access-Control-Allow-Origin': '*',
+    },
+    json: true, // Automatically parses the JSON string in the response
+  };
+  const data = await requester(options);
 
-    if (!isObject(data) || typeof data.location !== 'string') {
-      throw new PeerError('Could not find city based on given iata code', 32);
-    }
+  if (!isObject(data) || typeof data.location !== 'string') {
+    throw new PeerError('Could not find city based on given iata code', 32);
+  }
 
-    return data.location.split(',')[0];
-}
-
+  return data.location.split(',')[0];
+};
 
 module.exports = {
   getForecast,
