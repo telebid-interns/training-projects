@@ -259,7 +259,7 @@ router.get('/admin/cities', async (ctx, next) => {
     LIKE LOWER($1)`,
   `%${term}%`
   )).map((c) => {
-    c.observed_at = c.observed_at.toISOString();
+    if (c.observed_at != null) c.observed_at = c.observed_at.toISOString();
     return c;
   })
     .sort((c1, c2) => c1.id - c2.id);
@@ -276,7 +276,7 @@ router.get('/admin/requests', async (ctx, next) => {
     return next();
   }
 
-  const requests = await db.query(`SELECT * FROM requests`)
+  const requests = (await db.query(`SELECT * FROM requests`))
     .sort((c1, c2) => c2.call_count - c1.call_count);
 
   await ctx.render('admin_requests', { requests });
@@ -295,7 +295,7 @@ router.get('/admin/ctransfers', async (ctx, next) => {
 
   const transfers = (await db.query(`
     SELECT
-      u.id,
+      ct.id,
       transfer_date,
       username,
       credits_bought,
@@ -369,19 +369,23 @@ router.post('/buy', async (ctx, next) => {
 });
 
 const addCreditsToUser = async (user, credits) => {
-  makeTransaction(async () => {
-    await db.query(`
+  db.makeTransaction(async (client) => {
+    await client.query(`
       UPDATE users SET credits = $1 WHERE id = $2`,
-    Number(user.credits) + Number(credits),
-    user.id
+      [
+        Number(user.credits) + Number(credits),
+        user.id
+      ]
     );
-    await db.query(`
+    await client.query(`
       INSERT INTO credit_transfers (user_id, credits_bought, event, transfer_date)
         VALUES ($1, $2, $3, $4)`,
-    user.id,
-    credits,
-    'Credit purchase',
-    new Date()
+        [
+          user.id,
+          credits,
+          'Credit purchase',
+          new Date()
+        ]
     );
   });
 };

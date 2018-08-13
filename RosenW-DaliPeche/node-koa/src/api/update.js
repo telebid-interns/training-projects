@@ -37,7 +37,7 @@ async function updateDB () {
         forecast.city.country,
         forecast.city.coord.lat,
         forecast.city.coord.lon,
-        Date.now(),
+        new Date(),
         city.name
       );
 

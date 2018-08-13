@@ -38,20 +38,6 @@ function validateEmail (email) {
   return EMAIL_VALIDATION_REGEX.test(String(email));
 }
 
-async function makeTransaction (func) {
-  await db.query('BEGIN');
-  console.log('BEGIN');
-  try {
-    await func();
-    await db.query('COMMIT');
-    console.log('COMMIT');
-  } catch(err) {
-    await db.query('ROLLBACK');
-    console.log('ROLLBACK');
-    throw err;
-  }
-}
-
 function isInteger(num) {
   return (typeof num === 'number') && (num % 1 === 0);
 }
@@ -61,6 +47,5 @@ module.exports = {
   isObject,
   formatDate,
   validateEmail,
-  makeTransaction,
   isInteger
 };

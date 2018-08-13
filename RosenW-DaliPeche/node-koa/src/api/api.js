@@ -2,7 +2,7 @@ const requester = require('request-promise');
 const { trace } = require('./../debug/tracer.js');
 const { assert, assertPeer } = require('./../asserts/asserts.js');
 const { PeerError } = require('./../asserts/exceptions.js');
-const { generateRandomString, isObject, makeTransaction } = require('./../utils/utils.js');
+const { generateRandomString, isObject } = require('./../utils/utils.js');
 const {
   MAX_API_KEYS_PER_USER,
   MAX_REQUESTS_PER_HOUR,
@@ -26,10 +26,12 @@ const generateAPIKey = async (ctx, next) => {
   if (APIKeyCountData.count >= MAX_API_KEYS_PER_USER) {
     ctx.body = { msg: 'API key limit exceeded' };
   } else {
-    db.insert(`api_keys`, {
+    db.query(`
+      INSERT INTO api_keys (key, user_id)
+        VALUES ($1, $2)`,
       key,
-      user_id: user.id,
-    });
+      user.id
+    );
     ctx.body = { key };
   }
 };
@@ -94,8 +96,9 @@ const getForecast = async (ctx, next) => {
     response.lat = city.lat;
     response.conditions = conditions;
   } catch (err) {
-    if (err.statusCode === 39) db.insert(`cities`, { name: cityName });
+    if (err.statusCode === 39) db.query(`INSERT INTO cities (name) VALUES($1)`, cityName);
     if (err.statusCode !== 35) await taxUser(user, true);
+    await updateRequests(iataCode, cityName);
     throw err;
   }
 
@@ -116,8 +119,10 @@ const updateAPIKeyUsage = async (keyRecord) => {
 };
 
 const updateRequests = async (iataCode, city) => {
-  const whereCol = iataCode === 'string' ? 'iata_code' : 'city';
-  const whereValue = iataCode === 'string' ? iataCode : city;
+  const whereCol = typeof iataCode === 'string' ? 'iata_code' : 'city';
+  const whereValue = typeof iataCode === 'string' ? iataCode : city;
+
+  if (typeof iataCode !== 'string' && typeof city !== 'string') return;
 
   const request = (await db.query(`SELECT * FROM requests WHERE ${whereCol} = $1`, whereValue))[0];
 
@@ -130,23 +135,39 @@ const updateRequests = async (iataCode, city) => {
 
 const taxUser = async (user, isFailedRequest) => {
   assertPeer(user.credits >= CREDITS_FOR_SUCCESSFUL_REQUEST, `Not enough credits to make a request`, 300);
-  makeTransaction(async () => {
+  db.makeTransaction(async (client) => {
     const requestColumn = isFailedRequest ? 'failed_requests' : 'successful_requests';
     const requestsValue = isFailedRequest ? user.failed_requests + 1 : user.successful_requests + 1;
     const credits = isFailedRequest ? CREDITS_FOR_FAILED_REQUEST : CREDITS_FOR_SUCCESSFUL_REQUEST;
+    const event = isFailedRequest ? 'Failed request' : 'Successful request';
 
-    await db.query(`UPDATE users SET ${requestColumn} = $1, credits = $2 WHERE id = $3`, requestsValue, user.credits - credits, user.id);
+    await client.query(`
+      UPDATE users
+        SET
+          ${requestColumn} = $1,
+          credits = $2
+        WHERE id = $3`,
+      [
+        requestsValue,
+        user.credits - credits,
+        user.id
+      ]
+    );
 
-    await saveTransfer(user, isFailedRequest);
-  });
-};
-
-const saveTransfer = async (user, isFailedRequest) => {
-  await db.insert('credit_transfers', {
-    user_id: user.id,
-    credits_spent: isFailedRequest ? CREDITS_FOR_FAILED_REQUEST : CREDITS_FOR_SUCCESSFUL_REQUEST,
-    event: isFailedRequest ? 'Failed request' : 'Successful request',
-    transfer_date: new Date(),
+    await client.query(`
+      INSERT INTO credit_transfers (
+        user_id,
+        credits_spent,
+        event,
+        transfer_date
+      ) VALUES ($1, $2, $3, $4)`,
+      [
+        user.id,
+        credits,
+        event,
+        new Date()
+      ]
+    );
   });
 };
 
