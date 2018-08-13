@@ -18,8 +18,6 @@ const query = async (sql, ...values) => {
   try {
     return (await client.query(sql, values)).rows;
   } catch (err) {
-    console.error(sql);
-    console.error(values);
     throw new AppError(`Error while querying: ${err}`, 18);
   } finally {
     client.release();

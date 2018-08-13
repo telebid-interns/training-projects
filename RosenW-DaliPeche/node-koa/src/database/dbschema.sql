@@ -55,7 +55,7 @@ CREATE TABLE api_keys (
 CREATE TABLE credit_transfers (
   id serial PRIMARY KEY,
   user_id integer NOT NULL REFERENCES users(id),
-  credits_bought numeric, -- not null for both
+  credits_bought numeric, -- bad name
   credits_spent numeric,
   event text NOT NULL,
   transfer_date timestamp NOT NULL

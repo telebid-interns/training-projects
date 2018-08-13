@@ -23,9 +23,29 @@
           <td>{{email}}</td>
           <td>{{successful_requests}}</td>
           <td>{{failed_requests}}</td>
-          <td>{{credits}}</td>
+          <td><input id="credits-{{username}}" type="text" value="{{credits}}" disabled="true" style="text-align: right"><a href="#" id="add-credits-sign-{{id}}" onclick='addCredits("{{username}}")'> +</a></td>
         </tr>
       {{/each}}
     </table>
   </body>
 </html>
+
+<script type="text/javascript">
+  async function addCredits (username) {
+    const credits = prompt(`add credits to user ${username}`);
+    console.log(typeof credits);
+    if (!Number(credits)) return;
+    await fetch('/addCreditsToUser', {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        username,
+        credits
+      })
+    });
+    creditBox = document.getElementById(`credits-${username}`);
+    creditBox.value = parseInt(creditBox.value) + parseInt(credits);
+  }
+</script>

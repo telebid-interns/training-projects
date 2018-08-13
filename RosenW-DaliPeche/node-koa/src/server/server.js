@@ -252,19 +252,31 @@ router.get('/admin/cities', async (ctx, next) => {
   }
 
   const term = ctx.query.term == null ? '' : ctx.query.term;
+  let page = !Number(ctx.query.page) ? 0 : Number(ctx.query.page);
+  if (page < 0) page = 0;
 
   const cities = (await db.query(`
     SELECT * FROM cities
     WHERE LOWER(name)
-    LIKE LOWER($1)`,
-  `%${term}%`
+    LIKE LOWER($1)
+    ORDER BY id
+    OFFSET $2
+    LIMIT $3`,
+  `%${term}%`,
+  0 + (200*page),
+  200
   )).map((c) => {
     if (c.observed_at != null) c.observed_at = c.observed_at.toISOString();
     return c;
-  })
-    .sort((c1, c2) => c1.id - c2.id);
+  }).sort((c1, c2) => c1.id - c2.id);
 
-  await ctx.render('admin_cities', { cities });
+  await ctx.render('admin_cities', {
+    cities,
+    page,
+    prevPage: page - 1,
+    nextPage: page + 1,
+    term
+  });
 });
 
 // GET admin/requests
@@ -361,14 +373,14 @@ router.post('/buy', async (ctx, next) => {
   }
 
   if (sale.success) {
-    await addCreditsToUser(user, credits);
+    await purchaseCredits(user, credits);
     ctx.body = {msg: `Successfuly added ${credits} credits`};
   } else {
     ctx.body = { error: 'Purchase unsuccessful' };
   }
 });
 
-const addCreditsToUser = async (user, credits) => {
+const purchaseCredits = async (user, credits) => {
   db.makeTransaction(async (client) => {
     await client.query(`
       UPDATE users SET credits = $1 WHERE id = $2`,
@@ -389,6 +401,38 @@ const addCreditsToUser = async (user, credits) => {
     );
   });
 };
+
+// AJAX post add credits
+router.post('/addCreditsToUser', async (ctx, next) => {
+  username = ctx.request.body.username;
+  credits = ctx.request.body.credits;
+
+  assert(isObject(ctx.request.body), 'Post /addCredits has no body', 19);
+  assert(username != null, 'No username in post /addCredits', 101);
+  assert(credits != null, 'No credits in post /addCredits', 102);
+
+  await db.makeTransaction(async (client) => {
+    const user = (await client.query(`SELECT * FROM users WHERE username = $1`, [ username ])).rows[0];
+    await client.query(`
+      UPDATE users SET credits = $1 WHERE username = $2`,
+      [
+        Number(user.credits) + Number(credits),
+        username
+      ]
+    );
+    await client.query(`
+      INSERT INTO credit_transfers (user_id, credits_bought, event, transfer_date)
+        VALUES ($1, $2, $3, $4)`,
+      [
+        user.id,
+        credits,
+        'Admin add',
+        new Date()
+      ]
+    );
+  });
+  ctx.body = '';
+});
 
 // POST admin
 router.post('/admin', async (ctx, next) => {
