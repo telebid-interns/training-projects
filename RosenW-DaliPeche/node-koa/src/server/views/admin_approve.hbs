@@ -1,0 +1,47 @@
+<html lang="en">
+  <head>
+    <link rel="stylesheet" type="text/css" href="./../bootstrap.css">
+  </head>
+   <body>
+    {{> adminForm }}
+    <h2 class="col-lg-12 col-md-12 col-sm-12 col-xs-12 text-center">Approve Credit Transfers</h2>
+    <table id="users-table" class="table table-hover">
+      <tr>
+        <th>User</th>
+        <th>Credits</th>
+        <th>Approve</th>
+      </tr>
+      {{#each transfers}}
+        <tr class="gen-tr">
+          <td>{{username}}</td>
+          <td>{{credits_received}}</td>
+          <td><a href="#" id="approve-{{id}}" onclick="approve('{{id}}')">Approve transfer</a></td>
+        </tr>
+      {{/each}}
+    </table>
+    <nav aria-label="Page navigation example" class="col-lg-offset-5 col-md-offset-5 col-sm-offset-5 col-xs-offset-5">
+      <ul class="pagination">
+        <li class="page-item"><a class="page-link" href="/admin/approve?page={{prevPage}}&term={{term}}">Previous Page</a></li>
+        <li class="page-item"><a class="page-link" href="/admin/approve?page={{nextPage}}&term={{term}}">Next Page</a></li>
+      </ul>
+    </nav>
+  </body>
+</html>
+
+<script type="text/javascript">
+  document.getElementById('select-approve').setAttribute('selected', 'selected');
+
+  function approve (id) {
+    fetch('/approve', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ id })
+    });
+    const link = document.getElementById(`approve-${id}`);
+    link.setAttribute('style', 'color: green');
+    link.setAttribute('href', 'javascript: void(0)');
+    link.innerHTML = 'Approved';
+  }
+</script>

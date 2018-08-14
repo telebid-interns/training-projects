@@ -55,10 +55,11 @@ CREATE TABLE api_keys (
 CREATE TABLE credit_transfers (
   id serial PRIMARY KEY,
   user_id integer NOT NULL REFERENCES users(id),
-  credits_bought numeric, -- bad name
+  credits_received numeric,
   credits_spent numeric,
   event text NOT NULL,
-  transfer_date timestamp NOT NULL
+  transfer_date timestamp NOT NULL,
+  approved boolean DEFAULT true NOT NULL
 );
 
 CREATE INDEX requests_iata_code_index ON requests (iata_code);

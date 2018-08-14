@@ -218,7 +218,7 @@ router.get('/admin/credits', async (ctx, next) => {
   const totalByUserSQL = `
     SELECT
       u.username,
-      SUM(ct.credits_bought) AS credits_purchased,
+      SUM(ct.credits_received) AS credits_purchased,
       SUM(ct.credits_spent) AS credits_spent,
       u.credits AS credits_remaining
     FROM users AS u
@@ -332,6 +332,45 @@ router.get('/admin/requests', async (ctx, next) => {
   });
 });
 
+// GET admin/approve
+router.get('/admin/approve', async (ctx, next) => {
+  trace(`GET '/admin/approve'`);
+
+  if (ctx.session.admin == null) {
+    await ctx.redirect('/admin');
+    return next();
+  }
+
+  const term = ctx.query.term == null ? '' : ctx.query.term;
+  const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
+
+  const transfers = (await db.query(`
+      SELECT
+        ct.id,
+        u.username,
+        ct.credits_received
+      FROM users as u
+      JOIN credit_transfers as ct
+      ON ct.user_id = u.id
+      WHERE LOWER(u.username)
+      LIKE LOWER($1)
+      AND approved = false
+      ORDER BY ct.id DESC
+      OFFSET $2
+      LIMIT $3`,
+    `%${term}%`,
+    0 + (ROWS_PER_PAGE*page),
+    ROWS_PER_PAGE
+  ));
+  await ctx.render('admin_approve', {
+    transfers,
+    page,
+    prevPage: page - 1,
+    nextPage: page + 1,
+    term
+  });
+});
+
 // GET admin/ctransfers
 router.get('/admin/ctransfers', async (ctx, next) => {
   trace(`GET '/admin/ctransfers'`);
@@ -345,24 +384,25 @@ router.get('/admin/ctransfers', async (ctx, next) => {
   const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
 
   const transfers = (await db.query(`
-    SELECT
-      ct.id,
-      transfer_date,
-      username,
-      credits_bought,
-      credits_spent,
-      event
-    FROM users as u
-    JOIN credit_transfers as ct
-    ON ct.user_id = u.id
-    WHERE LOWER(username)
-    LIKE LOWER($1)
-    ORDER BY ct.id DESC
-    OFFSET $2
-    LIMIT $3`,
-  `%${term}%`,
-  0 + (ROWS_PER_PAGE*page),
-  ROWS_PER_PAGE
+      SELECT
+        ct.id,
+        transfer_date,
+        username,
+        credits_received,
+        credits_spent,
+        event
+      FROM users as u
+      JOIN credit_transfers as ct
+      ON ct.user_id = u.id
+      WHERE LOWER(username)
+      LIKE LOWER($1)
+      AND approved = true
+      ORDER BY ct.id DESC
+      OFFSET $2
+      LIMIT $3`,
+    `%${term}%`,
+    0 + (ROWS_PER_PAGE*page),
+    ROWS_PER_PAGE
   )).map((t) => {
     t.transfer_date = t.transfer_date.toISOString();
     return t;
@@ -423,40 +463,37 @@ router.post('/buy', async (ctx, next) => {
 
   if (sale.success) {
     await purchaseCredits(user, credits);
-    ctx.body = {msg: `Successfuly added ${credits} credits`};
+    ctx.body = {msg: `${credits} credits sent for approval`};
   } else {
     ctx.body = { error: 'Purchase unsuccessful' };
   }
 });
 
 const purchaseCredits = async (user, credits) => {
-  db.makeTransaction(async (client) => {
-    await client.query(`
-      UPDATE users SET credits = $1 WHERE id = $2`,
-      [
-        Number(user.credits) + Number(credits),
-        user.id
-      ]
-    );
-    await client.query(`
-      INSERT INTO credit_transfers (user_id, credits_bought, event, transfer_date)
-        VALUES ($1, $2, $3, $4)`,
-        [
-          user.id,
-          credits,
-          'Credit purchase',
-          new Date()
-        ]
-    );
-  });
+  await db.query(`
+    INSERT INTO credit_transfers (
+        user_id,
+        credits_received,
+        event,
+        transfer_date,
+        approved
+      )
+      VALUES ($1, $2, $3, $4, $5)`,
+    user.id,
+    credits,
+    'Credit purchase',
+    new Date(),
+    false
+  );
 };
 
 // AJAX post add credits
 router.post('/addCreditsToUser', async (ctx, next) => {
+  assert(isObject(ctx.request.body), 'Post /addCredits has no body', 19);
+
   username = ctx.request.body.username;
   credits = ctx.request.body.credits;
 
-  assert(isObject(ctx.request.body), 'Post /addCredits has no body', 19);
   assert(username != null, 'No username in post /addCredits', 101);
   assert(credits != null, 'No credits in post /addCredits', 102);
 
@@ -470,7 +507,7 @@ router.post('/addCreditsToUser', async (ctx, next) => {
       ]
     );
     await client.query(`
-      INSERT INTO credit_transfers (user_id, credits_bought, event, transfer_date)
+      INSERT INTO credit_transfers (user_id, credits_received, event, transfer_date)
         VALUES ($1, $2, $3, $4)`,
       [
         user.id,
@@ -479,6 +516,26 @@ router.post('/addCreditsToUser', async (ctx, next) => {
         new Date()
       ]
     );
+  });
+  ctx.body = '';
+});
+
+// AJAX post approve transfer
+router.post('/approve', async (ctx, next) => {
+  assert(isObject(ctx.request.body), 'Post /approve has no body', 103);
+  assert(typeof ctx.request.body.id === 'string' && Number(ctx.request.body.id), 'Post /approve body has no id', 104);
+
+  id = ctx.request.body.id;
+
+  assert(id != null, 'No id in post /approve', 105);
+
+  await db.makeTransaction(async (client) => {
+    const transfer = (await client.query('SELECT * FROM credit_transfers WHERE id = $1', [ id ])).rows[0];
+    assert(isObject(transfer), 'Post /approve transfer not found', 106);
+    const user = (await client.query('SELECT * FROM users WHERE id = $1', [ transfer.user_id ])).rows[0];
+    assert(isObject(user), 'Post /approve user not found', 107);
+    await client.query(`UPDATE users SET credits = $1 WHERE id = $2`, [ Number(transfer.credits_received) + Number(user.credits), transfer.user_id ]);
+    await client.query(`UPDATE credit_transfers SET approved = true WHERE id = $1`, [ transfer.id ]);
   });
   ctx.body = '';
 });

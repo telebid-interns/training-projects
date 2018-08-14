@@ -159,13 +159,15 @@ const taxUser = async (user, isFailedRequest) => {
         user_id,
         credits_spent,
         event,
-        transfer_date
-      ) VALUES ($1, $2, $3, $4)`,
+        transfer_date,
+        approved
+      ) VALUES ($1, $2, $3, $4, $5)`,
       [
         user.id,
         credits,
         event,
-        new Date()
+        new Date(),
+        true
       ]
     );
   });
