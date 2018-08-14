@@ -30,6 +30,7 @@ const {
   CREDIT_CARD_PUBLIC_KEY,
   SALT_ROUNDS,
   SALT_LENGTH,
+  ROWS_PER_PAGE,
 } = require('./../utils/consts.js');
 const braintree = require('braintree');
 
@@ -176,21 +177,30 @@ router.get('/admin/users', async (ctx, next) => {
   }
 
   const term = ctx.query.term == null ? '' : ctx.query.term;
+  const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
 
   const users = (await db.query(`
     SELECT * FROM users
     WHERE LOWER(username)
     LIKE LOWER($1)
-    ORDER BY id`,
-  `%${term}%`
+    ORDER BY id
+    OFFSET $2
+    LIMIT $3`,
+  `%${term}%`,
+  0 + (ROWS_PER_PAGE*page),
+  ROWS_PER_PAGE
   )).map((u) => {
     u.date_registered = u.date_registered.toISOString();
     return u;
   });
 
   await ctx.render('admin_users', {
-    users,
     maxRequests: MAX_REQUESTS_PER_HOUR,
+    users,
+    page,
+    prevPage: page - 1,
+    nextPage: page + 1,
+    term,
   });
 });
 
@@ -202,43 +212,52 @@ router.get('/admin/credits', async (ctx, next) => {
     await ctx.redirect('/admin');
     return next();
   }
+
   const term = ctx.query.term == null ? '' : ctx.query.term;
-  const users = await db.query(`
-      SELECT
-        u.username,
-        SUM(ct.credits_bought) AS credits_purchased,
-        SUM(ct.credits_spent) AS credits_spent,
-        u.credits AS credits_remaining
-      FROM users AS u
-      JOIN credit_transfers AS ct
-      ON ct.user_id = u.id
-      WHERE LOWER(u.username) LIKE LOWER($1)
-      GROUP BY (u.username, u.credits)
-    `, `%${term}%`);
+  const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
+  const totalByUserSQL = `
+    SELECT
+      u.username,
+      SUM(ct.credits_bought) AS credits_purchased,
+      SUM(ct.credits_spent) AS credits_spent,
+      u.credits AS credits_remaining
+    FROM users AS u
+    JOIN credit_transfers AS ct
+    ON ct.user_id = u.id
+    WHERE LOWER(u.username) LIKE LOWER($1)
+    GROUP BY (u.username, u.credits)
+    OFFSET $2
+    LIMIT $3
+  `;
+
+  const users = await db.query(
+    totalByUserSQL,
+    `%${term}%`,
+    0 + (ROWS_PER_PAGE*page),
+    ROWS_PER_PAGE
+  );
 
   const total = (await db.query(`
     SELECT
       SUM(credits_purchased) as total_credits_purchased,
       SUM(credits_spent) as total_credits_spent,
       SUM(credits_remaining) as total_credits_remaining
-    FROM (
-      SELECT
-        u.username,
-        SUM(ct.credits_bought) AS credits_purchased,
-        SUM(ct.credits_spent) AS credits_spent,
-        u.credits AS credits_remaining
-      FROM users AS u
-      JOIN credit_transfers AS ct
-      ON ct.user_id = u.id
-      WHERE LOWER(u.username) LIKE LOWER($1)
-      GROUP BY (u.username, u.credits)) as total_by_user
-    `, `%${term}%`))[0];
+    FROM (${totalByUserSQL}) AS total_by_user
+    `,
+  `%${term}%`,
+  0 + (ROWS_PER_PAGE*page),
+  ROWS_PER_PAGE
+    ))[0];
 
   await ctx.render('admin_credits', {
     users,
     total_credits_purchased: total.total_credits_purchased,
     total_credits_spent: total.total_credits_spent,
     total_credits_remaining: total.total_credits_remaining,
+    page,
+    prevPage: page - 1,
+    nextPage: page + 1,
+    term,
   });
 });
 
@@ -252,8 +271,7 @@ router.get('/admin/cities', async (ctx, next) => {
   }
 
   const term = ctx.query.term == null ? '' : ctx.query.term;
-  let page = !Number(ctx.query.page) ? 0 : Number(ctx.query.page);
-  if (page < 0) page = 0;
+  const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
 
   const cities = (await db.query(`
     SELECT * FROM cities
@@ -263,8 +281,8 @@ router.get('/admin/cities', async (ctx, next) => {
     OFFSET $2
     LIMIT $3`,
   `%${term}%`,
-  0 + (200*page),
-  200
+  0 + (ROWS_PER_PAGE*page),
+  ROWS_PER_PAGE
   )).map((c) => {
     if (c.observed_at != null) c.observed_at = c.observed_at.toISOString();
     return c;
@@ -288,10 +306,30 @@ router.get('/admin/requests', async (ctx, next) => {
     return next();
   }
 
-  const requests = (await db.query(`SELECT * FROM requests`))
-    .sort((c1, c2) => c2.call_count - c1.call_count);
+  const term = ctx.query.term == null ? '' : ctx.query.term;
+  const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
 
-  await ctx.render('admin_requests', { requests });
+  const requests = (await db.query(`
+    SELECT * FROM requests
+    WHERE LOWER(iata_code)
+    LIKE LOWER($1)
+    OR LOWER(city)
+    LIKE LOWER($1)
+    ORDER BY id
+    OFFSET $2
+    LIMIT $3`,
+  `%${term}%`,
+  0 + (ROWS_PER_PAGE*page),
+  ROWS_PER_PAGE
+  )).sort((c1, c2) => c2.call_count - c1.call_count);
+
+  await ctx.render('admin_requests', {
+    requests,
+    page,
+    prevPage: page - 1,
+    nextPage: page + 1,
+    term
+  });
 });
 
 // GET admin/ctransfers
@@ -304,6 +342,7 @@ router.get('/admin/ctransfers', async (ctx, next) => {
   }
 
   const term = ctx.query.term == null ? '' : ctx.query.term;
+  const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
 
   const transfers = (await db.query(`
     SELECT
@@ -318,14 +357,24 @@ router.get('/admin/ctransfers', async (ctx, next) => {
     ON ct.user_id = u.id
     WHERE LOWER(username)
     LIKE LOWER($1)
-    ORDER BY ct.id DESC`,
-  `%${term}%`
+    ORDER BY ct.id DESC
+    OFFSET $2
+    LIMIT $3`,
+  `%${term}%`,
+  0 + (ROWS_PER_PAGE*page),
+  ROWS_PER_PAGE
   )).map((t) => {
     t.transfer_date = t.transfer_date.toISOString();
     return t;
   });
 
-  await ctx.render('admin_transfers', { transfers });
+  await ctx.render('admin_transfers', {
+    transfers,
+    page,
+    prevPage: page - 1,
+    nextPage: page + 1,
+    term
+  });
 });
 
 // GET buy

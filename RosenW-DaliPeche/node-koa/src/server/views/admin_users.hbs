@@ -27,6 +27,12 @@
         </tr>
       {{/each}}
     </table>
+    <nav aria-label="Page navigation example" class="col-lg-offset-5 col-md-offset-5 col-sm-offset-5 col-xs-offset-5">
+      <ul class="pagination">
+        <li class="page-item"><a class="page-link" href="/admin/users?page={{prevPage}}&term={{term}}">Previous Page</a></li>
+        <li class="page-item"><a class="page-link" href="/admin/users?page={{nextPage}}&term={{term}}">Next Page</a></li>
+      </ul>
+    </nav>
   </body>
 </html>
 

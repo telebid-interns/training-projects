@@ -34,11 +34,11 @@ const formatDate = (date) => {
   return [day, month, year].join('-');
 }
 
-function validateEmail (email) {
+const validateEmail = (email) => {
   return EMAIL_VALIDATION_REGEX.test(String(email));
 }
 
-function isInteger(num) {
+const isInteger = (num) => {
   return (typeof num === 'number') && (num % 1 === 0);
 }
 

@@ -23,6 +23,8 @@ const CREDITS_FOR_FAILED_REQUEST = 1;
 const SALT_LENGTH = 10;
 const SALT_ROUNDS = 10;
 
+const ROWS_PER_PAGE = 200;
+
 // credit card payment info
 const MERCHANT_ID = '9mjmz4gm33rrmbd2';
 const CREDIT_CARD_PUBLIC_KEY = 'yy9fyqg8m8yqdrhs';
@@ -47,5 +49,6 @@ module.exports = {
   CREDIT_CARD_PRIVATE_KEY,
   CREDIT_CARD_PUBLIC_KEY,
   SALT_LENGTH,
-  SALT_ROUNDS
+  SALT_ROUNDS,
+  ROWS_PER_PAGE
 };
