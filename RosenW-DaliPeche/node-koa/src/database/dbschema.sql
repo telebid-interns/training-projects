@@ -94,3 +94,37 @@ CREATE INDEX credit_transfers_credits_bought_index ON credit_transfers (credits_
 CREATE INDEX credit_transfers_credits_spent_index ON credit_transfers (credits_spent);
 CREATE INDEX credit_transfers_event_index ON credit_transfers (event);
 CREATE INDEX credit_transfers_transfer_date_index ON credit_transfers (transfer_date);
+
+-- dropping indexes
+DROP INDEX requests_iata_code_index;
+DROP INDEX requests_city_index;
+DROP INDEX requests_call_count_index;
+
+DROP INDEX cities_name_index;
+DROP INDEX cities_country_code_index;
+DROP INDEX cities_lng_index;
+DROP INDEX cities_lat_index;
+DROP INDEX cities_observed_at_index;
+
+DROP INDEX weather_conditions_city_id_index;
+DROP INDEX weather_conditions_weather_index;
+DROP INDEX weather_conditions_forecast_time_index;
+
+DROP INDEX users_username_index;
+DROP INDEX users_email_index;
+DROP INDEX users_credits_index;
+DROP INDEX users_failed_requests_index;
+DROP INDEX users_successful_requests_index;
+DROP INDEX users_password_index;
+DROP INDEX users_salt_index;
+DROP INDEX users_date_registered_index;
+
+DROP INDEX api_keys_key_index;
+DROP INDEX api_keys_user_id_index;
+DROP INDEX api_keys_use_count_index;
+
+DROP INDEX credit_transfers_user_id_index;
+DROP INDEX credit_transfers_credits_bought_index;
+DROP INDEX credit_transfers_credits_spent_index;
+DROP INDEX credit_transfers_event_index;
+DROP INDEX credit_transfers_transfer_date_index;

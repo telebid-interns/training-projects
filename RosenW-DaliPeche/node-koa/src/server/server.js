@@ -98,6 +98,20 @@ router.get('/', async (ctx, next) => {
   await ctx.redirect('/home');
 });
 
+// // GET timer
+// router.get('/timer', async (ctx, next) => {
+//   trace(`GET '/timer'`);
+
+//   const date1 = new Date();
+//   const city = await db.query(`select * from cities where name = 'Houston'`);
+//   const date2 = new Date();
+
+//   console.log(city);
+//   console.log(date2 - date1);
+
+//   await ctx.redirect('/home');
+// });
+
 // GET logout
 router.get('/logout', async (ctx, next) => {
   trace(`GET '/logout'`);
@@ -539,6 +553,8 @@ router.post('/approve', async (ctx, next) => {
   });
   ctx.body = '';
 });
+
+// ZC11312-38MT-CMC7
 
 // POST admin
 router.post('/admin', async (ctx, next) => {
