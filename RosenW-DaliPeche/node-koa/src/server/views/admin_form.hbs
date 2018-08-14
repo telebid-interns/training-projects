@@ -2,11 +2,11 @@
   <form class="inline">
     <select id="report-select" class="form-control" onchange="location.href = this.value">
       <option value="/admin" selected="true">Select Report</option>
-      <option value="/admin/users">Users</option>
-      <option value="/admin/ctransfers">Credit Transfers</option>
-      <option value="/admin/cities">Cities</option>
-      <option value="/admin/requests">Requests</option>
-      <option value="/admin/credits">Credit Balance</option>
+      <option id="select-users" value="/admin/users">Users</option>
+      <option id="select-ctransfers" value="/admin/ctransfers">Credit Transfers</option>
+      <option id="select-cities" value="/admin/cities">Cities</option>
+      <option id="select-requests" value="/admin/requests">Requests</option>
+      <option id="select-cbalance" value="/admin/credits">Credit Balance</option>
     </select>
     <br>
     <input type="text" name="term" id='search-box' placeholder="Search..." class="form-control">

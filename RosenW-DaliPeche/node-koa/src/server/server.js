@@ -239,9 +239,9 @@ router.get('/admin/credits', async (ctx, next) => {
 
   const total = (await db.query(`
     SELECT
-      SUM(credits_purchased) as total_credits_purchased,
-      SUM(credits_spent) as total_credits_spent,
-      SUM(credits_remaining) as total_credits_remaining
+      SUM(credits_purchased) AS total_credits_purchased,
+      SUM(credits_spent) AS total_credits_spent,
+      SUM(credits_remaining) AS total_credits_remaining
     FROM (${totalByUserSQL}) AS total_by_user
     `,
   `%${term}%`,

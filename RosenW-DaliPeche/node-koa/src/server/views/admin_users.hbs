@@ -37,14 +37,15 @@
 </html>
 
 <script type="text/javascript">
+  document.getElementById('select-users').setAttribute('selected', 'selected');
   async function addCredits (username) {
     const credits = prompt(`add credits to user ${username}`);
     console.log(typeof credits);
     if (!Number(credits)) return;
     await fetch('/addCreditsToUser', {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json"
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
         username,
