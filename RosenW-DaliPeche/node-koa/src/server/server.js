@@ -191,7 +191,7 @@ router.get('/admin', async (ctx, next) => {
 // GET admin/users
 router.get('/admin/users', async (ctx, next) => {
   trace(`GET '/admin/users'`);
-  if (ctx.session.admin == null || !ctx.session.roles.includes('superuser')) {
+  if (!ctx.session.roles.includes('superuser')) {
     await ctx.redirect('/admin');
     return next();
   }
@@ -228,7 +228,7 @@ router.get('/admin/users', async (ctx, next) => {
 router.get('/admin/credits', async (ctx, next) => {
   trace(`GET '/admin/credits'`);
 
-  if (ctx.session.admin == null) {
+  if (!ctx.session.roles.includes('superuser') && !ctx.session.roles.includes('accountant')) {
     await ctx.redirect('/admin');
     return next();
   }
@@ -285,7 +285,7 @@ router.get('/admin/credits', async (ctx, next) => {
 router.get('/admin/cities', async (ctx, next) => {
   trace(`GET '/admin/cities'`);
 
-  if (ctx.session.admin == null) {
+  if (!ctx.session.roles.includes('superuser')) {
     await ctx.redirect('/admin');
     return next();
   }
@@ -321,7 +321,7 @@ router.get('/admin/cities', async (ctx, next) => {
 router.get('/admin/requests', async (ctx, next) => {
   trace(`GET '/admin/requests'`);
 
-  if (ctx.session.admin == null) {
+  if (!ctx.session.roles.includes('superuser')) {
     await ctx.redirect('/admin');
     return next();
   }
@@ -356,7 +356,7 @@ router.get('/admin/requests', async (ctx, next) => {
 router.get('/admin/approve', async (ctx, next) => {
   trace(`GET '/admin/approve'`);
 
-  if (ctx.session.admin == null) {
+  if (!ctx.session.roles.includes('superuser')) {
     await ctx.redirect('/admin');
     return next();
   }
@@ -395,7 +395,7 @@ router.get('/admin/approve', async (ctx, next) => {
 router.get('/admin/ctransfers', async (ctx, next) => {
   trace(`GET '/admin/ctransfers'`);
 
-  if (ctx.session.admin == null) {
+  if (!ctx.session.roles.includes('superuser') && !ctx.session.roles.includes('accountant')) {
     await ctx.redirect('/admin');
     return next();
   }
@@ -559,7 +559,7 @@ router.post('/approve', async (ctx, next) => {
   });
   ctx.body = '';
 });
-// ZC11497-WVYE-AC5Y
+
 // POST admin
 router.post('/admin', async (ctx, next) => {
   trace(`POST '/admin'`);
