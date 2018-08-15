@@ -91,13 +91,6 @@ app.use(async (ctx, next) => {
 
 app.use(bodyParser());
 
-// GET root
-router.get('/', async (ctx, next) => {
-  trace(`GET '/'`);
-
-  await ctx.redirect('/home');
-});
-
 // // GET timer
 // router.get('/timer', async (ctx, next) => {
 //   trace(`GET '/timer'`);
@@ -111,6 +104,20 @@ router.get('/', async (ctx, next) => {
 
 //   await ctx.redirect('/home');
 // });
+
+// (async () => {
+//   const salt = generateRandomString(SALT_LENGTH);
+//   const saltedPassword = 'admin' + salt;
+//   const hash = await bcrypt.hash(saltedPassword, SALT_ROUNDS);
+//   await db.query(`insert into backoffice_users (username, password, salt) values ('admin', $1, $2)`, hash, salt);
+// })();
+
+// GET root
+router.get('/', async (ctx, next) => {
+  trace(`GET '/'`);
+
+  await ctx.redirect('/home');
+});
 
 // GET logout
 router.get('/logout', async (ctx, next) => {
@@ -178,14 +185,13 @@ router.get('/admin', async (ctx, next) => {
     return next();
   }
 
-  await ctx.redirect('admin/users');
+  await ctx.render('admin');
 });
 
 // GET admin/users
 router.get('/admin/users', async (ctx, next) => {
   trace(`GET '/admin/users'`);
-
-  if (ctx.session.admin == null) {
+  if (ctx.session.admin == null || !ctx.session.roles.includes('superuser')) {
     await ctx.redirect('/admin');
     return next();
   }
@@ -553,22 +559,55 @@ router.post('/approve', async (ctx, next) => {
   });
   ctx.body = '';
 });
-
-// ZC11312-38MT-CMC7
-
+// ZC11497-WVYE-AC5Y
 // POST admin
 router.post('/admin', async (ctx, next) => {
   trace(`POST '/admin'`);
 
+  assert(isObject(ctx.request.body), 'Post /admin has no body', 108);
+
   const username = ctx.request.body.username;
   const password = ctx.request.body.password;
 
-  if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-    ctx.session.admin = true;
-    return ctx.redirect('/admin/users');
+  assert(typeof ctx.request.body.username === 'string', 'Post /admin body has no username', 109);
+  assert(typeof ctx.request.body.password === 'string', 'Post /admin body has no password', 110);
+
+  const user = (await db.query(`
+    SELECT u.salt, u.password FROM roles AS r
+      JOIN backoffice_users_roles AS ur
+      ON r.id = ur.role_id
+      JOIN backoffice_users AS u
+      ON u.id = ur.backoffice_user_id
+      WHERE u.username = $1;
+    `, username
+  ))[0];
+  assert(isObject(user), 'Post /admin user not found', 111);
+
+
+  if (user == null) {
+    await ctx.render('admin_login', { error: 'Invalid log in information' });
+    return next();
   }
 
-  await ctx.render('admin_login', { error: 'Invalid log in information' });
+  const saltedPassword = password + user.salt;
+  const isPassCorrect = await bcrypt.compare(saltedPassword, user.password);
+
+  if (isPassCorrect) {
+    ctx.session.admin = true;
+    ctx.session.roles = (await db.query(`
+      SELECT r.role FROM roles AS r
+        JOIN backoffice_users_roles AS ur
+        ON r.id = ur.role_id
+        JOIN backoffice_users AS u
+        ON u.id = ur.backoffice_user_id
+        WHERE u.username = $1;
+      `, username
+    )).map((r) => r.role);
+    assert(isObject(ctx.session.roles), 'Post /admin user has no roles', 112);
+    return ctx.redirect('/admin');
+  }
+
+  await ctx.render('/admin_login', { error: 'Invalid log in information' });
 });
 
 // POST register

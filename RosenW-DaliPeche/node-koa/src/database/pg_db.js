@@ -24,39 +24,6 @@ const query = async (sql, ...values) => {
   }
 };
 
-const select = async (table, where, { one, like, count, or }) => {
-  if (or == null) or = false;
-  if (one == null) one = false;
-  if (like == null) like = false;
-  if (count == null) count = false;
-
-  const operator = like ? 'LIKE' : '=';
-  let whereStatement = '';
-
-  let first = true;
-  let index = 0;
-  for (const col of Object.keys(where)) {
-    if (first) {
-      whereStatement += `WHERE ${col} ${operator} $${++index}`;
-      first = false;
-    } else {
-      whereStatement += ` ${or ? 'OR' : 'AND'} ${col} ${operator} $${++index}`;
-    }
-  }
-
-  const wholeStatement = `
-      SELECT ${ count ? 'COUNT(*) as count' : '*' }
-      FROM ${table}
-      ${whereStatement}
-    `;
-
-  if (one) {
-    return (await client.query(wholeStatement, Object.values(where))).rows[0];
-  }
-
-  return (await client.query(wholeStatement, Object.values(where))).rows;
-};
-
 const insert = async (table, data) => {
   const wholeStatement = `
       INSERT INTO ${table} (${Object.keys(data).join(', ')})
@@ -111,6 +78,7 @@ async function makeTransaction (func) {
     await client.query('BEGIN');
     console.log('BEGIN');
     await func(client);
+    // assert ?
     await client.query('COMMIT');
     console.log('COMMIT');
   } catch (err) {

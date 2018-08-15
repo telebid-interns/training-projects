@@ -62,6 +62,24 @@ CREATE TABLE credit_transfers (
   approved boolean DEFAULT true NOT NULL
 );
 
+CREATE TABLE backoffice_users (
+  id serial PRIMARY KEY,
+  username text NOT NULL unique,
+  password text NOT NULL,
+  salt text NOT NULL
+);
+
+CREATE TABLE roles (
+  id serial PRIMARY KEY,
+  role text NOT NULL unique
+);
+
+CREATE TABLE backoffice_users_roles (
+  backoffice_user_id integer NOT NULL REFERENCES backoffice_users(id),
+  role_id integer NOT NULL REFERENCES roles(id),
+  PRIMARY KEY(backoffice_user_id, role_id)
+);
+
 CREATE INDEX requests_iata_code_index ON requests (iata_code);
 CREATE INDEX requests_city_index ON requests (city);
 CREATE INDEX requests_call_count_index ON requests (call_count);
@@ -90,10 +108,11 @@ CREATE INDEX api_keys_user_id_index ON api_keys (user_id);
 CREATE INDEX api_keys_use_count_index ON api_keys (use_count);
 
 CREATE INDEX credit_transfers_user_id_index ON credit_transfers (user_id);
-CREATE INDEX credit_transfers_credits_bought_index ON credit_transfers (credits_bought);
+CREATE INDEX credit_transfers_credits_bought_index ON credit_transfers (credits_received);
 CREATE INDEX credit_transfers_credits_spent_index ON credit_transfers (credits_spent);
 CREATE INDEX credit_transfers_event_index ON credit_transfers (event);
 CREATE INDEX credit_transfers_transfer_date_index ON credit_transfers (transfer_date);
+CREATE INDEX credit_transfers_approved_index ON credit_transfers (approved);
 
 -- dropping indexes
 DROP INDEX requests_iata_code_index;
