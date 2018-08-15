@@ -29,8 +29,8 @@ const generateAPIKey = async (ctx, next) => {
     db.query(`
       INSERT INTO api_keys (key, user_id)
         VALUES ($1, $2)`,
-      key,
-      user.id
+    key,
+    user.id
     );
     ctx.body = { key };
   }
@@ -147,11 +147,11 @@ const taxUser = async (user, isFailedRequest) => {
           ${requestColumn} = $1,
           credits = $2
         WHERE id = $3`,
-      [
-        requestsValue,
-        user.credits - credits,
-        user.id
-      ]
+    [
+      requestsValue,
+      user.credits - credits,
+      user.id,
+    ]
     );
 
     await client.query(`
@@ -162,13 +162,13 @@ const taxUser = async (user, isFailedRequest) => {
         transfer_date,
         approved
       ) VALUES ($1, $2, $3, $4, $5)`,
-      [
-        user.id,
-        credits,
-        event,
-        new Date(),
-        true
-      ]
+    [
+      user.id,
+      credits,
+      event,
+      new Date(),
+      true,
+    ]
     );
   });
 };

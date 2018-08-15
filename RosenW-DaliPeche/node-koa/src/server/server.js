@@ -8,7 +8,6 @@ const {
   generateRandomString,
   validateEmail,
   isObject,
-  makeTransaction,
   isInteger,
 } = require('./../utils/utils.js');
 const { getForecast, generateAPIKey, deleteAPIKey } = require('./../api/api.js');
@@ -21,8 +20,6 @@ const {
   PORT,
   MINIMUM_USERNAME_LENGTH,
   MINIMUM_PASSWORD_LENGTH,
-  ADMIN_USERNAME,
-  ADMIN_PASSWORD,
   MAX_REQUESTS_PER_HOUR,
   MAXIMUM_CREDITS_ALLOWED,
   MERCHANT_ID,
@@ -207,7 +204,7 @@ router.get('/admin/users', async (ctx, next) => {
     OFFSET $2
     LIMIT $3`,
   `%${term}%`,
-  0 + (ROWS_PER_PAGE*page),
+  0 + (ROWS_PER_PAGE * page),
   ROWS_PER_PAGE
   )).map((u) => {
     u.date_registered = u.date_registered.toISOString();
@@ -253,7 +250,7 @@ router.get('/admin/credits', async (ctx, next) => {
   const users = await db.query(
     totalByUserSQL,
     `%${term}%`,
-    0 + (ROWS_PER_PAGE*page),
+    0 + (ROWS_PER_PAGE * page),
     ROWS_PER_PAGE
   );
 
@@ -265,9 +262,9 @@ router.get('/admin/credits', async (ctx, next) => {
     FROM (${totalByUserSQL}) AS total_by_user
     `,
   `%${term}%`,
-  0 + (ROWS_PER_PAGE*page),
+  0 + (ROWS_PER_PAGE * page),
   ROWS_PER_PAGE
-    ))[0];
+  ))[0];
 
   await ctx.render('admin_credits', {
     users,
@@ -301,7 +298,7 @@ router.get('/admin/cities', async (ctx, next) => {
     OFFSET $2
     LIMIT $3`,
   `%${term}%`,
-  0 + (ROWS_PER_PAGE*page),
+  0 + (ROWS_PER_PAGE * page),
   ROWS_PER_PAGE
   )).map((c) => {
     if (c.observed_at != null) c.observed_at = c.observed_at.toISOString();
@@ -313,7 +310,7 @@ router.get('/admin/cities', async (ctx, next) => {
     page,
     prevPage: page - 1,
     nextPage: page + 1,
-    term
+    term,
   });
 });
 
@@ -339,7 +336,7 @@ router.get('/admin/requests', async (ctx, next) => {
     OFFSET $2
     LIMIT $3`,
   `%${term}%`,
-  0 + (ROWS_PER_PAGE*page),
+  0 + (ROWS_PER_PAGE * page),
   ROWS_PER_PAGE
   )).sort((c1, c2) => c2.call_count - c1.call_count);
 
@@ -348,7 +345,7 @@ router.get('/admin/requests', async (ctx, next) => {
     page,
     prevPage: page - 1,
     nextPage: page + 1,
-    term
+    term,
   });
 });
 
@@ -378,16 +375,16 @@ router.get('/admin/approve', async (ctx, next) => {
       ORDER BY ct.id DESC
       OFFSET $2
       LIMIT $3`,
-    `%${term}%`,
-    0 + (ROWS_PER_PAGE*page),
-    ROWS_PER_PAGE
+  `%${term}%`,
+  0 + (ROWS_PER_PAGE * page),
+  ROWS_PER_PAGE
   ));
   await ctx.render('admin_approve', {
     transfers,
     page,
     prevPage: page - 1,
     nextPage: page + 1,
-    term
+    term,
   });
 });
 
@@ -420,9 +417,9 @@ router.get('/admin/ctransfers', async (ctx, next) => {
       ORDER BY ct.id DESC
       OFFSET $2
       LIMIT $3`,
-    `%${term}%`,
-    0 + (ROWS_PER_PAGE*page),
-    ROWS_PER_PAGE
+  `%${term}%`,
+  0 + (ROWS_PER_PAGE * page),
+  ROWS_PER_PAGE
   )).map((t) => {
     t.transfer_date = t.transfer_date.toISOString();
     return t;
@@ -433,7 +430,7 @@ router.get('/admin/ctransfers', async (ctx, next) => {
     page,
     prevPage: page - 1,
     nextPage: page + 1,
-    term
+    term,
   });
 });
 
@@ -499,11 +496,11 @@ const purchaseCredits = async (user, credits) => {
         approved
       )
       VALUES ($1, $2, $3, $4, $5)`,
-    user.id,
-    credits,
-    'Credit purchase',
-    new Date(),
-    false
+  user.id,
+  credits,
+  'Credit purchase',
+  new Date(),
+  false
   );
 };
 
@@ -511,8 +508,8 @@ const purchaseCredits = async (user, credits) => {
 router.post('/addCreditsToUser', async (ctx, next) => {
   assert(isObject(ctx.request.body), 'Post /addCredits has no body', 19);
 
-  username = ctx.request.body.username;
-  credits = ctx.request.body.credits;
+  const username = ctx.request.body.username;
+  const credits = ctx.request.body.credits;
 
   assert(username != null, 'No username in post /addCredits', 101);
   assert(credits != null, 'No credits in post /addCredits', 102);
@@ -521,20 +518,20 @@ router.post('/addCreditsToUser', async (ctx, next) => {
     const user = (await client.query(`SELECT * FROM users WHERE username = $1`, [ username ])).rows[0];
     await client.query(`
       UPDATE users SET credits = $1 WHERE username = $2`,
-      [
-        Number(user.credits) + Number(credits),
-        username
-      ]
+    [
+      Number(user.credits) + Number(credits),
+      username,
+    ]
     );
     await client.query(`
       INSERT INTO credit_transfers (user_id, credits_received, event, transfer_date)
         VALUES ($1, $2, $3, $4)`,
-      [
-        user.id,
-        credits,
-        'Admin add',
-        new Date()
-      ]
+    [
+      user.id,
+      credits,
+      'Admin add',
+      new Date(),
+    ]
     );
   });
   ctx.body = '';
@@ -545,7 +542,7 @@ router.post('/approve', async (ctx, next) => {
   assert(isObject(ctx.request.body), 'Post /approve has no body', 103);
   assert(typeof ctx.request.body.id === 'string' && Number(ctx.request.body.id), 'Post /approve body has no id', 104);
 
-  id = ctx.request.body.id;
+  const id = ctx.request.body.id;
 
   assert(id != null, 'No id in post /approve', 105);
 
@@ -582,7 +579,6 @@ router.post('/admin', async (ctx, next) => {
     `, username
   ))[0];
   assert(isObject(user), 'Post /admin user not found', 111);
-
 
   if (user == null) {
     await ctx.render('admin_login', { error: 'Invalid log in information' });
