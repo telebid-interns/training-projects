@@ -15,25 +15,32 @@
 </html>
 
 <script type="text/javascript">
-  function draw (circles, count) {
+  function draw (circles, path) {
     let canvas = document.getElementById("myCanvas");
     let ctx = canvas.getContext("2d");
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     ctx.font = '22px serif';
-    count === -1 ? ctx.fillText(`No Path Found`, 32, 32) : ctx.fillText(`Circles from start (green) to finish (red): ${count}`, 32, 32);
+    path.length === 0 ? ctx.fillText(`No Path Found`, 32, 32) : ctx.fillText(`Circles from start (green) to finish (red): ${path.length - 1}`, 32, 32);
 
-    ctx.fillRect(150, 350, 500, 5);
-    ctx.fillRect(400, 100, 5, 500);
+    ctx.fillRect(150, 350, 500, 1);
+    ctx.fillRect(400, 100, 1, 500);
 
     for (const circle of circles) {
       circle.index === 1 ? ctx.strokeStyle = 'green' : ctx.strokeStyle = 'black';
       if (circle.index === circles.length) ctx.strokeStyle = 'red';
       ctx.beginPath();
-      ctx.arc(402.5 + (circle.x * 32), 352.5 + (circle.y * 32), circle.r * 32, 0, Math.PI * 2, true);
+      ctx.arc(402 + (circle.x * 32), 352 + (circle.y * 32), circle.r * 32, 0, Math.PI * 2, true);
       ctx.stroke();
     }
+
+    ctx.beginPath();
+    ctx.strokeStyle = 'green';
+    for (const circle of path) {
+      ctx.lineTo(402.5 + (circle.x * 32), 352.5 + (circle.y * 32));
+    }
+    ctx.stroke();
   }
 
   document.getElementById('submit').addEventListener('click', (event) => {
@@ -43,27 +50,28 @@
     });
     const n = circles.length;
 
-    const queue = [circles[0]];
+    const queue = [[circles[0]]];
     const checked = [circles[0].index];
 
-    let count = 0;
     let found = false;
     while (queue.length > 0) {
-      const currCircle = queue.shift();
+      const path = queue.shift();
+      let currCircle = path[path.length - 1];
       for (const circle of circles) {
         if (intersects(currCircle, circle) && !checked.includes(circle.index)) {
-          queue.push(circle);
+          const newArray = [];
+          path.forEach((e) => newArray.push(e));
+          newArray.push(circle);
+          queue.push(newArray);
           checked.push(circle.index);
           if (circle.index === n) {
-            draw(circles, count + 1);
-            console.log(count + 1);
+            draw(circles, newArray);
             found = true;
           };
         }
       }
-      count++;
     }
-    if (!found) draw(circles, -1);
+    if (!found) draw(circles, []);
   });
 
   function intersects (c1, c2) {
@@ -76,9 +84,18 @@
 
 <!-- Tests
 [
-  {"x":0, "y":0, "r":1},
-  {"x":4, "y":0, "r":4},
-  {"x":1, "y":0, "r":2}
+  {"x":-6, "y":-2, "r":1},
+  {"x":-2, "y":-1, "r":4},
+  {"x":-2, "y":-4, "r":2},
+  {"x":2, "y":3, "r":4},
+  {"x":5, "y":4, "r":2}
+]
+
+[
+  {"x":2, "y":3, "r":2},
+  {"x":3, "y":2, "r":2},
+  {"x":0, "y":3, "r":4},
+  {"x":-4, "y":2, "r":1}
 ]
 
 [
@@ -87,4 +104,4 @@
   {"x":2, "y":2, "r":4},
   {"x":-2, "y":2, "r":1}
 ]
- -->
+-->
