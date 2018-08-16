@@ -495,6 +495,10 @@ router.post('/addCreditsToUser', async (ctx, next) => {
   assert(username != null, 'No username in post /addCredits', 101);
   assert(credits != null, 'No credits in post /addCredits', 102);
 
+  if (credits > 1000000) {
+    ctx.body = { err: 'Credits Must be under 1,000,000' };
+  }
+
   await db.makeTransaction(async (client) => {
     const user = (await client.query(`SELECT * FROM users WHERE username = $1`, [ username ])).rows[0];
     await client.query(`
@@ -506,7 +510,8 @@ router.post('/addCreditsToUser', async (ctx, next) => {
     );
     await client.query(`
       INSERT INTO credit_transfers (user_id, credits_received, event, transfer_date)
-        VALUES ($1, $2, $3, $4)`,
+        VALUES ($1, $2, $3, $4)
+    `,
     [
       user.id,
       credits,
@@ -515,7 +520,7 @@ router.post('/addCreditsToUser', async (ctx, next) => {
     ]
     );
   });
-  ctx.body = '';
+  ctx.body = { msg: `Successfuly added ${credits} credits to user ${username}}` };
 });
 
 // AJAX post approve transfer

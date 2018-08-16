@@ -42,7 +42,7 @@
     const credits = prompt(`add credits to user ${username}`);
     console.log(typeof credits);
     if (!Number(credits)) return;
-    await fetch('/addCreditsToUser', {
+    const response = await fetch('/addCreditsToUser', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -52,6 +52,8 @@
         credits
       })
     });
+    const data = await response.json();
+    console.log(data);
     creditBox = document.getElementById(`credits-${username}`);
     creditBox.value = parseInt(creditBox.value) + parseInt(credits);
   }

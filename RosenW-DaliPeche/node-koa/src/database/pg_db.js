@@ -41,4 +41,7 @@ async function makeTransaction (func) {
   }
 }
 
-module.exports = { query, makeTransaction };
+module.exports = {
+  query,
+  makeTransaction
+};
