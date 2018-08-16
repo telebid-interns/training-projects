@@ -88,27 +88,6 @@ app.use(async (ctx, next) => {
 
 app.use(bodyParser());
 
-// // GET timer
-// router.get('/timer', async (ctx, next) => {
-//   trace(`GET '/timer'`);
-
-//   const date1 = new Date();
-//   const city = await db.query(`select * from cities where name = 'Houston'`);
-//   const date2 = new Date();
-
-//   console.log(city);
-//   console.log(date2 - date1);
-
-//   await ctx.redirect('/home');
-// });
-
-// (async () => {
-//   const salt = generateRandomString(SALT_LENGTH);
-//   const saltedPassword = 'admin' + salt;
-//   const hash = await bcrypt.hash(saltedPassword, SALT_ROUNDS);
-//   await db.query(`insert into backoffice_users (username, password, salt) values ('admin', $1, $2)`, hash, salt);
-// })();
-
 // GET root
 router.get('/', async (ctx, next) => {
   trace(`GET '/'`);
@@ -234,6 +213,7 @@ router.get('/admin/credits', async (ctx, next) => {
   const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
   const totalByUserSQL = `
     SELECT
+      u.id,
       u.username,
       SUM(ct.credits_received) AS credits_purchased,
       SUM(ct.credits_spent) AS credits_spent,
@@ -242,7 +222,8 @@ router.get('/admin/credits', async (ctx, next) => {
     JOIN credit_transfers AS ct
     ON ct.user_id = u.id
     WHERE LOWER(u.username) LIKE LOWER($1)
-    GROUP BY (u.username, u.credits)
+    GROUP BY (u.id, u.username, u.credits)
+    ORDER BY u.id
     OFFSET $2
     LIMIT $3
   `;
@@ -729,3 +710,24 @@ router.post('/api/forecast', getForecast);
 app.use(router.routes());
 
 module.exports = server;
+
+// // GET timer
+// router.get('/timer', async (ctx, next) => {
+//   trace(`GET '/timer'`);
+
+//   const date1 = new Date();
+//   const city = await db.query(`select * from cities where name = 'Houston'`);
+//   const date2 = new Date();
+
+//   console.log(city);
+//   console.log(date2 - date1);
+
+//   await ctx.redirect('/home');
+// });
+
+// (async () => {
+//   const salt = generateRandomString(SALT_LENGTH);
+//   const saltedPassword = 'admin' + salt;
+//   const hash = await bcrypt.hash(saltedPassword, SALT_ROUNDS);
+//   await db.query(`insert into backoffice_users (username, password, salt) values ('admin', $1, $2)`, hash, salt);
+// })();

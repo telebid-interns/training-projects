@@ -28,7 +28,8 @@ const generateAPIKey = async (ctx, next) => {
   } else {
     db.query(`
       INSERT INTO api_keys (key, user_id)
-        VALUES ($1, $2)`,
+        VALUES ($1, $2)
+    `,
     key,
     user.id
     );
@@ -115,41 +116,41 @@ const updateAPIKeyUsage = async (keyRecord) => {
     35
   );
 
-  await db.query(`UPDATE api_keys SET use_count = $1 WHERE id = $2`, keyRecord.use_count + 1, keyRecord.id);
+  await db.query(`UPDATE api_keys SET use_count = use_count + 1 WHERE id = $1`, keyRecord.id);
 };
 
 const updateRequests = async (iataCode, city) => {
-  const whereCol = typeof iataCode === 'string' ? 'iata_code' : 'city';
-  const whereValue = typeof iataCode === 'string' ? iataCode : city;
+  db.makeTransaction(async (client) => {
+    const whereCol = typeof iataCode === 'string' ? 'iata_code' : 'city';
+    const whereValue = typeof iataCode === 'string' ? iataCode : city;
 
-  if (typeof iataCode !== 'string' && typeof city !== 'string') return;
+    if (typeof iataCode !== 'string' && typeof city !== 'string') return;
 
-  const request = (await db.query(`SELECT * FROM requests WHERE ${whereCol} = $1`, whereValue))[0];
+    const request = (await client.query(`SELECT * FROM requests WHERE ${whereCol} = LOWER($1)`, [ whereValue ])).rows[0];
 
-  if (request == null) {
-    await db.query(`INSERT INTO requests (${whereCol}) VALUES ($1)`, whereValue);
-  } else {
-    await db.query(`UPDATE requests SET call_count = $1 WHERE ${whereCol} = $2`, request.call_count + 1, whereValue);
-  }
+    if (request == null) {
+      await client.query(`INSERT INTO requests (${whereCol}) VALUES (LOWER($1))`, [ whereValue ]);
+    } else {
+      await client.query(`UPDATE requests SET call_count = call_count + 1 WHERE ${whereCol} = LOWER($1)`, [ whereValue ]);
+    }
+  });
 };
 
 const taxUser = async (user, isFailedRequest) => {
   assertPeer(user.credits >= CREDITS_FOR_SUCCESSFUL_REQUEST, `Not enough credits to make a request`, 300);
   db.makeTransaction(async (client) => {
     const requestColumn = isFailedRequest ? 'failed_requests' : 'successful_requests';
-    const requestsValue = isFailedRequest ? user.failed_requests + 1 : user.successful_requests + 1;
     const credits = isFailedRequest ? CREDITS_FOR_FAILED_REQUEST : CREDITS_FOR_SUCCESSFUL_REQUEST;
     const event = isFailedRequest ? 'Failed request' : 'Successful request';
 
     await client.query(`
       UPDATE users
         SET
-          ${requestColumn} = $1,
-          credits = $2
-        WHERE id = $3`,
+          ${requestColumn} = ${requestColumn} + 1,
+          credits = credits - $1
+        WHERE id = $2`,
     [
-      requestsValue,
-      user.credits - credits,
+      credits,
       user.id,
     ]
     );

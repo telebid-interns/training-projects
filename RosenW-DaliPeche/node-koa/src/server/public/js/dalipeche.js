@@ -3,7 +3,7 @@ const ICON_WIDTH = 64;
 const ICON_HEIGHT = 64;
 
 $.fn.getForecast = async function ({city, iataCode, APIKey}) {
-  const data = { APIKey };
+  const data = { key: APIKey };
   if (typeof city === 'string') {
     data.city = city;
   } else if (typeof iataCode === 'string') {

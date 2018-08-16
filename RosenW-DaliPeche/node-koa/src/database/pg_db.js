@@ -30,7 +30,6 @@ async function makeTransaction (func) {
     await client.query('BEGIN');
     console.log('BEGIN');
     await func(client);
-    // assert ?
     await client.query('COMMIT');
     console.log('COMMIT');
   } catch (err) {

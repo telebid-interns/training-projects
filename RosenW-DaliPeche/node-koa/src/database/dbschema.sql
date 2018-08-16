@@ -2,8 +2,8 @@ CREATE DOMAIN email AS text CHECK ( value ~ '^[a-zA-Z0-9.!#$%&''*+/=?^_`{|}~-]+@
 
 CREATE TABLE requests (
   id serial PRIMARY KEY,
-  iata_code text, -- not null for both
-  city text,
+  iata_code text unique, -- not null for both
+  city text unique,
   call_count integer DEFAULT 1 NOT NULL
 );
 
@@ -37,7 +37,7 @@ CREATE TABLE users (
   id serial PRIMARY KEY,
   username text NOT NULL unique,
   email email NOT NULL,
-  credits numeric DEFAULT 0 NOT NULL,
+  credits numeric DEFAULT 0 NOT NULL CHECK (credits >= 0),
   failed_requests integer DEFAULT 0 NOT NULL,
   successful_requests integer DEFAULT 0 NOT NULL,
   password text NOT NULL,
@@ -92,6 +92,15 @@ CREATE INDEX cities_observed_at_index ON cities (observed_at);
 
 CREATE INDEX weather_conditions_city_id_index ON weather_conditions (city_id);
 CREATE INDEX weather_conditions_weather_index ON weather_conditions (weather);
+CREATE INDEX weather_conditions_weather_description_index ON weather_conditions (weather_description);
+CREATE INDEX weather_conditions_cloudiness_index ON weather_conditions (cloudiness);
+CREATE INDEX weather_conditions_humidity_index ON weather_conditions (humidity);
+CREATE INDEX weather_conditions_max_temp_index ON weather_conditions (max_temperature);
+CREATE INDEX weather_conditions_min_temp_index ON weather_conditions (min_temperature);
+CREATE INDEX weather_conditions_sea_pressure_index ON weather_conditions (sea_pressure);
+CREATE INDEX weather_conditions_ground_pressure_index ON weather_conditions (ground_pressure);
+CREATE INDEX weather_conditions_wind_direction_index ON weather_conditions (wind_direction);
+CREATE INDEX weather_conditions_wind_speed_index ON weather_conditions (wind_speed);
 CREATE INDEX weather_conditions_forecast_time_index ON weather_conditions (forecast_time);
 
 CREATE INDEX users_username_index ON users (username);
@@ -127,6 +136,15 @@ DROP INDEX cities_observed_at_index;
 
 DROP INDEX weather_conditions_city_id_index;
 DROP INDEX weather_conditions_weather_index;
+DROP INDEX weather_conditions_weather_description_index;
+DROP INDEX weather_conditions_cloudiness_index;
+DROP INDEX weather_conditions_humidity_index;
+DROP INDEX weather_conditions_max_temp_index;
+DROP INDEX weather_conditions_min_temp_index;
+DROP INDEX weather_conditions_sea_pressure_index;
+DROP INDEX weather_conditions_ground_pressure_index;
+DROP INDEX weather_conditions_wind_direction_index;
+DROP INDEX weather_conditions_wind_speed_index;
 DROP INDEX weather_conditions_forecast_time_index;
 
 DROP INDEX users_username_index;

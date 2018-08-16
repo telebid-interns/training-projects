@@ -20,7 +20,7 @@ const CREDITS_FOR_FAILED_REQUEST = 1;
 const SALT_LENGTH = 10;
 const SALT_ROUNDS = 10;
 
-const ROWS_PER_PAGE = 20;
+const ROWS_PER_PAGE = 15;
 
 // credit card payment info
 const MERCHANT_ID = '9mjmz4gm33rrmbd2';
