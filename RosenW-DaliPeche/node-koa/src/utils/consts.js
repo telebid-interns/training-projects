@@ -9,7 +9,7 @@ const FORECAST_API_KEY = '3324c849124277736f1fefdc58dfc561';
 
 const EMAIL_VALIDATION_REGEX = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
 
-const MAX_REQUESTS_PER_HOUR = 6000000;
+const MAX_REQUESTS_PER_HOUR = 60;
 const MAX_API_KEYS_PER_USER = 5;
 
 const MAXIMUM_CREDITS_ALLOWED = 1000000;

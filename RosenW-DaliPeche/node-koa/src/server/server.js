@@ -172,17 +172,38 @@ router.get('/admin/users', async (ctx, next) => {
     return next();
   }
 
-  const term = ctx.query.term == null ? '' : ctx.query.term;
+  const username = ctx.query.username == null ? '' : ctx.query.username;
+  const email = ctx.query.email == null ? '' : ctx.query.email;
+  const creditsFrom = ctx.query['credits-from'] == null ? 0 : Number(ctx.query['credits-from']);
+  const creditsTo = ctx.query['credits-to'] == null || Number(ctx.query['credits-to']) === 0 ? MAXIMUM_CREDITS_ALLOWED : Number(ctx.query['credits-to']);
+  const dateFrom = ctx.query['date-from'] == null || isNaN(new Date(ctx.query['date-from'])) ? new Date('1970-01-01') : new Date(ctx.query['date-from']);
+  const dateTo = ctx.query['date-to'] == null || isNaN(new Date(ctx.query['date-to'])) ? new Date() : new Date(ctx.query['date-to']);
+
+  assert(typeof username === 'string', `in 'admin/user' username expected to be string, actual: ${username}`, 121);
+  assert(isObject(dateFrom), `in 'admin/user' dateFrom expected to be object. actual: ${dateFrom}`, 122);
+  assert(isObject(dateTo), `in 'admin/user' dateTo expected to be object. actual: ${dateTo}`, 123);
+  assert(typeof email === 'string', `in 'admin/user' email expected to be string, actual: ${email}`, 124);
+  assert(typeof creditsFrom === 'number', `in 'admin/user' creditsFrom expected to be number, actual: ${creditsFrom}`, 125);
+  assert(typeof creditsTo === 'number', `in 'admin/user' creditsTo expected to be number, actual: ${creditsTo}`, 126);
+
   const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
 
   const users = (await db.query(`
     SELECT * FROM users
-    WHERE LOWER(username)
-    LIKE LOWER($1)
+    WHERE
+      LOWER(username) LIKE LOWER($1)
+      AND LOWER(email) LIKE LOWER($2)
+      AND (date_registered BETWEEN $3 AND $4)
+      AND (credits BETWEEN $5 AND $6)
     ORDER BY id
-    OFFSET $2
-    LIMIT $3`,
-  `%${term}%`,
+    OFFSET $7
+    LIMIT $8`,
+  `%${username}%`,
+  `%${email}%`,
+  dateFrom,
+  dateTo,
+  creditsFrom,
+  creditsTo,
   0 + (ROWS_PER_PAGE * page),
   ROWS_PER_PAGE
   )).map((u) => {
@@ -196,7 +217,12 @@ router.get('/admin/users', async (ctx, next) => {
     page,
     prevPage: page - 1,
     nextPage: page + 1,
-    term,
+    username,
+    email,
+    creditsFrom,
+    creditsTo,
+    dateFrom: dateFrom.toISOString().substr(0, 10),
+    dateTo: dateTo.toISOString().substr(0, 10)
   });
 });
 
