@@ -235,7 +235,7 @@ router.get('/admin/credits', async (ctx, next) => {
     return next();
   }
 
-  const term = ctx.query.term == null ? '' : ctx.query.term;
+  const username = ctx.query.username == null ? '' : ctx.query.username;
   const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
   const totalByUserSQL = `
     SELECT
@@ -256,7 +256,7 @@ router.get('/admin/credits', async (ctx, next) => {
 
   const users = await db.query(
     totalByUserSQL,
-    `%${term}%`,
+    `%${username}%`,
     0 + (ROWS_PER_PAGE * page),
     ROWS_PER_PAGE
   );
@@ -268,7 +268,7 @@ router.get('/admin/credits', async (ctx, next) => {
       SUM(credits_remaining) AS total_credits_remaining
     FROM (${totalByUserSQL}) AS total_by_user
     `,
-  `%${term}%`,
+  `%${username}%`,
   0 + (ROWS_PER_PAGE * page),
   ROWS_PER_PAGE
   ))[0];
@@ -281,7 +281,7 @@ router.get('/admin/credits', async (ctx, next) => {
     page,
     prevPage: page - 1,
     nextPage: page + 1,
-    term,
+    username,
   });
 });
 
@@ -294,17 +294,24 @@ router.get('/admin/cities', async (ctx, next) => {
     return next();
   }
 
-  const term = ctx.query.term == null ? '' : ctx.query.term;
+  const name = ctx.query.name == null ? '' : ctx.query.name;
+  const countryCode = ctx.query['country-code'] == null ? '' : ctx.query['country-code'];
+
+  assert(typeof name === 'string', `in 'admin/cities' name expected to be string, actual: ${name}`, 141);
+  assert(typeof countryCode === 'string', `in 'admin/cities' country-code expected to be string, actual: ${countryCode}`, 142);
+
   const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
 
   const cities = (await db.query(`
     SELECT * FROM cities
-    WHERE LOWER(name)
-    LIKE LOWER($1)
+    WHERE
+      LOWER(name) LIKE LOWER($1)
+      AND LOWER(country_code) LIKE LOWER($2)
     ORDER BY id
-    OFFSET $2
-    LIMIT $3`,
-  `%${term}%`,
+    OFFSET $3
+    LIMIT $4`,
+  `%${name}%`,
+  `%${countryCode}%`,
   0 + (ROWS_PER_PAGE * page),
   ROWS_PER_PAGE
   )).map((c) => {
@@ -317,7 +324,8 @@ router.get('/admin/cities', async (ctx, next) => {
     page,
     prevPage: page - 1,
     nextPage: page + 1,
-    term,
+    name,
+    countryCode
   });
 });
 
@@ -365,24 +373,24 @@ router.get('/admin/approve', async (ctx, next) => {
     return next();
   }
 
-  const term = ctx.query.term == null ? '' : ctx.query.term;
+  const username = ctx.query.username == null ? '' : ctx.query.username;
   const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
 
   const transfers = (await db.query(`
-      SELECT
-        ct.id,
-        u.username,
-        ct.credits_received
-      FROM users as u
-      JOIN credit_transfers as ct
-      ON ct.user_id = u.id
-      WHERE LOWER(u.username)
-      LIKE LOWER($1)
-      AND approved = false
-      ORDER BY ct.id DESC
-      OFFSET $2
-      LIMIT $3`,
-  `%${term}%`,
+    SELECT
+      ct.id,
+      u.username,
+      ct.credits_received
+    FROM users as u
+    JOIN credit_transfers as ct
+    ON ct.user_id = u.id
+    WHERE LOWER(u.username)
+    LIKE LOWER($1)
+    AND approved = false
+    ORDER BY ct.id DESC
+    OFFSET $2
+    LIMIT $3`,
+  `%${username}%`,
   0 + (ROWS_PER_PAGE * page),
   ROWS_PER_PAGE
   ));
@@ -391,7 +399,7 @@ router.get('/admin/approve', async (ctx, next) => {
     page,
     prevPage: page - 1,
     nextPage: page + 1,
-    term,
+    username,
   });
 });
 
@@ -404,7 +412,16 @@ router.get('/admin/ctransfers', async (ctx, next) => {
     return next();
   }
 
-  const term = ctx.query.term == null ? '' : ctx.query.term;
+  const username = ctx.query.username == null ? '' : ctx.query.username;
+  const dateFrom = ctx.query['date-from'] == null || isNaN(new Date(ctx.query['date-from'])) ? new Date('1970-01-01') : new Date(ctx.query['date-from']);
+  const dateTo = ctx.query['date-to'] == null || isNaN(new Date(ctx.query['date-to'])) ? new Date() : new Date(ctx.query['date-to']);
+  const event = ctx.query.event == null ? '' : ctx.query.event;
+
+  assert(typeof username === 'string', `in 'admin/ctransfers' username expected to be string, actual: ${username}`, 131);
+  assert(isObject(dateFrom), `in 'admin/ctransfers' dateFrom expected to be object. actual: ${dateFrom}`, 132);
+  assert(isObject(dateTo), `in 'admin/ctransfers' dateTo expected to be object. actual: ${dateTo}`, 133);
+  assert(typeof event === 'string', `in 'admin/ctransfers' event expected to be string, actual: ${event}`, 134);
+
   const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
 
   const transfers = (await db.query(`
@@ -418,13 +435,18 @@ router.get('/admin/ctransfers', async (ctx, next) => {
       FROM users as u
       JOIN credit_transfers as ct
       ON ct.user_id = u.id
-      WHERE LOWER(username)
-      LIKE LOWER($1)
-      AND approved = true
+      WHERE
+        LOWER(username) LIKE LOWER($1)
+        AND LOWER(event) LIKE LOWER($2)
+        AND (date_registered BETWEEN $3 AND $4)
+        AND approved = true
       ORDER BY ct.id DESC
-      OFFSET $2
-      LIMIT $3`,
-  `%${term}%`,
+      OFFSET $5
+      LIMIT $6`,
+  `%${username}%`,
+  `%${event}%`,
+  dateFrom,
+  dateTo,
   0 + (ROWS_PER_PAGE * page),
   ROWS_PER_PAGE
   )).map((t) => {
@@ -437,7 +459,10 @@ router.get('/admin/ctransfers', async (ctx, next) => {
     page,
     prevPage: page - 1,
     nextPage: page + 1,
-    term,
+    username,
+    event,
+    dateFrom: dateFrom.toISOString().substr(0, 10),
+    dateTo: dateTo.toISOString().substr(0, 10)
   });
 });
 

@@ -3,7 +3,16 @@
     <link rel="stylesheet" type="text/css" href="./../bootstrap.css">
   </head>
    <body>
-    {{> adminForm }}
+    <ul class="list-group-item col-lg-offset-4 col-md-offset-4 col-sm-offset-4 col-xs-offset-4 col-lg-4 col-md-4 col-sm-4 col-xs-4">
+      <form class="inline">
+        {{> adminForm }}
+        <br>
+        <label>Username:</label>
+        <input type="text" name="username" class="form-control" value="{{username}}">
+        <br>
+        <input type="submit" id="search-btn" value="Search" class='btn btn-default pull-right'>
+      </form>
+    </ul>
     <h2 class="col-lg-12 col-md-12 col-sm-12 col-xs-12 text-center">Credit Balance</h2>
     <table id="users-table" class="table table-hover">
       <tr>
@@ -32,8 +41,8 @@
     </table>
     <nav aria-label="Page navigation example" class="col-lg-offset-5 col-md-offset-5 col-sm-offset-5 col-xs-offset-5">
       <ul class="pagination">
-        <li class="page-item"><a class="page-link" href="/admin/credits?page={{prevPage}}&term={{term}}">Previous Page</a></li>
-        <li class="page-item"><a class="page-link" href="/admin/credits?page={{nextPage}}&term={{term}}">Next Page</a></li>
+        <li class="page-item"><a class="page-link" href="/admin/credits?page={{prevPage}}&username={{username}}">Previous Page</a></li>
+        <li class="page-item"><a class="page-link" href="/admin/credits?page={{nextPage}}&username={{username}}">Next Page</a></li>
       </ul>
     </nav>
   </body>

@@ -5,15 +5,7 @@
    <body>
     <ul class="list-group-item col-lg-offset-4 col-md-offset-4 col-sm-offset-4 col-xs-offset-4 col-lg-4 col-md-4 col-sm-4 col-xs-4">
       <form class="inline">
-        <select id="report-select" class="form-control" onchange="location.href = this.value">
-          <option value="/admin" selected="true">Select Report</option>
-          <option id="select-users" value="/admin/users">Users</option>
-          <option id="select-ctransfers" value="/admin/ctransfers">Credit Transfers</option>
-          <option id="select-cities" value="/admin/cities">Cities</option>
-          <option id="select-requests" value="/admin/requests">Requests</option>
-          <option id="select-cbalance" value="/admin/credits">Credit Balance</option>
-          <option id="select-approve" value="/admin/approve">Approve Transfers</option>
-        </select>
+        {{> adminForm }}
         <br>
         <label>Username:</label>
         <input type="text" name="username" class="form-control" value="{{username}}">
@@ -56,8 +48,8 @@
     </table>
     <nav aria-label="Page navigation example" class="col-lg-offset-5 col-md-offset-5 col-sm-offset-5 col-xs-offset-5">
       <ul class="pagination">
-        <li class="page-item"><a class="page-link" href="/admin/users?page={{prevPage}}&term={{term}}">Previous Page</a></li>
-        <li class="page-item"><a class="page-link" href="/admin/users?page={{nextPage}}&term={{term}}">Next Page</a></li>
+        <li class="page-item"><a class="page-link" href="/admin/users?page={{prevPage}}&username={{username}}&date-from={{dateFrom}}&date-to={{dateTo}}&email={{email}}&credits-from={{creditsFrom}}&credits-to={{creditsTo}}">Previous Page</a></li>
+        <li class="page-item"><a class="page-link" href="/admin/users?page={{next}}&username={{username}}&date-from={{dateFrom}}&date-to={{dateTo}}&email={{email}}&credits-from={{creditsFrom}}&credits-to={{creditsTo}}">Next Page</a></li>
       </ul>
     </nav>
   </body>

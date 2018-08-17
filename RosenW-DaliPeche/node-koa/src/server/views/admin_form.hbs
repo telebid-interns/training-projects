@@ -1,17 +1,9 @@
-<ul class="list-group-item col-lg-offset-4 col-md-offset-4 col-sm-offset-4 col-xs-offset-4 col-lg-4 col-md-4 col-sm-4 col-xs-4">
-  <form class="inline">
-    <select id="report-select" class="form-control" onchange="location.href = this.value">
-      <option value="/admin" selected="true">Select Report</option>
-      <option id="select-users" value="/admin/users">Users</option>
-      <option id="select-ctransfers" value="/admin/ctransfers">Credit Transfers</option>
-      <option id="select-cities" value="/admin/cities">Cities</option>
-      <option id="select-requests" value="/admin/requests">Requests</option>
-      <option id="select-cbalance" value="/admin/credits">Credit Balance</option>
-      <option id="select-approve" value="/admin/approve">Approve Transfers</option>
-    </select>
-    <br>
-    <input type="text" name="term" id='search-box' placeholder="Search..." class="form-control">
-    <br>
-    <input type="submit" id="search-btn" value="Search" class='btn btn-default pull-right'>
-  </form>
-</ul>
+<select id="report-select" class="form-control" onchange="location.href = this.value">
+  <option value="/admin" selected="true">Select Report</option>
+  <option id="select-users" value="/admin/users">Users</option>
+  <option id="select-ctransfers" value="/admin/ctransfers">Credit Transfers</option>
+  <option id="select-cities" value="/admin/cities">Cities</option>
+  <option id="select-requests" value="/admin/requests">Requests</option>
+  <option id="select-cbalance" value="/admin/credits">Credit Balance</option>
+  <option id="select-approve" value="/admin/approve">Approve Transfers</option>
+</select>
