@@ -28,6 +28,7 @@ const {
   SALT_ROUNDS,
   SALT_LENGTH,
   ROWS_PER_PAGE,
+  MAX_CREDITS_WITHOUT_APPROVE_NEED
 } = require('./../utils/consts.js');
 const braintree = require('braintree');
 
@@ -167,7 +168,9 @@ router.get('/admin', async (ctx, next) => {
 // GET admin/users
 router.get('/admin/users', async (ctx, next) => {
   trace(`GET '/admin/users'`);
-  if (!ctx.session.roles.includes('superuser')) {
+
+  if (!Array.isArray(ctx.session.roles) || !ctx.session.roles.includes('superuser'))
+  {
     await ctx.redirect('/admin');
     return next();
   }
@@ -230,13 +233,18 @@ router.get('/admin/users', async (ctx, next) => {
 router.get('/admin/credits', async (ctx, next) => {
   trace(`GET '/admin/credits'`);
 
-  if (!ctx.session.roles.includes('superuser') && !ctx.session.roles.includes('accountant')) {
+  if (
+      !Array.isArray(ctx.session.roles) ||
+      !ctx.session.roles.includes('superuser') &&
+      !ctx.session.roles.includes('accountant'))
+  {
     await ctx.redirect('/admin');
     return next();
   }
 
   const username = ctx.query.username == null ? '' : ctx.query.username;
   const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
+  // TODO dont reuse sql
   const totalByUserSQL = `
     SELECT
       u.id,
@@ -266,7 +274,7 @@ router.get('/admin/credits', async (ctx, next) => {
       SUM(credits_purchased) AS total_credits_purchased,
       SUM(credits_spent) AS total_credits_spent,
       SUM(credits_remaining) AS total_credits_remaining
-    FROM (${totalByUserSQL}) AS total_by_user
+    FROM (${totalByUserSQL}) AS total_by_user;
     `,
   `%${username}%`,
   0 + (ROWS_PER_PAGE * page),
@@ -289,7 +297,8 @@ router.get('/admin/credits', async (ctx, next) => {
 router.get('/admin/cities', async (ctx, next) => {
   trace(`GET '/admin/cities'`);
 
-  if (!ctx.session.roles.includes('superuser')) {
+  assert(Array.isArray(ctx.session.roles), `roles not array in admin/cities`, 162);
+  if (!Array.isArray(ctx.session.roles) || !ctx.session.roles.includes('superuser')) {
     await ctx.redirect('/admin');
     return next();
   }
@@ -333,7 +342,7 @@ router.get('/admin/cities', async (ctx, next) => {
 router.get('/admin/requests', async (ctx, next) => {
   trace(`GET '/admin/requests'`);
 
-  if (!ctx.session.roles.includes('superuser')) {
+  if (!Array.isArray(ctx.session.roles) || !ctx.session.roles.includes('superuser')) {
     await ctx.redirect('/admin');
     return next();
   }
@@ -368,7 +377,7 @@ router.get('/admin/requests', async (ctx, next) => {
 router.get('/admin/approve', async (ctx, next) => {
   trace(`GET '/admin/approve'`);
 
-  if (!ctx.session.roles.includes('superuser')) {
+  if (!Array.isArray(ctx.session.roles) || !ctx.session.roles.includes('superuser')) {
     await ctx.redirect('/admin');
     return next();
   }
@@ -384,9 +393,9 @@ router.get('/admin/approve', async (ctx, next) => {
     FROM users as u
     JOIN credit_transfers as ct
     ON ct.user_id = u.id
-    WHERE LOWER(u.username)
-    LIKE LOWER($1)
-    AND approved = false
+    WHERE
+      LOWER(u.username) LIKE LOWER($1) AND
+      approved = false
     ORDER BY ct.id DESC
     OFFSET $2
     LIMIT $3`,
@@ -407,7 +416,11 @@ router.get('/admin/approve', async (ctx, next) => {
 router.get('/admin/ctransfers', async (ctx, next) => {
   trace(`GET '/admin/ctransfers'`);
 
-  if (!ctx.session.roles.includes('superuser') && !ctx.session.roles.includes('accountant')) {
+  if (
+      !Array.isArray(ctx.session.roles) ||
+      !ctx.session.roles.includes('superuser') &&
+      !ctx.session.roles.includes('accountant'))
+  {
     await ctx.redirect('/admin');
     return next();
   }
@@ -432,9 +445,9 @@ router.get('/admin/ctransfers', async (ctx, next) => {
         credits_received,
         credits_spent,
         event
-      FROM users as u
+      FROM users AS u
       JOIN credit_transfers as ct
-      ON ct.user_id = u.id
+        ON ct.user_id = u.id
       WHERE
         LOWER(username) LIKE LOWER($1)
         AND LOWER(event) LIKE LOWER($2)
@@ -470,14 +483,18 @@ router.get('/admin/ctransfers', async (ctx, next) => {
 router.get('/buy', async (ctx, next) => {
   trace(`GET '/buy'`);
 
+  if (ctx.session.user == null) {
+    ctx.redirect('/login');
+    return next();
+  }
+
   const response = await gateway.clientToken.generate();
 
   await ctx.render('buy', {
     success: ctx.query.success,
     error: ctx.query.err,
     clientToken: response.clientToken,
-  }
-  );
+  });
 });
 
 // POST buy
@@ -512,6 +529,7 @@ router.post('/buy', async (ctx, next) => {
 
   if (sale.success) {
     await purchaseCredits(user, credits);
+    if (credits < MAX_CREDITS_WITHOUT_APPROVE_NEED) return ctx.body = {msg: `${credits} credits added to account`};
     ctx.body = {msg: `${credits} credits sent for approval`};
   } else {
     ctx.body = { error: 'Purchase unsuccessful' };
@@ -519,24 +537,41 @@ router.post('/buy', async (ctx, next) => {
 });
 
 const purchaseCredits = async (user, credits) => {
-  await db.query(`
-    INSERT INTO credit_transfers (
-        user_id,
-        credits_received,
-        event,
-        transfer_date,
+  db.makeTransaction(async (client) => {
+    const approved = credits < MAX_CREDITS_WITHOUT_APPROVE_NEED;
+    await client.query(`
+      INSERT INTO credit_transfers (
+          user_id,
+          credits_received,
+          event,
+          transfer_date,
+          approved
+        )
+        VALUES ($1, $2, $3, $4, $5)`,
+      [
+        user.id,
+        credits,
+        'Credit purchase',
+        new Date(),
         approved
-      )
-      VALUES ($1, $2, $3, $4, $5)`,
-  user.id,
-  credits,
-  'Credit purchase',
-  new Date(),
-  false
-  );
+      ]
+    );
+
+    if (approved) {
+      await client.query(`
+        UPDATE users
+          SET credits = credits + $1
+        WHERE id = $2`,
+        [
+          Number(credits),
+          user.id
+        ]
+      );
+    }
+  });
 };
 
-// AJAX post add credits
+// POST add credits
 router.post('/addCreditsToUser', async (ctx, next) => {
   assert(isObject(ctx.request.body), 'Post /addCredits has no body', 19);
 
@@ -574,7 +609,7 @@ router.post('/addCreditsToUser', async (ctx, next) => {
   ctx.body = { msg: `Successfuly added ${credits} credits to user ${username}}` };
 });
 
-// AJAX post approve transfer
+// POST approve transfer
 router.post('/approve', async (ctx, next) => {
   assert(isObject(ctx.request.body), 'Post /approve has no body', 103);
   assert(typeof ctx.request.body.id === 'string' && Number(ctx.request.body.id), 'Post /approve body has no id', 104);
