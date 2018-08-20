@@ -1,16 +1,6 @@
 #!/usr/bin/python3
 import argparse
-
-
-class Colors:
-    RED = '\033[0;31m'
-    GREEN = '\033[0;32m'
-    BROWN = '\033[0;33m'
-    NOCOLOR = '\033[0m'
-
-    @classmethod
-    def str(cls, string, color):
-        return '{color}{string}{cls.NOCOLOR}'.format(**locals())
+from ft.colorize import Colors, box_lines
 
 
 class Berry:
@@ -90,15 +80,6 @@ def parse_input(string):
     return garden, days
 
 
-def box_lines(lines, color=Colors.BROWN):
-    top = '-'.join('' for _ in range(len(lines)*2 + 2))
-    top = Colors.str(top, color)
-    side = Colors.str('|', color)
-    lines = [side+line+side for line in lines]
-    output = [top, *lines, top]
-    return output
-
-
 def print_garden(garden):
     def visualize_berry(berry):
         if berry.infected:
@@ -117,11 +98,8 @@ def healthy(garden):
     return sum(1 for berries in garden for berry in berries if not berry.infected)
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('file', help="file with input")
-    args = parser.parse_args()
-    with open(args.file) as f:
+def run_on_input_file(file):
+    with open(file) as f:
         input_string = f.read()
     garden, days = parse_input(input_string)
     for day in range(days):
@@ -130,6 +108,3 @@ def main():
     print_garden(garden)
     print("After {} days healthy are - {}".format(days, healthy(garden)))
 
-
-if __name__ == '__main__':
-    main()

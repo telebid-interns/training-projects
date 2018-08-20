@@ -2,6 +2,8 @@ import argparse
 import collections
 from pprint import pprint
 
+from ft.colorize import Colors, box_lines
+
 
 CORRIDOR = ' '
 WALL = '*'
@@ -74,7 +76,6 @@ def lab_from_arrays(arrays):
 
 def find_exit(lab, start):
     visited, queue = set(), collections.deque([[start]])
-    print("start dfs: ", start)
 
     while queue:
         path = queue.popleft()
@@ -89,18 +90,27 @@ def find_exit(lab, start):
                 visited.add(adj)
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('file')
+def visualize(lab, path):
+    def visualize_corridor(corridor, is_part_of_path):
+        if corridor.type == '*':
+            return Colors.str('W', Colors.BLACK)
+        elif corridor.type == 'e':
+            return Colors.str('E', Colors.GREEN)
+        elif is_part_of_path:
+            return Colors.str('P', Colors.RED)
+        else:
+            return Colors.str(' ', Colors.LIGHT_GRAY)
 
-    args = parser.parse_args()
+    def visualize_line(line):
+        return ''.join(visualize_corridor(c, c in path) for c in line)
 
-    with open(args.file, mode='r') as f:
+    lines = list(map(visualize_line, lab))
+    print('\n'.join(box_lines(lines, Colors.BLACK)))
+
+
+def run_on_input_file(file):
+    with open(file, mode='r') as f:
         lab = lab_from_arrays(eval(f.read()))
-        pprint(lab)
 
-    print("exit:\n", find_exit(lab, lab[0][0]), sep='')
+    visualize(lab, find_exit(lab, lab[0][0]))
 
-
-if __name__ == '__main__':
-    main()
