@@ -13,7 +13,7 @@
 </html>
 
 <script type="text/javascript">
-  function draw(groups, shipSize) {
+  function draw(groups, shipSize, sheep) {
     console.log(groups);
     console.log(shipSize);
     let canvas = document.getElementById("myCanvas");
@@ -24,7 +24,46 @@
 
     ctx.fillText(`Minimum Ship Size: ${shipSize}`, 32, 32);
     for (let i = 0; i < groups.length; i++) {
-      ctx.fillText(`(${groups[i]}) ${groups[i].reduce((a, b) => a + b)}/${shipSize}`, 32, 64 + (32 * i));
+      ctx.fillText(
+        `course ${i + 1}: ship capacity taken ${groups[i].reduce((a, b) => a + b)}/${shipSize}`,
+        32,
+        630 + (500 * i)
+      );
+      ctx.strokeRect(10, 660 + (500 * i), 1150, 430);
+      ctx.fillStyle = 'Blue';
+      ctx.fillRect(10, 800 + (500 * i), 1150, 100);
+      ctx.fillStyle = 'Black';
+    }
+
+    ctx.strokeRect(10, 160, 1150, 430);
+    ctx.fillStyle = 'Blue';
+    ctx.fillRect(10, 300, 1150, 100);
+    ctx.fillStyle = 'Black';
+
+    for (let i = 0; i < sheep.length; i++) {
+      ctx.strokeRect(150 + (100 * i), 450, 100, 100);
+      ctx.fillText(sheep[i], 200 + (100 * i), 500);
+    }
+
+    sheepOnTheOtherSide = [];
+    for (let k = 0; k < groups.length; k++) {
+      for (let j = 0; j < groups[k].length; j++) {
+        sheepOnTheOtherSide.push(groups[k][j]);
+        const index = sheep.indexOf(groups[k][j]);
+        if (index > -1) {
+          sheep.splice(index, 1);
+        }
+      }
+      console.log(sheepOnTheOtherSide);
+
+      for (let i = 0; i < sheepOnTheOtherSide.length; i++) {
+        ctx.strokeRect(150 + (100 * i), 680 + (500 * k), 100, 100);
+        ctx.fillText(sheepOnTheOtherSide[i], 200 + (100 * i), 730 + (500 * k));
+      }
+      for (let i = 0; i < sheep.length; i++) {
+        ctx.strokeRect(150 + (100 * i), 950 + (500 * k), 100, 100);
+        ctx.fillText(sheep[i], 200 + (100 * i), 1000 + (500 * k));
+      }
     }
   }
 
@@ -62,7 +101,7 @@
 
       if (cycle >= maxCourses) {
         if (sheepLeft.length === 0) {
-          draw(groups, shipSize);
+          draw(groups, shipSize, sheep);
           break;
         } else {
           groups = [];
