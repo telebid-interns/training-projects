@@ -2,6 +2,17 @@
 import argparse
 
 
+class Colors:
+    RED = '\033[0;31m'
+    GREEN = '\033[0;32m'
+    BROWN = '\033[0;33m'
+    NOCOLOR = '\033[0m'
+
+    @classmethod
+    def str(cls, string, color):
+        return '{color}{string}{cls.NOCOLOR}'.format(**locals())
+
+
 class Berry:
     def __init__(self, infected, infected_now, row, col):
         self.infected = infected
@@ -79,9 +90,27 @@ def parse_input(string):
     return garden, days
 
 
+def box_lines(lines, color=Colors.BROWN):
+    top = '-'.join('' for _ in range(len(lines)*2 + 2))
+    top = Colors.str(top, color)
+    side = Colors.str('|', color)
+    lines = [side+line+side for line in lines]
+    output = [top, *lines, top]
+    return output
+
+
 def print_garden(garden):
-    for berries in garden:
-        print([b.infected for b in berries])
+    def visualize_berry(berry):
+        if berry.infected:
+            return Colors.str('I', Colors.GREEN)
+        else:
+            return Colors.str('S', Colors.RED)
+
+    def visualize_line(berries):
+        return ' '.join(map(visualize_berry, berries))
+
+    lines = list(map(visualize_line, garden))
+    print('\n'.join(box_lines(lines)))
 
 
 def healthy(garden):
@@ -96,7 +125,9 @@ def main():
         input_string = f.read()
     garden, days = parse_input(input_string)
     for day in range(days):
+        print_garden(garden)
         garden = advance_day(garden)
+    print_garden(garden)
     print("After {} days healthy are - {}".format(days, healthy(garden)))
 
 
