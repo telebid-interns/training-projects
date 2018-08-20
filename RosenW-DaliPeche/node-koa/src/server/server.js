@@ -194,7 +194,7 @@ router.get('/admin/users', async (ctx, next) => {
   const users = (await db.query(`
     SELECT * FROM users
     WHERE
-      LOWER(username) LIKE LOWER($1)
+      UNACCENT(LOWER(username)) LIKE LOWER($1)
       AND LOWER(email) LIKE LOWER($2)
       AND (date_registered BETWEEN $3 AND $4)
       AND (credits BETWEEN $5 AND $6)
@@ -255,7 +255,7 @@ router.get('/admin/credits', async (ctx, next) => {
     FROM users AS u
     JOIN credit_transfers AS ct
     ON ct.user_id = u.id
-    WHERE LOWER(u.username) LIKE LOWER($1)
+    WHERE UNACCENT(LOWER(u.username)) LIKE LOWER($1)
     GROUP BY (u.id, u.username, u.credits)
     ORDER BY u.id
     OFFSET $2
@@ -314,7 +314,7 @@ router.get('/admin/cities', async (ctx, next) => {
   const cities = (await db.query(`
     SELECT * FROM cities
     WHERE
-      LOWER(name) LIKE LOWER($1)
+      UNACCENT(LOWER(name)) LIKE LOWER($1)
       AND LOWER(country_code) LIKE LOWER($2)
     ORDER BY id
     OFFSET $3
@@ -352,10 +352,9 @@ router.get('/admin/requests', async (ctx, next) => {
 
   const requests = (await db.query(`
     SELECT * FROM requests
-    WHERE LOWER(iata_code)
-    LIKE LOWER($1)
-    OR LOWER(city)
-    LIKE LOWER($1)
+    WHERE
+    LOWER(iata_code) LIKE LOWER($1)
+    OR UNACCENT(LOWER(city)) LIKE LOWER($1)
     ORDER BY id
     OFFSET $2
     LIMIT $3`,
@@ -394,7 +393,7 @@ router.get('/admin/approve', async (ctx, next) => {
     JOIN credit_transfers as ct
     ON ct.user_id = u.id
     WHERE
-      LOWER(u.username) LIKE LOWER($1) AND
+      UNACCENT(LOWER(u.username)) LIKE LOWER($1) AND
       approved = false
     ORDER BY ct.id DESC
     OFFSET $2
@@ -449,7 +448,7 @@ router.get('/admin/ctransfers', async (ctx, next) => {
       JOIN credit_transfers as ct
         ON ct.user_id = u.id
       WHERE
-        LOWER(username) LIKE LOWER($1)
+        UNACCENT(LOWER(username)) LIKE LOWER($1)
         AND LOWER(event) LIKE LOWER($2)
         AND (date_registered BETWEEN $3 AND $4)
         AND approved = true

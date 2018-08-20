@@ -83,7 +83,7 @@ const getForecast = async (ctx, next) => {
 
     cityName = cityName.toLowerCase().trim();
 
-    const city = (await db.query(`SELECT * FROM cities WHERE LOWER(name) = LOWER($1)`, cityName))[0];
+    const city = (await db.query(`SELECT * FROM cities WHERE UNACCENT(LOWER(name)) = LOWER($1)`, cityName))[0];
     assertPeer(isObject(city), 'no information found, please try again later', 39);
 
     const conditions = await db.query(`SELECT * FROM weather_conditions WHERE city_id = $1`, city.id);
