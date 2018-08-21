@@ -1,5 +1,4 @@
-import itertools
-import math
+import argparse
 import collections
 import sys
 import pprint
@@ -150,7 +149,10 @@ def print_square_map(square_map):
         print(' '.join((str(e[1]) for e in line)))
 
 def main():
-    square_map = parse_input_file('test_cases/squares/input_1.txt')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('file')
+    args = parser.parse_args()
+    square_map = parse_input_file(args.file)
     pprint.pprint(solve(square_map))
 
 
