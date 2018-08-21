@@ -191,22 +191,22 @@
     }
     #gallery .image-container {
       display: inline-block;
-      margin-right: 20px;
-      margin-bottom: 20px;
-      width: 150px;
-      height: 150px;
+      margin-right: 1.25rem;
+      margin-bottom: 1.25rem;
+      width: 9.375rem;
+      height: 9.375rem;
     }
     #gallery img {
       position: absolute;
-      width: 150px;
-      height: 150px;
+      width: 9.375rem;
+      height: 9.375rem;
     }
     #gallery img:hover {
       z-index: 2;
-      margin-top: -50px;
-      margin-left: -50px;
-      width: 250px;
-      height: 250px;
+      margin-top: -3.125rem;
+      margin-left: -3.125rem;
+      width: 15.625rem;
+      height: 15.625rem;
       transition: 0.3s;
     }
     #notification {
@@ -280,6 +280,32 @@
       #best-rockets-text {
         display: block;
         margin-left: 18.75rem;
+      }
+    }
+
+    @media all and (max-width: 1024px) {
+      #gallery {
+        display: grid;
+        grid-template-columns: 10rem 10rem 10rem;
+        grid-gap: 1rem 4rem;
+      }
+      #gallery .image-container {
+        display: inline-block;
+        width: 13rem;
+        height: 13rem;
+      }
+      #gallery img {
+        position: absolute;
+        width: 13rem;
+        height: 13rem;
+      }
+      #gallery img:hover {
+        z-index: 2;
+        margin-top: -2rem;
+        margin-left: -2rem;
+        width: 17rem;
+        height: 17rem;
+        transition: 0.3s;
       }
     }
   </style>
