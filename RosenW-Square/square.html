@@ -24,8 +24,9 @@
       }
     }
 
-    const allLines = [];
+    const allLines = new Set();
     for (let l = 0; l <= a; l++) {
+      console.log(l);
       for (let k = 0; k <= a; k++) {
         const currentDot = square[l][k];
         for (let i = 0; i <= a; i++) {
@@ -33,23 +34,21 @@
             const testDot = square[i][j];
             if (currentDot.x === testDot.x || currentDot.y === testDot.y) continue;
             const distance = Math.sqrt(Math.pow(currentDot.x - testDot.x, 2) + Math.pow(currentDot.y - testDot.y, 2), 2);
-            if (isInt(distance)) {
-              allLines.push(distance);
+            if (distance % 1 === 0) {
+              allLines.add(distance);
             }
           }
         }
       }
     }
 
-    if (allLines.length === 0) return alert('0 0');
+    if (allLines.size === 0) return alert('0 0');
 
-    alert(`${allLines.sort()[0]} ${allLines.filter(onlyUnique).length}`);
+    let max = 0;
+    for (v of allLines) {
+      if (v > max) max = v;
+    }
+
+    alert(`${v} - ${allLines.size}`);
   });
-
-  function onlyUnique(value, index, self) {
-      return self.indexOf(value) === index;
-  }
-  function isInt(n) {
-    return n % 1 === 0;
-  }
 </script>
