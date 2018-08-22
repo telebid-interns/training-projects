@@ -11,7 +11,6 @@ updateDB();
 
 async function updateDB () {
   const cities = await db.sql(`SELECT * FROM cities`);
-  resetAPIKeys();
   const timePerRequest = cities.length > 60 ? 1000 : 0;
   for (const [index, city] of cities.entries()) {
     setTimeout(async () => {
@@ -87,10 +86,6 @@ async function updateDB () {
       }
     }, timePerRequest * index);
   }
-}
-
-function resetAPIKeys () {
-  db.sql(`UPDATE api_keys SET use_count = 0`);
 }
 
 async function getWeatherAPIData (city) {

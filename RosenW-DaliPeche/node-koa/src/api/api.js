@@ -1,4 +1,5 @@
 const requester = require('request-promise');
+const router = require('koa-router')();
 const { trace } = require('./../debug/tracer.js');
 const { assert, assertPeer } = require('./../asserts/asserts.js');
 const { PeerError } = require('./../asserts/exceptions.js');
@@ -12,7 +13,8 @@ const {
 } = require('./../utils/consts.js');
 const db = require('./../database/pg_db.js');
 
-const generateAPIKey = async (ctx, next) => {
+// POST generate API key
+router.post('/api/generateAPIKey', async (ctx, next) => {
   trace(`POST '/generateKey'`);
 
   const username = ctx.request.body.name;
@@ -35,18 +37,20 @@ const generateAPIKey = async (ctx, next) => {
     );
     ctx.body = { key };
   }
-};
+});
 
-const deleteAPIKey = async (ctx, next) => {
+// GET delete key
+router.get('/api/del/:key', async (ctx, next) => {
   trace(`GET '/api/del/:key'`);
 
   const key = ctx.params.key;
 
   await db.sql(`DELETE FROM api_keys WHERE key = $1`, key);
   ctx.redirect('/home');
-};
+});
 
-const getForecast = async (ctx, next) => {
+// POST forecast
+router.post('/api/forecast', async (ctx, next) => {
   trace(`POST '/api/forecast'`);
 
   assertPeer(isObject(ctx.request.body), 'No request body provided', 38);
@@ -107,7 +111,7 @@ const getForecast = async (ctx, next) => {
   await updateRequests(iataCode, cityName);
 
   ctx.body = response;
-};
+});
 
 const updateAPIKeyUsage = async (keyRecord) => {
   assertPeer(
@@ -196,8 +200,4 @@ const getCityByIATACode = async (iataCode) => {
   return data.location.split(',')[0];
 };
 
-module.exports = {
-  getForecast,
-  generateAPIKey,
-  deleteAPIKey,
-};
+module.exports = router;

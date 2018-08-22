@@ -10,7 +10,7 @@ const {
   isObject,
   isInteger,
 } = require('./../utils/utils.js');
-const { getForecast, generateAPIKey, deleteAPIKey } = require('./../api/api.js');
+const APIRouter = require('./../api/api.js');
 const db = require('./../database/pg_db.js');
 const serve = require('koa-static');
 const bcrypt = require('bcrypt');
@@ -781,7 +781,7 @@ router.post('/login', async (ctx, next) => {
   const username = ctx.request.body.username;
   const password = ctx.request.body.password;
 
-  const user = (await db.sql(`SELECT * FROM users where username = $1`, username))[0];
+  const user = (await db.sql(`SELECT * FROM users WHERE username = $1`, username))[0];
 
   if (user == null) {
     await ctx.render('login', { error: 'No user registered with given username' });
@@ -799,16 +799,8 @@ router.post('/login', async (ctx, next) => {
   }
 });
 
-// POST generate API key
-router.post('/api/generateAPIKey', generateAPIKey);
-
-// GET delete key
-router.get('/api/del/:key', deleteAPIKey);
-
-// POST forecast
-router.post('/api/forecast', getForecast);
-
 app.use(router.routes());
+app.use(APIRouter.routes());
 
 module.exports = server;
 

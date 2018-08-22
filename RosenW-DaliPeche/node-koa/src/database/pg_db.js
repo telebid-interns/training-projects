@@ -1,5 +1,6 @@
 const { Pool } = require('pg');
 const { AppError } = require('./../asserts/exceptions.js');
+const { assert } = require('./../asserts/asserts.js');
 
 const pool = new Pool({
   user: 'postgres',
