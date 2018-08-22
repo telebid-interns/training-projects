@@ -13,9 +13,8 @@ pool.on('error', (err, client) => {
   throw new AppError(`Unexpected error on idle client: ${err}`, 17);
 });
 
-// TODO change name
-const query = async (sql, ...values) => {
-  // TODO assert sql
+const sql = async (sql, ...values) => {
+  assert(typeof sql === 'string', `sql expected to be string but was: ${typeof sql}`);
   const client = await pool.connect();
   try {
     return (await client.query(sql, values)).rows;
@@ -44,6 +43,6 @@ async function makeTransaction (func) {
 }
 
 module.exports = {
-  query,
+  sql,
   makeTransaction
 };

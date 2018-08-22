@@ -42,6 +42,13 @@ const isInteger = (num) => {
   return (typeof num === 'number') && (num % 1 === 0);
 }
 
+// (async () => {
+//   const salt = generateRandomString(SALT_LENGTH);
+//   const saltedPassword = 'admin' + salt;
+//   const hash = await bcrypt.hash(saltedPassword, SALT_ROUNDS);
+//   await db.query(`insert into backoffice_users (username, password, salt) values ('admin', $1, $2)`, hash, salt);
+// })();
+
 module.exports = {
   generateRandomString,
   isObject,

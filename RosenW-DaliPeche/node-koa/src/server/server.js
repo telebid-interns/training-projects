@@ -28,7 +28,7 @@ const {
   SALT_ROUNDS,
   SALT_LENGTH,
   ROWS_PER_PAGE,
-  MAX_CREDITS_WITHOUT_APPROVE_NEED
+  APPROVE_CREDIT_TRANSFER_BOUNDARY
 } = require('./../utils/consts.js');
 const braintree = require('braintree');
 
@@ -92,6 +92,7 @@ app.use(bodyParser());
 // GET root
 router.get('/', async (ctx, next) => {
   trace(`GET '/'`);
+  db.sql('SELECT * FROM users;');
 
   await ctx.redirect('/home');
 });
@@ -113,10 +114,10 @@ router.get('/home', async (ctx, next) => {
     return next();
   }
 
-  const user = (await db.query(`SELECT * FROM users WHERE username = $1`, ctx.session.user))[0];
+  const user = (await db.sql(`SELECT * FROM users WHERE username = $1`, ctx.session.user))[0];
   assert(user != null, 'cookie contained username not in database', 10);
 
-  const keys = await db.query(`SELECT * FROM api_keys WHERE user_id = $1`, user.id);
+  const keys = await db.sql(`SELECT * FROM api_keys WHERE user_id = $1`, user.id);
   assert(Array.isArray(keys), 'keys expected to be array but wasnt', 15);
 
   await ctx.render(
@@ -191,7 +192,7 @@ router.get('/admin/users', async (ctx, next) => {
 
   const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
 
-  const users = (await db.query(`
+  const users = (await db.sql(`
     SELECT * FROM users
     WHERE
       UNACCENT(LOWER(username)) LIKE LOWER($1)
@@ -244,8 +245,7 @@ router.get('/admin/credits', async (ctx, next) => {
 
   const username = ctx.query.username == null ? '' : ctx.query.username;
   const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
-  // TODO dont reuse sql
-  const totalByUserSQL = `
+  const users = await db.sql(`
     SELECT
       u.id,
       u.username,
@@ -260,21 +260,32 @@ router.get('/admin/credits', async (ctx, next) => {
     ORDER BY u.id
     OFFSET $2
     LIMIT $3
-  `;
-
-  const users = await db.query(
-    totalByUserSQL,
+  `,
     `%${username}%`,
     0 + (ROWS_PER_PAGE * page),
     ROWS_PER_PAGE
   );
 
-  const total = (await db.query(`
+  const total = (await db.sql(`
     SELECT
       SUM(credits_purchased) AS total_credits_purchased,
       SUM(credits_spent) AS total_credits_spent,
       SUM(credits_remaining) AS total_credits_remaining
-    FROM (${totalByUserSQL}) AS total_by_user;
+    FROM (
+      SELECT
+        u.id,
+        u.username,
+        SUM(ct.credits_received) AS credits_purchased,
+        SUM(ct.credits_spent) AS credits_spent,
+        u.credits AS credits_remaining
+      FROM users AS u
+      JOIN credit_transfers AS ct
+      ON ct.user_id = u.id
+      WHERE UNACCENT(LOWER(u.username)) LIKE LOWER($1)
+      GROUP BY (u.id, u.username, u.credits)
+      ORDER BY u.id
+      OFFSET $2
+      LIMIT $3) AS total_by_user;
     `,
   `%${username}%`,
   0 + (ROWS_PER_PAGE * page),
@@ -311,7 +322,7 @@ router.get('/admin/cities', async (ctx, next) => {
 
   const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
 
-  const cities = (await db.query(`
+  const cities = (await db.sql(`
     SELECT * FROM cities
     WHERE
       UNACCENT(LOWER(name)) LIKE LOWER($1)
@@ -350,7 +361,7 @@ router.get('/admin/requests', async (ctx, next) => {
   const term = ctx.query.term == null ? '' : ctx.query.term;
   const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
 
-  const requests = (await db.query(`
+  const requests = (await db.sql(`
     SELECT * FROM requests
     WHERE
     LOWER(iata_code) LIKE LOWER($1)
@@ -384,7 +395,7 @@ router.get('/admin/approve', async (ctx, next) => {
   const username = ctx.query.username == null ? '' : ctx.query.username;
   const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
 
-  const transfers = (await db.query(`
+  const transfers = (await db.sql(`
     SELECT
       ct.id,
       u.username,
@@ -436,7 +447,7 @@ router.get('/admin/ctransfers', async (ctx, next) => {
 
   const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
 
-  const transfers = (await db.query(`
+  const transfers = (await db.sql(`
       SELECT
         ct.id,
         transfer_date,
@@ -513,7 +524,7 @@ router.post('/buy', async (ctx, next) => {
   });
 
   const credits = ctx.request.body.credits;
-  const user = (await db.query(`SELECT * FROM users WHERE username = $1`, ctx.session.user))[0];
+  const user = (await db.sql(`SELECT * FROM users WHERE username = $1`, ctx.session.user))[0];
   assert(isObject(user), 'User not an object', 13);
 
   if (!isInteger(Number(credits)) || Number(credits) <= 0) {
@@ -528,7 +539,7 @@ router.post('/buy', async (ctx, next) => {
 
   if (sale.success) {
     await purchaseCredits(user, credits);
-    if (credits < MAX_CREDITS_WITHOUT_APPROVE_NEED) return ctx.body = {msg: `${credits} credits added to account`};
+    if (credits < APPROVE_CREDIT_TRANSFER_BOUNDARY) return ctx.body = {msg: `${credits} credits added to account`};
     ctx.body = {msg: `${credits} credits sent for approval`};
   } else {
     ctx.body = { error: 'Purchase unsuccessful' };
@@ -537,7 +548,7 @@ router.post('/buy', async (ctx, next) => {
 
 const purchaseCredits = async (user, credits) => {
   db.makeTransaction(async (client) => {
-    const approved = credits < MAX_CREDITS_WITHOUT_APPROVE_NEED;
+    const approved = credits < APPROVE_CREDIT_TRANSFER_BOUNDARY;
     await client.query(`
       INSERT INTO credit_transfers (
           user_id,
@@ -640,7 +651,7 @@ router.post('/admin', async (ctx, next) => {
   assert(typeof ctx.request.body.username === 'string', 'Post /admin body has no username', 109);
   assert(typeof ctx.request.body.password === 'string', 'Post /admin body has no password', 110);
 
-  const user = (await db.query(`
+  const user = (await db.sql(`
     SELECT u.salt, u.password FROM roles AS r
       JOIN backoffice_users_roles AS ur
       ON r.id = ur.role_id
@@ -661,7 +672,7 @@ router.post('/admin', async (ctx, next) => {
 
   if (isPassCorrect) {
     ctx.session.admin = true;
-    ctx.session.roles = (await db.query(`
+    ctx.session.roles = (await db.sql(`
       SELECT r.role FROM roles AS r
         JOIN backoffice_users_roles AS ur
         ON r.id = ur.role_id
@@ -727,7 +738,7 @@ router.post('/register', async (ctx, next) => {
     return next();
   }
 
-  const user = (await db.query(`SELECT * FROM users WHERE username = $1 or email = $2`, username, email))[0];
+  const user = (await db.sql(`SELECT * FROM users WHERE username = $1 or email = $2`, username, email))[0];
 
   if (user != null) {
     if (user.username === username) {
@@ -750,7 +761,7 @@ router.post('/register', async (ctx, next) => {
   const saltedPassword = password + salt;
   const hash = await bcrypt.hash(saltedPassword, SALT_ROUNDS);
 
-  db.query(
+  db.sql(
     `INSERT INTO users (date_registered, password, email, username, salt)
       VALUES ($1, $2, $3, $4, $5)`,
     new Date(),
@@ -770,7 +781,7 @@ router.post('/login', async (ctx, next) => {
   const username = ctx.request.body.username;
   const password = ctx.request.body.password;
 
-  const user = (await db.query(`SELECT * FROM users where username = $1`, username))[0];
+  const user = (await db.sql(`SELECT * FROM users where username = $1`, username))[0];
 
   if (user == null) {
     await ctx.render('login', { error: 'No user registered with given username' });
@@ -801,23 +812,3 @@ app.use(router.routes());
 
 module.exports = server;
 
-// // GET timer
-// router.get('/timer', async (ctx, next) => {
-//   trace(`GET '/timer'`);
-
-//   const date1 = new Date();
-//   const city = await db.query(`select * from cities where name = 'Houston'`);
-//   const date2 = new Date();
-
-//   console.log(city);
-//   console.log(date2 - date1);
-
-//   await ctx.redirect('/home');
-// });
-
-// (async () => {
-//   const salt = generateRandomString(SALT_LENGTH);
-//   const saltedPassword = 'admin' + salt;
-//   const hash = await bcrypt.hash(saltedPassword, SALT_ROUNDS);
-//   await db.query(`insert into backoffice_users (username, password, salt) values ('admin', $1, $2)`, hash, salt);
-// })();

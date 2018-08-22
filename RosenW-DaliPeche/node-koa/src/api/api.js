@@ -17,16 +17,16 @@ const generateAPIKey = async (ctx, next) => {
 
   const username = ctx.request.body.name;
   const key = generateRandomString(16);
-  const user = (await db.query(`SELECT * FROM users WHERE username = $1`, username))[0];
+  const user = (await db.sql(`SELECT * FROM users WHERE username = $1`, username))[0];
 
   assert(user != null, 'User not found when generating API key', 11);
 
-  const APIKeyCountData = (await db.query(`SELECT COUNT(*) FROM api_keys WHERE user_id = $1`, user.id))[0];
+  const APIKeyCountData = (await db.sql(`SELECT COUNT(*) FROM api_keys WHERE user_id = $1`, user.id))[0];
 
   if (APIKeyCountData.count >= MAX_API_KEYS_PER_USER) {
     ctx.body = { msg: 'API key limit exceeded' };
   } else {
-    db.query(`
+    db.sql(`
       INSERT INTO api_keys (key, user_id)
         VALUES ($1, $2)
     `,
@@ -42,7 +42,7 @@ const deleteAPIKey = async (ctx, next) => {
 
   const key = ctx.params.key;
 
-  await db.query(`DELETE FROM api_keys WHERE key = $1`, key);
+  await db.sql(`DELETE FROM api_keys WHERE key = $1`, key);
   ctx.redirect('/home');
 };
 
@@ -59,10 +59,10 @@ const getForecast = async (ctx, next) => {
 
   assertPeer(typeof key === 'string', 'No API key in post body', 31);
 
-  const keyRecord = (await db.query(`SELECT * FROM api_keys WHERE key = $1`, key))[0];
+  const keyRecord = (await db.sql(`SELECT * FROM api_keys WHERE key = $1`, key))[0];
   assertPeer(isObject(keyRecord), 'invalid API key', 33);
 
-  const user = (await db.query(`SELECT * FROM users WHERE id = $1`, keyRecord.user_id))[0];
+  const user = (await db.sql(`SELECT * FROM users WHERE id = $1`, keyRecord.user_id))[0];
   assert(isObject(user), 'No user found when searching by api key', 13);
 
   try {
@@ -83,10 +83,10 @@ const getForecast = async (ctx, next) => {
 
     cityName = cityName.toLowerCase().trim();
 
-    const city = (await db.query(`SELECT * FROM cities WHERE UNACCENT(LOWER(name)) = LOWER($1)`, cityName))[0];
+    const city = (await db.sql(`SELECT * FROM cities WHERE UNACCENT(LOWER(name)) = LOWER($1)`, cityName))[0];
     assertPeer(isObject(city), 'no information found, please try again later', 39);
 
-    const conditions = await db.query(`SELECT * FROM weather_conditions WHERE city_id = $1`, city.id);
+    const conditions = await db.sql(`SELECT * FROM weather_conditions WHERE city_id = $1`, city.id);
     assert(Array.isArray(conditions), `expected conditions to be array but wasn't`, 14);
     assertPeer(conditions.length > 0, 'no information found, please try again later', 34);
 
@@ -97,7 +97,7 @@ const getForecast = async (ctx, next) => {
     response.lat = city.lat;
     response.conditions = conditions;
   } catch (err) {
-    if (err.statusCode === 39) db.query(`INSERT INTO cities (name) VALUES($1)`, cityName);
+    if (err.statusCode === 39) db.sql(`INSERT INTO cities (name) VALUES($1)`, cityName);
     if (err.statusCode !== 35) await taxUser(user, true);
     await updateRequests(iataCode, cityName);
     throw err;
@@ -116,7 +116,7 @@ const updateAPIKeyUsage = async (keyRecord) => {
     35
   );
 
-  await db.query(`UPDATE api_keys SET use_count = use_count + 1 WHERE id = $1`, keyRecord.id);
+  await db.sql(`UPDATE api_keys SET use_count = use_count + 1 WHERE id = $1`, keyRecord.id);
 };
 
 const updateRequests = async (iataCode, city) => {

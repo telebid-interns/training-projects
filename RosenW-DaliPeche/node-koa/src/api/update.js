@@ -10,7 +10,7 @@ const {
 updateDB();
 
 async function updateDB () {
-  const cities = await db.query(`SELECT * FROM cities`);
+  const cities = await db.sql(`SELECT * FROM cities`);
   resetAPIKeys();
   const timePerRequest = cities.length > 60 ? 1000 : 0;
   for (const [index, city] of cities.entries()) {
@@ -30,7 +30,7 @@ async function updateDB () {
         36
       );
 
-      db.query(
+      db.sql(
         `UPDATE cities
           SET country_code = $1, lat = $2, lng = $3, observed_at = $4
           WHERE name = $5`,
@@ -41,9 +41,9 @@ async function updateDB () {
         city.name
       );
 
-      const dbCity = (await db.query(`SELECT * FROM cities WHERE name = $1`, city.name))[0];
+      const dbCity = (await db.sql(`SELECT * FROM cities WHERE name = $1`, city.name))[0];
 
-      db.query(`DELETE FROM weather_conditions WHERE city_id = $1`, dbCity.id);
+      db.sql(`DELETE FROM weather_conditions WHERE city_id = $1`, dbCity.id);
 
       for (const city of forecast.list) {
         assertPeer(
@@ -55,7 +55,7 @@ async function updateDB () {
           37
         );
 
-        db.query(
+        db.sql(
           `INSERT INTO weather_conditions (
             city_id,
             weather,
@@ -90,7 +90,7 @@ async function updateDB () {
 }
 
 function resetAPIKeys () {
-  db.query(`UPDATE api_keys SET use_count = 0`);
+  db.sql(`UPDATE api_keys SET use_count = 0`);
 }
 
 async function getWeatherAPIData (city) {
