@@ -1,10 +1,11 @@
 const Koa = require('koa');
 const requester = require('request-promise');
-const router = require('koa-router')();
+const Router = require('koa-router');
 const { trace } = require('./../debug/tracer.js');
 const { assert, assertPeer } = require('./../asserts/asserts.js');
 const { PeerError } = require('./../asserts/exceptions.js');
 const { generateRandomString, isObject } = require('./../utils/utils.js');
+const bodyParser = require('koa-bodyparser');
 const {
   DEFAULT_PORT,
   MAX_API_KEYS_PER_USER,
@@ -16,6 +17,42 @@ const {
 const db = require('./../database/pg_db.js');
 
 const app = new Koa();
+
+if (require.main === module) {
+  router = new Router({
+    prefix: '/api'
+  });
+  const server = app.listen(DEFAULT_PORT, () => {
+    console.log(`API Server listening on port: ${DEFAULT_PORT}`);
+  });
+
+  // Error Handling
+  app.use(async (ctx, next) => {
+    try {
+      await next();
+    } catch (err) {
+      if (err instanceof UserError) {
+        ctx.body = {
+          message: err.message,
+          statusCode: err.statusCode,
+        };
+      } else if (err instanceof PeerError) {
+        ctx.body = {
+          message: err.message,
+          statusCode: err.statusCode,
+        };
+      } else {
+        console.log(err);
+        console.log(`Application Error: ${err.message}, Status code: ${err.statusCode}`);
+        ctx.body = 'An error occured please clear your cookies and try again';
+      }
+    }
+  });
+
+  app.use(bodyParser());
+} else {
+  router = new Router();
+}
 
 // POST generate API key
 router.post('/generateAPIKey', async (ctx, next) => {

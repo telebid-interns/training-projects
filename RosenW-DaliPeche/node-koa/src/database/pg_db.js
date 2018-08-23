@@ -45,5 +45,5 @@ async function makeTransaction (func) {
 
 module.exports = {
   sql,
-  makeTransaction
+  makeTransaction,
 };

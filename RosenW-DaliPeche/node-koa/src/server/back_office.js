@@ -1,44 +1,77 @@
 const Koa = require('koa');
-const router = require('koa-router')();
-const { assert, assertUser } = require('./../asserts/asserts.js');
-const { PeerError, UserError } = require('./../asserts/exceptions.js');
-const { trace, clearTraceLog } = require('./../debug/tracer.js');
+const Router = require('koa-router');
+const { assert } = require('./../asserts/asserts.js');
+const { trace } = require('./../debug/tracer.js');
 const {
-  generateRandomString,
-  validateEmail,
   isObject,
-  isInteger,
 } = require('./../utils/utils.js');
 const db = require('./../database/pg_db.js');
 const serve = require('koa-static');
 const bcrypt = require('bcrypt');
 const session = require('koa-session');
 const views = require('koa-views');
+const bodyParser = require('koa-bodyparser');
 const {
   DEFAULT_PORT,
-  MINIMUM_USERNAME_LENGTH,
-  MINIMUM_PASSWORD_LENGTH,
   MAX_REQUESTS_PER_HOUR,
   MAXIMUM_CREDITS_ALLOWED,
-  MERCHANT_ID,
-  CREDIT_CARD_PRIVATE_KEY,
-  CREDIT_CARD_PUBLIC_KEY,
-  SALT_ROUNDS,
-  SALT_LENGTH,
   ROWS_PER_PAGE,
-  APPROVE_CREDIT_TRANSFER_BOUNDARY
 } = require('./../utils/consts.js');
-const braintree = require('braintree');
-const api = require('./../api/api.js');
-
-const gateway = braintree.connect({
-  environment: braintree.Environment.Sandbox,
-  merchantId: MERCHANT_ID,
-  publicKey: CREDIT_CARD_PUBLIC_KEY,
-  privateKey: CREDIT_CARD_PRIVATE_KEY,
-});
 
 const app = new Koa();
+
+if (require.main === module) {
+  router = new Router({
+    prefix: '/admin'
+  });
+  const server = app.listen(DEFAULT_PORT, () => {
+    console.log(`Backoffice Server listening on port: ${DEFAULT_PORT}`);
+  });
+  app.use(serve(`${__dirname}/public/css`));
+  app.use(serve(`${__dirname}/public/js`));
+
+  app.use(views(`${__dirname}/views`, {
+    extension: 'hbs',
+    map: { hbs: 'handlebars' }, // marks engine for extensions
+    options: {
+      partials: {
+        adminForm: `./admin_form`, // requires ./admin_form.hbs
+      },
+    },
+  }));
+
+  app.keys = ['DaliKrieTaini'];
+
+  // (cookie lifetime): (Milliseconds)
+  app.use(session({ maxAge: 1000 * 60 * 60 * 24 }, app));
+
+  // Error Handling
+  app.use(async (ctx, next) => {
+    try {
+      await next();
+    } catch (err) {
+      if (err instanceof UserError) {
+        ctx.body = {
+          message: err.message,
+          statusCode: err.statusCode,
+        };
+      } else if (err instanceof PeerError) {
+        ctx.body = {
+          message: err.message,
+          statusCode: err.statusCode,
+        };
+      } else {
+        console.log(err);
+        console.log(`Application Error: ${err.message}, Status code: ${err.statusCode}`);
+        ctx.body = 'An error occured please clear your cookies and try again';
+      }
+    }
+  });
+
+  app.use(bodyParser());
+} else {
+  router = new Router();
+}
 
 // GET /
 router.get('/', async (ctx, next) => {
@@ -55,8 +88,7 @@ router.get('/', async (ctx, next) => {
 router.get('/users', async (ctx, next) => {
   trace(`GET '/admin/users'`);
 
-  if (!Array.isArray(ctx.session.roles) || !ctx.session.roles.includes('superuser'))
-  {
+  if (!Array.isArray(ctx.session.roles) || !ctx.session.roles.includes('superuser')) {
     await ctx.redirect('/admin');
     return next();
   }
@@ -111,7 +143,7 @@ router.get('/users', async (ctx, next) => {
     creditsFrom,
     creditsTo,
     dateFrom: dateFrom.toISOString().substr(0, 10),
-    dateTo: dateTo.toISOString().substr(0, 10)
+    dateTo: dateTo.toISOString().substr(0, 10),
   });
 });
 
@@ -120,10 +152,8 @@ router.get('/credits', async (ctx, next) => {
   trace(`GET '/admin/credits'`);
 
   if (
-      !Array.isArray(ctx.session.roles) ||
-      !ctx.session.roles.includes('superuser') &&
-      !ctx.session.roles.includes('accountant'))
-  {
+    !Array.isArray(ctx.session.roles) ||
+      (!ctx.session.roles.includes('superuser') && !ctx.session.roles.includes('accountant'))) {
     await ctx.redirect('/admin');
     return next();
   }
@@ -146,9 +176,9 @@ router.get('/credits', async (ctx, next) => {
     OFFSET $2
     LIMIT $3
   `,
-    `%${username}%`,
-    0 + (ROWS_PER_PAGE * page),
-    ROWS_PER_PAGE
+  `%${username}%`,
+  0 + (ROWS_PER_PAGE * page),
+  ROWS_PER_PAGE
   );
 
   const total = (await db.sql(`
@@ -230,7 +260,7 @@ router.get('/cities', async (ctx, next) => {
     prevPage: page - 1,
     nextPage: page + 1,
     name,
-    countryCode
+    countryCode,
   });
 });
 
@@ -273,10 +303,8 @@ router.get('/ctransfers', async (ctx, next) => {
   trace(`GET '/admin/ctransfers'`);
 
   if (
-      !Array.isArray(ctx.session.roles) ||
-      !ctx.session.roles.includes('superuser') &&
-      !ctx.session.roles.includes('accountant'))
-  {
+    !Array.isArray(ctx.session.roles) ||
+      (!ctx.session.roles.includes('superuser') && !ctx.session.roles.includes('accountant'))) {
     await ctx.redirect('/admin');
     return next();
   }
@@ -331,7 +359,7 @@ router.get('/ctransfers', async (ctx, next) => {
     username,
     event,
     dateFrom: dateFrom.toISOString().substr(0, 10),
-    dateTo: dateTo.toISOString().substr(0, 10)
+    dateTo: dateTo.toISOString().substr(0, 10),
   });
 });
 
@@ -485,4 +513,3 @@ router.get('/approve', async (ctx, next) => {
 app.use(router.routes());
 
 module.exports = app;
-

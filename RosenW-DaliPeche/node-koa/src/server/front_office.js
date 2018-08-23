@@ -1,8 +1,7 @@
 const Koa = require('koa');
 const router = require('koa-router')();
 const { assert, assertUser } = require('./../asserts/asserts.js');
-const { PeerError, UserError } = require('./../asserts/exceptions.js');
-const { trace, clearTraceLog } = require('./../debug/tracer.js');
+const { trace } = require('./../debug/tracer.js');
 const {
   generateRandomString,
   validateEmail,
@@ -13,6 +12,7 @@ const db = require('./../database/pg_db.js');
 const serve = require('koa-static');
 const bcrypt = require('bcrypt');
 const views = require('koa-views');
+const bodyParser = require('koa-bodyparser');
 const {
   DEFAULT_PORT,
   MINIMUM_USERNAME_LENGTH,
@@ -24,9 +24,10 @@ const {
   CREDIT_CARD_PUBLIC_KEY,
   SALT_ROUNDS,
   SALT_LENGTH,
-  APPROVE_CREDIT_TRANSFER_BOUNDARY
+  APPROVE_CREDIT_TRANSFER_BOUNDARY,
 } = require('./../utils/consts.js');
 const braintree = require('braintree');
+const session = require('koa-session');
 
 const gateway = braintree.connect({
   environment: braintree.Environment.Sandbox,
@@ -36,6 +37,49 @@ const gateway = braintree.connect({
 });
 
 const app = new Koa();
+
+if (require.main === module) {
+  const server = app.listen(DEFAULT_PORT, () => {
+    console.log(`Frontoffice Server listening on port: ${DEFAULT_PORT}`);
+  });
+  app.use(serve(`${__dirname}/public/css`));
+  app.use(serve(`${__dirname}/public/js`));
+
+  app.use(views(`${__dirname}/views`, {
+    extension: 'hbs',
+    map: { hbs: 'handlebars' }, // marks engine for extensions
+  }));
+
+  app.keys = ['DaliKrieTaini'];
+
+  // (cookie lifetime): (Milliseconds)
+  app.use(session({ maxAge: 1000 * 60 * 60 * 24 }, app));
+
+  // Error Handling
+  app.use(async (ctx, next) => {
+    try {
+      await next();
+    } catch (err) {
+      if (err instanceof UserError) {
+        ctx.body = {
+          message: err.message,
+          statusCode: err.statusCode,
+        };
+      } else if (err instanceof PeerError) {
+        ctx.body = {
+          message: err.message,
+          statusCode: err.statusCode,
+        };
+      } else {
+        console.log(err);
+        console.log(`Application Error: ${err.message}, Status code: ${err.statusCode}`);
+        ctx.body = 'An error occured please clear your cookies and try again';
+      }
+    }
+  });
+
+  app.use(bodyParser());
+}
 
 // GET root
 router.get('/', async (ctx, next) => {
@@ -153,7 +197,10 @@ router.post('/buy', async (ctx, next) => {
 
   if (sale.success) {
     await purchaseCredits(user, credits);
-    if (credits < APPROVE_CREDIT_TRANSFER_BOUNDARY) return ctx.body = {msg: `${credits} credits added to account`};
+    if (credits < APPROVE_CREDIT_TRANSFER_BOUNDARY) {
+      ctx.body = {msg: `${credits} credits added to account`};
+      return;
+    }
     ctx.body = {msg: `${credits} credits sent for approval`};
   } else {
     ctx.body = { error: 'Purchase unsuccessful' };
@@ -172,13 +219,13 @@ const purchaseCredits = async (user, credits) => {
           approved
         )
         VALUES ($1, $2, $3, $4, $5)`,
-      [
-        user.id,
-        credits,
-        'Credit purchase',
-        new Date(),
-        approved
-      ]
+    [
+      user.id,
+      credits,
+      'Credit purchase',
+      new Date(),
+      approved,
+    ]
     );
 
     if (approved) {
@@ -186,10 +233,10 @@ const purchaseCredits = async (user, credits) => {
         UPDATE users
           SET credits = credits + $1
         WHERE id = $2`,
-        [
-          Number(credits),
-          user.id
-        ]
+      [
+        Number(credits),
+        user.id,
+      ]
       );
     }
   });
