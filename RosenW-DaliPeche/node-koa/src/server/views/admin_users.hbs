@@ -61,7 +61,7 @@
     const credits = prompt(`add credits to user ${username}`);
     console.log(typeof credits);
     if (!Number(credits)) return;
-    const response = await fetch('/addCreditsToUser', {
+    const response = await fetch('admin/addCreditsToUser', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

@@ -1,3 +1,4 @@
+const Koa = require('koa');
 const requester = require('request-promise');
 const router = require('koa-router')();
 const { trace } = require('./../debug/tracer.js');
@@ -5,6 +6,7 @@ const { assert, assertPeer } = require('./../asserts/asserts.js');
 const { PeerError } = require('./../asserts/exceptions.js');
 const { generateRandomString, isObject } = require('./../utils/utils.js');
 const {
+  DEFAULT_PORT,
   MAX_API_KEYS_PER_USER,
   MAX_REQUESTS_PER_HOUR,
   AIRPORT_API_LINK,
@@ -13,8 +15,10 @@ const {
 } = require('./../utils/consts.js');
 const db = require('./../database/pg_db.js');
 
+const app = new Koa();
+
 // POST generate API key
-router.post('/api/generateAPIKey', async (ctx, next) => {
+router.post('/generateAPIKey', async (ctx, next) => {
   trace(`POST '/generateKey'`);
 
   const username = ctx.request.body.name;
@@ -40,7 +44,8 @@ router.post('/api/generateAPIKey', async (ctx, next) => {
 });
 
 // GET delete key
-router.get('/api/del/:key', async (ctx, next) => {
+// TODO change to post, mount api
+router.get('/del/:key', async (ctx, next) => {
   trace(`GET '/api/del/:key'`);
 
   const key = ctx.params.key;
@@ -50,7 +55,7 @@ router.get('/api/del/:key', async (ctx, next) => {
 });
 
 // POST forecast
-router.post('/api/forecast', async (ctx, next) => {
+router.post('/forecast', async (ctx, next) => {
   trace(`POST '/api/forecast'`);
 
   assertPeer(isObject(ctx.request.body), 'No request body provided', 38);
@@ -200,4 +205,6 @@ const getCityByIATACode = async (iataCode) => {
   return data.location.split(',')[0];
 };
 
-module.exports = router;
+app.use(router.routes());
+
+module.exports = app;

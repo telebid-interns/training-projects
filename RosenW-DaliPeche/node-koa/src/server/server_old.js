@@ -1,6 +1,5 @@
 const Koa = require('koa');
 const router = require('koa-router')();
-const bodyParser = require('koa-bodyparser');
 const { assert, assertUser } = require('./../asserts/asserts.js');
 const { PeerError, UserError } = require('./../asserts/exceptions.js');
 const { trace, clearTraceLog } = require('./../debug/tracer.js');
@@ -10,14 +9,13 @@ const {
   isObject,
   isInteger,
 } = require('./../utils/utils.js');
-const APIRouter = require('./../api/api.js');
 const db = require('./../database/pg_db.js');
 const serve = require('koa-static');
+const views = require('koa-views');
 const bcrypt = require('bcrypt');
 const session = require('koa-session');
-const views = require('koa-views');
 const {
-  PORT,
+  DEFAULT_PORT,
   MINIMUM_USERNAME_LENGTH,
   MINIMUM_PASSWORD_LENGTH,
   MAX_REQUESTS_PER_HOUR,
@@ -31,6 +29,7 @@ const {
   APPROVE_CREDIT_TRANSFER_BOUNDARY
 } = require('./../utils/consts.js');
 const braintree = require('braintree');
+const api = require('./../api/api.js');
 
 const gateway = braintree.connect({
   environment: braintree.Environment.Sandbox,
@@ -118,7 +117,7 @@ router.get('/home', async (ctx, next) => {
   assert(user != null, 'cookie contained username not in database', 10);
 
   const keys = await db.sql(`SELECT * FROM api_keys WHERE user_id = $1`, user.id);
-  assert(Array.isArray(keys), 'keys expected to be array but wasnt', 15);
+  assert(Array.isArray(keys), `keys expected to be array but wasn't`, 15);
 
   await ctx.render(
     'home', {
@@ -611,7 +610,7 @@ router.post('/addCreditsToUser', async (ctx, next) => {
     [
       user.id,
       credits,
-      'Admin add',
+      `Credits given by admin: ${ctx.session.username}`,
       new Date(),
     ]
     );
@@ -672,6 +671,7 @@ router.post('/admin', async (ctx, next) => {
 
   if (isPassCorrect) {
     ctx.session.admin = true;
+    ctx.session.username = username;
     ctx.session.roles = (await db.sql(`
       SELECT r.role FROM roles AS r
         JOIN backoffice_users_roles AS ur
@@ -738,7 +738,7 @@ router.post('/register', async (ctx, next) => {
     return next();
   }
 
-  const user = (await db.sql(`SELECT * FROM users WHERE username = $1 or email = $2`, username, email))[0];
+  const user = (await db.sql(`SELECT * FROM users WHERE username = $1 OR email = $2`, username, email))[0];
 
   if (user != null) {
     if (user.username === username) {
@@ -800,7 +800,6 @@ router.post('/login', async (ctx, next) => {
 });
 
 app.use(router.routes());
-app.use(APIRouter.routes());
 
 module.exports = server;
 

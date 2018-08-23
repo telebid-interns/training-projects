@@ -41,7 +41,7 @@
   document.getElementById('select-approve').setAttribute('selected', 'selected');
 
   function approve (id) {
-    fetch('/approve', {
+    fetch('admin/approve', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
