@@ -1,8 +1,7 @@
 import argparse
 import collections
-import sys
-import pprint
 import copy
+import sys
 
 Location = collections.namedtuple('Location', ['row', 'col'])
 
