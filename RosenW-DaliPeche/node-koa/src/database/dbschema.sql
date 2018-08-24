@@ -2,7 +2,7 @@ CREATE DOMAIN email AS text CHECK ( value ~ '^[a-zA-Z0-9.!#$%&''*+/=?^_`{|}~-]+@
 
 CREATE TABLE requests (
   id serial PRIMARY KEY,
-  iata_code text unique, -- not null for both
+  iata_code text unique,
   city text unique,
   call_count integer DEFAULT 1 NOT NULL
 );

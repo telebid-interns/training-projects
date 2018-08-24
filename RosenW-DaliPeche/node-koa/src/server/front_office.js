@@ -1,6 +1,7 @@
 const Koa = require('koa');
 const router = require('koa-router')();
-const { assert, assertUser } = require('./../asserts/asserts.js');
+const { assert, assertUser, assertPeer } = require('./../asserts/asserts.js');
+const { PeerError } = require('./../asserts/exceptions.js');
 const { trace } = require('./../debug/tracer.js');
 const {
   generateRandomString,
@@ -156,8 +157,17 @@ router.get('/buy', async (ctx, next) => {
     return next();
   }
 
-  const response = await gateway.clientToken.generate();
-
+  let response;
+  try {
+    response = await gateway.clientToken.generate();
+  } catch (err) {
+    await ctx.render('buy', {
+      success: ctx.query.success,
+      error: ctx.query.err,
+    });
+    return;
+  }
+  assertPeer(typeof response === 'object', 'Invalid Paypal response', 256);
   await ctx.render('buy', {
     success: ctx.query.success,
     error: ctx.query.err,

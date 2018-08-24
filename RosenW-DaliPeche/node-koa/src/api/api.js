@@ -81,14 +81,13 @@ router.post('/generateAPIKey', async (ctx, next) => {
 });
 
 // GET delete key
-// TODO change to post, mount api
-router.get('/del/:key', async (ctx, next) => {
-  trace(`GET '/api/del/:key'`);
+router.del('/del', async (ctx, next) => {
+  trace(`POST '/del'`);
 
-  const key = ctx.params.key;
+  const key = ctx.request.body.key;
 
   await db.sql(`DELETE FROM api_keys WHERE key = $1`, key);
-  ctx.redirect('/home');
+  ctx.body = {msg: 'Successfuly deleted key'};
 });
 
 // POST forecast

@@ -16,7 +16,7 @@
         <p>Your API keys:</p>
         <ul id="keys">
           {{#each keys}}
-            <li>{{key}} ({{use_count}} / {{../limit}}) <a href="api/del/{{key}}" class="text-danger">x</a></li>
+            <li>{{key}} ({{use_count}} / {{../limit}}) <a href="#" class="text-danger" onclick="deleteAPIKey('{{key}}')">x</a></li>
           {{/each}}
         </ul>
         <br>
@@ -49,11 +49,10 @@
     event.preventDefault();
     const username = "{{user}}";
     const limit = "{{limit}}";
-    const response = await fetch(
-      'api/generateAPIKey', {
+    const response = await fetch('api/generateAPIKey', {
       headers: {
-            "Content-Type": "application/json"
-        },
+        "Content-Type": "application/json"
+      },
       method : "POST",
       body: JSON.stringify({ name: username })
     });
@@ -66,7 +65,9 @@
       APIKeyBox.value = key;
       const keyElement = document.createElement('li');
       const deleteElement = document.createElement('a');
-      deleteElement.setAttribute('href', `api/del/${key}`);
+      deleteElement.setAttribute('href', `#`);
+      deleteElement.setAttribute('id', `key-${key}`);
+      deleteElement.addEventListener('click', (event) => deleteAPIKey(key));
       deleteElement.setAttribute('class', `text-danger`);
       deleteElement.innerHTML = 'x';
       keyElement.innerHTML = `${key} (0 / ${limit}) `;
@@ -74,4 +75,15 @@
       document.getElementById('keys').appendChild(keyElement);
     }
   });
+
+  async function deleteAPIKey (key) {
+    await fetch(`api/del`, {
+      headers: {
+        "Content-Type": "application/json"
+      },
+      method : "DELETE",
+      body: JSON.stringify({ key })
+    });
+    window.location.reload(true);
+  }
 </script>

@@ -9,8 +9,13 @@
       <label for="credit-box">Purchase Credits</label>
       <input type="number" name="credits" id='credit-box' placeholder="Enter credits" class="form-control">
       <br>
-      <div id="dropin-container"></div>
-      <button id="submit-button" class="form-control btn-success">Purchase</button>
+      {{#if clientToken}}
+        <div id="dropin-container"></div>
+        <button id="submit-button" class="form-control btn-success">Purchase</button>
+      {{else}}
+        <p class="text-danger">No connection to Paypal</p>
+      {{/if}}
+
       <br>
       <p id="success-msg" class="text-success"></p>
       <p class="text-danger" id="error-msg"></p>
@@ -44,7 +49,7 @@
           },
           body: JSON.stringify({
             nonce: payload.nonce,
-            total: parseFloat(creditBox.value/100).toFixed(2),
+            total: parseFloat(creditBox.value / 100).toFixed(2),
             credits: creditBox.value
           })
         });
