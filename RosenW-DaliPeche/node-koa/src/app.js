@@ -58,6 +58,18 @@ app.use(mount('/api', api));
 app.use(mount('/', frontOffice));
 app.use(mount('/admin', backOffice));
 
-const server = app.listen(DEFAULT_PORT, () => {
-  console.log(`App Server listening on port: ${DEFAULT_PORT}`);
+let port;
+
+if (
+    Number(process.env.npm_package_config_port) &&
+    process.env.npm_package_config_port > 0 &&
+    process.env.npm_package_config_port < 65536
+  ) {
+    port = process.env.npm_package_config_port;
+} else {
+  port = DEFAULT_PORT;
+}
+
+const server = app.listen(port, () => {
+  console.log(`App Server listening on port: ${port}`);
 });

@@ -1,7 +1,10 @@
 {
-  "name": "node-koa-api",
+  "name": "dali-peche-api",
   "version": "0.0.0",
   "private": true,
+  "config": {
+    "port": "3001"
+  },
   "scripts": {
     "start": "node ./src/app.js",
     "test": "./node_modules/mocha/bin/_mocha"
