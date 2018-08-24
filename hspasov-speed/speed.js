@@ -62,8 +62,10 @@ function isPathBetweenTwoPoints (graph, currentPoint, goalPoint) {
     return true;
   }
 
-  const graphClone = { ...graph };
-  delete graphClone[currentPoint];
+  const graphClone = {
+    ...graph,
+    [currentPoint]: null,
+  };
 
   for (const currentPointNeighbour of currentPointNeighbours) {
     if (!graphClone[currentPointNeighbour]) {
@@ -78,16 +80,20 @@ function isPathBetweenTwoPoints (graph, currentPoint, goalPoint) {
   return false;
 }
 
+function arePathsBetweenAllPoints (graph) {
+  const graphEntries = Object.entries(graph);
 
-function arePathsBetweenAllPoints(graph) {
-  for (const point1 in graph) {
-    if (graph.hasOwnProperty(point1)) {
-      for (const point2 in graph) {
-        if (graph.hasOwnProperty(point2)) {
-          if (!(isPathBetweenTwoPoints(graph, point1, point2))) {
-            return false;
-          }
-        }
+  for (let i = 0; i < graphEntries.length; i++) {
+    for (let k = i + 1; k < graphEntries.length; k++) {
+      const [point1, paths1] = graphEntries[i];
+      const [point2, paths2] = graphEntries[k];
+
+      if (!paths1 || !paths2) {
+        continue;
+      }
+
+      if (!(isPathBetweenTwoPoints(graph, point1, point2))) {
+        return false;
       }
     }
   }
@@ -133,25 +139,17 @@ function filterPaths (paths, minSpeed, maxSpeed) {
 function start () {
   const input = parseInput(`
 
-10 17 
-1 2 3 
-1 2 5 
-1 3 8 
-  2 4 16 
-  3 5 8 
-  3 6 19 
-  5 6 72 
-  7 8 9 
-  1 9 6 
-  4 7 5 
-  3 8 28 
-  4 2 15 
-  3 6 19 
-  7 8 16 
-  2 10 13 
-  1 10 1 
-  4 5 6
-
+  7 10
+  1 3 2
+  4 2 8
+  1 2 11
+  1 4 3
+  1 3 6
+  5 3 5
+  3 6 9
+  7 6 6
+  5 6 3
+  2 5 7
 
   `);
 
@@ -160,8 +158,19 @@ function start () {
   const smallestSpeed = getSmallest(speeds);
   const maxSpeedDiff = biggestSpeed - smallestSpeed;
 
+  const sortedSpeeds = speeds.slice().sort((a, b) => { // sort ASC
+    if (a > b) {
+      return 1;
+    } else if (a < b) {
+      return -1;
+    } else {
+      return 0;
+    }
+  });
+
   for (let speedDiff = 0; speedDiff <= maxSpeedDiff; speedDiff++) {
-    for (let minSpeed = 0; minSpeed <= biggestSpeed - speedDiff; minSpeed++) {
+    for (let speedIndex = 0; sortedSpeeds[speedIndex] <= biggestSpeed - speedDiff; speedIndex++) {
+      const minSpeed = sortedSpeeds[speedIndex];
       const possiblePaths = filterPaths (input.paths, minSpeed, minSpeed + speedDiff);
       const graph = inputToGraph({
         ...input,
