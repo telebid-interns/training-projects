@@ -1,3 +1,36 @@
+function parseInput (input) {
+  const NUMBERS_ROW_PATTERN = /[\d ]+(?=\n|$)/g;
+  const NUMBER_PATTERN = /\d+/g;
+
+  const numbersRowMatched = input.match(NUMBERS_ROW_PATTERN);
+
+  const rows = numbersRowMatched.filter((row) => {
+    return row.match(NUMBER_PATTERN) !== null;
+  }).map((row) => {
+    return row.match(NUMBER_PATTERN).map(Number);
+  });
+
+  const [n, m] = rows[0];
+
+  const paths = rows.filter((row, index) => {
+    return index > 0;
+  }).map((row) => {
+    const [f, t, s] = row;
+
+    return {
+      f: String(f),
+      t: String(t),
+      s,
+    };
+  });
+
+  return {
+    m,
+    n,
+    paths,
+  };
+}
+
 function inputToGraph (input) {
   const graph = {};
 
@@ -98,62 +131,29 @@ function filterPaths (paths, minSpeed, maxSpeed) {
 }
 
 function start () {
-  const input = {
-    n: 7, // amount of points
-    m: 10, // amount of direct paths between points,
-    paths: [
-      {
-        f: '1', // from
-        t: '3', // to
-        s: 2, // optimal speed
-      },
-      {
-        f: '4', // from
-        t: '2', // to
-        s: 8, // optimal speed
-      },
-      {
-        f: '1', // from
-        t: '2', // to
-        s: 11, // optimal speed
-      },
-      {
-        f: '1', // from
-        t: '4', // to
-        s: 3, // optimal speed
-      },
-      {
-        f: '1', // from
-        t: '3', // to
-        s: 6, // optimal speed
-      },
-      {
-        f: '5', // from
-        t: '3', // to
-        s: 5, // optimal speed
-      },
-      {
-        f: '3', // from
-        t: '6', // to
-        s: 9, // optimal speed
-      },
-      {
-        f: '7', // from
-        t: '6', // to
-        s: 6, // optimal speed
-      },
-      {
-        f: '5', // from
-        t: '6', // to
-        s: 3, // optimal speed
-      },
-      {
-        f: '2', // from
-        t: '5', // to
-        s: 7, // optimal speed
-      },
-    ],
-  };
+  const input = parseInput(`
+
+10 17 
+1 2 3 
+1 2 5 
+1 3 8 
+  2 4 16 
+  3 5 8 
+  3 6 19 
+  5 6 72 
+  7 8 9 
+  1 9 6 
+  4 7 5 
+  3 8 28 
+  4 2 15 
+  3 6 19 
+  7 8 16 
+  2 10 13 
+  1 10 1 
+  4 5 6
+
+
+  `);
 
   const speeds = input.paths.map(p => p.s);
   const biggestSpeed = getBiggest(speeds);
