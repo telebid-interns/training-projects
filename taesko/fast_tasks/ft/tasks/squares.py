@@ -2,8 +2,13 @@ import argparse
 import collections
 import sys
 import pprint
+import copy
 
 Location = collections.namedtuple('Location', ['row', 'col'])
+
+
+class ReachedContradiction(ValueError):
+    pass
 
 
 class SquareMap(collections.UserDict):
@@ -54,20 +59,22 @@ def insert_symbol(square_map, location, symbol):
 
 
 def remove_symbol_from_locations(square_map, locations, symbol):
+    total_removed = 0
     modified = False
     for loc in locations:
         allowed = square_map[loc]
 
         assert len(allowed) > 0, 'got {allowed}'.format(**locals())
-        assert len(allowed) > 1 or symbol not in allowed, '{symbol} is alone in {allowed}'.format(**locals())
+        if len(allowed) == 1 and symbol in allowed:
+            raise ReachedContradiction('{symbol} is alone in {allowed}'.format(**locals()))
 
         try:
             allowed.remove(symbol)
-            modified = True
+            total_removed += 1
         except KeyError:
             pass
 
-    return modified
+    return total_removed
 
 
 def locations_affected_by_location(square_map, location):
@@ -87,7 +94,35 @@ def locations_affected_by_location(square_map, location):
 
 
 def solve(square_map):
-    print('Solving...')
+    finished, square_map, _ = eliminate(square_map)
+    if finished:
+        return True, square_map
+    best_squares = []
+    for loc, symbols in sorted(square_map.items(), key=lambda item: len(item[1])):
+        for sym in symbols:
+            if len(symbols) == 1:
+                continue
+            copied = copy.deepcopy(square_map)
+            copied[loc].remove(sym)
+            try:
+                solved, result, eliminated = eliminate(copied)
+            except ReachedContradiction:
+                continue
+            if solved:
+                return True, result
+            else:
+                best_squares.append((eliminated, result))
+    best_squares.sort(key=lambda e: e[0], reverse=True)
+    for _, sm in best_squares:
+        print('Number of best squares is', len(best_squares))
+        solved, result = solve(sm)
+        if solved:
+            return True, result
+    return False, None
+
+
+def eliminate(square_map):
+    total_eliminated = 0
     while True:
         modified_any = False
         finished = True
@@ -95,20 +130,22 @@ def solve(square_map):
             if len(symbols) == 1:
                 symbol = next(iter(symbols))
                 affected = locations_affected_by_location(square_map, location)
-                modified = remove_symbol_from_locations(square_map, affected, symbol)
-                modified_any = modified_any or modified
+                modified_count = remove_symbol_from_locations(square_map, affected, symbol)
+                total_eliminated += modified_count
+                modified_any = modified_any or modified_count > 0
             else:
                 finished = False
         if finished:
-            return square_map
-        else:
-            assert modified_any, 'Unsolvable puzzle by algorithm'
+            return finished, square_map, total_eliminated
+        elif not modified_any:
+            return modified_any, square_map, total_eliminated
 
 
 def parse_input_file(file):
     with open(file, mode='r', encoding='ascii') as f:
         text = f.read()
 
+    print(text)
     lines = iter(text.splitlines(keepends=False))
     try:
         mini_square_length = int(next(lines))
@@ -116,13 +153,13 @@ def parse_input_file(file):
         print('Invalid input file. Expected integer on the first line for number of symbols')
         sys.exit(1)
     if not (2 <= mini_square_length <= 3):
-        print('Expected number of symbols to be either 2 or 3')
+        print('Expected N to be either 2 or 3')
         sys.exit(2)
-
+    if len(text.splitlines(keepends=False)) - 1 != mini_square_length*mini_square_length:
+        print('Expected number of lines to be', mini_square_length*mini_square_length)
     symbol_loc_map = {}
 
     for row, line in enumerate(lines):
-        print(line)
         symbols = [s for s in line.split() if s]
         for col, sym in enumerate(symbols):
             if sym == '0':
@@ -135,25 +172,50 @@ def parse_input_file(file):
     for loc, symbol in symbol_loc_map.items():
         insert_symbol(square_map, loc, symbol)
 
-    print_square_map(square_map)
     return square_map
 
 
 def print_square_map(square_map):
+    def stringify_set(symbols):
+        if len(symbols) == 1:
+            return next(iter(symbols))
+        else:
+            return 'U'
+
     for row in range(square_map.side_len):
         line = []
         for loc, sym in square_map.items():
             if loc.row == row:
                 line.append((loc, sym))
         line.sort()
-        print(' '.join((str(e[1]) for e in line)))
+        pretty = (stringify_set(e[1]) for e in line)
+        print(' '.join(pretty))
+
+
+def is_valid(square_map):
+    for loc, symbols in square_map.items():
+        sym = next(iter(symbols))
+        affected = locations_affected_by_location(square_map, loc)
+        for affected_loc in affected:
+            if affected_loc == loc:
+                continue
+            if len(square_map[affected_loc]) != 1 or sym in square_map[affected_loc]:
+                return False
+    return True
+
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('file')
     args = parser.parse_args()
     square_map = parse_input_file(args.file)
-    pprint.pprint(solve(square_map))
+    solved, result = solve(square_map)
+    if solved:
+        print('Solution')
+        print_square_map(result)
+        sys.exit()
+    else:
+        print('Could not find solution')
 
 
 if __name__ == '__main__':
