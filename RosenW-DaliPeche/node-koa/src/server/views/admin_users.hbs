@@ -42,7 +42,7 @@
           <td>{{email}}</td>
           <td>{{successful_requests}}</td>
           <td>{{failed_requests}}</td>
-          <td><input id="credits-{{username}}" type="text" value="{{credits}}" disabled="true" style="text-align: right"><a href="#" id="add-credits-sign-{{id}}" onclick='addCredits("{{username}}")'> +</a></td>
+          <td><input id="credits-{{username}}" type="text" value="{{credits}}" disabled="true" style="text-align: right">{{#if permissions.can_add_credits}}<a href="#" id="add-credits-sign-{{id}}" onclick='addCredits("{{username}}")'> +</a>{{/if}}</td>
         </tr>
       {{/each}}
     </table>
@@ -59,9 +59,8 @@
   document.getElementById('select-users').setAttribute('selected', 'selected');
   async function addCredits (username) {
     const credits = prompt(`add credits to user ${username}`);
-    console.log(typeof credits);
     if (!Number(credits)) return;
-    const response = await fetch('admin/addCreditsToUser', {
+    const response = await fetch('/admin/addCreditsToUser', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

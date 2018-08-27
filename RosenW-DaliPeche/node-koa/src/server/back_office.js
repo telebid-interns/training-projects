@@ -73,7 +73,7 @@ if (require.main === module) {
   router = new Router();
 }
 
-// GET /
+// GET
 router.get('/', async (ctx, next) => {
   trace(`GET '/admin'`);
   if (ctx.session.admin == null) {
@@ -84,11 +84,11 @@ router.get('/', async (ctx, next) => {
   await ctx.render('admin');
 });
 
-// GET /users
+// GET users
 router.get('/users', async (ctx, next) => {
   trace(`GET '/admin/users'`);
 
-  if (!Array.isArray(ctx.session.roles) || !ctx.session.roles.includes('superuser')) {
+  if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_users) {
     await ctx.redirect('/admin');
     return next();
   }
@@ -108,6 +108,8 @@ router.get('/users', async (ctx, next) => {
   assert(typeof creditsTo === 'number', `in 'admin/user' creditsTo expected to be number, actual: ${creditsTo}`, 126);
 
   const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
+
+  dateTo.setDate(dateTo.getDate() + 1); // include chosen day
 
   const users = (await db.sql(`
     SELECT * FROM users
@@ -132,6 +134,8 @@ router.get('/users', async (ctx, next) => {
     return u;
   });
 
+  dateTo.setDate(dateTo.getDate() - 1); // show original date
+
   await ctx.render('admin_users', {
     maxRequests: MAX_REQUESTS_PER_HOUR,
     users,
@@ -144,16 +148,15 @@ router.get('/users', async (ctx, next) => {
     creditsTo,
     dateFrom: dateFrom.toISOString().substr(0, 10),
     dateTo: dateTo.toISOString().substr(0, 10),
+    permissions: ctx.session.permissions
   });
 });
 
-// GET /credits
+// GET credits
 router.get('/credits', async (ctx, next) => {
   trace(`GET '/admin/credits'`);
 
-  if (
-    !Array.isArray(ctx.session.roles) ||
-      (!ctx.session.roles.includes('superuser') && !ctx.session.roles.includes('accountant'))) {
+  if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_credit_balance) {
     await ctx.redirect('/admin');
     return next();
   }
@@ -219,12 +222,11 @@ router.get('/credits', async (ctx, next) => {
   });
 });
 
-// GET /cities
+// GET cities
 router.get('/cities', async (ctx, next) => {
   trace(`GET '/admin/cities'`);
 
-  assert(Array.isArray(ctx.session.roles), `roles not array in admin/cities`, 162);
-  if (!Array.isArray(ctx.session.roles) || !ctx.session.roles.includes('superuser')) {
+  if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_cities) {
     await ctx.redirect('/admin');
     return next();
   }
@@ -264,11 +266,11 @@ router.get('/cities', async (ctx, next) => {
   });
 });
 
-// GET /requests
+// GET requests
 router.get('/requests', async (ctx, next) => {
   trace(`GET '/admin/requests'`);
 
-  if (!Array.isArray(ctx.session.roles) || !ctx.session.roles.includes('superuser')) {
+  if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_requests) {
     await ctx.redirect('/admin');
     return next();
   }
@@ -298,13 +300,62 @@ router.get('/requests', async (ctx, next) => {
   });
 });
 
+// GET roles
+router.get('/roles', async (ctx, next) => {
+  trace(`GET '/admin/roles'`);
+
+    if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_roles) {
+    await ctx.redirect('/admin');
+    return next();
+  }
+
+  const roles = await db.sql(`SELECT * FROM roles ORDER BY id`);
+
+  await ctx.render('admin_roles', {
+    roles,
+    permissions: ctx.session.permissions
+  });
+});
+
+// // GET backoffice-users
+// router.get('/backoffice-users', async (ctx, next) => {
+//   trace(`GET '/admin/backoffice-users'`);
+
+//   if (!Array.isArray(ctx.session.roles) || !ctx.session.roles.includes('superuser')) {
+//     await ctx.redirect('/admin');
+//     return next();
+//   }
+
+//   const term = ctx.query.term == null ? '' : ctx.query.term;
+//   const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
+
+//   const requests = (await db.sql(`
+//     SELECT * FROM requests
+//     WHERE
+//     LOWER(iata_code) LIKE LOWER($1)
+//     OR UNACCENT(LOWER(city)) LIKE LOWER($1)
+//     ORDER BY id
+//     OFFSET $2
+//     LIMIT $3`,
+//   `%${term}%`,
+//   0 + (ROWS_PER_PAGE * page),
+//   ROWS_PER_PAGE
+//   )).sort((c1, c2) => c2.call_count - c1.call_count);
+
+//   await ctx.render('admin_requests', {
+//     requests,
+//     page,
+//     prevPage: page - 1,
+//     nextPage: page + 1,
+//     term,
+//   });
+// });
+
 // GET ctransfers
 router.get('/ctransfers', async (ctx, next) => {
   trace(`GET '/admin/ctransfers'`);
 
-  if (
-    !Array.isArray(ctx.session.roles) ||
-      (!ctx.session.roles.includes('superuser') && !ctx.session.roles.includes('accountant'))) {
+  if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_transfers) {
     await ctx.redirect('/admin');
     return next();
   }
@@ -321,6 +372,8 @@ router.get('/ctransfers', async (ctx, next) => {
 
   const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
 
+  dateTo.setDate(dateTo.getDate() + 1); // include chosen day
+
   const transfers = (await db.sql(`
       SELECT
         ct.id,
@@ -335,7 +388,7 @@ router.get('/ctransfers', async (ctx, next) => {
       WHERE
         UNACCENT(LOWER(username)) LIKE LOWER($1)
         AND LOWER(event) LIKE LOWER($2)
-        AND (date_registered BETWEEN $3 AND $4)
+        AND (ct.transfer_date BETWEEN $3 AND $4)
         AND approved = true
       ORDER BY ct.id DESC
       OFFSET $5
@@ -350,6 +403,8 @@ router.get('/ctransfers', async (ctx, next) => {
     t.transfer_date = t.transfer_date.toISOString();
     return t;
   });
+
+  dateTo.setDate(dateTo.getDate() - 1); // show original date
 
   await ctx.render('admin_transfers', {
     transfers,
@@ -366,6 +421,10 @@ router.get('/ctransfers', async (ctx, next) => {
 // POST add credits
 router.post('/addCreditsToUser', async (ctx, next) => {
   assert(isObject(ctx.request.body), 'Post /addCredits has no body', 19);
+
+  if (!ctx.session.permissions.can_add_credits) {
+    return;
+  }
 
   const username = ctx.request.body.username;
   const credits = ctx.request.body.credits;
@@ -403,6 +462,12 @@ router.post('/addCreditsToUser', async (ctx, next) => {
 
 // POST approve transfer
 router.post('/approve', async (ctx, next) => {
+  assert(isObject(ctx.session), 'No session in post /approve', 180);
+  assert(isObject(ctx.session.permissions), 'No permissions in post /approve', 181);
+  if (!ctx.session.permissions.can_approve_credits) {
+    return;
+  }
+
   assert(isObject(ctx.request.body), 'Post /approve has no body', 103);
   assert(typeof ctx.request.body.id === 'string' && Number(ctx.request.body.id), 'Post /approve body has no id', 104);
 
@@ -418,7 +483,70 @@ router.post('/approve', async (ctx, next) => {
     await client.query(`UPDATE users SET credits = $1 WHERE id = $2`, [ Number(transfer.credits_received) + Number(user.credits), transfer.user_id ]);
     await client.query(`UPDATE credit_transfers SET approved = true WHERE id = $1`, [ transfer.id ]);
   });
-  ctx.body = '';
+  ctx.body = {isApproveSuccessful: true};
+});
+
+// POST roles
+router.post('/roles', async (ctx, next) => {
+  assert(isObject(ctx.session), 'No session in post /roles', 182);
+  assert(isObject(ctx.session.permissions), 'No permissions in post /roles', 183);
+
+  if (!ctx.session.permissions.can_change_user_roles) {
+    ctx.redirect('/admin/roles');
+    return;
+  }
+
+  assert(isObject(ctx.request.body), 'Post /roles has no body', 184);
+  assert(typeof ctx.request.body.role === 'string', 'Post /roles body has no role', 185);
+
+  const role = ctx.request.body.role;
+  const seeUsers = ctx.request.body.can_see_users === 'on';
+  const addCredits = ctx.request.body.can_add_credits === 'on';
+  const seeTransfers = ctx.request.body.can_see_transfers === 'on';
+  const seeCities = ctx.request.body.can_see_cities === 'on';
+  const seeRequests = ctx.request.body.can_see_requests === 'on';
+  const seeBalance = ctx.request.body.can_see_credit_balance === 'on';
+  const seeApproval = ctx.request.body.can_see_credits_for_approval === 'on';
+  const canApprove = ctx.request.body.can_approve_credits === 'on';
+  const seeRoles = ctx.request.body.can_see_roles === 'on';
+  const changePermissions = ctx.request.body.can_change_role_permissions === 'on';
+  const changeUserRoles = ctx.request.body.can_change_user_roles === 'on';
+  const addBackofficeUsers = ctx.request.body.can_add_backoffice_users === 'on';
+
+  await db.sql(`
+    UPDATE roles
+      SET
+        can_see_users = $1,
+        can_add_credits = $2,
+        can_see_transfers = $3,
+        can_see_cities = $4,
+        can_see_requests = $5,
+        can_see_credit_balance = $6,
+        can_see_credits_for_approval = $7,
+        can_approve_credits = $8,
+        can_see_roles = $9,
+        can_change_role_permissions = $10,
+        can_change_user_roles = $11,
+        can_add_backoffice_users = $12
+      WHERE
+        role = $13
+    `,
+    seeUsers,
+    addCredits,
+    seeTransfers,
+    seeCities,
+    seeRequests,
+    seeBalance,
+    seeApproval,
+    canApprove,
+    seeRoles,
+    changePermissions,
+    changeUserRoles,
+    addBackofficeUsers,
+    role
+  );
+
+  ctx.redirect('/admin/roles');
 });
 
 // POST admin
@@ -455,27 +583,28 @@ router.post('/', async (ctx, next) => {
   if (isPassCorrect) {
     ctx.session.admin = true;
     ctx.session.username = username;
-    ctx.session.roles = (await db.sql(`
-      SELECT r.role FROM roles AS r
+    ctx.session.permissions = (await db.sql(`
+      SELECT * FROM roles AS r
         JOIN backoffice_users_roles AS ur
         ON r.id = ur.role_id
         JOIN backoffice_users AS u
         ON u.id = ur.backoffice_user_id
         WHERE u.username = $1;
       `, username
-    )).map((r) => r.role);
-    assert(isObject(ctx.session.roles), 'Post /admin user has no roles', 112);
+    ))[0];
+
+    assert(isObject(ctx.session.permissions), 'Post /admin user has no permissions', 112);
     return ctx.redirect('/admin');
   }
 
   await ctx.render('/admin_login', { error: 'Invalid log in information' });
 });
 
-// GET /approve
+// GET approve
 router.get('/approve', async (ctx, next) => {
   trace(`GET '/admin/approve'`);
 
-  if (!Array.isArray(ctx.session.roles) || !ctx.session.roles.includes('superuser')) {
+  if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_credits_for_approval) {
     await ctx.redirect('/admin');
     return next();
   }
@@ -507,6 +636,7 @@ router.get('/approve', async (ctx, next) => {
     prevPage: page - 1,
     nextPage: page + 1,
     username,
+    permissions: ctx.session.permissions
   });
 });
 

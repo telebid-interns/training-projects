@@ -18,13 +18,17 @@
       <tr>
         <th>User</th>
         <th>Credits</th>
-        <th>Approve</th>
+        {{#if permissions.can_approve_credits}}
+          <th>Approve</th>
+        {{/if}}
       </tr>
       {{#each transfers}}
         <tr class="gen-tr">
           <td>{{username}}</td>
           <td>{{credits_received}}</td>
-          <td><a href="#" id="approve-{{id}}" onclick="approve('{{id}}')">Approve transfer</a></td>
+          {{#if ../permissions.can_approve_credits}}
+            <td><a href="#" id="approve-{{id}}" onclick="approve('{{id}}')">Approve transfer</a></td>
+          {{/if}}
         </tr>
       {{/each}}
     </table>
@@ -40,17 +44,22 @@
 <script type="text/javascript">
   document.getElementById('select-approve').setAttribute('selected', 'selected');
 
-  function approve (id) {
-    fetch('admin/approve', {
+  async function approve (id) {
+    const response = await fetch('/admin/approve', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ id })
     });
-    const link = document.getElementById(`approve-${id}`);
-    link.setAttribute('style', 'color: green');
-    link.setAttribute('href', 'javascript: void(0)');
-    link.innerHTML = 'Approved';
+
+    const data = await response.json();
+
+    if (data.isApproveSuccessful) {
+      const link = document.getElementById(`approve-${id}`);
+      link.setAttribute('style', 'color: green');
+      link.setAttribute('href', 'javascript: void(0)');
+      link.innerHTML = 'Approved';
+    }
   }
 </script>

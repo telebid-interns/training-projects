@@ -86,7 +86,6 @@ if (require.main === module) {
 router.get('/', async (ctx, next) => {
   trace(`GET '/'`);
   db.sql('SELECT * FROM users;');
-  console.log('doing srtuff');
   await ctx.redirect('/home');
 });
 
