@@ -3,7 +3,8 @@ const Router = require('koa-router');
 const { assert } = require('./../asserts/asserts.js');
 const { trace } = require('./../debug/tracer.js');
 const {
-  isObject,
+  generateRandomString,
+  isObject
 } = require('./../utils/utils.js');
 const db = require('./../database/pg_db.js');
 const serve = require('koa-static');
@@ -16,6 +17,10 @@ const {
   MAX_REQUESTS_PER_HOUR,
   MAXIMUM_CREDITS_ALLOWED,
   ROWS_PER_PAGE,
+  MINIMUM_USERNAME_LENGTH,
+  MINIMUM_PASSWORD_LENGTH,
+  SALT_ROUNDS,
+  SALT_LENGTH,
 } = require('./../utils/consts.js');
 
 const app = new Koa();
@@ -300,6 +305,93 @@ router.get('/requests', async (ctx, next) => {
   });
 });
 
+// GET register
+router.get('/register', async (ctx, next) => {
+  trace(`GET '/admin/register'`);
+
+  if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_edit_backoffice_users) {
+    await ctx.redirect('/admin');
+    return next();
+  }
+
+  const roles = await db.sql(`SELECT * FROM roles ORDER BY id`);
+
+  await ctx.render('admin_register', { roles });
+});
+
+// POST register
+router.post('/register', async (ctx, next) => {
+  trace(`POST 'admin/register'`);
+
+  assert(
+    typeof ctx.request.body.username === 'string' &&
+    typeof ctx.request.body.password === 'string' &&
+    typeof ctx.request.body['repeat-password'] === 'string',
+    typeof ctx.request.body['select-role'] === 'string',
+    'Invalid information',
+    199
+  );
+
+  const role = ctx.request.body['select-role'];
+  const username = ctx.request.body.username;
+  const password = ctx.request.body.password;
+  const repeatPassword = ctx.request.body['repeat-password'];
+
+  const salt = generateRandomString(SALT_LENGTH);
+
+  if (password !== repeatPassword) {
+    await ctx.render('admin_register', {
+      error: 'Passwords must match',
+      username,
+      email,
+    });
+    return next();
+  }
+
+  if (
+    password.length < MINIMUM_PASSWORD_LENGTH ||
+      username.length < MINIMUM_USERNAME_LENGTH
+  ) {
+    await ctx.render('admin_register', {
+      error: 'username and password must be around 4 symbols',
+      username,
+      email,
+    });
+    return next();
+  }
+
+  const user = (await db.sql(`SELECT * FROM backoffice_users WHERE username = $1`, username))[0];
+
+  if (user != null && user.username === username) {
+    await ctx.render('admin_register', {
+      error: 'a user with this username already exists',
+      username,
+      email,
+    });
+    return next();
+  }
+
+  const saltedPassword = password + salt;
+  const hash = await bcrypt.hash(saltedPassword, SALT_ROUNDS);
+
+  const newRecord = (await db.sql(
+    `INSERT INTO backoffice_users (password, username, salt)
+      VALUES ($1, $2, $3)
+      RETURNING id`,
+    hash,
+    username,
+    salt
+  ))[0];
+
+  await db.sql(`
+    INSERT INTO backoffice_users_roles (backoffice_user_id, role_id)
+      VALUES ($1, $2)`,
+      newRecord.id,
+      role);
+
+  await ctx.redirect('/admin');
+});
+
 // GET roles
 router.get('/roles', async (ctx, next) => {
   trace(`GET '/admin/roles'`);
@@ -317,39 +409,79 @@ router.get('/roles', async (ctx, next) => {
   });
 });
 
-// // GET backoffice-users
-// router.get('/backoffice-users', async (ctx, next) => {
-//   trace(`GET '/admin/backoffice-users'`);
+// GET backoffice-users
+router.get('/backoffice-users', async (ctx, next) => {
+  trace(`GET '/admin/backoffice-users'`);
 
-//   if (!Array.isArray(ctx.session.roles) || !ctx.session.roles.includes('superuser')) {
-//     await ctx.redirect('/admin');
-//     return next();
-//   }
+  if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_backoffice_users) {
+    await ctx.redirect('/admin');
+    return next();
+  }
 
-//   const term = ctx.query.term == null ? '' : ctx.query.term;
-//   const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
+  const term = ctx.query.term == null ? '' : ctx.query.term;
+  const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
 
-//   const requests = (await db.sql(`
-//     SELECT * FROM requests
-//     WHERE
-//     LOWER(iata_code) LIKE LOWER($1)
-//     OR UNACCENT(LOWER(city)) LIKE LOWER($1)
-//     ORDER BY id
-//     OFFSET $2
-//     LIMIT $3`,
-//   `%${term}%`,
-//   0 + (ROWS_PER_PAGE * page),
-//   ROWS_PER_PAGE
-//   )).sort((c1, c2) => c2.call_count - c1.call_count);
+  const roles = await db.sql(`SELECT id, role FROM roles ORDER BY id`);
 
-//   await ctx.render('admin_requests', {
-//     requests,
-//     page,
-//     prevPage: page - 1,
-//     nextPage: page + 1,
-//     term,
-//   });
-// });
+  const users = (await db.sql(`
+    SELECT bu.id, bu.username, r.role, r.id as role_id
+      FROM backoffice_users as bu
+    JOIN backoffice_users_roles as bur
+      ON bu.id = bur.backoffice_user_id
+    JOIN roles as r
+      ON r.id = bur.role_id
+    WHERE
+      LOWER(username) LIKE LOWER($1)
+    ORDER BY bu.id
+    OFFSET $2
+    LIMIT $3`,
+  `%${term}%`,
+  0 + (ROWS_PER_PAGE * page),
+  ROWS_PER_PAGE
+  )).sort((c1, c2) => c2.call_count - c1.call_count);
+
+  await ctx.render('admin_backoffice_users', {
+    users,
+    roles,
+    page,
+    prevPage: page - 1,
+    nextPage: page + 1,
+    term,
+    permissions: ctx.session.permissions,
+  });
+});
+
+// POST backoffice-users
+router.post('/backoffice-users', async (ctx, next) => {
+  assert(isObject(ctx.session), 'No session in post /backoffice-users', 192);
+  assert(isObject(ctx.session.permissions), 'No permissions in post /backoffice-users', 193);
+
+  if (!ctx.session.permissions.can_edit_backoffice_users) {
+    ctx.redirect('/admin/roles');
+    return;
+  }
+
+  assert(isObject(ctx.request.body), 'Post /backoffice-users has no body', 194);
+
+  const roleId = ctx.request.body['select-role'];
+  const userId = ctx.request.body.id;
+
+  assert(typeof roleId === 'string', 'Post /backoffice-users body has no role id', 195);
+  assert(typeof userId === 'string', 'Post /backoffice-users has no userId', 196);
+
+  await db.sql(`
+    UPDATE backoffice_users_roles
+      SET
+        role_id = $1
+      WHERE
+        backoffice_user_id = $2
+  `,
+  roleId,
+  userId
+  );
+
+  ctx.redirect('/admin/backoffice-users');
+});
 
 // GET ctransfers
 router.get('/ctransfers', async (ctx, next) => {
@@ -510,8 +642,8 @@ router.post('/roles', async (ctx, next) => {
   const canApprove = ctx.request.body.can_approve_credits === 'on';
   const seeRoles = ctx.request.body.can_see_roles === 'on';
   const changePermissions = ctx.request.body.can_change_role_permissions === 'on';
-  const changeUserRoles = ctx.request.body.can_change_user_roles === 'on';
-  const addBackofficeUsers = ctx.request.body.can_add_backoffice_users === 'on';
+  const editBackofficeUsers = ctx.request.body.can_edit_backoffice_users === 'on';
+  const seeBackofficeUsers = ctx.request.body.can_see_backoffice_users === 'on';
 
   await db.sql(`
     UPDATE roles
@@ -526,8 +658,8 @@ router.post('/roles', async (ctx, next) => {
         can_approve_credits = $8,
         can_see_roles = $9,
         can_change_role_permissions = $10,
-        can_change_user_roles = $11,
-        can_add_backoffice_users = $12
+        can_see_backoffice_users = $11,
+        can_edit_backoffice_users = $12
       WHERE
         role = $13
     `,
@@ -541,8 +673,8 @@ router.post('/roles', async (ctx, next) => {
     canApprove,
     seeRoles,
     changePermissions,
-    changeUserRoles,
-    addBackofficeUsers,
+    seeBackofficeUsers,
+    editBackofficeUsers,
     role
   );
 

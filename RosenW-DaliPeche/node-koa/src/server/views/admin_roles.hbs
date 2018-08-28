@@ -9,44 +9,44 @@
       </form>
     </ul>
     <h2 class="col-lg-12 col-md-12 col-sm-12 col-xs-12 text-center">Backoffice Roles</h2>
-    <table id="users-table" class="table table-hover">
+    <table id="users-table" class="table table-hover text-center">
       <tr>
-        <th class="text-center">Role</th>
-        <th class="text-center">See Users</th>
-        <th class="text-center">Add Credits</th>
-        <th class="text-center">See Transfers</th>
-        <th class="text-center">See Cities</th>
-        <th class="text-center">See Requests</th>
-        <th class="text-center">See Credit Balance</th>
-        <th class="text-center">See Credits For Approval</th>
-        <th class="text-center">Approve Credits</th>
-        <th class="text-center">See Roles</th>
-        <th class="text-center">Change Role Permissions</th>
-        <th class="text-center">Change User Roles</th>
-        <th class="text-center">Register Backoffice Users</th>
+        <th>Role</th>
+        <th>See Users</th>
+        <th>Add Credits</th>
+        <th>See Transfers</th>
+        <th>See Cities</th>
+        <th>See Requests</th>
+        <th>See Credit Balance</th>
+        <th>See Credits For Approval</th>
+        <th>Approve Credits</th>
+        <th>See Roles</th>
+        <th>Change Role Permissions</th>
+        <th>See Backoffice Users</th>
+        <th>Edit/Create Backoffice Users</th>
         {{#if permissions.can_change_role_permissions}}
-        	<th class="text-center">Save Changes</th>
+        	<th>Save Changes</th>
         {{/if}}
       </tr>
       {{#each roles}}
         <tr class="gen-tr">
         	<form method="post">
-	          <td class="text-center">{{role}}<input name="role" type="text" hidden="hidden" value="{{role}}"></td>
-	          <td class="text-center"><input name="can_see_users" type="checkbox" {{#if can_see_users}} checked="checked" {{/if}}></td>
-	          <td class="text-center"><input name="can_add_credits" type="checkbox" {{#if can_add_credits}} checked="checked" {{/if}}></td>
-	          <td class="text-center"><input name="can_see_transfers" type="checkbox" {{#if can_see_transfers}} checked="checked" {{/if}}></td>
-	          <td class="text-center"><input name="can_see_cities" type="checkbox" {{#if can_see_cities}} checked="checked" {{/if}}></td>
-	          <td class="text-center"><input name="can_see_requests" type="checkbox" {{#if can_see_requests}} checked="checked" {{/if}}></td>
-	          <td class="text-center"><input name="can_see_credit_balance" type="checkbox" {{#if can_see_credit_balance}} checked="checked" {{/if}}></td>
-	          <td class="text-center"><input name="can_see_credits_for_approval" type="checkbox" {{#if can_see_credits_for_approval}} checked="checked" {{/if}}></td>
-	          <td class="text-center"><input name="can_approve_credits" type="checkbox" {{#if can_approve_credits}} checked="checked" {{/if}}></td>
-	          <td class="text-center"><input name="can_see_roles" type="checkbox" {{#if can_see_roles}} checked="checked" {{/if}}></td>
-	          <td class="text-center"><input name="can_change_role_permissions" type="checkbox" {{#if can_change_role_permissions}} checked="checked" {{/if}}></td>
-	          <td class="text-center"><input name="can_change_user_roles" type="checkbox" {{#if can_change_user_roles}} checked="checked" {{/if}}></td>
-	          <td class="text-center"><input name="can_add_backoffice_users" type="checkbox" {{#if can_add_backoffice_users}} checked="checked" {{/if}}></td>
+	          <td>{{role}}<input name="role" type="text" hidden="hidden" value="{{role}}"></td>
+	          <td><input name="can_see_users" type="checkbox" {{#if can_see_users}} checked="checked" {{/if}}></td>
+	          <td><input name="can_add_credits" type="checkbox" {{#if can_add_credits}} checked="checked" {{/if}}></td>
+	          <td><input name="can_see_transfers" type="checkbox" {{#if can_see_transfers}} checked="checked" {{/if}}></td>
+	          <td><input name="can_see_cities" type="checkbox" {{#if can_see_cities}} checked="checked" {{/if}}></td>
+	          <td><input name="can_see_requests" type="checkbox" {{#if can_see_requests}} checked="checked" {{/if}}></td>
+	          <td><input name="can_see_credit_balance" type="checkbox" {{#if can_see_credit_balance}} checked="checked" {{/if}}></td>
+	          <td><input name="can_see_credits_for_approval" type="checkbox" {{#if can_see_credits_for_approval}} checked="checked" {{/if}}></td>
+	          <td><input name="can_approve_credits" type="checkbox" {{#if can_approve_credits}} checked="checked" {{/if}}></td>
+	          <td><input name="can_see_roles" type="checkbox" {{#if can_see_roles}} checked="checked" {{/if}}></td>
+	          <td><input name="can_change_role_permissions" type="checkbox" {{#if can_change_role_permissions}} checked="checked" {{/if}}></td>
+            <td><input name="can_see_backoffice_users" type="checkbox" {{#if can_see_backoffice_users}} checked="checked" {{/if}}></td>
+            <td><input name="can_edit_backoffice_users" type="checkbox" {{#if can_edit_backoffice_users}} checked="checked" {{/if}}></td>
 
         		{{#if ../permissions.can_change_role_permissions}}
-	          	<td class="text-center"><input type="submit" value="Save"></td>
+	          	<td><input type="submit" value="Save"></td>
 	          {{/if}}
         	</form>
         </tr>
