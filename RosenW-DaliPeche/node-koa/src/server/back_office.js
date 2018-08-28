@@ -536,6 +536,24 @@ router.get('/ctransfers', async (ctx, next) => {
     return t;
   });
 
+  const total = (await db.sql(`
+    SELECT
+      SUM(credits_received) as total_received,
+      SUM(credits_spent) as total_spent
+    FROM users AS u
+    JOIN credit_transfers as ct
+      ON ct.user_id = u.id
+    WHERE
+      UNACCENT(LOWER(username)) LIKE LOWER($1)
+      AND LOWER(event) LIKE LOWER($2)
+      AND (ct.transfer_date BETWEEN $3 AND $4)
+      AND approved = true`,
+  `%${username}%`,
+  `%${event}%`,
+  dateFrom,
+  dateTo
+  ))[0];
+
   dateTo.setDate(dateTo.getDate() - 1); // show original date
 
   await ctx.render('admin_transfers', {
@@ -547,6 +565,7 @@ router.get('/ctransfers', async (ctx, next) => {
     event,
     dateFrom: dateFrom.toISOString().substr(0, 10),
     dateTo: dateTo.toISOString().substr(0, 10),
+    total
   });
 });
 
