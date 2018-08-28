@@ -1,0 +1,14 @@
+.sudoku-grid {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.sudoku-square {
+    display: flex;
+    width: 33%;
+    flex-wrap: wrap;
+}
+
+.sudoku-cell {
+    width: 33%;
+}
