@@ -33,16 +33,13 @@ def tasks():
 
 @API.route('/tasks/<task_name>', methods=['POST'])
 def process_task_input(task_name):
-    raw_input = request.form['arguments']
+    raw_input = request.get_json()
 
-    parsed = json.loads(raw_input, encoding='utf-8')
-
-    # TODO validate input
+    arguments = raw_input['arguments']
 
     module = importlib.import_module('.'.join(['ft', 'tasks', task_name]))
 
-    result = module.execute(**parsed)
+    result = module.run(**arguments)
+    print('result is', result)
 
     return json.dumps(result)
-
-

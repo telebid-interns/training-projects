@@ -203,6 +203,35 @@ def is_valid(square_map):
     return True
 
 
+def run(*, mini_square_side_length, marked_locations):
+    assert 2 <= mini_square_side_length <= 3
+    assert len(marked_locations) <= 81
+
+    all_symbols = set(loc[2] for loc in marked_locations)
+
+    assert (len(all_symbols) >= mini_square_side_length * mini_square_side_length)
+
+    square_map = construct_square_map(mini_square_side_length, all_symbols)
+
+    for row, col, symbol in marked_locations:
+        insert_symbol(square_map, Location(row, col), symbol)
+
+    solved, result = solve(square_map)
+
+    assert solved
+
+    return list(iter_rows(result, mini_square_side_length))
+
+
+def iter_rows(solution, mini_square_side_length):
+    cells = sorted(solution.items())
+    column_count = mini_square_side_length * mini_square_side_length
+    for row in range(column_count):
+        row_cells = sorted(c for c in cells if c[0].row == row)
+        print('row cells are', row_cells)
+        yield [next(iter(c[1])) for c in row_cells]
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('file')

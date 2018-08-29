@@ -5,36 +5,41 @@ logger = logging.getLogger(__name__)
 
 
 class BaseError(Exception):
-    def __init__(self, msg, userMsg=None, code=None):
+    def __init__(self, msg, user_msg=None, code=None):
         super().__init__(msg)
 
         self.msg = msg
-        self.userMsg = userMsg
+        self.userMsg = user_msg
         self.code = code
 
         logger.exception(self)
 
-
     @classmethod
-    def assert_(cls, conditon, msg, userMsg=None, code=None):
-        if (conditon):
-            raise cls(msg, userMsg, code)
+    def assert_(cls, condition, msg, user_msg=None, code=None):
+        if condition:
+            raise cls(msg, user_msg, code)
+
 
 class AppError(BaseError, AssertionError):
-    pass
+    def __init__(self, msg=None, user_msg='Application encountered an internal error.', code=None):
+        super().__init__(msg, user_msg, code)
 
 
-class SystemError(BaseError):
-    pass
+class SysError(BaseError):
+    def __init__(self, msg, user_msg='Application encountered an internal error.', code=None):
+        super().__init__(msg, user_msg, code)
 
 
 class PeerError(BaseError):
-    pass
+    def __init__(self, msg, user_msg, code):
+        super().__init__(msg, user_msg, code)
+
 
 class UserError(BaseError):
-    pass
+    def __init__(self, msg='User entered an invalid input', *, user_msg, code):
+        super().__init__(msg, user_msg, code)
 
 
-assertSystem = SystemError.assert_
+assertSystem = SysError.assert_
 assertPeer = PeerError.assert_
 assertUser = UserError.assert_

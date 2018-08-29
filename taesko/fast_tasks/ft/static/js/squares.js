@@ -6,13 +6,19 @@ function generateSudokuGrid($grid, $squareTempl, $cellTempl, squareSideLength) {
 
     for (let squareIndex = 0; squareIndex < squareCount; squareIndex++) {
         const $square = $squareTempl.clone()
-            .removeAttr('id');
+            .removeAttr('id')
+            .removeClass('d-none');
+        const squareStartRow = Math.floor(squareIndex / squareSideLength) * squareSideLength;
+        const squareStartCol = (squareIndex % squareSideLength) * squareSideLength;
+
         for (let cellIndex = 0; cellIndex < squareCount; cellIndex++) {
-            const absoluteIndex = squareIndex * squareCount;
-            const row = Math.floor(absoluteIndex / squareCount) + Math.floor(cellIndex / squareCount);
-            const col = absoluteIndex % squareCount + cellIndex % squareCount;
+            const row = squareStartRow + Math.floor(cellIndex / squareSideLength);
+            const col = squareStartCol + (cellIndex % squareSideLength);
+
             const $cell = $cellTempl.clone()
-                .attr('id', `cell-${row}-${col}`);
+                .removeClass('d-none')
+                .attr('id', `cell-${row}-${col}`)
+                .attr('name', `${row}-${col}`);
 
             $square.append($cell);
         }
@@ -21,16 +27,77 @@ function generateSudokuGrid($grid, $squareTempl, $cellTempl, squareSideLength) {
 }
 
 
+function fillSudokuGrid(solution) {
+    for (const [rowCount, row] of Object.entries(solution)) {
+        for (const [colCount, symbol] of Object.entries(row)) {
+            $(`#cell-${rowCount}-${colCount}`)
+                .val(symbol);
+        }
+    }
+}
+
+async function fetchSolution(miniSquareSideLength, markedLocations) {
+    const response = await fetch(`${API_URI}/tasks/squares`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            arguments: {
+                mini_square_side_length: miniSquareSideLength,
+                marked_locations: markedLocations,
+            },
+        })
+    });
+
+    assert(response.status < 400);
+
+    return response.json();
+}
+
 $(document).ready(() => {
     const $squareLengthInput = $('#small-square-length');
     const $grid = $('#sudoku-grid');
     const $square = $('#sudoku-square');
     const $cell = $('#sudoku-cell');
 
-    $squareLengthInput.change(() => {
+    const drawGrid = () => {
+        console.log('Draw grid called');
         const length = $squareLengthInput.val();
+        if (length === '') {
+            return;
+        }
+
+        if (length < 2 || length > 3) {
+            throw new UserError('Square length must be either 2 or 3.')
+        }
 
         console.info('Square length input changed to', length);
         generateSudokuGrid($grid, $square, $cell, length);
+    };
+
+    drawGrid();
+    $squareLengthInput.change(drawGrid);
+
+    let $sudokuForm = $('#sudoku-form');
+    $sudokuForm.submit(async (event) => {
+        event.preventDefault();
+
+        const length = +$squareLengthInput.val().trim();
+        const markedLocations = $sudokuForm.serializeArray()
+            .map(cell => {
+                const [row, col] = cell.name.split('-');
+
+                return [+row.trim(), +col.trim(), cell.value.trim()]
+            })
+            .filter(arr => {
+                return arr[2] !== '';
+            });
+
+        const solution = await fetchSolution(length, markedLocations);
+
+        fillSudokuGrid(solution);
+
+        return false;
     })
 });

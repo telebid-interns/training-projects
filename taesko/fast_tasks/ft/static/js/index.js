@@ -1,8 +1,5 @@
-const API_URI = '/api/';
-
-
 async function listTasks() {
-    const endpoint = API_URI + 'tasks';
+    const endpoint = `${API_URI}/tasks`;
     const response = await fetch(endpoint);
 
     assert(response.status < 400);
@@ -25,7 +22,8 @@ function render_tasks($container, $template, tasks) {
     for (const task of tasks) {
         const $item = $template.clone(true)
             .removeAttr('id');
-        const $link = $item.find('#task-link')
+
+        $item.find('#task-link')
             .attr('href', routeToTaskPage(task))
             .text(task);
 

@@ -11,15 +11,34 @@ class BaseError extends Error {
 }
 
 class AppError extends BaseError {
+    constructor(
+        msg,
+        userMsg = 'An error occurred and the application might stop behaving properly. Please refresh the page.'
+    ) {
+        super(userMsg, msg, null);
+    }
 }
 
 class SystemError extends BaseError {
+    constructor(
+        msg,
+        code,
+        userMsg = 'Your browser version is not supported, please consider updating.',
+    ) {
+        super(userMsg, msg, code);
+    }
 }
 
 class PeerError extends BaseError {
+    constructor(userMsg, code, msg) {
+        super(userMsg, msg, code);
+    }
 }
 
 class UserError extends BaseError {
+    constructor(userMsg, code = null, msg = null) {
+        super(userMsg, msg, code)
+    }
 }
 
 function assert(
@@ -28,17 +47,18 @@ function assert(
     userMsg = 'An error occurred and the application might stop behaving properly. Please refresh the page.',
 ) {
     if (!condition) {
-        throw new AppError(userMsg, msg, null);
+        throw new AppError(msg, userMsg);
     }
 }
 
 function assertSystem(
     condition,
-    msg = null,
+    msg,
+    code,
     userMsg = 'Your browser version is not supported, please consider updating.',
 ) {
     if (!condition) {
-        throw new SystemError(userMsg, msg, null);
+        throw new SystemError(msg, code, userMsg);
     }
 }
 
@@ -49,7 +69,7 @@ function assertPeer(
     msg,
 ) {
     if (!condition) {
-        throw new SystemError(userMsg, msg, code);
+        throw new PeerError(userMsg, msg, code);
     }
 }
 
