@@ -40,6 +40,5 @@ def process_task_input(task_name):
     module = importlib.import_module('.'.join(['ft', 'tasks', task_name]))
 
     result = module.run(**arguments)
-    print('result is', result)
 
     return json.dumps(result)

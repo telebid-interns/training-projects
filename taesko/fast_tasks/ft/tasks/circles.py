@@ -1,7 +1,6 @@
 import collections
 import argparse
 import math
-from pprint import pprint
 
 
 Circle = collections.namedtuple('Circle', ['x', 'y', 'radius'])
@@ -16,10 +15,13 @@ def distance_between(circle_a, circle_b):
 
 def intersecting(circle_a, circle_b):
     distance = distance_between(circle_a, circle_b)
-    close_enough = distance < circle_a.radius + circle_b.radius
-    too_close = distance <= max(circle_a.radius, circle_b.radius) / 2
 
-    return close_enough and not too_close
+    bigger_radius = max(circle_a.radius, circle_b.radius)
+    smaller_radius = min(circle_a.radius, circle_b.radius)
+    if distance <= bigger_radius:
+        return (bigger_radius - distance) < smaller_radius
+    else:
+        return distance < bigger_radius + smaller_radius
 
 
 def graph_from_circles(circles):
@@ -94,6 +96,16 @@ def validate(circles):
                 0 < r < 10000):
             raise ValueError("Invalid input for circle: ", circle)
         yield circle
+
+
+def run(*, circles):
+    assert 2 <= len(circles) <= 1000
+
+    circles = [Circle(**c) for c in circles]
+    graph = graph_from_circles(circles)
+    path = find_path(graph, circles[0], circles[-1])
+
+    return [(p[0], p[1]) for p in path]
 
 
 def main():
