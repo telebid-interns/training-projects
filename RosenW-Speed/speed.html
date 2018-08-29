@@ -9,7 +9,7 @@
      <input type="text" id='cities' placeholder="Enter Number of Cities">
      <br>
      <br>
-     <label>Enter Connections</label>
+     <label>Connections</label>
      <br>
      <input type="text" id="fts" placeholder="F1 T1 S1 ... Fn Tn Sn">
      <button id='submit'>submit</button>
@@ -20,6 +20,79 @@
 </html>
 
 <script type="text/javascript">
+  function draw (min, max, connections, cityCount) {
+    let canvas = document.getElementById("myCanvas");
+    let ctx = canvas.getContext("2d");
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.font = '22px serif';
+
+    ctx.fillText(`Min speed: ${min}, Max speed: ${max}`, 75, 75);
+    ctx.fillText(`Initial Connections`, 75, 100);
+    ctx.fillText(`Connections After filtering Roads that don't match the min/max speeds`, 575, 100);
+
+    ctx.font = '14px serif';
+    cityLocations = [];
+
+    for (let i = 1; i <= cityCount; i++) {
+      const x = getRandomInt(400);
+      const y = getRandomInt(600);
+      cityLocations.push({city: i, x, y});
+      ctx.beginPath();
+      ctx.strokeRect(75 + x, 120 + y, 32, 32);
+      ctx.fillStyle = 'Green';
+      ctx.fillText(i, 75 + x + 20, 120 + y + 25);
+      ctx.fillStyle = 'Black';
+      ctx.stroke();
+    }
+
+    for (const connection of connections) {
+      ctx.beginPath();
+      let firstCityX = cityLocations[connection.f - 1].x;
+      let firstCityY = cityLocations[connection.f - 1].y;
+      let secondCityX = cityLocations[connection.t - 1].x;
+      let secondCityY = cityLocations[connection.t - 1].y;
+      ctx.moveTo(firstCityX + 75 + 16, firstCityY + 120 + 16);
+      ctx.lineTo(secondCityX + 75 + 16, secondCityY + 120 + 16);
+      ctx.stroke();
+      ctx.fillStyle = 'Red';
+      ctx.fillText(connection.s, (firstCityX + secondCityX) / 2 + 75, (firstCityY + secondCityY) / 2 + 120);
+      ctx.fillStyle = 'Black';
+    }
+
+    for (let i = 1; i <= cityCount; i++) {
+      ctx.beginPath();
+      ctx.strokeRect(575 + cityLocations[i-1].x, 120 + cityLocations[i-1].y, 32, 32);
+      ctx.fillStyle = 'Green';
+      ctx.fillText(i, 575 + cityLocations[i-1].x + 20, 120 + cityLocations[i-1].y + 25);
+      ctx.fillStyle = 'Black';
+      ctx.stroke();
+    }
+
+    for (const connection of connections) {
+      connection.s = connection.s.filter(speed => speed <= max && speed >= min);
+      if (connection.s.length === 0) continue;
+      ctx.beginPath();
+      let firstCityX = cityLocations[connection.f - 1].x;
+      let firstCityY = cityLocations[connection.f - 1].y;
+      let secondCityX = cityLocations[connection.t - 1].x;
+      let secondCityY = cityLocations[connection.t - 1].y;
+      ctx.moveTo(firstCityX + 575 + 16, firstCityY + 120 + 16);
+      ctx.lineTo(secondCityX + 575 + 16, secondCityY + 120 + 16);
+      ctx.stroke();
+      ctx.fillStyle = 'Red';
+      ctx.fillText(connection.s, (firstCityX + secondCityX) / 2 + 575, (firstCityY + secondCityY) / 2 + 120);
+      ctx.fillStyle = 'Black';
+    }
+
+    console.log(JSON.stringify(connections));
+  }
+
+  function getRandomInt(max) {
+    return Math.floor(Math.random() * Math.floor(max));
+  }
+
   document.getElementById('submit').addEventListener('click', (event) => {
     const cityCount = document.getElementById('cities').value;
 
@@ -44,9 +117,12 @@
       }
     }
 
+    console.log(JSON.stringify(connections))
+
     const max = findMaxSpeed(connections, cityCount);
     const min = findMinSpeed(connections, cityCount, max);
     console.log(`${min} ${max}`);
+    draw(min, max, connections, cityCount);
   });
 
   function findMinSpeed (connections, cityCount, maxSpeed) {
@@ -59,12 +135,12 @@
     return --currentTestSpeed;
   }
 
-  function testMinSpeed(currentTestSpeed, connections, cityCount, maxSpeed) {
+  function testMinSpeed (currentTestSpeed, connections, cityCount, maxSpeed) {
     const cities = {}; // 1: [2,3,4], 2: [1,3,55], ...
 
     for (const connection of connections) {
-      connection.s = connection.s.filter(speed => speed <= maxSpeed && speed >= currentTestSpeed);
-      if (Math.max(...connection.s) >= currentTestSpeed && Math.min(...connection.s) <= maxSpeed) {
+      const filteredConnections = connection.s.filter(speed => speed <= maxSpeed && speed >= currentTestSpeed);
+      if (Math.max(...filteredConnections) >= currentTestSpeed && Math.min(...filteredConnections) <= maxSpeed) {
         const city = {};
         if (!cities.hasOwnProperty(connection.f)) {
           cities[connection.f] = [connection.t];
@@ -196,7 +272,7 @@
 4 5 12624
 
 500
-488 475 24350
+488 575 24350
 162 226 9204
 74 269 23095
 130 72 17960
@@ -286,7 +362,7 @@
 197 38 9454
 101 328 551
 375 381 20521
-102 64 6475
+102 64 6575
 297 125 15571
 46 61 11001
 110 359 9946
@@ -328,7 +404,7 @@
 249 183 16203
 217 19 19533
 124 232 20549
-475 90 9054
+575 90 9054
 215 131 4385
 123 181 2899
 450 31 2783
@@ -447,7 +523,7 @@
 189 314 3360
 380 155 7042
 160 431 21539
-471 149 23475
+471 149 23575
 143 350 18143
 76 64 2198
 442 381 15169
@@ -843,7 +919,7 @@
 278 38 25036
 393 269 12298
 481 192 18001
-475 80 627
+575 80 627
 191 288 2465
 60 466 28954
 57 183 12723
@@ -963,7 +1039,7 @@
 210 108 27162
 281 266 313
 470 132 9371
-475 127 836
+575 127 836
 62 255 3720
 189 118 23125
 294 86 8237
@@ -1405,7 +1481,7 @@
 152 367 21499
 28 405 3951
 298 120 29155
-475 97 27463
+575 97 27463
 64 244 29522
 145 2 14080
 223 245 4180
@@ -1626,7 +1702,7 @@
 59 86 27992
 79 384 7416
 303 95 8156
-104 348 8475
+104 348 8575
 35 413 13448
 4 235 21108
 330 497 17648
@@ -1882,12 +1958,12 @@
 204 233 1922
 120 23 29171
 90 42 20511
-143 475 9933
+143 575 9933
 88 421 1582
 112 393 559
 5 99 2381
 255 372 11265
-329 475 9483
+329 575 9483
 49 114 97
 473 232 1824
 29 364 6046
@@ -1990,7 +2066,7 @@
 424 35 4924
 485 78 24187
 424 151 2565
-194 475 10218
+194 575 10218
 405 466 231
 213 212 15563
 181 349 26166
