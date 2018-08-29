@@ -353,7 +353,7 @@ router.post('/register', async (ctx, next) => {
       username.length < MINIMUM_USERNAME_LENGTH
   ) {
     await ctx.render('admin_register', {
-      error: 'username and password must be around 4 symbols',
+      error: 'username and password must be at least 3 symbols',
       username,
       email,
     });
