@@ -1,13 +1,17 @@
 function generateSudokuGrid($grid, $squareTempl, $cellTempl, squareSideLength) {
+    assertUser(squareSideLength === 2 || squareSideLength === 3, 'Invalid square side length.');
+
     $grid.find('*:not(#sudoku-cell)').remove();
     $grid.find('*:not(#sudoku-square)').remove();
 
     const squareCount = squareSideLength * squareSideLength;
+    const widthCls = (squareSideLength === 2) ? 'sudoku-2n' : 'sudoku-3n';
 
     for (let squareIndex = 0; squareIndex < squareCount; squareIndex++) {
         const $square = $squareTempl.clone()
             .removeAttr('id')
-            .removeClass('d-none');
+            .removeClass('d-none')
+            .addClass(widthCls);
         const squareStartRow = Math.floor(squareIndex / squareSideLength) * squareSideLength;
         const squareStartCol = (squareIndex % squareSideLength) * squareSideLength;
 
@@ -17,6 +21,7 @@ function generateSudokuGrid($grid, $squareTempl, $cellTempl, squareSideLength) {
 
             const $cell = $cellTempl.clone()
                 .removeClass('d-none')
+                .addClass(widthCls)
                 .attr('id', `cell-${row}-${col}`)
                 .attr('name', `${row}-${col}`);
 
@@ -63,10 +68,11 @@ $(document).ready(() => {
 
     const drawGrid = () => {
         console.log('Draw grid called');
-        const length = $squareLengthInput.val();
+        let length = $squareLengthInput.val();
         if (length === '') {
             return;
         }
+        length = +length;
 
         if (length < 2 || length > 3) {
             throw new UserError('Square length must be either 2 or 3.')

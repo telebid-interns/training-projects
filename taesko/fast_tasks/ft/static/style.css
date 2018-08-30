@@ -5,10 +5,16 @@
 
 .sudoku-square {
     display: flex;
-    width: 50%;
     flex-wrap: wrap;
 }
 
 .sudoku-cell {
+}
+
+.sudoku-2n {
     width: 50%;
+}
+
+.sudoku-3n {
+    width: 33%;
 }
