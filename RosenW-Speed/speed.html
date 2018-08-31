@@ -85,12 +85,6 @@
       ctx.fillText(connection.s, (firstCityX + secondCityX) / 2 + 575, (firstCityY + secondCityY) / 2 + 120);
       ctx.fillStyle = 'Black';
     }
-
-    console.log(JSON.stringify(connections));
-  }
-
-  function getRandomInt(max) {
-    return Math.floor(Math.random() * Math.floor(max));
   }
 
   document.getElementById('submit').addEventListener('click', (event) => {
@@ -117,80 +111,59 @@
       }
     }
 
-    console.log(JSON.stringify(connections))
+    testSpeeds = [];
+    optimalSpeeds = new Set();
 
-    const max = findMaxSpeed(connections, cityCount);
-    const min = findMinSpeed(connections, cityCount, max);
-    console.log(`${min} ${max}`);
-    draw(min, max, connections, cityCount);
+    for (const connection of connections) {
+      for (const speed of connection.s) {
+        if (speed != null) optimalSpeeds.add(speed);
+      }
+    }
+
+    console.log(optimalSpeeds);
+
+    for (const max of optimalSpeeds) {
+      if (checkIfSpeedsAreValid(0, Number(max), connections, cityCount)) {
+        for (const min of optimalSpeeds) {
+          if (min > max) continue;
+          testSpeeds.push({max, min, diff: max-min});
+        }
+      }
+    }
+
+    console.log('testSpeeds set, length: ' + testSpeeds.length);
+
+    const possibleSolutions = [];
+    let index = 0;
+
+    for (const minmax of testSpeeds) {
+      if (++index % 1000 === 0) console.log(`${index} / ${testSpeeds.length}`);
+      if (checkIfSpeedsAreValid(Number(minmax.min), Number(minmax.max), connections, cityCount)) {
+        possibleSolutions.push(minmax);
+      }
+    }
+
+    const solution = possibleSolutions.reduce((a, b) => {
+      if (a.diff <= b.diff && (a.min + a.max) < (b.min + b.max)) return a;
+      return b;
+    });
+
+    console.log(solution);
+
+    draw(Number(solution.min), Number(solution.max), connections, cityCount);
   });
 
-  function findMinSpeed (connections, cityCount, maxSpeed) {
-    let minSpeedFound = false;
-    let currentTestSpeed = 0;
-    while (!minSpeedFound) {
-      currentTestSpeed++;
-      minSpeedFound = testMinSpeed(currentTestSpeed, connections, cityCount, maxSpeed);
-    }
-    return --currentTestSpeed;
+  function getRandomInt(max) {
+    return Math.floor(Math.random() * Math.floor(max));
   }
 
-  function testMinSpeed (currentTestSpeed, connections, cityCount, maxSpeed) {
+  function checkIfSpeedsAreValid (min, max, connections, cityCount) {
     const cities = {}; // 1: [2,3,4], 2: [1,3,55], ...
 
     for (const connection of connections) {
-      const filteredConnections = connection.s.filter(speed => speed <= maxSpeed && speed >= currentTestSpeed);
-      if (Math.max(...filteredConnections) >= currentTestSpeed && Math.min(...filteredConnections) <= maxSpeed) {
+      const filteredConnections = connection.s.filter(speed => speed <= max && speed >= min);
+      if (Math.max(...filteredConnections) >= min && Math.min(...filteredConnections) <= max) {
         const city = {};
-        if (!cities.hasOwnProperty(connection.f)) {
-          cities[connection.f] = [connection.t];
-        } else {
-          cities[connection.f].push(connection.t);
-        }
-        if (!cities.hasOwnProperty(connection.t)) {
-          cities[connection.t] = [connection.f];
-        } else {
-          cities[connection.t].push(connection.f);
-        }
-      }
-    }
-
-    const visited = ['1'];
-    const queue = [1];
-    while (queue.length > 0) {
-      const currentCity = queue.shift();
-      if (cities[currentCity] != null) {
-        cities[currentCity].forEach((c) => {
-          if (!visited.includes(c)) {
-            visited.push(c);
-            queue.push(c);
-          }
-        });
-      }
-    }
-
-    if (visited.length === Number(cityCount)) {
-      return false;
-    }
-
-    return true;
-  }
-
-  function findMaxSpeed (connections, cityCount) {
-    let maxSpeedFound = false;
-    let currentTestSpeed = 0;
-    while (!maxSpeedFound) {
-      currentTestSpeed++;
-      maxSpeedFound = testMaxSpeed(currentTestSpeed, connections, cityCount);
-    }
-    return currentTestSpeed;
-  }
-
-  function testMaxSpeed(currentTestSpeed, connections, cityCount) {
-    const cities = {}; // 1: [2,3,4], 2: [1,3,55], ...
-
-    for (const connection of connections) {
-      if (Math.min(...connection.s) <= currentTestSpeed) {
         if (!cities.hasOwnProperty(connection.f)) {
           cities[connection.f] = [connection.t];
         } else {
@@ -224,9 +197,24 @@
 
     return false;
   }
+
 </script>
 
 <!-- TEST
+
+7
+1 3 2
+4 2 8
+1 2 11
+1 4 3
+1 3 6
+5 3 5
+3 6 9
+7 6 6
+5 6 3
+2 5 7
+
+answ: 3 7
 
 10
 1 2 3
@@ -246,6 +234,8 @@
 2 10 13
 1 10 1
 4 5
+
+answ: 5 19
 
 5
 3 5 5706
@@ -270,6 +260,8 @@
 1 5 24371
 1 2 1102
 4 5 12624
+
+answ: 107 1102
 
 500
 488 575 24350
