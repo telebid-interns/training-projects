@@ -343,7 +343,6 @@ router.post('/register', async (ctx, next) => {
     await ctx.render('admin_register', {
       error: 'Passwords must match',
       username,
-      email,
     });
     return next();
   }
@@ -355,7 +354,6 @@ router.post('/register', async (ctx, next) => {
     await ctx.render('admin_register', {
       error: 'username and password must be at least 3 symbols',
       username,
-      email,
     });
     return next();
   }
@@ -366,7 +364,6 @@ router.post('/register', async (ctx, next) => {
     await ctx.render('admin_register', {
       error: 'a user with this username already exists',
       username,
-      email,
     });
     return next();
   }
@@ -386,10 +383,11 @@ router.post('/register', async (ctx, next) => {
   await db.sql(`
     INSERT INTO backoffice_users_roles (backoffice_user_id, role_id)
       VALUES ($1, $2)`,
-      newRecord.id,
-      role);
+    newRecord.id,
+    role
+  );
 
-  await ctx.redirect('/admin');
+  await ctx.render('admin', {msg: 'Successfuly Registered User'});
 });
 
 // GET roles
@@ -403,9 +401,13 @@ router.get('/roles', async (ctx, next) => {
 
   const roles = await db.sql(`SELECT * FROM roles ORDER BY id`);
 
+  const msg = ctx.session.msg != null ? ctx.session.msg : '';
+  delete ctx.session.msg;
+
   await ctx.render('admin_roles', {
     roles,
-    permissions: ctx.session.permissions
+    permissions: ctx.session.permissions,
+    msg
   });
 });
 
@@ -642,7 +644,7 @@ router.post('/roles', async (ctx, next) => {
   assert(isObject(ctx.session), 'No session in post /roles', 182);
   assert(isObject(ctx.session.permissions), 'No permissions in post /roles', 183);
 
-  if (!ctx.session.permissions.can_change_user_roles) {
+  if (!ctx.session.permissions.can_change_role_permissions) {
     ctx.redirect('/admin/roles');
     return;
   }
@@ -651,6 +653,7 @@ router.post('/roles', async (ctx, next) => {
   assert(typeof ctx.request.body.role === 'string', 'Post /roles body has no role', 185);
 
   const role = ctx.request.body.role;
+  const oldRole = ctx.request.body['old-role'];
   const seeUsers = ctx.request.body.can_see_users === 'on';
   const addCredits = ctx.request.body.can_add_credits === 'on';
   const seeTransfers = ctx.request.body.can_see_transfers === 'on';
@@ -667,6 +670,7 @@ router.post('/roles', async (ctx, next) => {
   await db.sql(`
     UPDATE roles
       SET
+        role = $14,
         can_see_users = $1,
         can_add_credits = $2,
         can_see_transfers = $3,
@@ -694,10 +698,12 @@ router.post('/roles', async (ctx, next) => {
     changePermissions,
     seeBackofficeUsers,
     editBackofficeUsers,
+    oldRole,
     role
   );
 
-  ctx.redirect('/admin/roles');
+  ctx.session.msg = `Successfuly Changed the ${oldRole} Role`;
+  await ctx.redirect('/admin/roles');
 });
 
 // POST admin

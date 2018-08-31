@@ -7,6 +7,7 @@
       <form class="inline">
         {{> adminForm }}
       </form>
+      <p class="text-success">{{msg}}</p>
     </ul>
     <h2 class="col-lg-12 col-md-12 col-sm-12 col-xs-12 text-center">Backoffice Roles</h2>
     <table id="users-table" class="table table-hover text-center">
@@ -31,24 +32,30 @@
       {{#each roles}}
         <tr class="gen-tr">
         	<form method="post">
-	          <td>{{role}}<input name="role" type="text" hidden="hidden" value="{{role}}"></td>
-	          <td><input name="can_see_users" type="checkbox" {{#if can_see_users}} checked="checked" {{/if}}></td>
-	          <td><input name="can_add_credits" type="checkbox" {{#if can_add_credits}} checked="checked" {{/if}}></td>
-	          <td><input name="can_see_transfers" type="checkbox" {{#if can_see_transfers}} checked="checked" {{/if}}></td>
-	          <td><input name="can_see_cities" type="checkbox" {{#if can_see_cities}} checked="checked" {{/if}}></td>
-	          <td><input name="can_see_requests" type="checkbox" {{#if can_see_requests}} checked="checked" {{/if}}></td>
-	          <td><input name="can_see_credit_balance" type="checkbox" {{#if can_see_credit_balance}} checked="checked" {{/if}}></td>
-	          <td><input name="can_see_credits_for_approval" type="checkbox" {{#if can_see_credits_for_approval}} checked="checked" {{/if}}></td>
-	          <td><input name="can_approve_credits" type="checkbox" {{#if can_approve_credits}} checked="checked" {{/if}}></td>
-	          <td><input name="can_see_roles" type="checkbox" {{#if can_see_roles}} checked="checked" {{/if}}></td>
-	          <td><input name="can_change_role_permissions" type="checkbox" {{#if can_change_role_permissions}} checked="checked" {{/if}}></td>
-            <td><input name="can_see_backoffice_users" type="checkbox" {{#if can_see_backoffice_users}} checked="checked" {{/if}}></td>
-            <td><input name="can_edit_backoffice_users" type="checkbox" {{#if can_edit_backoffice_users}} checked="checked" {{/if}}></td>
-
-        		{{#if ../permissions.can_change_role_permissions}}
-	          	<td><input type="submit" value="Save"></td>
-	          {{/if}}
-        	</form>
+	          <td>
+              <input id="role-{{role}}" disabled="disabled" name="role" type="text" value="{{role}}" class="form-control">
+              <input id="old-role-{{role}}" name="old-role" type="text" value="{{role}}" hidden="hidden">
+            </td>
+	          <td><input id="see-users-{{role}}" class="form-control" disabled="disabled" name="can_see_users" type="checkbox" {{#if can_see_users}} checked="checked" {{/if}}></td>
+	          <td><input id="add-credits-{{role}}" class="form-control" disabled="disabled" name="can_add_credits" type="checkbox" {{#if can_add_credits}} checked="checked" {{/if}}></td>
+	          <td><input id="see-trans-{{role}}" class="form-control" disabled="disabled" name="can_see_transfers" type="checkbox" {{#if can_see_transfers}} checked="checked" {{/if}}></td>
+	          <td><input id="see-cities-{{role}}" class="form-control" disabled="disabled" name="can_see_cities" type="checkbox" {{#if can_see_cities}} checked="checked" {{/if}}></td>
+	          <td><input id="see-requests-{{role}}" class="form-control" disabled="disabled" name="can_see_requests" type="checkbox" {{#if can_see_requests}} checked="checked" {{/if}}></td>
+	          <td><input id="see-balance-{{role}}" class="form-control" disabled="disabled" name="can_see_credit_balance" type="checkbox" {{#if can_see_credit_balance}} checked="checked" {{/if}}></td>
+	          <td><input id="see-approval-{{role}}" class="form-control" disabled="disabled" name="can_see_credits_for_approval" type="checkbox" {{#if can_see_credits_for_approval}} checked="checked" {{/if}}></td>
+	          <td><input id="approve-{{role}}" class="form-control" disabled="disabled" name="can_approve_credits" type="checkbox" {{#if can_approve_credits}} checked="checked" {{/if}}></td>
+	          <td><input id="see-roles-{{role}}" class="form-control" disabled="disabled" name="can_see_roles" type="checkbox" {{#if can_see_roles}} checked="checked" {{/if}}></td>
+	          <td><input id="change-roles-{{role}}" class="form-control" disabled="disabled" name="can_change_role_permissions" type="checkbox" {{#if can_change_role_permissions}} checked="checked" {{/if}}></td>
+            <td><input id="see-busers-{{role}}" class="form-control" disabled="disabled" name="can_see_backoffice_users" type="checkbox" {{#if can_see_backoffice_users}} checked="checked" {{/if}}></td>
+            <td><input id="edit-busers-{{role}}" class="form-control" disabled="disabled" name="can_edit_backoffice_users" type="checkbox" {{#if can_edit_backoffice_users}} checked="checked" {{/if}}></td>
+          {{#if ../permissions.can_change_role_permissions}}
+            <td>
+              <input type="submit" id="save-{{role}}-btn" value="Save" class="form-control" style="display: none">
+              <button type="button" id="edit-{{role}}-btn" onclick="edit('{{role}}')" class="form-control">Edit</button>
+              <button type="button" id="remove-{{role}}-btn" onclick="remove('{{role}}')" class="form-control">Remove</button>
+            </td>
+          {{/if}}
+          </form>
         </tr>
       {{/each}}
     </table>
@@ -57,4 +64,22 @@
 
 <script type="text/javascript">
   document.getElementById('select-roles').setAttribute('selected', 'selected');
+
+  function edit(role) {
+    document.getElementById(`role-${role}`).removeAttribute('disabled');
+    document.getElementById(`see-users-${role}`).removeAttribute('disabled');
+    document.getElementById(`add-credits-${role}`).removeAttribute('disabled');
+    document.getElementById(`see-trans-${role}`).removeAttribute('disabled');
+    document.getElementById(`see-cities-${role}`).removeAttribute('disabled');
+    document.getElementById(`see-requests-${role}`).removeAttribute('disabled');
+    document.getElementById(`see-balance-${role}`).removeAttribute('disabled');
+    document.getElementById(`see-approval-${role}`).removeAttribute('disabled');
+    document.getElementById(`approve-${role}`).removeAttribute('disabled');
+    document.getElementById(`see-roles-${role}`).removeAttribute('disabled');
+    document.getElementById(`change-roles-${role}`).removeAttribute('disabled');
+    document.getElementById(`see-busers-${role}`).removeAttribute('disabled');
+    document.getElementById(`edit-busers-${role}`).removeAttribute('disabled');
+    document.getElementById(`save-${role}-btn`).removeAttribute('style');
+    document.getElementById(`edit-${role}-btn`).setAttribute('style', 'display: none');
+  }
 </script>
