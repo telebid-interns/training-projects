@@ -18,7 +18,8 @@ function cleanDuplicates(array, keyFunc = (element) => element) {
             Object.create(null),
         );
     const clean = Object.values(hashed);
-    clean.sort(element => array.indexOf(element));
+
+    clean.sort((a, b) => array.indexOf(a) - array.indexOf(b));
     return clean;
 }
 
