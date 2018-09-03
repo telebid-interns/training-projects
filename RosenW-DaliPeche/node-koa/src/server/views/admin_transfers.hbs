@@ -31,27 +31,27 @@
         <th>ID</th>
         <th>Transfer Date</th>
         <th>User</th>
+        <th>Event</th>
         <th>Credits Received</th>
         <th>Credits Spent</th>
-        <th>Event</th>
       </tr>
       {{#each transfers}}
         <tr class="gen-tr">
-          <td>{{id}}</td>
+          <td class="text-right">{{id}}</td>
           <td>{{transfer_date}}</td>
           <td>{{username}}</td>
-          <td>{{credits_received}}</td>
-          <td>{{credits_spent}}</td>
           <td>{{event}}</td>
+          <td class="text-right">{{credits_received}}</td>
+          <td class="text-right">{{credits_spent}}</td>
         </tr>
       {{/each}}
       <tr>
-        <td><strong>Total</strong></td>
+        <td class="text-right"><strong>Total</strong></td>
         <td></td>
         <td></td>
-        <td><strong>{{total.total_received}}</strong></td>
-        <td><strong>{{total.total_spent}}</strong></td>
         <td></td>
+        <td class="text-right"><strong>{{total.total_received}}</strong></td>
+        <td class="text-right"><strong>{{total.total_spent}}</strong></td>
       </tr>
     </table>
     <nav aria-label="Page navigation example" class="col-lg-offset-5 col-md-offset-5 col-sm-offset-5 col-xs-offset-5">

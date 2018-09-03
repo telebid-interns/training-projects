@@ -25,7 +25,7 @@
       {{#each transfers}}
         <tr class="gen-tr">
           <td>{{username}}</td>
-          <td>{{credits_received}}</td>
+          <td class="text-right">{{credits_received}}</td>
           {{#if ../permissions.can_approve_credits}}
             <td><a href="#" id="approve-{{id}}" onclick="approve('{{id}}')">Approve transfer</a></td>
           {{/if}}

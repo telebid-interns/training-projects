@@ -28,7 +28,7 @@
       {{#each users}}
         <form method="post">
           <tr class="gen-tr">
-            <td>{{id}}<input name="id" type="text" hidden="hidden" value="{{id}}"></td>
+            <td class="text-right">{{id}}<input name="id" type="text" hidden="hidden" value="{{id}}"></td>
             <td>{{username}}</td>
             {{#if ../permissions.can_edit_backoffice_users}}
               <td>

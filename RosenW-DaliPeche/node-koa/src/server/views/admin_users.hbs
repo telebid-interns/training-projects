@@ -36,12 +36,12 @@
       </tr>
       {{#each users}}
         <tr class="gen-tr">
-          <td>{{id}}</td>
+          <td class="text-right">{{id}}</td>
           <td>{{date_registered}}</td>
           <td>{{username}}</td>
           <td>{{email}}</td>
-          <td>{{successful_requests}}</td>
-          <td>{{failed_requests}}</td>
+          <td class="text-right">{{successful_requests}}</td>
+          <td class="text-right">{{failed_requests}}</td>
           <td><input id="credits-{{username}}" type="text" value="{{credits}}" disabled="true" style="text-align: right">{{#if permissions.can_add_credits}}<a href="#" id="add-credits-sign-{{id}}" onclick='addCredits("{{username}}")'> +</a>{{/if}}</td>
         </tr>
       {{/each}}
