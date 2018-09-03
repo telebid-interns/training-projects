@@ -394,7 +394,7 @@ router.post('/register', async (ctx, next) => {
 router.get('/roles', async (ctx, next) => {
   trace(`GET '/admin/roles'`);
 
-    if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_roles) {
+  if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_roles) {
     await ctx.redirect('/admin');
     return next();
   }
@@ -457,6 +457,9 @@ router.get('/backoffice-users', async (ctx, next) => {
   ROWS_PER_PAGE
   )).sort((c1, c2) => c2.call_count - c1.call_count);
 
+  const msg = ctx.session.msg != null ? ctx.session.msg : '';
+  delete ctx.session.msg;
+
   await ctx.render('admin_backoffice_users', {
     users,
     roles,
@@ -465,6 +468,7 @@ router.get('/backoffice-users', async (ctx, next) => {
     nextPage: page + 1,
     term,
     permissions: ctx.session.permissions,
+    msg
   });
 });
 
@@ -497,7 +501,7 @@ router.post('/backoffice-users', async (ctx, next) => {
   userId
   );
 
-  // TODO display err/succ msg
+  ctx.session.msg = `Successfuly updated user's role`;
   ctx.redirect('/admin/backoffice-users');
 });
 
