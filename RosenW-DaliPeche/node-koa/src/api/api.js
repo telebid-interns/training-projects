@@ -82,7 +82,7 @@ router.post('/generateAPIKey', async (ctx, next) => {
 
 // GET delete key
 router.del('/del', async (ctx, next) => {
-  trace(`POST '/del'`);
+  trace(`DELETE '/del'`);
 
   const key = ctx.request.body.key;
 

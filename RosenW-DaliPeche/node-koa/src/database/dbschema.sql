@@ -71,7 +71,7 @@ CREATE TABLE backoffice_users (
 
 CREATE TABLE roles (
   id serial PRIMARY KEY,
-  role text NOT NULL unique,
+  role text NOT NULL,
   can_see_users boolean NOT NULL DEFAULT false,
   can_add_credits boolean NOT NULL DEFAULT false,
   can_see_transfers boolean NOT NULL DEFAULT false,

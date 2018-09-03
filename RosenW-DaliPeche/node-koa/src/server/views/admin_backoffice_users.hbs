@@ -30,7 +30,7 @@
             <td>{{username}}</td>
             {{#if ../permissions.can_edit_backoffice_users}}
               <td>
-                <select name="select-role">
+                <select name="select-role" class="form-control">
                   <option selected="selected" hidden="hidden" value="{{role_id}}">{{role}}</option>
                   {{#each ../roles}}
                     <option value="{{id}}">{{role}}</option>
@@ -41,7 +41,7 @@
               <td>{{role}}</td>
             {{/if}}
             {{#if ../permissions.can_edit_backoffice_users}}
-              <td><input type="submit" value="Save"></td>
+              <td><input type="submit" value="Save" class="form-control"></td>
             {{/if}}
           </tr>
         </form>

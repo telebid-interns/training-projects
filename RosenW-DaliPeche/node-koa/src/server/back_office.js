@@ -411,6 +411,21 @@ router.get('/roles', async (ctx, next) => {
   });
 });
 
+// DELETE role
+router.del('/role', async (ctx, next) => {
+  trace(`DELETE '/del'`);
+
+  const role = ctx.request.body.role;
+
+  try {
+    await db.sql(`DELETE FROM roles WHERE role = $1`, role);
+    ctx.body = { msg: 'Successfuly deleted role' };
+  } catch (err) {
+    console.log(err);
+    ctx.body = { err: `Deletion failed: Some users are still assigned to this role` };
+  }
+});
+
 // GET backoffice-users
 router.get('/backoffice-users', async (ctx, next) => {
   trace(`GET '/admin/backoffice-users'`);
@@ -468,7 +483,7 @@ router.post('/backoffice-users', async (ctx, next) => {
   const roleId = ctx.request.body['select-role'];
   const userId = ctx.request.body.id;
 
-  assert(typeof roleId === 'string', 'Post /backoffice-users body has no role id', 195);
+  assert(typeof roleId === 'string', 'Post /backoffice-users body has no roleId', 195);
   assert(typeof userId === 'string', 'Post /backoffice-users has no userId', 196);
 
   await db.sql(`
@@ -482,7 +497,19 @@ router.post('/backoffice-users', async (ctx, next) => {
   userId
   );
 
+  // TODO display err/succ msg
   ctx.redirect('/admin/backoffice-users');
+});
+
+// POST add-role
+router.post('/add-role', async (ctx, next) => {
+  if (!ctx.session.permissions.can_change_role_permissions) {
+    ctx.body = {err: `You don't have permission to add a role`}
+    return;
+  }
+
+  db.sql(`INSERT INTO roles (role) VALUES ('')`);
+  ctx.body = {msg: `Successfuly added new role`};
 });
 
 // GET ctransfers
@@ -795,6 +822,14 @@ router.get('/approve', async (ctx, next) => {
     username,
     permissions: ctx.session.permissions
   });
+});
+
+// GET logout
+router.get('/logout', async (ctx, next) => {
+  trace(`GET 'admin/logout'`);
+
+  ctx.session = null;
+  await ctx.redirect('/admin');
 });
 
 app.use(router.routes());
