@@ -85,7 +85,7 @@ if (require.main === module) {
 // GET root
 router.get('/', async (ctx, next) => {
   trace(`GET '/'`);
-  db.sql('SELECT * FROM users;');
+
   await ctx.redirect('/home');
 });
 
@@ -105,6 +105,8 @@ router.get('/home', async (ctx, next) => {
     ctx.redirect('/login');
     return next();
   }
+
+  // ctx.session.user = 'Rosen'; // AB TESTING
 
   const user = (await db.sql(`SELECT * FROM users WHERE username = $1`, ctx.session.user))[0];
   assert(user != null, 'cookie contained username not in database', 10);
