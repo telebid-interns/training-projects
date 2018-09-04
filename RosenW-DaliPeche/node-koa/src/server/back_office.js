@@ -22,6 +22,7 @@ const {
   SALT_ROUNDS,
   SALT_LENGTH,
 } = require('./../utils/consts.js');
+const paths = require('./../etc/config.js');
 
 const app = new Koa();
 
@@ -90,7 +91,7 @@ router.get('/', async (ctx, next) => {
 });
 
 // GET users
-router.get('/users', async (ctx, next) => {
+router.get(paths.users, async (ctx, next) => {
   trace(`GET '/admin/users'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_users) {
@@ -158,7 +159,7 @@ router.get('/users', async (ctx, next) => {
 });
 
 // GET credits
-router.get('/credits', async (ctx, next) => {
+router.get(paths.creditBalance, async (ctx, next) => {
   trace(`GET '/admin/credits'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_credit_balance) {
@@ -228,7 +229,7 @@ router.get('/credits', async (ctx, next) => {
 });
 
 // GET cities
-router.get('/cities', async (ctx, next) => {
+router.get(paths.cities, async (ctx, next) => {
   trace(`GET '/admin/cities'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_cities) {
@@ -272,7 +273,7 @@ router.get('/cities', async (ctx, next) => {
 });
 
 // GET requests
-router.get('/requests', async (ctx, next) => {
+router.get(paths.requests, async (ctx, next) => {
   trace(`GET '/admin/requests'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_requests) {
@@ -306,7 +307,7 @@ router.get('/requests', async (ctx, next) => {
 });
 
 // GET register
-router.get('/register', async (ctx, next) => {
+router.get(paths.backOfficeRegister, async (ctx, next) => {
   trace(`GET '/admin/register'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_edit_backoffice_users) {
@@ -320,7 +321,7 @@ router.get('/register', async (ctx, next) => {
 });
 
 // POST register
-router.post('/register', async (ctx, next) => {
+router.post(paths.backOfficeRegister, async (ctx, next) => {
   trace(`POST 'admin/register'`);
 
   assert(
@@ -391,7 +392,7 @@ router.post('/register', async (ctx, next) => {
 });
 
 // GET roles
-router.get('/roles', async (ctx, next) => {
+router.get(paths.roles, async (ctx, next) => {
   trace(`GET '/admin/roles'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_roles) {
@@ -427,7 +428,7 @@ router.del('/role', async (ctx, next) => {
 });
 
 // GET backoffice-users
-router.get('/backoffice-users', async (ctx, next) => {
+router.get(paths.backOfficeUsers, async (ctx, next) => {
   trace(`GET '/admin/backoffice-users'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_backoffice_users) {
@@ -473,7 +474,7 @@ router.get('/backoffice-users', async (ctx, next) => {
 });
 
 // POST backoffice-users
-router.post('/backoffice-users', async (ctx, next) => {
+router.post(paths.backOfficeUsers, async (ctx, next) => {
   assert(isObject(ctx.session), 'No session in post /backoffice-users', 192);
   assert(isObject(ctx.session.permissions), 'No permissions in post /backoffice-users', 193);
 
@@ -517,7 +518,7 @@ router.post('/add-role', async (ctx, next) => {
 });
 
 // GET ctransfers
-router.get('/ctransfers', async (ctx, next) => {
+router.get(paths.creditTransfers, async (ctx, next) => {
   trace(`GET '/admin/ctransfers'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_transfers) {
@@ -645,7 +646,7 @@ router.post('/addCreditsToUser', async (ctx, next) => {
 });
 
 // POST approve transfer
-router.post('/approve', async (ctx, next) => {
+router.post(paths.approveTransfers, async (ctx, next) => {
   assert(isObject(ctx.session), 'No session in post /approve', 180);
   assert(isObject(ctx.session.permissions), 'No permissions in post /approve', 181);
   if (!ctx.session.permissions.can_approve_credits) {
@@ -671,7 +672,7 @@ router.post('/approve', async (ctx, next) => {
 });
 
 // POST roles
-router.post('/roles', async (ctx, next) => {
+router.post(paths.roles, async (ctx, next) => {
   assert(isObject(ctx.session), 'No session in post /roles', 182);
   assert(isObject(ctx.session.permissions), 'No permissions in post /roles', 183);
 
@@ -789,7 +790,7 @@ router.post('/', async (ctx, next) => {
 });
 
 // GET approve
-router.get('/approve', async (ctx, next) => {
+router.get(paths.approveTransfers, async (ctx, next) => {
   trace(`GET '/admin/approve'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_credits_for_approval) {
@@ -818,6 +819,7 @@ router.get('/approve', async (ctx, next) => {
   0 + (ROWS_PER_PAGE * page),
   ROWS_PER_PAGE
   ));
+
   await ctx.render('admin_approve', {
     transfers,
     page,
@@ -829,7 +831,7 @@ router.get('/approve', async (ctx, next) => {
 });
 
 // GET logout
-router.get('/logout', async (ctx, next) => {
+router.get(paths.backOfficeLogout, async (ctx, next) => {
   trace(`GET 'admin/logout'`);
 
   ctx.session = null;

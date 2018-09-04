@@ -9,6 +9,7 @@ const serve = require('koa-static');
 const views = require('koa-views');
 const { PeerError, UserError } = require('./asserts/exceptions.js');
 const session = require('koa-session');
+const paths = require('./etc/config.js');
 
 const app = new Koa();
 
@@ -54,9 +55,9 @@ app.use(async (ctx, next) => {
 });
 
 app.use(bodyParser());
-app.use(mount('/api', api));
-app.use(mount('/', frontOffice));
-app.use(mount('/admin', backOffice));
+app.use(mount(paths.api, api));
+app.use(mount(paths.frontOfficeMountPoint, frontOffice));
+app.use(mount(paths.backOfficeMountPoint, backOffice));
 
 let port;
 

@@ -29,6 +29,7 @@ const {
 } = require('./../utils/consts.js');
 const braintree = require('braintree');
 const session = require('koa-session');
+const paths = require('./../etc/config.js');
 
 const gateway = braintree.connect({
   environment: braintree.Environment.Sandbox,
@@ -90,7 +91,7 @@ router.get('/', async (ctx, next) => {
 });
 
 // GET logout
-router.get('/logout', async (ctx, next) => {
+router.get(paths.logout, async (ctx, next) => {
   trace(`GET '/logout'`);
 
   ctx.session = null; // docs: "To destroy a session simply set it to null"
@@ -98,15 +99,13 @@ router.get('/logout', async (ctx, next) => {
 });
 
 // GET home
-router.get('/home', async (ctx, next) => {
+router.get(paths.home, async (ctx, next) => {
   trace(`GET '/home'`);
 
   if (ctx.session.user == null) {
     ctx.redirect('/login');
     return next();
   }
-
-  // ctx.session.user = 'Rosen'; // AB TESTING
 
   const user = (await db.sql(`SELECT * FROM users WHERE username = $1`, ctx.session.user))[0];
   assert(user != null, 'cookie contained username not in database', 10);
@@ -125,7 +124,7 @@ router.get('/home', async (ctx, next) => {
 });
 
 // GET login
-router.get('/login', async (ctx, next) => {
+router.get(paths.login, async (ctx, next) => {
   trace(`GET '/login'`);
 
   if (ctx.session.user != null) {
@@ -139,7 +138,7 @@ router.get('/login', async (ctx, next) => {
 });
 
 // GET register
-router.get('/register', async (ctx, next) => {
+router.get(paths.register, async (ctx, next) => {
   trace(`GET '/register'`);
 
   if (ctx.session.user != null) {
@@ -150,7 +149,7 @@ router.get('/register', async (ctx, next) => {
 });
 
 // GET buy
-router.get('/buy', async (ctx, next) => {
+router.get(paths.buy, async (ctx, next) => {
   trace(`GET '/buy'`);
 
   if (ctx.session.user == null) {
@@ -177,7 +176,7 @@ router.get('/buy', async (ctx, next) => {
 });
 
 // POST buy
-router.post('/buy', async (ctx, next) => {
+router.post(paths.buy, async (ctx, next) => {
   trace(`POST '/buy'`);
   assert(isObject(ctx.request.body), 'Post buy has no body', 12);
   assert(ctx.request.body.total != null, 'No total in post buy', 14);
@@ -254,7 +253,7 @@ const purchaseCredits = async (user, credits) => {
 };
 
 // POST register
-router.post('/register', async (ctx, next) => {
+router.post(paths.register, async (ctx, next) => {
   trace(`POST '/register'`);
 
   assertUser(
@@ -340,7 +339,7 @@ router.post('/register', async (ctx, next) => {
 });
 
 // POST login
-router.post('/login', async (ctx, next) => {
+router.post(paths.login, async (ctx, next) => {
   trace(`POST '/login'`);
 
   const username = ctx.request.body.username;
