@@ -1,12 +1,12 @@
 class BaseError extends Error {
     constructor(userMsg, msg, code) {
-        super();
+        super(msg);
 
         this.userMsg = userMsg;
         this.msg = msg;
         this.code = code;
 
-        console.exception(this);
+        console.error(this);
     }
 }
 
@@ -84,3 +84,21 @@ function assertUser(
         throw new UserError(userMsg, msg, code);
     }
 }
+
+function displayError(error) {
+    console.log(error);
+    alert(error.userMsg);
+}
+
+const errorHandleFunction = (func) => async (...args) => {
+    try {
+        await func(...args);
+    } catch (e) {
+        displayError(e);
+    }
+};
+
+window.onerror = (message, source, lineno, colno, error) => {
+    console.error('Global error', message, source, lineno, colno, error);
+    return false;
+};

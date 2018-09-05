@@ -60,7 +60,7 @@ async function fetchSolution(miniSquareSideLength, markedLocations) {
     return response.json();
 }
 
-$(document).ready(() => {
+function main() {
     const $squareLengthInput = $('#small-square-length');
     const $grid = $('#sudoku-grid');
     const $square = $('#sudoku-square');
@@ -86,7 +86,8 @@ $(document).ready(() => {
     $squareLengthInput.change(drawGrid);
 
     let $sudokuForm = $('#sudoku-form');
-    $sudokuForm.submit(async (event) => {
+
+    async function onSubmit(event) {
         event.preventDefault();
 
         const length = +$squareLengthInput.val().trim();
@@ -100,10 +101,29 @@ $(document).ready(() => {
                 return arr[2] !== '';
             });
 
+        assertUser(markedLocations.length >= length * length, 'Not enough objects entered', 'SUDOKU_FEW_OBJECTS');
         const solution = await fetchSolution(length, markedLocations);
 
         fillSudokuGrid(solution);
 
         return false;
+    }
+
+    $sudokuForm.submit(async (event) => {
+        try {
+            await onSubmit(event);
+        } catch (e) {
+            displayError(e);
+        }
     })
+}
+
+$(document).ready(() => {
+    try {
+        main();
+    } catch (e) {
+        displayError(e);
+    }
 });
+
+

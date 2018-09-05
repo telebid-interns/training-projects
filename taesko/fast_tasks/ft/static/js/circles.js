@@ -23,7 +23,7 @@ function cleanDuplicates(array, keyFunc = (element) => element) {
     return clean;
 }
 
-function intersections(circles) {
+function intersectionsDepreciated(circles) {
     function are_intersecting(circleA, circleB) {
         const xDiff = circleA.x - circleB.x;
         const yDiff = circleA.y - circleB.y;
@@ -116,7 +116,7 @@ async function fetchLeastJumpsThroughCircles(circles) {
     return response.json();
 }
 
-$(document).ready(() => {
+function main() {
     const $circleForm = $('#circles-form');
     const $drawBtn = $('#draw-circle-btn');
     const $findPathBtn = $('#find-path-btn');
@@ -128,18 +128,30 @@ $(document).ready(() => {
         event.preventDefault();
         return false;
     });
-    $drawBtn.click(() => {
+
+    const onDrawBtnClick = () => {
         const x = +$circleForm.find('#x-input').val().trim();
         const y = +$circleForm.find('#y-input').val().trim();
         const radius = +$circleForm.find('#radius-input').val().trim();
         const circle = {x, y, radius};
-
         const canvasCoords = drawer.dekartToCanvasCoords(x, y);
+
+        assertUser(radius > 0, 'Invalid radius', 'CIRCLES_INVALID_RADIUS');
+
         drawer.drawCircle(...canvasCoords, radius);
         drawer.drawPoint(...canvasCoords);
         circles.push(circle);
+    };
+
+    $drawBtn.click(async (event) => {
+        try {
+            await onDrawBtnClick(event)
+        } catch (e) {
+            displayError(e);
+        }
     });
-    $findPathBtn.click(async () => {
+
+    const onFindPathBtnClick = async () => {
         let cleaned = cleanDuplicates(circles, hashCircle);
         let path = await fetchLeastJumpsThroughCircles(cleaned);
         console.log('path is', path);
@@ -149,5 +161,21 @@ $(document).ready(() => {
         } else {
             alert('No path found');
         }
+    };
+
+    $findPathBtn.click(async (event) => {
+        try {
+            await onFindPathBtnClick(event);
+        } catch (e) {
+            displayError(e);
+        }
     });
+}
+
+$(document).ready((event) => {
+    try {
+        main(event);
+    } catch (e) {
+        displayError(e);
+    }
 });
