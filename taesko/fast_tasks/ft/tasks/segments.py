@@ -62,7 +62,47 @@ def solve(line_length, a_step, b_step, segment_length):
     repeating_red = total_red_length(concat_red_segments(repeating))
     repetitions = line_length // (a_step * b_step)
     leftover_red = total_red_length(concat_red_segments(leftover))
+
     return line_length - (repeating_red * repetitions) - leftover_red
+
+
+def red_segments_of_solution(repeating, leftover, line_length, reset_length):
+    segments = set(leftover)
+
+    reset_count = line_length // reset_length
+    for reset_index in range(reset_count):
+        offset = reset_index * reset_length
+        for seg in repeating:
+            start = offset + seg[0]
+            end = offset + seg[1]
+            if end <= line_length:
+                segments.add((start, end))
+
+    return sorted(segments)
+
+
+def run(line_length, a_step, b_step, segment_length):
+    repeating, leftover = segs_by_full_length(line_length, a_step, b_step, segment_length)
+    repeating = [seg for seg in repeating if seg[1] <= line_length]
+    leftover = [seg for seg in leftover if seg[1] <= line_length]
+    repeating_red_segments = concat_red_segments(repeating)
+    leftover_red_segments = concat_red_segments(leftover)
+    reset_length = a_step * b_step
+    red_segments = red_segments_of_solution(repeating_red_segments, leftover_red_segments,
+                                            line_length, reset_length=reset_length)
+
+    leftover_red_count = total_red_length(leftover_red_segments)
+    repeating_red_count = total_red_length(repeating_red_segments)
+    repetitions = line_length // (a_step * b_step)
+    result = line_length - (repeating_red_count * repetitions) - leftover_red_count
+
+    print('ALL', repeating, leftover)
+    print('RED', repeating_red_segments, leftover_red_segments)
+
+    return dict(
+        answer=result,
+        red_segments=red_segments
+    )
 
 
 def parse_input_string(string):
