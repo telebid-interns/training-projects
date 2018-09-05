@@ -91,6 +91,7 @@
   }
 
   async function remove (role) {
+    if (!confirm(`Remove role ${role} ?`)) return;
     const response = await fetch(`/admin/role`, {
       headers: {
         "Content-Type": "application/json"
