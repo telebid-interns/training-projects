@@ -10,6 +10,8 @@ const views = require('koa-views');
 const { PeerError, UserError } = require('./asserts/exceptions.js');
 const session = require('koa-session');
 const paths = require('./etc/config.js');
+const SMTPTransporter = require('./email/email.js');
+const fs = require('fs');
 
 const app = new Koa();
 
@@ -47,8 +49,26 @@ app.use(async (ctx, next) => {
         statusCode: err.statusCode,
       };
     } else {
-      console.log(err);
-      console.log(`Application Error: ${err.message}, Status code: ${err.statusCode}`);
+      const mailOptions = {
+        from: 'mailsender6000@gmail.com',
+        to: 'rosen@arc-global.org',
+        subject: 'Alert',
+        html: `
+          <p>${err}</p>
+          <p>Status Code: ${err.statusCode}</p>
+        `
+      };
+
+      await SMTPTransporter.sendMail(mailOptions, (error, info) => {
+        if (error) {
+          console.log(error);
+        }
+      });
+
+      fs.appendFile('./src/asserts/assert.log', `${err}\n`, (err) => {
+        if (err) console.error(`Error while logging assert: ${err.message}`);
+      });
+
       ctx.body = 'An error occured please clear your cookies and try again';
     }
   }

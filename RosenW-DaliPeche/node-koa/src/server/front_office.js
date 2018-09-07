@@ -44,9 +44,9 @@ if (require.main === module) {
   const server = app.listen(DEFAULT_PORT, () => {
     console.log(`Frontoffice Server listening on port: ${DEFAULT_PORT}`);
   });
+
   app.use(serve(`${__dirname}/public/css`));
   app.use(serve(`${__dirname}/public/js`));
-
   app.use(views(`${__dirname}/views`, {
     extension: 'hbs',
     map: { hbs: 'handlebars' }, // marks engine for extensions
@@ -82,6 +82,23 @@ if (require.main === module) {
 
   app.use(bodyParser());
 }
+
+// // GET fill
+// router.get('/fill', async (ctx, next) => {
+//   trace(`GET '/fill'`);
+
+//   // 2500000 = 1gb
+
+//   for (let i = 1; i <= 1000000; i++) {
+//     if (i % 1000 === 0) {
+//       console.log(`${i} / 1000000`);
+//     }
+
+//     await db.sql(`INSERT INTO cities (name, country_code, lng, lat) VALUES ($1, $2, $3, $4)`, generateRandomString(Math.floor(Math.random() * 20) + 12), 'FK', Math.random(), Math.random());
+//   }
+
+//   await ctx.redirect('/home');
+// });
 
 // GET root
 router.get('/', async (ctx, next) => {
