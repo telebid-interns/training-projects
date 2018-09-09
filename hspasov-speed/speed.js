@@ -2,9 +2,6 @@ function start () {
   class BaseError extends Error {}
 
   class AppError extends BaseError {}
-  /*
-  class PeerError extends BaseError {}
-  */
   class UserError extends BaseError {}
 
   function assertApp (condition) {
@@ -181,7 +178,9 @@ function start () {
         continue;
       }
 
-      if (isPathBetweenTwoPoints(graphClone, currentPointNeighbour, goalPoint)) {
+      if (
+        isPathBetweenTwoPoints(graphClone, currentPointNeighbour, goalPoint)
+      ) {
         return true;
       }
     }
@@ -267,6 +266,23 @@ function start () {
   }
 
   function calculate (input) {
+    const calcGen = calculateGenerator(input);
+
+    let result;
+
+    while (true) {
+      const { value, done } = calcGen.next();
+
+      if (done) {
+        result = value;
+        break;
+      }
+    }
+
+    return result;
+  }
+
+  function * calculateGenerator (input) {
     assertApp(isObject(input));
     assertApp(Array.isArray(input.paths));
     assertUser(
@@ -312,11 +328,18 @@ function start () {
           paths: possiblePaths,
         });
 
+        const currentState = {
+          speedDiff,
+          minSpeed,
+          maxSpeed: minSpeed + speedDiff,
+          graph,
+          paths: possiblePaths,
+        };
+
         if (arePathsBetweenAllPoints(graph)) {
-          return {
-            minSpeed,
-            maxSpeed: minSpeed + speedDiff,
-          };
+          return currentState;
+        } else {
+          yield currentState;
         }
       }
     }
@@ -324,7 +347,78 @@ function start () {
     return null;
   }
 
-  function displayMessage(message) {
+  function generateRandomCoordinatesForCities (cities) {
+    const citiesCoordinates = {};
+
+    for (const city of cities) {
+      citiesCoordinates[city] = {
+        x: Math.floor(Math.random() * CONFIG.CANVAS_WIDTH),
+        y: Math.floor(Math.random() * CONFIG.CANVAS_HEIGHT),
+      };
+    }
+
+    return citiesCoordinates;
+  }
+
+  function renderCitiesAndRoads (graph, pathsSpeeds, citiesCoordinates) {
+    ctx.clearRect(0, 0, CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
+
+    for (const [city, coordinates] of Object.entries(citiesCoordinates)) {
+      drawPoint(coordinates, 'red');
+      setLabel(city, coordinates, 'red');
+    }
+
+    for (const path of pathsSpeeds) {
+      const cityFrom = path.f;
+      const cityTo = path.t;
+      const pathSpeed = path.s;
+
+      drawLine(citiesCoordinates[cityFrom], citiesCoordinates[cityTo]);
+      setLabel(pathSpeed, {
+        x: (citiesCoordinates[cityFrom].x + citiesCoordinates[cityTo].x) / 2,
+        y: (citiesCoordinates[cityFrom].y + citiesCoordinates[cityTo].y) / 2,
+      });
+    }
+
+    ctx.stroke();
+  }
+
+  function drawPoint (point, color) {
+    const originalFillStyle = ctx.fillStyle;
+
+    ctx.fillStyle = color || originalFillStyle;
+
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, 5, 0, 2 * Math.PI);
+    ctx.fill();
+
+    ctx.fillStyle = originalFillStyle;
+  }
+
+  function setLabel (text, point, color) {
+    const originalFillStyle = ctx.fillStyle;
+
+    ctx.fillStyle = color || originalFillStyle;
+
+    ctx.fillText(text, point.x, point.y + CONFIG.LABEL_OFFSET);
+
+    ctx.fillStyle = originalFillStyle;
+  }
+
+  function drawLine (point1, point2, color) {
+    const originalFillStyle = ctx.fillStyle;
+
+    ctx.fillStyle = color || originalFillStyle;
+
+    ctx.beginPath();
+    ctx.moveTo(point1.x, point1.y);
+    ctx.lineTo(point2.x, point2.y);
+    ctx.stroke();
+
+    ctx.fillStyle = originalFillStyle;
+  }
+
+  function displayMessage (message) {
     window.alert(message);
   }
 
@@ -332,21 +426,134 @@ function start () {
 
   const inputElement = document.getElementById('input');
   const submitBtn = document.getElementById('submit-btn');
+  const showStepByStepBtn = document.getElementById('show-step-by-step-btn');
+  const nextStepBtn = document.getElementById('next-step-btn');
   const outputElement = document.getElementById('output');
+  const sortedSpeedsElement = document.getElementById('road-speeds-sorted');
+  const speedDiffElement = document.getElementById('speed-diff');
+  const minSpeedElement = document.getElementById('min-speed');
+  const maxSpeedElement = document.getElementById('max-speed');
+  const stateElement = document.getElementById('state');
+  const canvas = document.getElementById('cities-and-roads');
+  const ctx = canvas.getContext('2d');
+  const CONFIG = {
+    CANVAS_WIDTH: 500,
+    CANVAS_HEIGHT: 500,
+    POINTS_DISTANCE: 100,
+    LABEL_OFFSET: 15,
+  };
+
+  let calcGen;
+  let randomCoordinates;
+
+  canvas.width = CONFIG.CANVAS_WIDTH;
+  canvas.height = CONFIG.CANVAS_HEIGHT;
 
   const onSubmitBtnClick = function (event) {
     assertApp(typeof inputElement.value === 'string');
     const input = parseInput(inputElement.value);
+
+    const sortedSpeeds = input.paths.map((p) => p.s).slice().sort((a, b) => { // sort ASC
+      if (a > b) {
+        return 1;
+      } else if (a < b) {
+        return -1;
+      } else {
+        return 0;
+      }
+    });
+
+    sortedSpeedsElement.innerHTML = sortedSpeeds.join(', ');
+
     const result = calculate(input);
+
+    const graph = inputToGraph({
+      ...input,
+    });
+    const randomCoordinates = generateRandomCoordinatesForCities(
+      Object.keys(graph)
+    );
+
+    renderCitiesAndRoads(result.graph, result.paths, randomCoordinates);
 
     assertUser(isObject(result), 'No result found.');
     assertApp(typeof result.minSpeed === 'number');
     assertApp(typeof result.maxSpeed === 'number');
 
+    speedDiffElement.innerHTML = '';
+    minSpeedElement.innerHTML = '';
+    maxSpeedElement.innerHTML = '';
+    stateElement.innerHTML = 'All cities are connected with paths!';
     outputElement.innerHTML = `${result.minSpeed} ${result.maxSpeed}`;
+    nextStepBtn.hidden = true;
+    showStepByStepBtn.hidden = false;
+  };
+
+  const onNextStepBtnClick = function (event) {
+    const { value, done } = calcGen.next();
+    const {
+      speedDiff,
+      minSpeed,
+      maxSpeed,
+      graph,
+      paths,
+    } = value;
+
+    speedDiffElement.innerHTML = speedDiff;
+    minSpeedElement.innerHTML = minSpeed;
+    maxSpeedElement.innerHTML = maxSpeed;
+
+    renderCitiesAndRoads(graph, paths, randomCoordinates);
+
+    if (done) {
+      nextStepBtn.hidden = true;
+      showStepByStepBtn.hidden = false;
+
+      stateElement.innerHTML = 'All cities are connected with paths!';
+      outputElement.innerHTML = `${minSpeed} ${maxSpeed}`;
+    } else {
+      nextStepBtn.hidden = false;
+      showStepByStepBtn.hidden = true;
+
+      stateElement.innerHTML = 'There are unreachable cities!';
+    }
+  };
+
+  const onShowStepByStepBtnClick = function (event) {
+    assertApp(typeof inputElement.value === 'string');
+    const input = parseInput(inputElement.value);
+
+    const sortedSpeeds = input.paths.map((p) => p.s).slice().sort((a, b) => { // sort ASC
+      if (a > b) {
+        return 1;
+      } else if (a < b) {
+        return -1;
+      } else {
+        return 0;
+      }
+    });
+
+    sortedSpeedsElement.innerHTML = sortedSpeeds.join(', ');
+
+    calcGen = calculateGenerator(input);
+
+    const graph = inputToGraph({
+      ...input,
+    });
+    randomCoordinates = generateRandomCoordinatesForCities(
+      Object.keys(graph)
+    );
+
+    outputElement.innnerHTML = '';
+
+    nextStepBtn.hidden = false;
+    showStepByStepBtn.hidden = true;
   };
 
   submitBtn.addEventListener('click', onSubmitBtnClick);
+  nextStepBtn.addEventListener('click', onNextStepBtnClick);
+  showStepByStepBtn.addEventListener('click', onShowStepByStepBtnClick);
+  nextStepBtn.hidden = true;
 }
 
 start();
