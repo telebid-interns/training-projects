@@ -42,7 +42,7 @@
           <td>{{email}}</td>
           <td class="text-right">{{successful_requests}}</td>
           <td class="text-right">{{failed_requests}}</td>
-          <td><input id="credits-{{username}}" type="text" value="{{credits}}" disabled="true" style="text-align: right">{{#if permissions.can_add_credits}}<a href="#" id="add-credits-sign-{{id}}" onclick='addCredits("{{username}}")'> +</a>{{/if}}</td>
+          <td><input id="credits-{{username}}" type="text" value="{{credits}}" disabled="true" style="text-align: right">{{#if ../permissions.can_add_credits}}<a href="#" id="add-credits-sign-{{id}}" onclick='addCredits("{{username}}")'> +</a>{{/if}}</td>
         </tr>
       {{/each}}
     </table>

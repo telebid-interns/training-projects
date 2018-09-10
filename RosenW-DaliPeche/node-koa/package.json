@@ -28,6 +28,7 @@
     "koa-session": "^5.8.2",
     "koa-static": "^5.0.0",
     "koa-views": "^6.1.4",
+    "node-fetch": "^2.2.0",
     "nodemailer": "^4.6.8",
     "pg": "^7.4.3",
     "request": "^2.87.0",
