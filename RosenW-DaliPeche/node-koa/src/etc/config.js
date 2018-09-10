@@ -7,7 +7,7 @@ const paths = {
 	backOfficeMountPoint: '/admin',
 	frontOfficeMountPoint: '/',
 	users: '/users',
-	creditTransfers: 'ctransfers',
+	creditTransfers: '/ctransfers',
 	cities: '/cities',
 	requests: '/requests',
 	creditBalance: '/credits',
