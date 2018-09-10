@@ -4,7 +4,8 @@ const { assert } = require('./../asserts/asserts.js');
 const { trace } = require('./../debug/tracer.js');
 const {
   generateRandomString,
-  isObject
+  isObject,
+  isInteger
 } = require('./../utils/utils.js');
 const db = require('./../database/pg_db.js');
 const serve = require('koa-static');
@@ -649,12 +650,13 @@ router.post('/addCreditsToUser', async (ctx, next) => {
 router.post(paths.approveTransfers, async (ctx, next) => {
   assert(isObject(ctx.session), 'No session in post /approve', 180);
   assert(isObject(ctx.session.permissions), 'No permissions in post /approve', 181);
+
   if (!ctx.session.permissions.can_approve_credits) {
     return;
   }
 
   assert(isObject(ctx.request.body), 'Post /approve has no body', 103);
-  assert(typeof ctx.request.body.id === 'string' && Number(ctx.request.body.id), 'Post /approve body has no id', 104);
+  assert(typeof ctx.request.body.id === 'string' && isInteger(Number(ctx.request.body.id)), 'Post /approve body has no id', 104);
 
   const id = ctx.request.body.id;
 

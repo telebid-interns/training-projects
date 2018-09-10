@@ -1,7 +1,6 @@
 let fetch = require("node-fetch");
 
 for (let i = 0; i < 50; i++) {
-  console.log(i);
   fetch('http://127.0.0.1:3001/api/forecast', {
       method: 'POST',
       headers: {
