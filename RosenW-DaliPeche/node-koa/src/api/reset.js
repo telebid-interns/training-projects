@@ -1,4 +1,5 @@
-const db = require('./../database/pg_db.js');
+const Database = require('./../database/db.js');
+const db = Database('pg');
 
 resetAPIKeys();
 

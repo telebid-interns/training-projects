@@ -1,6 +1,7 @@
 const { assertPeer } = require('./../asserts/asserts.js');
 const { isObject } = require('./../utils/utils.js');
-const db = require('./../database/pg_db.js');
+const Database = require('./../database/db.js');
+const db = Database('pg');
 const requester = require('request-promise');
 const {
   FORECAST_API_LINK,

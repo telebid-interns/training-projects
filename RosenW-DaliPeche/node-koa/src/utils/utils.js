@@ -1,6 +1,5 @@
 const { trace } = require('./../debug/tracer.js');
 const { EMAIL_VALIDATION_REGEX } = require('./../utils/consts.js');
-const db = require('./../database/pg_db.js');
 
 const generateRandomString = (length) => {
   trace(`Function generateRandomString`);
@@ -41,13 +40,6 @@ const validateEmail = (email) => {
 const isInteger = (num) => {
   return (typeof num === 'number') && (num % 1 === 0);
 }
-
-// (async () => {
-//   const salt = generateRandomString(SALT_LENGTH);
-//   const saltedPassword = 'admin' + salt;
-//   const hash = await bcrypt.hash(saltedPassword, SALT_ROUNDS);
-//   await db.query(`insert into backoffice_users (username, password, salt) values ('admin', $1, $2)`, hash, salt);
-// })();
 
 module.exports = {
   generateRandomString,

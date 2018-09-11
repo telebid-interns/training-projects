@@ -1,54 +1,17 @@
-let fetch = require("node-fetch");
-
-const address = 'http://127.0.0.1:3001/api/forecast';
-const API_CALLS_PER_USER = 50;
+const fetch = require("node-fetch");
+const Database = require('./../database/db.js');
+const db = Database('pg');
 
 (async () => {
-  for (let i = 0; i < API_CALLS_PER_USER; i++) {
-    console.log(i);
-    await fetch(address, {
+  const keys = (await db.sql(`SELECT * FROM api_keys where user_id between 10 and 10012`)).map((k) => k.key);
+  for (const key of keys) {
+    await fetch('http://127.0.0.1:3001/api/forecast', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*'
         },
-        body: JSON.stringify({city: 'Sofia', key: 'rQMdEUdSPGHOaaY0'}), //ivan
-      }
-    );
-    await fetch(address, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        },
-        body: JSON.stringify({city: 'Sofia', key: '4cnhuGXlu2XFKf8T'}), //Rosen
-      }
-    );
-    await fetch(address, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        },
-        body: JSON.stringify({city: 'Sofia', key: 'QMsnZ0jMZW2cbcFg'}), //Gosho
-      }
-    );
-    await fetch(address, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        },
-        body: JSON.stringify({city: 'Sofia', key: 'TnE06o6rY4P4NFaF'}), //Toni
-      }
-    );
-    await fetch(address, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        },
-        body: JSON.stringify({city: 'Sofia', key: '1EsK8Y58TgiLSQ4k'}), //foobar
+        body: JSON.stringify({city: 'Sofia', key})
       }
     );
   }

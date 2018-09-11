@@ -9,7 +9,8 @@ const {
   isObject,
   isInteger,
 } = require('./../utils/utils.js');
-const db = require('./../database/pg_db.js');
+const Database = require('./../database/db.js');
+const db = Database('pg');
 const serve = require('koa-static');
 const bcrypt = require('bcrypt');
 const views = require('koa-views');
@@ -82,23 +83,6 @@ if (require.main === module) {
 
   app.use(bodyParser());
 }
-
-// // GET fill
-// router.get('/fill', async (ctx, next) => {
-//   trace(`GET '/fill'`);
-
-//   // 2500000 = 1gb
-
-//   for (let i = 1; i <= 1000000; i++) {
-//     if (i % 1000 === 0) {
-//       console.log(`${i} / 1000000`);
-//     }
-
-//     await db.sql(`INSERT INTO cities (name, country_code, lng, lat) VALUES ($1, $2, $3, $4)`, generateRandomString(Math.floor(Math.random() * 20) + 12), 'FK', Math.random(), Math.random());
-//   }
-
-//   await ctx.redirect('/home');
-// });
 
 // GET root
 router.get('/', async (ctx, next) => {

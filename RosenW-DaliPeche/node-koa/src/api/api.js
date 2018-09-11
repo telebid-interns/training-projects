@@ -13,8 +13,10 @@ const {
   AIRPORT_API_LINK,
   CREDITS_FOR_SUCCESSFUL_REQUEST,
   CREDITS_FOR_FAILED_REQUEST,
+  API_KEY_LENGTH
 } = require('./../utils/consts.js');
-const db = require('./../database/pg_db.js');
+const Database = require('./../database/db.js');
+const db = Database('pg');
 
 const app = new Koa();
 
@@ -59,7 +61,7 @@ router.post('/generateAPIKey', async (ctx, next) => {
   trace(`POST '/generateKey'`);
 
   const username = ctx.request.body.name;
-  const key = generateRandomString(16);
+  const key = generateRandomString(API_KEY_LENGTH);
   const user = (await db.sql(`SELECT * FROM users WHERE username = $1`, username))[0];
 
   assert(user != null, 'User not found when generating API key', 11);
