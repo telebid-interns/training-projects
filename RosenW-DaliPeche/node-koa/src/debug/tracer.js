@@ -1,7 +1,7 @@
 const fs = require('fs');
 
 function trace (msg) {
-  fs.appendFile('./src/debug/trace.log', `${msg}\n`, (err) => {
+  fs.appendFile('./src/server/logs/trace.log', `${msg}\n`, (err) => {
   	if (err) console.error(`Error while tracing: ${err.message}`);
   });
 }

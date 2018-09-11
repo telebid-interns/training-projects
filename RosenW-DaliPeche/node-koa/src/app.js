@@ -66,7 +66,7 @@ app.use(async (ctx, next) => {
         }
       });
 
-      fs.appendFile('./src/asserts/assert.log', `${new Date().toISOString()}:  ${err}\n`, (err) => {
+      fs.appendFile('./src/server/logs/assert.log', `${new Date().toISOString()}:  ${err}\n`, (err) => {
         if (err) console.error(`Error while logging assert: ${err.message}`);
       });
 
