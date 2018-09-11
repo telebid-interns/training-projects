@@ -1,8 +1,11 @@
 let fetch = require("node-fetch");
 
 const address = 'http://127.0.0.1:3001/api/forecast';
+const API_CALLS_PER_USER = 50;
+
 (async () => {
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < API_CALLS_PER_USER; i++) {
+    console.log(i);
     await fetch(address, {
         method: 'POST',
         headers: {
@@ -50,4 +53,3 @@ const address = 'http://127.0.0.1:3001/api/forecast';
     );
   }
 })();
-

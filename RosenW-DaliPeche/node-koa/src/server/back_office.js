@@ -670,6 +670,7 @@ router.post(paths.approveTransfers, async (ctx, next) => {
     await client.query(`UPDATE users SET credits = $1 WHERE id = $2`, [ Number(transfer.credits_received) + Number(user.credits), transfer.user_id ]);
     await client.query(`UPDATE credit_transfers SET approved = true WHERE id = $1`, [ transfer.id ]);
   });
+
   ctx.body = {isApproveSuccessful: true};
 });
 
