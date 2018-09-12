@@ -17,12 +17,13 @@ const {
 } = require('./../utils/consts.js');
 const Database = require('./../database/db.js');
 const db = Database('pg');
+const paths = require('./../etc/config.js');
 
 const app = new Koa();
 
 if (require.main === module) {
   router = new Router({
-    prefix: '/api'
+    prefix: `${paths.APIMountPoint}`
   });
   const server = app.listen(DEFAULT_PORT, () => {
     console.log(`API Server listening on port: ${DEFAULT_PORT}`);
@@ -57,8 +58,8 @@ if (require.main === module) {
 }
 
 // POST generate API key
-router.post('/generateAPIKey', async (ctx, next) => {
-  trace(`POST '/generateKey'`);
+router.post(paths.generateAPIKey, async (ctx, next) => {
+  trace(`POST '${paths.generateAPIKey}'`);
 
   const username = ctx.request.body.name;
   const key = generateRandomString(API_KEY_LENGTH);
@@ -93,8 +94,8 @@ router.del('/del', async (ctx, next) => {
 });
 
 // POST forecast
-router.post('/forecast', async (ctx, next) => {
-  trace(`POST '/api/forecast'`);
+router.post(paths.forecast, async (ctx, next) => {
+  trace(`POST '${paths.APIMountPoint}${paths.forecast}'`);
 
   assertPeer(isObject(ctx.request.body), 'No request body provided', 38);
 

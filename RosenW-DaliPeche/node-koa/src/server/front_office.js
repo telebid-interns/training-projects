@@ -1,5 +1,5 @@
 const Koa = require('koa');
-const router = require('koa-router')();
+const Router = require('koa-router');
 const { assert, assertUser, assertPeer } = require('./../asserts/asserts.js');
 const { PeerError } = require('./../asserts/exceptions.js');
 const { trace } = require('./../debug/tracer.js');
@@ -42,6 +42,10 @@ const gateway = braintree.connect({
 const app = new Koa();
 
 if (require.main === module) {
+  router = new Router({
+    prefix: `${paths.frontOfficeMountPoint}`
+  });
+
   const server = app.listen(DEFAULT_PORT, () => {
     console.log(`Frontoffice Server listening on port: ${DEFAULT_PORT}`);
   });
@@ -82,29 +86,31 @@ if (require.main === module) {
   });
 
   app.use(bodyParser());
+} else {
+  router = new Router();
 }
 
 // GET root
 router.get('/', async (ctx, next) => {
-  trace(`GET '/'`);
+  trace(`GET ${paths.frontOfficeMountPoint}`);
 
-  await ctx.redirect('/home');
+  await ctx.redirect(`${paths.home}`);
 });
 
 // GET logout
 router.get(paths.logout, async (ctx, next) => {
-  trace(`GET '/logout'`);
+  trace(`GET '${paths.frontOfficeMountPoint}/${paths.logout}'`);
 
   ctx.session = null; // docs: "To destroy a session simply set it to null"
-  await ctx.redirect('/login');
+  await ctx.redirect(`${paths.frontOfficeMountPoint}/${paths.login}`);
 });
 
 // GET home
 router.get(paths.home, async (ctx, next) => {
-  trace(`GET '/home'`);
+  trace(`GET '${paths.home}'`);
 
   if (ctx.session.user == null) {
-    ctx.redirect('/login');
+    ctx.redirect(`${paths.login}`);
     return next();
   }
 
@@ -126,10 +132,10 @@ router.get(paths.home, async (ctx, next) => {
 
 // GET login
 router.get(paths.login, async (ctx, next) => {
-  trace(`GET '/login'`);
+  trace(`GET '${paths.frontOfficeMountPoint}/${paths.login}'`);
 
   if (ctx.session.user != null) {
-    ctx.redirect('/home');
+    ctx.redirect(`${paths.home}`);
   }
 
   await ctx.render('login', {
@@ -140,10 +146,10 @@ router.get(paths.login, async (ctx, next) => {
 
 // GET register
 router.get(paths.register, async (ctx, next) => {
-  trace(`GET '/register'`);
+  trace(`GET '${paths.frontOfficeMountPoint}/${paths.register}'`);
 
   if (ctx.session.user != null) {
-    ctx.redirect('/home');
+    ctx.redirect(`${paths.home}`);
   }
 
   await ctx.render('register', { err: ctx.query.err });
@@ -151,10 +157,10 @@ router.get(paths.register, async (ctx, next) => {
 
 // GET buy
 router.get(paths.buy, async (ctx, next) => {
-  trace(`GET '/buy'`);
+  trace(`GET '${paths.frontOfficeMountPoint}/${paths.buy}'`);
 
   if (ctx.session.user == null) {
-    ctx.redirect('/login');
+    ctx.redirect(`${paths.login}`);
     return next();
   }
 
@@ -178,7 +184,7 @@ router.get(paths.buy, async (ctx, next) => {
 
 // POST buy
 router.post(paths.buy, async (ctx, next) => {
-  trace(`POST '/buy'`);
+  trace(`POST '${paths.frontOfficeMountPoint}/${paths.buy}'`);
   assert(isObject(ctx.request.body), 'Post buy has no body', 12);
   assert(ctx.request.body.total != null, 'No total in post buy', 14);
   assert(ctx.request.body.nonce != null, 'No nonce in post buy', 15);
@@ -255,7 +261,7 @@ const purchaseCredits = async (user, credits) => {
 
 // POST register
 router.post(paths.register, async (ctx, next) => {
-  trace(`POST '/register'`);
+  trace(`POST '${paths.frontOfficeMountPoint}/${paths.register}'`);
 
   assertUser(
     typeof ctx.request.body.username === 'string' &&
@@ -341,7 +347,7 @@ router.post(paths.register, async (ctx, next) => {
 
 // POST login
 router.post(paths.login, async (ctx, next) => {
-  trace(`POST '/login'`);
+  trace(`POST '${paths.frontOfficeMountPoint}/${paths.login}'`);
 
   const username = ctx.request.body.username;
   const password = ctx.request.body.password;
@@ -358,7 +364,7 @@ router.post(paths.login, async (ctx, next) => {
 
   if (isPassCorrect) {
     ctx.session.user = user.username;
-    ctx.redirect('/home');
+    ctx.redirect(`${paths.home}`);
   } else {
     await ctx.render('login', { error: 'Invalid Password' });
   }

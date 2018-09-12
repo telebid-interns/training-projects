@@ -16,7 +16,9 @@ const paths = {
 	backOfficeUsers: '/backoffice-users',
 	backOfficeCreateUser: '/create-user',
 	backOfficeLogout: '/logout',
-	APIMountPoint: '/api'
+	APIMountPoint: '/api',
+	generateAPIKey: '/generateAPIKey',
+	forecast: '/forecast'
 }
 
 module.exports = paths;
