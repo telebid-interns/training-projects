@@ -30,13 +30,10 @@ async function makeTransaction (func) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    console.log('BEGIN');
     await func(client);
     await client.query('COMMIT');
-    console.log('COMMIT');
   } catch (err) {
     await client.query('ROLLBACK');
-    console.log('ROLLBACK');
     throw new AppError(`Error while making a transaction: ${err}`, 19);
   } finally {
     client.release();

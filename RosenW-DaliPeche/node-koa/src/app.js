@@ -24,6 +24,7 @@ app.use(views(`${__dirname}/server/views`, {
   options: {
     partials: {
       adminForm: `./admin_form`, // requires ./admin_form.hbs
+      adminMenu: `./admin_menu`,
     },
   },
 }));
