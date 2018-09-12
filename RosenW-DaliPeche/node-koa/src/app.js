@@ -76,7 +76,7 @@ app.use(async (ctx, next) => {
 });
 
 app.use(bodyParser());
-app.use(mount(paths.api, api));
+app.use(mount(paths.APIMountPoint, api));
 app.use(mount(paths.frontOfficeMountPoint, frontOffice));
 app.use(mount(paths.backOfficeMountPoint, backOffice));
 

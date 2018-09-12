@@ -308,9 +308,9 @@ router.get(paths.requests, async (ctx, next) => {
   });
 });
 
-// GET register
-router.get(paths.backOfficeRegister, async (ctx, next) => {
-  trace(`GET '/admin/register'`);
+// GET create user
+router.get(paths.backOfficeCreateUser, async (ctx, next) => {
+  trace(`GET '/${paths.backOfficeMountPoint}/${paths.backOfficeCreateUser}'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_edit_backoffice_users) {
     await ctx.redirect('/admin');
@@ -319,12 +319,12 @@ router.get(paths.backOfficeRegister, async (ctx, next) => {
 
   const roles = await db.sql(`SELECT * FROM roles ORDER BY id`);
 
-  await ctx.render('admin_register', { roles });
+  await ctx.render('admin_create_user', { roles });
 });
 
-// POST register
-router.post(paths.backOfficeRegister, async (ctx, next) => {
-  trace(`POST 'admin/register'`);
+// POST create user
+router.post(paths.backOfficeCreateUser, async (ctx, next) => {
+  trace(`POST '${paths.backOfficeMountPoint}/${paths.backOfficeCreateUser}'`);
 
   assert(
     typeof ctx.request.body.username === 'string' &&
@@ -343,7 +343,7 @@ router.post(paths.backOfficeRegister, async (ctx, next) => {
   const salt = generateRandomString(SALT_LENGTH);
 
   if (password !== repeatPassword) {
-    await ctx.render('admin_register', {
+    await ctx.render('admin_create_user', {
       error: 'Passwords must match',
       username,
     });
@@ -354,7 +354,7 @@ router.post(paths.backOfficeRegister, async (ctx, next) => {
     password.length < MINIMUM_PASSWORD_LENGTH ||
       username.length < MINIMUM_USERNAME_LENGTH
   ) {
-    await ctx.render('admin_register', {
+    await ctx.render('admin_create_user', {
       error: 'username and password must be at least 3 symbols',
       username,
     });
@@ -364,7 +364,7 @@ router.post(paths.backOfficeRegister, async (ctx, next) => {
   const user = (await db.sql(`SELECT * FROM backoffice_users WHERE username = $1`, username))[0];
 
   if (user != null && user.username === username) {
-    await ctx.render('admin_register', {
+    await ctx.render('admin_create_user', {
       error: 'a user with this username already exists',
       username,
     });

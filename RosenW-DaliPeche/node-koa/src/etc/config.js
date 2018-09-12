@@ -14,9 +14,9 @@ const paths = {
 	approveTransfers: '/approve',
 	roles: '/roles',
 	backOfficeUsers: '/backoffice-users',
-	backOfficeRegister: '/register',
+	backOfficeCreateUser: '/create-user',
 	backOfficeLogout: '/logout',
-	api: '/api'
+	APIMountPoint: '/api'
 }
 
 module.exports = paths;
