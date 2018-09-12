@@ -70,6 +70,8 @@ app.use(async (ctx, next) => {
         if (err) console.error(`Error while logging assert: ${err.message}`);
       });
 
+      console.log(err);
+
       ctx.body = 'An error occured please clear your cookies and try again';
     }
   }

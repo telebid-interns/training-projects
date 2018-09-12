@@ -297,7 +297,16 @@ router.get(paths.requests, async (ctx, next) => {
   `%${term}%`,
   0 + (ROWS_PER_PAGE * page),
   ROWS_PER_PAGE
-  )).sort((c1, c2) => c2.call_count - c1.call_count);
+  )).sort((c1, c2) => c2.call_count - c1.call_count)
+    .map((r) => {
+      const request = r.city ? r.city : r.iata_code;
+      const type = r.city ? 'City' : 'Airport IATA Code';
+      return {
+        request,
+        type,
+        call_count: r.call_count
+      }
+  });
 
   await ctx.render('admin_requests', {
     requests,
