@@ -81,7 +81,7 @@ if (require.main === module) {
   router = new Router();
 }
 
-// GET
+// GET admin
 router.get('/', async (ctx, next) => {
   trace(`GET '/${paths.backOfficeMountPoint}'`);
   if (ctx.session.admin == null) {
@@ -97,7 +97,7 @@ router.get(paths.users, async (ctx, next) => {
   trace(`GET '/${paths.backOfficeMountPoint}/${paths.backOfficeUsers}'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_users) {
-    await ctx.redirect(`${paths.backOfficeMountPoint}`);
+    await ctx.redirect(paths.backOfficeMountPoint);
     return next();
   }
 
@@ -158,7 +158,7 @@ router.get(paths.users, async (ctx, next) => {
     dateTo: dateTo.toISOString().substr(0, 10),
     permissions: ctx.session.permissions,
     admin: ctx.session.username,
-    roles: ctx.session.permissions.role
+    roles: ctx.session.permissions.roles
   });
 });
 
@@ -167,7 +167,7 @@ router.get(paths.creditBalance, async (ctx, next) => {
   trace(`GET '/${paths.backOfficeMountPoint}/${paths.creditBalance}'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_credit_balance) {
-    await ctx.redirect(`${paths.backOfficeMountPoint}`);
+    await ctx.redirect(paths.backOfficeMountPoint);
     return next();
   }
 
@@ -237,7 +237,7 @@ router.get(paths.cities, async (ctx, next) => {
   trace(`GET '/${paths.backOfficeMountPoint}/${paths.cities}'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_cities) {
-    await ctx.redirect(`${paths.backOfficeMountPoint}`);
+    await ctx.redirect(paths.backOfficeMountPoint);
     return next();
   }
 
@@ -281,7 +281,7 @@ router.get(paths.requests, async (ctx, next) => {
   trace(`GET '/${paths.backOfficeMountPoint}/${paths.requests}'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_requests) {
-    await ctx.redirect(`${paths.backOfficeMountPoint}`);
+    await ctx.redirect(paths.backOfficeMountPoint);
     return next();
   }
 
@@ -324,7 +324,7 @@ router.get(paths.backOfficeCreateUser, async (ctx, next) => {
   trace(`GET '/${paths.backOfficeMountPoint}/${paths.backOfficeCreateUser}'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_edit_backoffice_users) {
-    await ctx.redirect(`${paths.backOfficeMountPoint}`);
+    await ctx.redirect(paths.backOfficeMountPoint);
     return next();
   }
 
@@ -409,7 +409,7 @@ router.get(paths.roles, async (ctx, next) => {
   trace(`GET '/${paths.backOfficeMountPoint}/${paths.roles}'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_roles) {
-    await ctx.redirect(`${paths.backOfficeMountPoint}`);
+    await ctx.redirect(paths.backOfficeMountPoint);
     return next();
   }
 
@@ -445,7 +445,7 @@ router.get(paths.backOfficeUsers, async (ctx, next) => {
   trace(`GET '/${paths.backOfficeMountPoint}/${paths.backOfficeUsers}'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_backoffice_users) {
-    await ctx.redirect(`${paths.backOfficeMountPoint}`);
+    await ctx.redirect(paths.backOfficeMountPoint);
     return next();
   }
 
@@ -492,7 +492,7 @@ router.post(paths.backOfficeUsers, async (ctx, next) => {
   assert(isObject(ctx.session.permissions), 'No permissions in post /backoffice-users', 193);
 
   if (!ctx.session.permissions.can_edit_backoffice_users) {
-    ctx.redirect(`/${paths.backOfficeMountPoint}/${paths.roles}`);
+    ctx.redirect(`${paths.backOfficeMountPoint}${paths.roles}`);
     return;
   }
 
@@ -516,7 +516,7 @@ router.post(paths.backOfficeUsers, async (ctx, next) => {
   );
 
   ctx.session.msg = `Successfuly updated user's role`;
-  ctx.redirect(`/${paths.backOfficeMountPoint}/${paths.backOfficeUsers}`);
+  ctx.redirect(`${paths.backOfficeMountPoint}${paths.backOfficeUsers}`);
 });
 
 // POST add-role
@@ -535,7 +535,7 @@ router.get(paths.creditTransfers, async (ctx, next) => {
   trace(`GET '/${paths.backOfficeMountPoint}/${paths.creditTransfers}'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_transfers) {
-    await ctx.redirect(`${paths.backOfficeMountPoint}`);
+    await ctx.redirect(paths.backOfficeMountPoint);
     return next();
   }
 
@@ -692,7 +692,7 @@ router.post(paths.roles, async (ctx, next) => {
   assert(isObject(ctx.session.permissions), 'No permissions in post /roles', 183);
 
   if (!ctx.session.permissions.can_change_role_permissions) {
-    ctx.redirect(`/${paths.backOfficeMountPoint}/${paths.roles}`);
+    ctx.redirect(`${paths.backOfficeMountPoint}${paths.roles}`);
     return;
   }
 
@@ -750,7 +750,7 @@ router.post(paths.roles, async (ctx, next) => {
   );
 
   ctx.session.msg = `Successfuly Changed the ${oldRole} Role`;
-  await ctx.redirect(`/${paths.backOfficeMountPoint}/${paths.roles}`);
+  await ctx.redirect(`${paths.backOfficeMountPoint}${paths.roles}`);
 });
 
 // POST admin
@@ -787,7 +787,7 @@ router.post('/', async (ctx, next) => {
   if (isPassCorrect) {
     ctx.session.admin = true;
     ctx.session.username = username;
-    ctx.session.permissions = (await db.sql(`
+    const roles = await db.sql(`
       SELECT * FROM roles AS r
         JOIN backoffice_users_roles AS ur
         ON r.id = ur.role_id
@@ -795,10 +795,29 @@ router.post('/', async (ctx, next) => {
         ON u.id = ur.backoffice_user_id
         WHERE u.username = $1;
       `, username
-    ))[0];
+    );
+
+    ctx.session.permissions = {};
+
+    for (const role of roles) {
+      ctx.session.permissions.id = role.id;
+      ctx.session.permissions.roles = ctx.session.permissions.roles == null ? role.role : `${ctx.session.permissions.roles}, ${role.role}`;
+      if (role.can_see_users) ctx.session.permissions.can_see_users = true;
+      if (role.can_add_credits) ctx.session.permissions.can_add_credits = true;
+      if (role.can_see_transfers) ctx.session.permissions.can_see_transfers = true;
+      if (role.can_see_cities) ctx.session.permissions.can_see_cities = true;
+      if (role.can_see_requests) ctx.session.permissions.can_see_requests = true;
+      if (role.can_see_credit_balance) ctx.session.permissions.can_see_credit_balance = true;
+      if (role.can_see_credits_for_approval) ctx.session.permissions.can_see_credits_for_approval = true;
+      if (role.can_approve_credits) ctx.session.permissions.can_approve_credits = true;
+      if (role.can_see_roles) ctx.session.permissions.can_see_roles = true;
+      if (role.can_change_role_permissions) ctx.session.permissions.can_change_role_permissions = true;
+      if (role.can_see_backoffice_users) ctx.session.permissions.can_see_backoffice_users = true;
+      if (role.can_edit_backoffice_users) ctx.session.permissions.can_edit_backoffice_users = true;
+    }
 
     assert(isObject(ctx.session.permissions), 'Post /admin user has no permissions', 112);
-    return ctx.redirect(`${paths.backOfficeMountPoint}`);
+    return ctx.redirect(paths.backOfficeMountPoint);
   }
 
   await ctx.render('/admin_login', { error: 'Invalid log in information' });
@@ -809,7 +828,7 @@ router.get(paths.approveTransfers, async (ctx, next) => {
   trace(`GET '/${paths.backOfficeMountPoint}/${paths.approveTransfers}'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_credits_for_approval) {
-    await ctx.redirect(`${paths.backOfficeMountPoint}`);
+    await ctx.redirect(paths.backOfficeMountPoint);
     return next();
   }
 
@@ -850,7 +869,7 @@ router.get(paths.backOfficeLogout, async (ctx, next) => {
   trace(`GET '${paths.backOfficeMountPoint}/${paths.backOfficeLogout}'`);
 
   ctx.session = null;
-  await ctx.redirect(`${paths.backOfficeMountPoint}`);
+  await ctx.redirect(paths.backOfficeMountPoint);
 });
 
 app.use(router.routes());

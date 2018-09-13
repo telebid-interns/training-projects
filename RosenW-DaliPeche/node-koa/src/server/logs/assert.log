@@ -15,3 +15,4 @@ Expecting 'ID', got 'INVALID'
 ...ody>    {{> navBar {{username}}}}    {
 ----------------------^
 Expecting 'CLOSE_RAW_BLOCK', 'CLOSE', 'CLOSE_UNESCAPED', 'OPEN_SEXPR', 'CLOSE_SEXPR', 'ID', 'OPEN_BLOCK_PARAMS', 'STRING', 'NUMBER', 'BOOLEAN', 'UNDEFINED', 'NULL', 'DATA', 'SEP', got 'OPEN'
+2018-09-13T14:06:51.012Z:  Error: Post /admin user has no permissions
