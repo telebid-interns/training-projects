@@ -156,7 +156,9 @@ router.get(paths.users, async (ctx, next) => {
     creditsTo,
     dateFrom: dateFrom.toISOString().substr(0, 10),
     dateTo: dateTo.toISOString().substr(0, 10),
-    permissions: ctx.session.permissions
+    permissions: ctx.session.permissions,
+    admin: ctx.session.username,
+    roles: ctx.session.permissions.role
   });
 });
 

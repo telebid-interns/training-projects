@@ -2,29 +2,46 @@
   <head>
     <link rel="stylesheet" type="text/css" href="./../bootstrap.css">
     <link rel="stylesheet" type="text/css" href="./../sidebar.css">
+    <link rel="stylesheet" type="text/css" href="./../navbar.css">
   </head>
    <body>
+    {{> navBar }}
     {{> adminMenu }}
-    <ul id="filters" class="list-group-item col-lg-9">
+    <ul id="filters" class="list-group-item col-lg-9" style="height: 24.8em"> <!-- testing -->
       <form class="inline">
         <br>
-        <label>Username:</label>
-        <input type="text" name="username" class="form-control" value="{{username}}">
-        <label>Date From:</label>
-        <input type="date" name="date-from" class="form-control" value="{{dateFrom}}">
-        <label>Date To:</label>
-        <input type="date" name="date-to" class="form-control" value="{{dateTo}}">
-        <label>Email:</label>
-        <input type="text" name="email" class="form-control" value="{{email}}">
-        <label>Credits From:</label>
-        <input type="text" name="credits-from" class="form-control" value="{{creditsFrom}}">
-        <label>Credits To:</label>
-        <input type="text" name="credits-to" class="form-control" value="{{creditsTo}}">
-        <br>
-        <input type="submit" id="search-btn" value="Search" class='form-control btn-success'>
+        <label class="col-lg-12">Username:</label>
+        <div class="col-lg-12">
+          <input type="text" name="username" class="form-control" value="{{username}}">
+        </div>
+        <label class="col-lg-12">Date From/To:</label>
+        <div class="col-lg-6">
+          <input type="date" name="date-from" class="form-control" value="{{dateFrom}}">
+        </div>
+        <div class="col-lg-6">
+          <input type="date" name="date-to" class="form-control" value="{{dateTo}}">
+        </div>
+          <label class="col-lg-12">Email:</label>
+        <div class="col-lg-12">
+          <input type="text" name="email" class="form-control" value="{{email}}">
+        </div>
+        <label class="col-lg-12">Credits From/To:</label>
+        <div class="col-lg-6">
+          <input type="text" name="credits-from" class="form-control" value="{{creditsFrom}}">
+        </div>
+        <div class="col-lg-6">
+          <input type="text" name="credits-to" class="form-control" value="{{creditsTo}}">
+        </div>
+        <label class="col-lg-12">Actions:</label>
+        <div class="col-lg-6">
+          <input type="submit" id="export-btn" value="Export" class='form-control btn-info'>
+        </div>
+        <div class="col-lg-6">
+          <input type="submit" id="search-btn" value="Search" class='form-control btn-success'>
+        </div>
       </form>
     </ul>
-    <h2 class="col-lg-12 col-md-12 col-sm-12 col-xs-12 text-center">Registered Users</h2>
+    <h3 class="col-lg-12 text-center">Report</h3>
     <table id="users-table" class="table table-hover table-bordered">
       <tr>
         <th>ID</th>
@@ -47,21 +64,11 @@
         </tr>
       {{/each}}
     </table>
-    <nav aria-label="Page navigation example" class="col-lg-offset-5 col-md-offset-5 col-sm-offset-5 col-xs-offset-5">
-      <ul class="pagination">
-        <li class="page-item"><a class="page-link" href="/admin/users?page={{prevPage}}&username={{username}}&date-from={{dateFrom}}&date-to={{dateTo}}&email={{email}}&credits-from={{creditsFrom}}&credits-to={{creditsTo}}">Previous Page</a></li>
-        <li class="page-item"><a class="page-link" href="/admin/users?page={{nextPage}}&username={{username}}&date-from={{dateFrom}}&date-to={{dateTo}}&email={{email}}&credits-from={{creditsFrom}}&credits-to={{creditsTo}}">Next Page</a></li>
-      </ul>
-    </nav>
   </body>
 </html>
 
 <script type="text/javascript">
-  filterHeight = document.getElementById('filters').offsetHeight; // reverse ?
-  document.getElementById('menu').setAttribute('style', `height: ${filterHeight}px`);
-
-  
-
+  document.getElementById('menu-users').setAttribute('class', 'selected');
   async function addCredits (username) {
     const credits = prompt(`add credits to user ${username}`);
     if (!Number(credits)) return;

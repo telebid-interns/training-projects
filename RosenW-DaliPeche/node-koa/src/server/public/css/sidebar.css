@@ -26,7 +26,11 @@ a span {
 }
 
 a:hover {
-  background-color: #e0e0e0;
+  background-color: #c0c0c0;
+}
+
+.selected {
+  background-color: #c0c0c0;
 }
 
 .dropdown:hover {
@@ -35,7 +39,7 @@ a:hover {
 }
 
 .dropdown a {
-  display: none
+  display: block
 }
 
 .dropdown label {
@@ -53,13 +57,14 @@ input[type=checkbox] {
 }
 
 #side-bar input[type=checkbox]:checked + label label + label:before {
-  content: '▼ ';
+  content: '◀ ';
 }
 
 #side-bar input[type=checkbox]:checked + label a {
-  display: block;
+  display: none;
 }
 
 #side-bar label label + label:before {
-  content: '◀ ';
+  content: '▼ ';
 }
+

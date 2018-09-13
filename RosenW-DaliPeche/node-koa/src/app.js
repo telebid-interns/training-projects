@@ -17,6 +17,7 @@ const app = new Koa();
 
 app.use(serve(`${__dirname}/server/public/css`));
 app.use(serve(`${__dirname}/server/public/js`));
+app.use(serve(`${__dirname}/server/public/png`));
 
 app.use(views(`${__dirname}/server/views`, {
   extension: 'hbs',
@@ -25,6 +26,7 @@ app.use(views(`${__dirname}/server/views`, {
     partials: {
       adminForm: `./admin_form`, // requires ./admin_form.hbs
       adminMenu: `./admin_menu`,
+      navBar: `./admin_nav_bar`,
     },
   },
 }));
