@@ -774,51 +774,55 @@ router.post('/', async (ctx, next) => {
       WHERE u.username = $1;
     `, username
   ))[0];
-  assert(isObject(user), 'Post /admin user not found', 111);
 
   if (user == null) {
     await ctx.render('admin_login', { error: 'Invalid log in information' });
     return next();
   }
 
+  assert(isObject(user), 'Post /admin user not found', 111);
+
   const saltedPassword = password + user.salt;
   const isPassCorrect = await bcrypt.compare(saltedPassword, user.password);
 
-  if (isPassCorrect) {
-    ctx.session.admin = true;
-    ctx.session.username = username;
-    const roles = await db.sql(`
-      SELECT * FROM roles AS r
-        JOIN backoffice_users_roles AS ur
-        ON r.id = ur.role_id
-        JOIN backoffice_users AS u
-        ON u.id = ur.backoffice_user_id
-        WHERE u.username = $1;
-      `, username
-    );
-
-    ctx.session.permissions = {};
-
-    for (const role of roles) {
-      ctx.session.permissions.id = role.id;
-      ctx.session.permissions.roles = ctx.session.permissions.roles == null ? role.role : `${ctx.session.permissions.roles}, ${role.role}`;
-      if (role.can_see_users) ctx.session.permissions.can_see_users = true;
-      if (role.can_add_credits) ctx.session.permissions.can_add_credits = true;
-      if (role.can_see_transfers) ctx.session.permissions.can_see_transfers = true;
-      if (role.can_see_cities) ctx.session.permissions.can_see_cities = true;
-      if (role.can_see_requests) ctx.session.permissions.can_see_requests = true;
-      if (role.can_see_credit_balance) ctx.session.permissions.can_see_credit_balance = true;
-      if (role.can_see_credits_for_approval) ctx.session.permissions.can_see_credits_for_approval = true;
-      if (role.can_approve_credits) ctx.session.permissions.can_approve_credits = true;
-      if (role.can_see_roles) ctx.session.permissions.can_see_roles = true;
-      if (role.can_change_role_permissions) ctx.session.permissions.can_change_role_permissions = true;
-      if (role.can_see_backoffice_users) ctx.session.permissions.can_see_backoffice_users = true;
-      if (role.can_edit_backoffice_users) ctx.session.permissions.can_edit_backoffice_users = true;
-    }
-
-    assert(isObject(ctx.session.permissions), 'Post /admin user has no permissions', 112);
-    return ctx.redirect(paths.backOfficeMountPoint);
+  if (!isPassCorrect) {
+    await ctx.render('admin_login', { error: 'No user registered with given username' });
+    return next();
   }
+
+  ctx.session.admin = true;
+  ctx.session.username = username;
+  const roles = await db.sql(`
+    SELECT * FROM roles AS r
+      JOIN backoffice_users_roles AS ur
+      ON r.id = ur.role_id
+      JOIN backoffice_users AS u
+      ON u.id = ur.backoffice_user_id
+      WHERE u.username = $1;
+    `, username
+  );
+
+  ctx.session.permissions = {};
+
+  for (const role of roles) {
+    ctx.session.permissions.id = role.id;
+    ctx.session.permissions.roles = ctx.session.permissions.roles == null ? role.role : `${ctx.session.permissions.roles}, ${role.role}`;
+    if (role.can_see_users) ctx.session.permissions.can_see_users = true;
+    if (role.can_add_credits) ctx.session.permissions.can_add_credits = true;
+    if (role.can_see_transfers) ctx.session.permissions.can_see_transfers = true;
+    if (role.can_see_cities) ctx.session.permissions.can_see_cities = true;
+    if (role.can_see_requests) ctx.session.permissions.can_see_requests = true;
+    if (role.can_see_credit_balance) ctx.session.permissions.can_see_credit_balance = true;
+    if (role.can_see_credits_for_approval) ctx.session.permissions.can_see_credits_for_approval = true;
+    if (role.can_approve_credits) ctx.session.permissions.can_approve_credits = true;
+    if (role.can_see_roles) ctx.session.permissions.can_see_roles = true;
+    if (role.can_change_role_permissions) ctx.session.permissions.can_change_role_permissions = true;
+    if (role.can_see_backoffice_users) ctx.session.permissions.can_see_backoffice_users = true;
+    if (role.can_edit_backoffice_users) ctx.session.permissions.can_edit_backoffice_users = true;
+  }
+
+  assert(isObject(ctx.session.permissions), 'Post /admin user has no permissions', 112);
+  return ctx.redirect(paths.backOfficeMountPoint);
 
   await ctx.render('/admin_login', { error: 'Invalid log in information' });
 });

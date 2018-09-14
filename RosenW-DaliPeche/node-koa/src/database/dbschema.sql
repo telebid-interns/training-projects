@@ -16,6 +16,12 @@ CREATE TABLE cities (
   observed_at timestamp
 );
 
+CREATE TABLE countries (
+  id serial PRIMARY KEY,
+  name text NOT NULL unique,
+  country_code text NOT NULL unique
+);
+
 CREATE TABLE weather_conditions (
   id serial PRIMARY KEY,
   city_id integer NOT NULL REFERENCES cities(id),

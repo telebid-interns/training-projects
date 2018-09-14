@@ -16,3 +16,8 @@ Expecting 'ID', got 'INVALID'
 ----------------------^
 Expecting 'CLOSE_RAW_BLOCK', 'CLOSE', 'CLOSE_UNESCAPED', 'OPEN_SEXPR', 'CLOSE_SEXPR', 'ID', 'OPEN_BLOCK_PARAMS', 'STRING', 'NUMBER', 'BOOLEAN', 'UNDEFINED', 'NULL', 'DATA', 'SEP', got 'OPEN'
 2018-09-13T14:06:51.012Z:  Error: Post /admin user has no permissions
+2018-09-14T12:09:44.716Z:  Error: Post /admin user not found
+2018-09-14T12:11:03.088Z:  Error: Post /admin user not found
+2018-09-14T12:13:21.005Z:  Error: ENOENT: no such file or directory, open '/admin_form.hbs'
+2018-09-14T12:14:09.481Z:  Error: Post /admin user not found
+2018-09-14T12:22:09.726Z:  Error: ENOENT: no such file or directory, open '/admin_form.hbs'
