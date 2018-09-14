@@ -1,31 +1,49 @@
 <html lang="en">
   <head>
     <link rel="stylesheet" type="text/css" href="./../bootstrap.css">
+    <link rel="stylesheet" type="text/css" href="./../sidebar.css">
+    <link rel="stylesheet" type="text/css" href="./../navbar.css">
   </head>
    <body>
-    <ul class="list-group-item col-lg-offset-4 col-md-offset-4 col-sm-offset-4 col-xs-offset-4 col-lg-4 col-md-4 col-sm-4 col-xs-4">
+    {{> navBar }}
+    {{> adminMenu }}
+    <ul class="list-group-item col-lg-9">
       <form class="inline">
-        {{> adminForm }}
-        <br>
-        <label>Username:</label>
-        <input type="text" name="username" class="form-control" value="{{username}}">
-        <label>Date From:</label>
-        <input type="date" name="date-from" class="form-control" value="{{dateFrom}}">
-        <label>Date To:</label>
-        <input type="date" name="date-to" class="form-control" value="{{dateTo}}">
-        <label>Event:</label>
-        <select id="select-event" name="event" class="form-control">
-          <option value="">All</option>
-          <option value="Successful Request">Successful Request</option>
-          <option value="Failed Request">Failed Request</option>
-          <option value="Credit Purchase">Credit Purchase</option>
-          <option value="Credits given by admin">Credits given by admin</option>
-        </select>
-        <br>
-        <input type="submit" id="search-btn" value="Search" class='btn btn-default pull-right'>
+        <div style="height: 20.8em"> <!-- testing -->
+          <br>
+          <label class="col-lg-12">Username:</label>
+          <div class="col-lg-12">
+            <input type="text" name="username" class="form-control" value="{{username}}">
+          </div>
+          <label class="col-lg-12">Date From/To:</label>
+          <div class="col-lg-6">
+            <input type="date" name="date-from" class="form-control" value="{{dateFrom}}">
+          </div>
+          <div class="col-lg-6">
+            <input type="date" name="date-to" class="form-control" value="{{dateTo}}">
+          </div>
+          <label class="col-lg-12">Event:</label>
+          <div class="col-lg-12">
+            <select id="select-event" name="event" class="form-control">
+              <option value="">All</option>
+              <option value="Successful Request">Successful Request</option>
+              <option value="Failed Request">Failed Request</option>
+              <option value="Credit Purchase">Credit Purchase</option>
+              <option value="Credits given by admin">Credits given by admin</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <div class="col-lg-6" style="">
+            <input type="submit" id="export-btn" value="Export" class='form-control btn-info'>
+          </div>
+          <div class="col-lg-6">
+            <input type="submit" id="search-btn" value="Search" class='form-control btn-success'>
+          </div>
+        </div>
       </form>
     </ul>
-    <h2 class="col-lg-12 col-md-12 col-sm-12 col-xs-12 text-center">Credit Transfers</h2>
+    <h2 class="col-lg-12 col-md-12 col-sm-12 col-xs-12 text-center">Report</h2>
     <table id="users-table" class="table table-hover table-bordered">
       <tr>
         <th>ID</th>
@@ -64,6 +82,6 @@
 </html>
 
 <script type="text/javascript">
-  document.getElementById('select-ctransfers').setAttribute('selected', 'selected');
+  document.getElementById('menu-ctransfers').setAttribute('class', 'selected');
   document.getElementById('select-event').value = '{{event}}';
 </script>

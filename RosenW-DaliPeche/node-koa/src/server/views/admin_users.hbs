@@ -7,37 +7,40 @@
    <body>
     {{> navBar }}
     {{> adminMenu }}
-    <ul id="filters" class="list-group-item col-lg-9" style="height: 24.8em"> <!-- testing -->
+    <ul class="list-group-item col-lg-9">
       <form class="inline">
-        <br>
-        <label class="col-lg-12">Username:</label>
-        <div class="col-lg-12">
-          <input type="text" name="username" class="form-control" value="{{username}}">
+        <div style="height: 20.8em"> <!-- testing -->
+          <br>
+          <label class="col-lg-12">Username:</label>
+          <div class="col-lg-12">
+            <input type="text" name="username" class="form-control" value="{{username}}">
+          </div>
+          <label class="col-lg-12">Date From/To:</label>
+          <div class="col-lg-6">
+            <input type="date" name="date-from" class="form-control" value="{{dateFrom}}">
+          </div>
+          <div class="col-lg-6">
+            <input type="date" name="date-to" class="form-control" value="{{dateTo}}">
+          </div>
+            <label class="col-lg-12">Email:</label>
+          <div class="col-lg-12">
+            <input type="text" name="email" class="form-control" value="{{email}}">
+          </div>
+          <label class="col-lg-12">Credits From/To:</label>
+          <div class="col-lg-6">
+            <input type="text" name="credits-from" class="form-control" value="{{creditsFrom}}">
+          </div>
+          <div class="col-lg-6">
+            <input type="text" name="credits-to" class="form-control" value="{{creditsTo}}">
+          </div>
         </div>
-        <label class="col-lg-12">Date From/To:</label>
-        <div class="col-lg-6">
-          <input type="date" name="date-from" class="form-control" value="{{dateFrom}}">
-        </div>
-        <div class="col-lg-6">
-          <input type="date" name="date-to" class="form-control" value="{{dateTo}}">
-        </div>
-          <label class="col-lg-12">Email:</label>
-        <div class="col-lg-12">
-          <input type="text" name="email" class="form-control" value="{{email}}">
-        </div>
-        <label class="col-lg-12">Credits From/To:</label>
-        <div class="col-lg-6">
-          <input type="text" name="credits-from" class="form-control" value="{{creditsFrom}}">
-        </div>
-        <div class="col-lg-6">
-          <input type="text" name="credits-to" class="form-control" value="{{creditsTo}}">
-        </div>
-        <label class="col-lg-12">Actions:</label>
-        <div class="col-lg-6">
-          <input type="submit" id="export-btn" value="Export" class='form-control btn-info'>
-        </div>
-        <div class="col-lg-6">
-          <input type="submit" id="search-btn" value="Search" class='form-control btn-success'>
+        <div>
+          <div class="col-lg-6">
+            <input type="submit" id="export-btn" value="Export" class='form-control btn-info'>
+          </div>
+          <div class="col-lg-6">
+            <input type="submit" id="search-btn" value="Search" class='form-control btn-success'>
+          </div>
         </div>
       </form>
     </ul>
