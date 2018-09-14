@@ -250,10 +250,13 @@ router.get(paths.cities, async (ctx, next) => {
   const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
 
   const cities = (await db.sql(`
-    SELECT * FROM cities
+    SELECT c.*, ctr.name as country
+    FROM cities as c
+    JOIN countries as ctr
+      ON c.country_code = ctr.country_code
     WHERE
-      UNACCENT(LOWER(name)) LIKE LOWER($1)
-      AND LOWER(country_code) LIKE LOWER($2)
+      UNACCENT(LOWER(c.name)) LIKE LOWER($1)
+      AND LOWER(ctr.name) LIKE LOWER($2)
     ORDER BY id
     OFFSET $3
     LIMIT $4`,

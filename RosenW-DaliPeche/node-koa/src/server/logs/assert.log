@@ -21,3 +21,7 @@ Expecting 'CLOSE_RAW_BLOCK', 'CLOSE', 'CLOSE_UNESCAPED', 'OPEN_SEXPR', 'CLOSE_SE
 2018-09-14T12:13:21.005Z:  Error: ENOENT: no such file or directory, open '/admin_form.hbs'
 2018-09-14T12:14:09.481Z:  Error: Post /admin user not found
 2018-09-14T12:22:09.726Z:  Error: ENOENT: no such file or directory, open '/admin_form.hbs'
+2018-09-14T13:03:19.584Z:  Error: Error while querying: error: permission denied for relation countries
+2018-09-14T13:04:24.237Z:  Error: Error while querying: error: permission denied for sequence countries_id_seq
+2018-09-14T14:10:17.036Z:  Error: Error while querying: error: column reference "name" is ambiguous
+2018-09-14T14:11:29.676Z:  Error: Error while querying: error: column ctr.country does not exist
