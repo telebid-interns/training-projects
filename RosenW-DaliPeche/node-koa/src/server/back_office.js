@@ -138,7 +138,7 @@ router.get(paths.users, async (ctx, next) => {
   0 + (ROWS_PER_PAGE * page),
   ROWS_PER_PAGE
   )).map((u) => {
-    u.date_registered = u.date_registered.toISOString();
+    u.date_registered = u.date_registered.toISOString().replace('T', ' ').slice(0, -5);
     return u;
   });
 
@@ -265,7 +265,7 @@ router.get(paths.cities, async (ctx, next) => {
   0 + (ROWS_PER_PAGE * page),
   ROWS_PER_PAGE
   )).map((c) => {
-    if (c.observed_at != null) c.observed_at = c.observed_at.toISOString();
+    if (c.observed_at != null) c.observed_at = c.observed_at.toISOString().replace('T', ' ').slice(0, -5);
     return c;
   }).sort((c1, c2) => c1.id - c2.id);
 
@@ -582,7 +582,7 @@ router.get(paths.creditTransfers, async (ctx, next) => {
   0 + (ROWS_PER_PAGE * page),
   ROWS_PER_PAGE
   )).map((t) => {
-    t.transfer_date = t.transfer_date.toISOString();
+    t.transfer_date = t.transfer_date.toISOString().replace('T', ' ').slice(0, -5);
     return t;
   });
 
