@@ -229,6 +229,8 @@ router.get(paths.creditBalance, async (ctx, next) => {
     prevPage: page - 1,
     nextPage: page + 1,
     username,
+    admin: ctx.session.username,
+    roles: ctx.session.permissions.roles
   });
 });
 
@@ -276,6 +278,8 @@ router.get(paths.cities, async (ctx, next) => {
     nextPage: page + 1,
     name,
     countryCode,
+    admin: ctx.session.username,
+    roles: ctx.session.permissions.roles
   });
 });
 
@@ -319,6 +323,8 @@ router.get(paths.requests, async (ctx, next) => {
     prevPage: page - 1,
     nextPage: page + 1,
     term,
+    admin: ctx.session.username,
+    roles: ctx.session.permissions.roles
   });
 });
 
@@ -615,7 +621,9 @@ router.get(paths.creditTransfers, async (ctx, next) => {
     event,
     dateFrom: dateFrom.toISOString().substr(0, 10),
     dateTo: dateTo.toISOString().substr(0, 10),
-    total
+    total,
+    admin: ctx.session.username,
+    roles: ctx.session.permissions.roles
   });
 });
 
