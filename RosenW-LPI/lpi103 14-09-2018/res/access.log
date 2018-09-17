@@ -679,7 +679,6 @@ www.telebid-pro.com:80 104.154.198.228 - - [14/Sep/2018:11:50:35 +0300] "GET /?f
 hackschool.dmaster.org:80 146.148.67.171 - - [14/Sep/2018:11:51:24 +0300] "GET /?feed=rss2 HTTP/1.1" 200 169 44492 "-" "Java/1.8.0_121" - 203657 - 8237
 www.pro-code.net:80 159.65.34.236 - - [14/Sep/2018:11:52:05 +0300] "GET / HTTP/1.1" 200 401 5093 "http://pro-code.net" "Mozilla/5.0 (X11; Datanyze; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.181 Safari/537.36" - 170707 - 17552
 www.pro-code.net:80 78.128.6.29 - - [14/Sep/2018:11:52:06 +0300] "POST /wp-cron.php?doing_wp_cron=1536915125.9883959293365478515625 HTTP/1.0" 200 225 150 "-" "WordPress/4.1; http://pro-code.net" - 2740695 - 5147
-www.telebid-pro.com:80 104.154.198.228 - - [14/Sep/2018:11:52:47 +0300] "GET /?fee72.54.160.198 - - [14/Sep/2018:11:56:57 +0300] "GET / HTTP/1.0" 403 18 373 "-" "-" - 202 - 5147
 d=rss2 HTTP/1.1" 200 165 1123 "-" "Java/1.8.0_121" - 74820 - 15909
 www.telebid-pro.com:80 104.197.197.203 - - [14/Sep/2018:11:54:30 +0300] "GET /?feed=rss2 HTTP/1.1" 200 169 1135 "-" "Java/1.8.0_121" - 83952 - 15910
 hackschool.dmaster.org:80 146.148.67.171 - - [14/Sep/2018:11:56:33 +0300] "GET /?feed=rss2 HTTP/1.1" 200 169 44492 "-" "Java/1.8.0_121" - 196736 - 8237
