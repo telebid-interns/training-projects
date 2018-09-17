@@ -1,0 +1,1 @@
+cat ../res/access.log | grep -Po '"-" "([^\s"-]+)' | cut -c6- | sort -n | uniq -c | sort -nr
