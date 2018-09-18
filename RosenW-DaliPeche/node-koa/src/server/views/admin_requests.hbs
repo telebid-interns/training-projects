@@ -3,6 +3,7 @@
     <link rel="stylesheet" type="text/css" href="./../bootstrap.css">
     <link rel="stylesheet" type="text/css" href="./../sidebar.css">
     <link rel="stylesheet" type="text/css" href="./../navbar.css">
+    <script type="text/javascript" src="./../utils.js"></script>
   </head>
    <body>
     {{> navBar }}
@@ -13,12 +14,12 @@
           <br>
           <label class="col-lg-12">IATA Code / City:</label>
           <div class="col-lg-12">
-            <input type="text" name="term" class="form-control" value="{{username}}">
+            <input type="text" name="term" class="form-control" value="{{term}}">
           </div>
         </div>
         <div>
           <div class="col-lg-6">
-            <input type="submit" id="export-btn" value="Export" class='form-control btn-info'>
+            <button id="export-btn" class='form-control btn-info' onclick="exportToExcel(event, 'request-table', 'requests', ['Term'], ['{{term}}'])">Export</button>
           </div>
           <div class="col-lg-6">
             <input type="submit" id="search-btn" value="Search" class='form-control btn-success'>
@@ -27,7 +28,7 @@
       </form>
     </ul>
     <h2 class="col-lg-12 col-md-12 col-sm-12 col-xs-12 text-center">Report</h2>
-    <table id="users-table" class="table table-hover table-bordered">
+    <table id="request-table" class="table table-hover table-bordered">
       <tr>
         <th>Request</th>
         <th>Type</th>
@@ -41,12 +42,6 @@
         </tr>
       {{/each}}
     </table>
-    <nav aria-label="Page navigation example" class="col-lg-offset-5 col-md-offset-5 col-sm-offset-5 col-xs-offset-5">
-      <ul class="pagination">
-        <li class="page-item"><a class="page-link" href="/admin/requests?page={{prevPage}}&term={{term}}">Previous Page</a></li>
-        <li class="page-item"><a class="page-link" href="/admin/requests?page={{nextPage}}&term={{term}}">Next Page</a></li>
-      </ul>
-    </nav>
   </body>
 </html>
 

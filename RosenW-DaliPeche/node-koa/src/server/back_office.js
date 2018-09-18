@@ -244,10 +244,10 @@ router.get(paths.cities, async (ctx, next) => {
   }
 
   const name = ctx.query.name == null ? '' : ctx.query.name;
-  const countryCode = ctx.query['country-code'] == null ? '' : ctx.query['country-code'];
+  const country = ctx.query['country'] == null ? '' : ctx.query['country'];
 
   assert(typeof name === 'string', `in 'admin/cities' name expected to be string, actual: ${name}`, 141);
-  assert(typeof countryCode === 'string', `in 'admin/cities' country-code expected to be string, actual: ${countryCode}`, 142);
+  assert(typeof country === 'string', `in 'admin/cities' country expected to be string, actual: ${country}`, 142);
 
   const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
 
@@ -263,7 +263,7 @@ router.get(paths.cities, async (ctx, next) => {
     OFFSET $3
     LIMIT $4`,
   `%${name}%`,
-  `%${countryCode}%`,
+  `%${country}%`,
   0 + (ROWS_PER_PAGE * page),
   ROWS_PER_PAGE
   )).map((c) => {
@@ -277,7 +277,7 @@ router.get(paths.cities, async (ctx, next) => {
     prevPage: page - 1,
     nextPage: page + 1,
     name,
-    countryCode,
+    country,
     admin: ctx.session.username,
     roles: ctx.session.permissions.roles
   });

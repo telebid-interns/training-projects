@@ -3,6 +3,7 @@
     <link rel="stylesheet" type="text/css" href="./../bootstrap.css">
     <link rel="stylesheet" type="text/css" href="./../sidebar.css">
     <link rel="stylesheet" type="text/css" href="./../navbar.css">
+    <script type="text/javascript" src="./../utils.js"></script>
   </head>
    <body>
     {{> navBar }}
@@ -36,7 +37,7 @@
         </div>
         <div>
           <div class="col-lg-6">
-            <button id="export-btn" class='form-control btn-info' onclick="exportToExcel(event)">Export</button>
+            <button id="export-btn" class='form-control btn-info' onclick="exportToExcel(event, 'users-table', 'users', ['Username', 'Date From/To', 'Email', 'Credits From/To'], ['{{username}}', '{{dateFrom}} - {{dateTo}}', '{{email}}', '{{creditsFrom}} - {{creditsTo}}'])">Export</button>
           </div>
           <div class="col-lg-6">
             <input type="submit" id="search-btn" value="Search" class='form-control btn-success'>
@@ -72,75 +73,6 @@
 
 <script type="text/javascript">
   document.getElementById('menu-users').setAttribute('class', 'selected');
-  function exportToExcel (event) {
-    event.preventDefault();
-    let htmls = "";
-    const uri = 'data:application/vnd.ms-excel;base64,';
-    const template = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>{worksheet}</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body><table>{table}</table></body></html>';
-
-    const base64 = function(s) {
-        return window.btoa(unescape(encodeURIComponent(s)))
-    };
-
-    const format = function(s, c) {
-        return s.replace(/{(\w+)}/g, (m, p) => {
-            return c[p];
-        })
-    };
-
-    const filterTable = document.createElement('table');
-
-    const filterNameTH = document.createElement('th');
-    filterNameTH.innerHTML = 'Filter';
-
-    const filterValueTH = document.createElement('th');
-    filterValueTH.innerHTML = 'Value';
-
-    const filterNames = ['Username', 'Date From/To', 'Email', 'Credits From/To'];
-
-    for (const filter of filterNames) {
-      row =  document.createElement('');
-    }
-
-    // const usernameTD = document.createElement('td');
-    // usernameTD.innerHTML = 'Username';
-
-    // const dateTD = document.createElement('td');
-    // dateTD.innerHTML = 'Date From/To';
-
-    // const emailTD = document.createElement('td');
-    // emailTD.innerHTML = 'Email';
-
-    // const creditsTD = document.createElement('td');
-    // creditsTD.innerHTML = 'Credits From/To';
-
-    // const usernameValueTD = document.createElement('td');
-    // usernameValueTD.innerHTML = '{{username}}';
-
-    // const dateValueTD = document.createElement('td');
-    // dateValueTD.innerHTML = '{{dateFrom}} - {{dateTo}}';
-
-    // const emailValueTD = document.createElement('td');
-    // emailValueTD.innerHTML = '{{email}}';
-
-    // const creditsValueTD = document.createElement('td');
-    // creditsValueTD.innerHTML = '{{credits}}';
-
-    // filterTable.appendChild(filterNameTH);
-    // filterTable.appendChild(filterValueTH);
-
-    htmls = document.getElementById('users-table').innerHTML;
-
-    const ctx = {
-        worksheet : 'Worksheet',
-        table : htmls
-    }
-
-    const link = document.createElement("a");
-    link.download = "export.xls";
-    link.href = uri + base64(format(template, ctx));
-    link.click();
-  }
 
   async function addCredits (username) {
     const credits = prompt(`add credits to user ${username}`);
