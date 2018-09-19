@@ -89,7 +89,7 @@ router.get('/', async (ctx, next) => {
     return next();
   }
 
-  await ctx.render('admin');
+  await ctx.redirect('/admin/users');
 });
 
 // GET users
@@ -158,7 +158,7 @@ router.get(paths.users, async (ctx, next) => {
     dateTo: dateTo.toISOString().substr(0, 10),
     permissions: ctx.session.permissions,
     admin: ctx.session.username,
-    roles: ctx.session.permissions.roles
+    userRoles: ctx.session.permissions.roles
   });
 });
 
@@ -230,7 +230,7 @@ router.get(paths.creditBalance, async (ctx, next) => {
     nextPage: page + 1,
     username,
     admin: ctx.session.username,
-    roles: ctx.session.permissions.roles
+    userRoles: ctx.session.permissions.roles
   });
 });
 
@@ -279,7 +279,7 @@ router.get(paths.cities, async (ctx, next) => {
     name,
     country,
     admin: ctx.session.username,
-    roles: ctx.session.permissions.roles
+    userRoles: ctx.session.permissions.roles
   });
 });
 
@@ -324,7 +324,7 @@ router.get(paths.requests, async (ctx, next) => {
     nextPage: page + 1,
     term,
     admin: ctx.session.username,
-    roles: ctx.session.permissions.roles
+    userRoles: ctx.session.permissions.roles
   });
 });
 
@@ -458,7 +458,7 @@ router.get(paths.backOfficeUsers, async (ctx, next) => {
     return next();
   }
 
-  const term = ctx.query.term == null ? '' : ctx.query.term;
+  const username = ctx.query.username == null ? '' : ctx.query.username;
   const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
 
   const roles = await db.sql(`SELECT id, role FROM roles ORDER BY id`);
@@ -475,7 +475,7 @@ router.get(paths.backOfficeUsers, async (ctx, next) => {
     ORDER BY bu.id
     OFFSET $2
     LIMIT $3`,
-  `%${term}%`,
+  `%${username}%`,
   0 + (ROWS_PER_PAGE * page),
   ROWS_PER_PAGE
   )).sort((c1, c2) => c2.call_count - c1.call_count);
@@ -489,9 +489,11 @@ router.get(paths.backOfficeUsers, async (ctx, next) => {
     page,
     prevPage: page - 1,
     nextPage: page + 1,
-    term,
+    username,
     permissions: ctx.session.permissions,
-    msg
+    msg,
+    admin: ctx.session.username,
+    userRoles: ctx.session.permissions.roles
   });
 });
 
@@ -506,26 +508,63 @@ router.post(paths.backOfficeUsers, async (ctx, next) => {
   }
 
   assert(isObject(ctx.request.body), 'Post /backoffice-users has no body', 194);
+  assert(typeof ctx.request.body.username === 'string' , 'Post /backoffice-users has no username', 195);
 
-  const roleId = ctx.request.body['select-role'];
-  const userId = ctx.request.body.id;
+  const user = (await db.sql(`
+    SELECT * FROM backoffice_users
+      WHERE username = $1
+    `,
+  ctx.request.body.username
+  ))[0];
 
-  assert(typeof roleId === 'string', 'Post /backoffice-users body has no roleId', 195);
-  assert(typeof userId === 'string', 'Post /backoffice-users has no userId', 196);
+  assert(typeof user.id === 'number' , 'Username in /backoffice-users has no id', 196);
 
-  await db.sql(`
-    UPDATE backoffice_users_roles
-      SET
-        role_id = $1
-      WHERE
-        backoffice_user_id = $2
-  `,
-  roleId,
-  userId
-  );
+  await db.sql(`DELETE FROM backoffice_users_roles WHERE backoffice_user_id = $1`, user.id);
+
+  const rolesArr = [];
+  for (const role of Object.keys(ctx.request.body)) {
+    if (role === 'username') continue;
+
+    const roleId = (await db.sql(`select * from roles where role = $1`, role))[0].id;
+    rolesArr.push(roleId);
+  }
+
+  for (const roleId of rolesArr) {
+    await db.sql(`
+      INSERT INTO backoffice_users_roles (backoffice_user_id, role_id)
+        VALUES ($1, $2)`,
+    user.id,
+    roleId
+    )
+  }
 
   ctx.session.msg = `Successfuly updated user's role`;
   ctx.redirect(`${paths.backOfficeMountPoint}${paths.backOfficeUsers}`);
+});
+
+// POST get-user-roles
+router.post('/get-user-roles', async (ctx, next) => {
+  if (!ctx.session.permissions.can_edit_backoffice_users) {
+    ctx.body = {err: `You don't have permission for this action`}
+    return;
+  }
+
+  const username = ctx.request.body.username;
+
+  assert(typeof username === 'string', 'Post /get-user-roles has no username', 1222);
+
+  const roles = await db.sql(`
+    SELECT r.role FROM backoffice_users AS bu
+    JOIN backoffice_users_roles AS bur
+      ON bu.id = bur.backoffice_user_id
+    JOIN roles AS r
+      ON r.id = bur.role_id
+    WHERE bu.username = $1
+  `,
+  username
+  );
+
+  ctx.body = { roles };
 });
 
 // POST add-role
@@ -623,7 +662,7 @@ router.get(paths.creditTransfers, async (ctx, next) => {
     dateTo: dateTo.toISOString().substr(0, 10),
     total,
     admin: ctx.session.username,
-    roles: ctx.session.permissions.roles
+    userRoles: ctx.session.permissions.roles
   });
 });
 

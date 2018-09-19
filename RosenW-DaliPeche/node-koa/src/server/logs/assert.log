@@ -25,3 +25,13 @@ Expecting 'CLOSE_RAW_BLOCK', 'CLOSE', 'CLOSE_UNESCAPED', 'OPEN_SEXPR', 'CLOSE_SE
 2018-09-14T13:04:24.237Z:  Error: Error while querying: error: permission denied for sequence countries_id_seq
 2018-09-14T14:10:17.036Z:  Error: Error while querying: error: column reference "name" is ambiguous
 2018-09-14T14:11:29.676Z:  Error: Error while querying: error: column ctr.country does not exist
+2018-09-19T11:49:41.061Z:  Error: Error while querying: error: duplicate key value violates unique constraint "backoffice_users_roles_pkey"
+2018-09-19T11:59:33.485Z:  Error: Error while querying: error: duplicate key value violates unique constraint "backoffice_users_roles_pkey"
+2018-09-19T14:58:05.181Z:  Error: Post /backoffice-users body has no role id
+2018-09-19T15:24:28.104Z:  Error: Error while querying: error: bind message supplies 1 parameters, but prepared statement "" requires 0
+2018-09-19T16:16:16.429Z:  Error: Post /backoffice-users has no username
+2018-09-19T16:16:50.939Z:  Error: Post /backoffice-users has no username
+2018-09-19T16:18:11.449Z:  Error: Error while querying: error: operator does not exist: text = integer
+2018-09-19T16:28:23.069Z:  Error: Username in /backoffice-users has no id
+2018-09-19T16:29:16.879Z:  Error: Username in /backoffice-users has no id
+2018-09-19T16:36:03.828Z:  Error: Error while querying: error: duplicate key value violates unique constraint "backoffice_users_roles_pkey"
