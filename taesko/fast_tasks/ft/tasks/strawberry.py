@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 import argparse
+import sys
+
 from ft.colorize import Colors, box_lines
 
 
@@ -67,6 +69,13 @@ def parse_input(string):
     rows, columns, days = list(map(int, next(lines).split()))
     garden = [[False] * columns] * rows
     garden = Berry.from_bitmap(garden)
+
+    if not (0 < rows <= columns <= 1000):
+        print('Wrong K and L inputs. Both values must be between 0 and 1000. Exiting...')
+        sys.exit(1)
+    if not (0 < days <= 100):
+        print('Wrong R input. Value must be between 0 and 100. Exiting...')
+        sys.exit(1)
 
     print("Garden dimensions: ", rows, columns)
 
