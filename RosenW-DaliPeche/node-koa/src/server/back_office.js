@@ -245,11 +245,17 @@ router.get(paths.cities, async (ctx, next) => {
 
   const name = ctx.query.name == null ? '' : ctx.query.name;
   const country = ctx.query['country'] == null ? '' : ctx.query['country'];
+  const dateFrom = ctx.query['date-from'] == null || isNaN(new Date(ctx.query['date-from'])) ? new Date('1970-01-01') : new Date(ctx.query['date-from']);
+  const dateTo = ctx.query['date-to'] == null || isNaN(new Date(ctx.query['date-to'])) ? new Date() : new Date(ctx.query['date-to']);
 
+  assert(isObject(dateFrom), `in 'admin/cities' dateFrom expected to be object. actual: ${dateFrom}`, 1442);
+  assert(isObject(dateTo), `in 'admin/cities' dateTo expected to be object. actual: ${dateTo}`, 1443);
   assert(typeof name === 'string', `in 'admin/cities' name expected to be string, actual: ${name}`, 141);
   assert(typeof country === 'string', `in 'admin/cities' country expected to be string, actual: ${country}`, 142);
 
   const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
+
+  dateTo.setDate(dateTo.getDate() + 1); // include chosen day
 
   const cities = (await db.sql(`
     SELECT c.*, ctr.name as country
@@ -259,11 +265,14 @@ router.get(paths.cities, async (ctx, next) => {
     WHERE
       UNACCENT(LOWER(c.name)) LIKE LOWER($1)
       AND LOWER(ctr.name) LIKE LOWER($2)
+      AND (c.observed_at BETWEEN $3 AND $4)
     ORDER BY id
-    OFFSET $3
-    LIMIT $4`,
+    OFFSET $5
+    LIMIT $6`,
   `%${name}%`,
   `%${country}%`,
+  dateFrom,
+  dateTo,
   0 + (ROWS_PER_PAGE * page),
   ROWS_PER_PAGE
   )).map((c) => {
@@ -271,11 +280,15 @@ router.get(paths.cities, async (ctx, next) => {
     return c;
   }).sort((c1, c2) => c1.id - c2.id);
 
+  dateTo.setDate(dateTo.getDate() - 1); // show original date
+
   await ctx.render('admin_cities', {
     cities,
     page,
     prevPage: page - 1,
     nextPage: page + 1,
+    dateFrom: dateFrom.toISOString().substr(0, 10),
+    dateTo: dateTo.toISOString().substr(0, 10),
     name,
     country,
     admin: ctx.session.username,
