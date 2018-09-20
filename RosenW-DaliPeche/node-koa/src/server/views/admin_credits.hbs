@@ -8,7 +8,8 @@
    <body>
     {{> navBar }}
     {{> adminMenu }}
-    <ul class="list-group-item col-lg-9">
+    <ul class="list-group-item col-lg-10">
+    <h2 class="col-lg-12 col-md-12 col-sm-12 col-xs-12 text-center">Credit Balance</h2>
       <form class="inline">
         <div style="height: 20.8em">
           <label class="col-lg-12">Username:</label>
@@ -26,32 +27,34 @@
         </div>
       </form>
     </ul>
-    <h2 class="col-lg-12 col-md-12 col-sm-12 col-xs-12 text-center">Credit Balance</h2>
-    <table id="credits-table" class="table table-hover table-bordered">
-      <tr>
-        <th>ID</th>
-        <th>User</th>
-        <th>Credits Purchased</th>
-        <th>Credits Spent</th>
-        <th>Credits Remaining</th>
-      </tr>
-      {{#each users}}
-        <tr class="gen-tr">
-          <td class="text-right">{{id}}</td>
-          <td>{{username}}</td>
-          <td class="text-right">{{credits_purchased}}</td>
-          <td class="text-right">{{credits_spent}}</td>
-          <td class="text-right">{{credits_remaining}}</td>
+    <h3 class="col-lg-10 text-center">Credit Balance</h3>
+    <div id="table-container" class="col-lg-10 pre-scrollable" style="max-height: 33em; height: 33em">
+      <table id="credits-table" class="table table-hover table-bordered">
+        <tr>
+          <th>ID</th>
+          <th>User</th>
+          <th>Credits Purchased</th>
+          <th>Credits Spent</th>
+          <th>Credits Remaining</th>
         </tr>
-      {{/each}}
-      <tr>
-        <td class="text-right"><strong>#</strong></td>
-        <td><strong>Total</strong></td>
-        <td class="text-right"><strong>{{total_credits_purchased}}</strong></td>
-        <td class="text-right"><strong>{{total_credits_spent}}</strong></td>
-        <td class="text-right"><strong>{{total_credits_remaining}}</strong></td>
-      </tr>
-    </table>
+        {{#each users}}
+          <tr class="gen-tr">
+            <td class="text-right">{{id}}</td>
+            <td>{{username}}</td>
+            <td class="text-right">{{credits_purchased}}</td>
+            <td class="text-right">{{credits_spent}}</td>
+            <td class="text-right">{{credits_remaining}}</td>
+          </tr>
+        {{/each}}
+        <tr>
+          <td class="text-right"><strong>#</strong></td>
+          <td><strong>Total</strong></td>
+          <td class="text-right"><strong>{{total_credits_purchased}}</strong></td>
+          <td class="text-right"><strong>{{total_credits_spent}}</strong></td>
+          <td class="text-right"><strong>{{total_credits_remaining}}</strong></td>
+        </tr>
+      </table>
+    </div>
   </body>
 </html>
 

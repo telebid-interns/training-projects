@@ -1,9 +1,9 @@
-(node:28444) UnhandledPromiseRejectionWarning: FetchError: request to http://127.0.0.1:3001/api/forecast failed, reason: socket hang up
+(node:18411) UnhandledPromiseRejectionWarning: FetchError: request to http://127.0.0.1:3001/api/forecast failed, reason: socket hang up
     at ClientRequest.<anonymous> (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/node_modules/node-fetch/lib/index.js:1345:11)
     at ClientRequest.emit (events.js:182:13)
     at Socket.socketOnEnd (_http_client.js:416:9)
     at Socket.emit (events.js:187:15)
     at endReadableNT (_stream_readable.js:1081:12)
     at process._tickCallback (internal/process/next_tick.js:63:19)
-(node:28444) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 1)
-(node:28444) [DEP0018] DeprecationWarning: Unhandled promise rejections are deprecated. In the future, promise rejections that are not handled will terminate the Node.js process with a non-zero exit code.
+(node:18411) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 1)
+(node:18411) [DEP0018] DeprecationWarning: Unhandled promise rejections are deprecated. In the future, promise rejections that are not handled will terminate the Node.js process with a non-zero exit code.

@@ -1,5 +1,7 @@
 #menu {
   padding: 0px;
+  height: 94.6%;
+  background-color: #f0f0f0
 }
 
 .dropdown {
@@ -13,8 +15,8 @@
 a {
   background-color: #f0f0f0;
   cursor: pointer;
-  height: 2em;
-  line-height: 2em;
+  height: 1.5em;
+  line-height: 1.5em;
 }
 
 a span:before {
@@ -22,7 +24,7 @@ a span:before {
 }
 
 a span {
-  margin-left: 40px;
+  margin-left: 15px;
 }
 
 a:hover {
@@ -52,7 +54,7 @@ a:hover {
   margin-right: 20px;
 }
 
-input[type=checkbox] {
+.sidebar-menu-chbox[type=checkbox] {
   display: none;
 }
 

@@ -8,7 +8,8 @@
    <body>
     {{> navBar }}
     {{> adminMenu }}
-    <ul class="list-group-item col-lg-9">
+    <ul class="list-group-item col-lg-10">
+    <h2 class="col-lg-12 col-md-12 col-sm-12 col-xs-12 text-center">Cities</h2>
       <form class="inline">
         <div style="height: 20.8em">
           <label class="col-lg-12">City Name:</label>
@@ -30,27 +31,29 @@
         </div>
       </form>
     </ul>
-    <h2 class="col-lg-12 col-md-12 col-sm-12 col-xs-12 text-center">Cities</h2>
-    <table id="cities-table" class="table table-hover table-bordered">
-      <tr>
-        <th>ID</th>
-        <th>Name</th>
-        <th>Country</th>
-        <th>Longitude</th>
-        <th>Latitude</th>
-        <th>Observed at</th>
-      </tr>
-      {{#each cities}}
-        <tr class="gen-tr">
-          <td class="text-right">{{id}}</td>
-          <td>{{name}}</td>
-          <td>{{country}}</td>
-          <td class="text-right">{{lng}}</td>
-          <td class="text-right">{{lat}}</td>
-          <td>{{observed_at}}</td>
+    <h3 class="col-lg-10 text-center">Report</h3>
+    <div id="table-container" class="col-lg-10 pre-scrollable" style="max-height: 33em; height: 33em">
+      <table id="cities-table" class="table table-hover table-bordered">
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Country</th>
+          <th>Longitude</th>
+          <th>Latitude</th>
+          <th>Observed at</th>
         </tr>
-      {{/each}}
-    </table>
+        {{#each cities}}
+          <tr class="gen-tr">
+            <td class="text-right">{{id}}</td>
+            <td>{{name}}</td>
+            <td>{{country}}</td>
+            <td class="text-right">{{lng}}</td>
+            <td class="text-right">{{lat}}</td>
+            <td>{{observed_at}}</td>
+          </tr>
+        {{/each}}
+      </table>
+    </div>
   </body>
 </html>
 

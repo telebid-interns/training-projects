@@ -339,7 +339,11 @@ router.get(paths.backOfficeCreateUser, async (ctx, next) => {
 
   const roles = await db.sql(`SELECT * FROM roles ORDER BY id`);
 
-  await ctx.render('admin_create_user', { roles });
+  await ctx.render('admin_create_user', {
+    roles,
+    admin: ctx.session.username,
+    userRoles: ctx.session.permissions.roles
+  });
 });
 
 // POST create user
@@ -430,7 +434,9 @@ router.get(paths.roles, async (ctx, next) => {
   await ctx.render('admin_roles', {
     roles,
     permissions: ctx.session.permissions,
-    msg
+    msg,
+    admin: ctx.session.username,
+    userRoles: ctx.session.permissions.roles
   });
 });
 
@@ -914,7 +920,9 @@ router.get(paths.approveTransfers, async (ctx, next) => {
     prevPage: page - 1,
     nextPage: page + 1,
     username,
-    permissions: ctx.session.permissions
+    permissions: ctx.session.permissions,
+    admin: ctx.session.username,
+    userRoles: ctx.session.permissions.roles
   });
 });
 

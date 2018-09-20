@@ -1,71 +1,72 @@
 <html lang="en">
   <head>
     <link rel="stylesheet" type="text/css" href="./../bootstrap.css">
+    <link rel="stylesheet" type="text/css" href="./../sidebar.css">
+    <link rel="stylesheet" type="text/css" href="./../navbar.css">
   </head>
    <body>
-    <ul class="list-group-item col-lg-offset-4 col-md-offset-4 col-sm-offset-4 col-xs-offset-4 col-lg-4 col-md-4 col-sm-4 col-xs-4">
-      <form class="inline">
-        {{> adminForm }}
-      </form>
+    {{> navBar }}
+    {{> adminMenu }}
+    <ul class="list-group-item col-lg-10">
       <p class="text-success" id="succ-msg">{{msg}}</p>
       <p class="text-danger" id="err-msg">{{err}}</p>
-    </ul>
-    <h2 class="col-lg-12 col-md-12 col-sm-12 col-xs-12 text-center">Backoffice Roles</h2>
-    <table id="roles-table" class="table table-hover text-center">
-      <tr>
-        <th>Role</th>
-        <th>See Users</th>
-        <th>Add Credits</th>
-        <th>See Transfers</th>
-        <th>See Cities</th>
-        <th>See Requests</th>
-        <th>See Credit Balance</th>
-        <th>See Credits For Approval</th>
-        <th>Approve Credits</th>
-        <th>See Roles</th>
-        <th>Change Role Permissions</th>
-        <th>See Backoffice Users</th>
-        <th>Edit/Create Backoffice Users</th>
-        {{#if permissions.can_change_role_permissions}}
-        	<th>Save Changes</th>
-        {{/if}}
-      </tr>
-      {{#each roles}}
-        <tr class="gen-tr" id="tr-{{role}}">
-        	<form method="post">
-	          <td>
-              <input id="role-{{role}}" disabled="disabled" name="role" type="text" value="{{role}}" class="form-control">
-              <input id="old-role-{{role}}" name="old-role" type="text" value="{{role}}" hidden="hidden">
-            </td>
-	          <td><input id="see-users-{{role}}" class="form-control" disabled="disabled" name="can_see_users" type="checkbox" {{#if can_see_users}} checked="checked" {{/if}}></td>
-	          <td><input id="add-credits-{{role}}" class="form-control" disabled="disabled" name="can_add_credits" type="checkbox" {{#if can_add_credits}} checked="checked" {{/if}}></td>
-	          <td><input id="see-trans-{{role}}" class="form-control" disabled="disabled" name="can_see_transfers" type="checkbox" {{#if can_see_transfers}} checked="checked" {{/if}}></td>
-	          <td><input id="see-cities-{{role}}" class="form-control" disabled="disabled" name="can_see_cities" type="checkbox" {{#if can_see_cities}} checked="checked" {{/if}}></td>
-	          <td><input id="see-requests-{{role}}" class="form-control" disabled="disabled" name="can_see_requests" type="checkbox" {{#if can_see_requests}} checked="checked" {{/if}}></td>
-	          <td><input id="see-balance-{{role}}" class="form-control" disabled="disabled" name="can_see_credit_balance" type="checkbox" {{#if can_see_credit_balance}} checked="checked" {{/if}}></td>
-	          <td><input id="see-approval-{{role}}" class="form-control" disabled="disabled" name="can_see_credits_for_approval" type="checkbox" {{#if can_see_credits_for_approval}} checked="checked" {{/if}}></td>
-	          <td><input id="approve-{{role}}" class="form-control" disabled="disabled" name="can_approve_credits" type="checkbox" {{#if can_approve_credits}} checked="checked" {{/if}}></td>
-	          <td><input id="see-roles-{{role}}" class="form-control" disabled="disabled" name="can_see_roles" type="checkbox" {{#if can_see_roles}} checked="checked" {{/if}}></td>
-	          <td><input id="change-roles-{{role}}" class="form-control" disabled="disabled" name="can_change_role_permissions" type="checkbox" {{#if can_change_role_permissions}} checked="checked" {{/if}}></td>
-            <td><input id="see-busers-{{role}}" class="form-control" disabled="disabled" name="can_see_backoffice_users" type="checkbox" {{#if can_see_backoffice_users}} checked="checked" {{/if}}></td>
-            <td><input id="edit-busers-{{role}}" class="form-control" disabled="disabled" name="can_edit_backoffice_users" type="checkbox" {{#if can_edit_backoffice_users}} checked="checked" {{/if}}></td>
-          {{#if ../permissions.can_change_role_permissions}}
-            <td>
-              <input type="submit" id="save-{{role}}-btn" value="Save" class="form-control" style="display: none">
-              <button type="button" id="edit-{{role}}-btn" onclick="edit('{{role}}')" class="form-control">Edit</button>
-              <button type="button" id="remove-{{role}}-btn" onclick="remove('{{role}}')" class="form-control">Remove</button>
-            </td>
+      <h2 class="col-lg-12 col-md-12 col-sm-12 col-xs-12 text-center">Backoffice Roles</h2>
+      <table id="roles-table" class="table-hover text-center table-responsive">
+        <tr>
+          <th>Role</th>
+          <th>See Users</th>
+          <th>Add Credits</th>
+          <th>See Transfers</th>
+          <th>See Cities</th>
+          <th>See Requests</th>
+          <th>See Credit Balance</th>
+          <th>See Credits For Approval</th>
+          <th>Approve Credits</th>
+          <th>See Roles</th>
+          <th>Change Role Permissions</th>
+          <th>See Backoffice Users</th>
+          <th>Edit/Create Backoffice Users</th>
+          {{#if permissions.can_change_role_permissions}}
+            <th>Save Changes</th>
           {{/if}}
-          </form>
         </tr>
-      {{/each}}
-    </table>
-    <button class="form-control" onclick="addRole()">Add role</button>
+        {{#each roles}}
+          <tr class="gen-tr" id="tr-{{role}}">
+            <form method="post">
+              <td>
+                <input id="role-{{role}}" disabled="disabled" name="role" type="text" value="{{role}}" class="form-control">
+                <input id="old-role-{{role}}" name="old-role" type="text" value="{{role}}" hidden="hidden">
+              </td>
+              <td><input id="see-users-{{role}}" class="form-control" disabled="disabled" name="can_see_users" type="checkbox" {{#if can_see_users}} checked="checked" {{/if}}></td>
+              <td><input id="add-credits-{{role}}" class="form-control" disabled="disabled" name="can_add_credits" type="checkbox" {{#if can_add_credits}} checked="checked" {{/if}}></td>
+              <td><input id="see-trans-{{role}}" class="form-control" disabled="disabled" name="can_see_transfers" type="checkbox" {{#if can_see_transfers}} checked="checked" {{/if}}></td>
+              <td><input id="see-cities-{{role}}" class="form-control" disabled="disabled" name="can_see_cities" type="checkbox" {{#if can_see_cities}} checked="checked" {{/if}}></td>
+              <td><input id="see-requests-{{role}}" class="form-control" disabled="disabled" name="can_see_requests" type="checkbox" {{#if can_see_requests}} checked="checked" {{/if}}></td>
+              <td><input id="see-balance-{{role}}" class="form-control" disabled="disabled" name="can_see_credit_balance" type="checkbox" {{#if can_see_credit_balance}} checked="checked" {{/if}}></td>
+              <td><input id="see-approval-{{role}}" class="form-control" disabled="disabled" name="can_see_credits_for_approval" type="checkbox" {{#if can_see_credits_for_approval}} checked="checked" {{/if}}></td>
+              <td><input id="approve-{{role}}" class="form-control" disabled="disabled" name="can_approve_credits" type="checkbox" {{#if can_approve_credits}} checked="checked" {{/if}}></td>
+              <td><input id="see-roles-{{role}}" class="form-control" disabled="disabled" name="can_see_roles" type="checkbox" {{#if can_see_roles}} checked="checked" {{/if}}></td>
+              <td><input id="change-roles-{{role}}" class="form-control" disabled="disabled" name="can_change_role_permissions" type="checkbox" {{#if can_change_role_permissions}} checked="checked" {{/if}}></td>
+              <td><input id="see-busers-{{role}}" class="form-control" disabled="disabled" name="can_see_backoffice_users" type="checkbox" {{#if can_see_backoffice_users}} checked="checked" {{/if}}></td>
+              <td><input id="edit-busers-{{role}}" class="form-control" disabled="disabled" name="can_edit_backoffice_users" type="checkbox" {{#if can_edit_backoffice_users}} checked="checked" {{/if}}></td>
+            {{#if ../permissions.can_change_role_permissions}}
+              <td>
+                <input type="submit" id="save-{{role}}-btn" value="Save" class="form-control" style="display: none">
+                <button type="button" id="edit-{{role}}-btn" onclick="edit('{{role}}')" class="form-control">Edit</button>
+                <button type="button" id="remove-{{role}}-btn" onclick="remove('{{role}}')" class="form-control">Remove</button>
+              </td>
+            {{/if}}
+            </form>
+          </tr>
+        {{/each}}
+      </table>
+      <button class="form-control" onclick="addRole()">Add role</button>
+    </ul>
   </body>
 </html>
 
 <script type="text/javascript">
-  document.getElementById('select-roles').setAttribute('selected', 'selected');
+  document.getElementById('menu-roles').setAttribute('class', 'selected');
 
   async function addRole () {
     await fetch(`/admin/add-role`, { method : "POST" });
