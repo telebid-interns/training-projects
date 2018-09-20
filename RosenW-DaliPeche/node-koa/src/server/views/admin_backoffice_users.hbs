@@ -38,6 +38,7 @@
     {{> navBar }}
     {{> adminMenu }}
     <ul class="list-group-item col-lg-10">
+    <h2 class="col-lg-12 col-md-12 col-sm-12 col-xs-12 text-center">Backoffice Users</h2>
       <form class="inline">
         <div style="height: 20.8em">
           <label class="col-lg-12">Username:</label>
@@ -54,36 +55,32 @@
       <p class="text-success" id="succ-msg">{{msg}}</p>
       <p class="text-danger" id="err-msg">{{err}}</p>
     </ul>
-    <h2 class="col-lg-12 col-md-12 col-sm-12 col-xs-12 text-center">Backoffice Users</h2>
 
-    <table id="users-table" class="table table-hover table-bordered">
-      <tr>
-        <th>User</th>
-        {{#if permissions.can_edit_backoffice_users}}
-          <th>Edit Roles</th>
-        {{/if}}
-      </tr>
-      {{#each users}}
-        <tr class="gen-tr">
-          <td>{{username}}</td>
-          {{#if ../permissions.can_edit_backoffice_users}}
-          {{else}}
-            <td>{{role}}</td>
-          {{/if}}
-          {{#if ../permissions.can_edit_backoffice_users}}
-            <td>
-              <button class="form-control btn-info" data-toggle="modal" data-target="#modale-roles" onclick="setModal('{{username}}')">Edit Roles</button>
-            </td>
+    <h2 class="col-lg-10 text-center"></h2>
+    <div id="table-container" class="col-lg-10 pre-scrollable" style="max-height: 33em; height: 33em">
+      <table id="users-table" class="table table-hover table-bordered">
+        <tr>
+          <th>User</th>
+          {{#if permissions.can_edit_backoffice_users}}
+            <th>Edit Roles</th>
           {{/if}}
         </tr>
-      {{/each}}
-    </table>
-    <nav aria-label="Page navigation example" class="col-lg-offset-5 col-md-offset-5 col-sm-offset-5 col-xs-offset-5">
-      <ul class="pagination">
-        <li class="page-item"><a class="page-link" href="/admin/backoffice-users?page={{prevPage}}&term={{term}}">Previous Page</a></li>
-        <li class="page-item"><a class="page-link" href="/admin/backoffice-users?page={{nextPage}}&term={{term}}">Next Page</a></li>
-      </ul>
-    </nav>
+        {{#each users}}
+          <tr class="gen-tr">
+            <td>{{username}}</td>
+            {{#if ../permissions.can_edit_backoffice_users}}
+            {{else}}
+              <td>{{role}}</td>
+            {{/if}}
+            {{#if ../permissions.can_edit_backoffice_users}}
+              <td>
+                <button class="form-control btn-info" data-toggle="modal" data-target="#modale-roles" onclick="setModal('{{username}}')">Edit Roles</button>
+              </td>
+            {{/if}}
+          </tr>
+        {{/each}}
+      </table>
+    </div>
   </body>
 </html>
 
