@@ -338,9 +338,15 @@ router.get(paths.backOfficeCreateUser, async (ctx, next) => {
   }
 
   const roles = await db.sql(`SELECT * FROM roles ORDER BY id`);
+  const error = ctx.session.error != null ? ctx.session.error : '';
+  delete ctx.session.error;
+  const msg = ctx.session.msg != null ? ctx.session.msg : '';
+  delete ctx.session.msg;
 
   await ctx.render('admin_create_user', {
     roles,
+    error,
+    msg,
     admin: ctx.session.username,
     userRoles: ctx.session.permissions.roles
   });
@@ -367,10 +373,8 @@ router.post(paths.backOfficeCreateUser, async (ctx, next) => {
   const salt = generateRandomString(SALT_LENGTH);
 
   if (password !== repeatPassword) {
-    await ctx.render('admin_create_user', {
-      error: 'Passwords must match',
-      username,
-    });
+    ctx.session.error = 'Passwords must match';
+    await ctx.redirect(`${paths.backOfficeMountPoint}${paths.backOfficeCreateUser}`);
     return next();
   }
 
@@ -378,20 +382,16 @@ router.post(paths.backOfficeCreateUser, async (ctx, next) => {
     password.length < MINIMUM_PASSWORD_LENGTH ||
       username.length < MINIMUM_USERNAME_LENGTH
   ) {
-    await ctx.render('admin_create_user', {
-      error: 'username and password must be at least 3 symbols',
-      username,
-    });
+    ctx.session.error = 'Username and password must be at least 3 symbols';
+    await ctx.redirect(`${paths.backOfficeMountPoint}${paths.backOfficeCreateUser}`);
     return next();
   }
 
   const user = (await db.sql(`SELECT * FROM backoffice_users WHERE username = $1`, username))[0];
 
   if (user != null && user.username === username) {
-    await ctx.render('admin_create_user', {
-      error: 'a user with this username already exists',
-      username,
-    });
+    ctx.session.error = 'A user with this username already exists';
+    await ctx.redirect(`${paths.backOfficeMountPoint}${paths.backOfficeCreateUser}`);
     return next();
   }
 
@@ -414,7 +414,9 @@ router.post(paths.backOfficeCreateUser, async (ctx, next) => {
     role
   );
 
-  await ctx.render('admin', {msg: 'Successfuly Registered User'});
+  ctx.session.msg = 'Successfuly Registered User';
+  await ctx.redirect(`${paths.backOfficeMountPoint}${paths.backOfficeCreateUser}`);
+  return next();
 });
 
 // GET roles
