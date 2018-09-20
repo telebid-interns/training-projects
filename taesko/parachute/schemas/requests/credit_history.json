@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "request/credit_history",
+  "title": "Body of the credit_history API method sent from the client.",
+  "type": "object",
+  "properties": {
+    "v": {
+      "type": "string"
+    },
+    "api_key": {
+      "type": "string"
+    },
+    "fly_from": {
+      "type": "string"
+    },
+    "fly_to": {
+      "type": "string"
+    },
+    "date_from": {
+      "type": "string",
+      "format": "date"
+    },
+    "date_to": {
+      "type": "string",
+      "format": "date"
+    },
+    "transferred_from": {
+      "type": "string",
+      "format": "date"
+    },
+    "transferred_to": {
+      "type": "string",
+      "format": "date"
+    },
+    "status": {
+      "type": "boolean"
+    },
+    "transfer_amount_operator": {
+      "type": "string",
+      "enum": ["=", ">", "<"]
+    },
+    "transfer_amount": {
+      "type": "integer"
+    },
+    "limit": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 10
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "group_by": {
+      "type": "object",
+      "properties": {
+        "active": {
+          "type": "string",
+          "const": "default"
+        },
+        "reason": {
+          "type": "string",
+          "const": "default"
+        },
+        "transferred_at": {
+          "type": "string",
+          "enum": ["year", "month", "day", "default"]
+        }
+      }
+    }
+  },
+  "required": [
+    "v",
+    "api_key"
+  ]
+}
