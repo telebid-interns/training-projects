@@ -26,7 +26,7 @@
           </div>
           <div class="col-lg-4">
 
-            <select name="date-group-by" class="form-control">
+            <select id="select-group-by" name="date-group-by" class="form-control">
               <option value="all">All Values</option>
               <option value="day">By Day</option>
             </select>
@@ -87,6 +87,7 @@
 </html>
 
 <script type="text/javascript">
+  document.getElementById('select-group-by').value = '{{dateGroupByValue}}'
   document.getElementById('menu-ctransfers').setAttribute('class', 'selected');
   document.getElementById('select-event').value = '{{event}}';
 </script>

@@ -680,6 +680,7 @@ router.get(paths.creditTransfers, async (ctx, next) => {
       dateFrom: dateFrom.toISOString().substr(0, 10),
       dateTo: dateTo.toISOString().substr(0, 10),
       total,
+      dateGroupByValue,
       admin: ctx.session.username,
       userRoles: ctx.session.permissions.roles
     });
@@ -739,6 +740,7 @@ router.get(paths.creditTransfers, async (ctx, next) => {
     dateFrom: dateFrom.toISOString().substr(0, 10),
     dateTo: dateTo.toISOString().substr(0, 10),
     total,
+    dateGroupByValue,
     admin: ctx.session.username,
     userRoles: ctx.session.permissions.roles
   });
