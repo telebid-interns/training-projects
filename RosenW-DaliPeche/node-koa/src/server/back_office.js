@@ -157,8 +157,7 @@ router.get(paths.users, async (ctx, next) => {
     dateFrom: dateFrom.toISOString().substr(0, 10),
     dateTo: dateTo.toISOString().substr(0, 10),
     permissions: ctx.session.permissions,
-    admin: ctx.session.username,
-    userRoles: ctx.session.permissions.roles
+    admin: ctx.session.username
   });
 });
 
@@ -229,8 +228,7 @@ router.get(paths.creditBalance, async (ctx, next) => {
     prevPage: page - 1,
     nextPage: page + 1,
     username,
-    admin: ctx.session.username,
-    userRoles: ctx.session.permissions.roles
+    admin: ctx.session.username
   });
 });
 
@@ -291,8 +289,7 @@ router.get(paths.cities, async (ctx, next) => {
     dateTo: dateTo.toISOString().substr(0, 10),
     name,
     country,
-    admin: ctx.session.username,
-    userRoles: ctx.session.permissions.roles
+    admin: ctx.session.username
   });
 });
 
@@ -336,8 +333,7 @@ router.get(paths.requests, async (ctx, next) => {
     prevPage: page - 1,
     nextPage: page + 1,
     term,
-    admin: ctx.session.username,
-    userRoles: ctx.session.permissions.roles
+    admin: ctx.session.username
   });
 });
 
@@ -360,8 +356,7 @@ router.get(paths.backOfficeCreateUser, async (ctx, next) => {
     roles,
     error,
     msg,
-    admin: ctx.session.username,
-    userRoles: ctx.session.permissions.roles
+    admin: ctx.session.username
   });
 });
 
@@ -450,8 +445,7 @@ router.get(paths.roles, async (ctx, next) => {
     roles,
     permissions: ctx.session.permissions,
     msg,
-    admin: ctx.session.username,
-    userRoles: ctx.session.permissions.roles
+    admin: ctx.session.username
   });
 });
 
@@ -513,8 +507,7 @@ router.get(paths.backOfficeUsers, async (ctx, next) => {
     username,
     permissions: ctx.session.permissions,
     msg,
-    admin: ctx.session.username,
-    userRoles: ctx.session.permissions.roles
+    admin: ctx.session.username
   });
 });
 
@@ -681,8 +674,7 @@ router.get(paths.creditTransfers, async (ctx, next) => {
       dateTo: dateTo.toISOString().substr(0, 10),
       total,
       dateGroupByValue,
-      admin: ctx.session.username,
-      userRoles: ctx.session.permissions.roles
+      admin: ctx.session.username
     });
     return next();
   }
@@ -741,8 +733,7 @@ router.get(paths.creditTransfers, async (ctx, next) => {
     dateTo: dateTo.toISOString().substr(0, 10),
     total,
     dateGroupByValue,
-    admin: ctx.session.username,
-    userRoles: ctx.session.permissions.roles
+    admin: ctx.session.username
   });
 });
 
@@ -995,8 +986,7 @@ router.get(paths.approveTransfers, async (ctx, next) => {
     nextPage: page + 1,
     username,
     permissions: ctx.session.permissions,
-    admin: ctx.session.username,
-    userRoles: ctx.session.permissions.roles
+    admin: ctx.session.username
   });
 });
 
