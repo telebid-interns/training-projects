@@ -35,3 +35,7 @@ Expecting 'CLOSE_RAW_BLOCK', 'CLOSE', 'CLOSE_UNESCAPED', 'OPEN_SEXPR', 'CLOSE_SE
 2018-09-19T16:28:23.069Z:  Error: Username in /backoffice-users has no id
 2018-09-19T16:29:16.879Z:  Error: Username in /backoffice-users has no id
 2018-09-19T16:36:03.828Z:  Error: Error while querying: error: duplicate key value violates unique constraint "backoffice_users_roles_pkey"
+2018-09-21T15:27:59.843Z:  Error: Error while querying: error: syntax error at or near "GROUP"
+2018-09-21T15:28:14.502Z:  Error: Error while querying: error: there is no parameter $1
+2018-09-21T15:29:35.331Z:  Error: Error while querying: error: column "ct.id" must appear in the GROUP BY clause or be used in an aggregate function
+2018-09-21T15:34:10.501Z:  ReferenceError: total is not defined

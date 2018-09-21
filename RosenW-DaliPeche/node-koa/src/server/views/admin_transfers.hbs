@@ -18,11 +18,18 @@
             <input type="text" name="username" class="form-control" value="{{username}}">
           </div>
           <label class="col-lg-12">Date From/To:</label>
-          <div class="col-lg-6">
+          <div class="col-lg-4">
             <input type="date" name="date-from" class="form-control" value="{{dateFrom}}">
           </div>
-          <div class="col-lg-6">
+          <div class="col-lg-4">
             <input type="date" name="date-to" class="form-control" value="{{dateTo}}">
+          </div>
+          <div class="col-lg-4">
+
+            <select name="date-group-by" class="form-control">
+              <option value="all">All Values</option>
+              <option value="day">By Day</option>
+            </select>
           </div>
           <label class="col-lg-12">Event:</label>
           <div class="col-lg-12">

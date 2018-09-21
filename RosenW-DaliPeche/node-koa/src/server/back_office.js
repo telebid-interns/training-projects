@@ -609,18 +609,82 @@ router.get(paths.creditTransfers, async (ctx, next) => {
   }
 
   const username = ctx.query.username == null ? '' : ctx.query.username;
+  const dateGroupByValue = ctx.query['date-group-by'] == null ? '' : ctx.query['date-group-by'];
   const dateFrom = ctx.query['date-from'] == null || isNaN(new Date(ctx.query['date-from'])) ? new Date('1970-01-01') : new Date(ctx.query['date-from']);
   const dateTo = ctx.query['date-to'] == null || isNaN(new Date(ctx.query['date-to'])) ? new Date() : new Date(ctx.query['date-to']);
   const event = ctx.query.event == null ? '' : ctx.query.event;
 
-  assert(typeof username === 'string', `in 'admin/ctransfers' username expected to be string, actual: ${username}`, 131);
+  assert(typeof username === 'string', `in 'admin/ctransfers' username expected to be string, actual: ${typeof username}`, 131);
+  assert(typeof dateGroupByValue === 'string', `in 'admin/ctransfers' dateGroupByValue expected to be string, actual: ${typeof dateGroupByValue}`, 1319);
   assert(isObject(dateFrom), `in 'admin/ctransfers' dateFrom expected to be object. actual: ${dateFrom}`, 132);
   assert(isObject(dateTo), `in 'admin/ctransfers' dateTo expected to be object. actual: ${dateTo}`, 133);
   assert(typeof event === 'string', `in 'admin/ctransfers' event expected to be string, actual: ${event}`, 134);
 
-  const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
-
   dateTo.setDate(dateTo.getDate() + 1); // include chosen day
+
+  if (dateGroupByValue === 'day') {
+    const transfers = (await db.sql(`
+      SELECT
+        DATE(ct.transfer_date) AS transfer_date,
+        SUM(ct.credits_received) AS credits_received,
+        SUM(ct.credits_spent) AS credits_spent
+      FROM users AS u
+      JOIN credit_transfers as ct
+        ON ct.user_id = u.id
+      WHERE
+        UNACCENT(LOWER(username)) LIKE LOWER($1)
+        AND LOWER(event) LIKE LOWER($2)
+        AND (ct.transfer_date BETWEEN $3 AND $4)
+        AND approved = true
+      GROUP BY DATE(transfer_date)
+      ORDER BY DATE(ct.transfer_date) DESC`,
+    `%${username}%`,
+    `%${event}%`,
+    dateFrom,
+    dateTo
+    )).map((t) => {
+      t.transfer_date.setDate(t.transfer_date.getDate() + 1);
+      t.transfer_date = t.transfer_date.toISOString().substr(0, 10);
+      return t;
+    });
+
+    const total = (await db.sql(`
+      SELECT
+        SUM(total.credits_received) AS total_received,
+        SUM(total.credits_spent) AS total_spent
+      FROM (
+        SELECT
+          DATE(ct.transfer_date) AS transfer_date,
+          SUM(ct.credits_received) AS credits_received,
+          SUM(ct.credits_spent) AS credits_spent
+        FROM users AS u
+        JOIN credit_transfers as ct
+          ON ct.user_id = u.id
+        WHERE
+          UNACCENT(LOWER(username)) LIKE LOWER($1)
+          AND LOWER(event) LIKE LOWER($2)
+          AND (ct.transfer_date BETWEEN $3 AND $4)
+          AND approved = true
+        GROUP BY DATE(transfer_date)
+        ORDER BY DATE(ct.transfer_date) DESC) as total`,
+    `%${username}%`,
+    `%${event}%`,
+    dateFrom,
+    dateTo
+    ))[0];
+
+    await ctx.render('admin_transfers', {
+      transfers,
+      username,
+      event,
+      dateFrom: dateFrom.toISOString().substr(0, 10),
+      dateTo: dateTo.toISOString().substr(0, 10),
+      total,
+      admin: ctx.session.username,
+      userRoles: ctx.session.permissions.roles
+    });
+    return next();
+  }
 
   const transfers = (await db.sql(`
       SELECT
@@ -638,15 +702,11 @@ router.get(paths.creditTransfers, async (ctx, next) => {
         AND LOWER(event) LIKE LOWER($2)
         AND (ct.transfer_date BETWEEN $3 AND $4)
         AND approved = true
-      ORDER BY ct.id DESC
-      OFFSET $5
-      LIMIT $6`,
+      ORDER BY ct.id DESC`,
   `%${username}%`,
   `%${event}%`,
   dateFrom,
-  dateTo,
-  0 + (ROWS_PER_PAGE * page),
-  ROWS_PER_PAGE
+  dateTo
   )).map((t) => {
     t.transfer_date = t.transfer_date.toISOString().replace('T', ' ').slice(0, -5);
     return t;
@@ -654,10 +714,10 @@ router.get(paths.creditTransfers, async (ctx, next) => {
 
   const total = (await db.sql(`
     SELECT
-      SUM(credits_received) as total_received,
-      SUM(credits_spent) as total_spent
+      SUM(credits_received) AS total_received,
+      SUM(credits_spent) AS total_spent
     FROM users AS u
-    JOIN credit_transfers as ct
+    JOIN credit_transfers AS ct
       ON ct.user_id = u.id
     WHERE
       UNACCENT(LOWER(username)) LIKE LOWER($1)
@@ -674,9 +734,6 @@ router.get(paths.creditTransfers, async (ctx, next) => {
 
   await ctx.render('admin_transfers', {
     transfers,
-    page,
-    prevPage: page - 1,
-    nextPage: page + 1,
     username,
     event,
     dateFrom: dateFrom.toISOString().substr(0, 10),
