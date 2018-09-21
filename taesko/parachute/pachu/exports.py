@@ -1,16 +1,80 @@
+import collections.abc
 import datetime
+import io
+import tempfile
 
+import flask
 import openpyxl
+import openpyxl.worksheet
 
-from pachu.config import config
 from pachu.err import assertPeer
 
 DEFAULT_TRANSFERRED_DELTA = datetime.timedelta(weeks=4)
 ALLOWED_TRANSFERRED_DELTA = datetime.timedelta(weeks=52)
 
 
+def workbook_from_records(*, column_names, records_iterable, filters, query_name):
+    assert isinstance(column_names, collections.Iterable)
+    assert isinstance(records_iterable, collections.Iterable)
+    assert isinstance(filters, collections.Mapping)
+    assert isinstance(query_name, str)
+
+    wb = openpyxl.Workbook()
+    sheet = wb.create_sheet(query_name)
+    offset = (1, 1)
+    new_row_offset, _ = insert_table(sheet=sheet,
+                                     columns=['Filter', 'Value'],
+                                     records=filters.items(),
+                                     table_name='Filters',
+                                     offset=offset)
+    _, old_col_offset = offset
+    insert_table(sheet=sheet,
+                 columns=column_names,
+                 records=records_iterable,
+                 table_name=query_name,
+                 offset=(new_row_offset, old_col_offset))
+
+
+def insert_table(*, sheet, columns, records, table_name, offset):
+    assert isinstance(sheet, openpyxl.worksheet.Worksheet)
+    assert isinstance(columns, collections.Iterable)
+    assert isinstance(records, collections.Iterable)
+    assert isinstance(table_name, str)
+    assert isinstance(offset, collections.Collection)
+
+    row_offset, col_offset = offset
+
+    sheet.cell(row=row_offset, column=col_offset,
+               value="{}".format(table_name))
+
+    row_offset += 1
+    column_len = 0
+
+    for col, column_name in enumerate(columns):
+        sheet.cell(row=row_offset, column=col + col_offset,
+                   value="{}".format(column_name))
+        column_len = col
+
+    row_offset += 1
+    inserted_rows = 0
+
+    for row, record in enumerate(records):
+        inserted_columns = 0
+        for col, field in enumerate(record):
+            sheet.cell(row=row + row_offset, column=col + col_offset,
+                       value="{}".format(field))
+            inserted_columns = col
+        assert inserted_columns == column_len
+
+    row_offset += inserted_rows
+    col_offset += column_len
+
+    return row_offset, col_offset
+
+
 def export_credit_history(
         cursor, *,
+        column_names,
         v,
         api_key,
         fly_from=None,
@@ -24,7 +88,10 @@ def export_credit_history(
         transfer_amount_operator=None,
         group_by=None
 ):
-    # TODO authorization
+    cursor.execute('SELECT id FROM users WHERE api_key=%s', [api_key])
+
+    user_id = cursor.fetchone()[0]
+
     transferred_to = transferred_to or datetime.datetime.now()
     transferred_from = (transferred_from or
                         transferred_to - DEFAULT_TRANSFERRED_DELTA)
@@ -36,6 +103,7 @@ def export_credit_history(
                code='API_CH_EXCEEDED_TRANSFERRED_DELTA')
 
     query_params = dict(
+        user_id=user_id,
         status=status,
         date_from=date_from,
         date_to=date_to,
@@ -89,7 +157,7 @@ def export_credit_history(
                 {date_to_filter}
         JOIN subscriptions
             ON users_subscriptions.subscription_id=subscriptions.id
-        WHERE account_transfers.user_id=$userId
+        WHERE account_transfers.user_id=%(user_id)s
             {transferred_at_filter}
             {transfer_amount_filter}
         UNION ALL
@@ -116,21 +184,40 @@ def export_credit_history(
                 {status_filter}
                 {date_from_filter}
                 {date_to_filter}
-        WHERE account_transfers.user_id=$userId 
+        WHERE account_transfers.user_id=%(user_id)s
             {transferred_at_filter}
             {transfer_amount_filter}
     ) AS taxes
     JOIN airports AS ap_from
       ON taxes.airport_from_id=ap_from.id
-        ${airport_from_filter}
+        {airport_from_filter}
     JOIN airports AS ap_to
       ON taxes.airport_to_id=ap_to.id
-        ${airport_to_filter}
-    ${group_by_clause}
+        {airport_to_filter}
+    {group_by_clause}
     ORDER BY 1 DESC
     '''.format(
         **filters,
-        group_by_clause = group_by_clause,
-        select_columns = select_columns,
+        group_by_clause=group_by_clause,
+        select_columns=select_columns,
     )
     cursor.execute(query, query_params)
+
+    wb = workbook_from_records(query_name='credit_history',
+                               column_names=column_names,
+                               records_iterable=cursor.fetchall(),
+                               filters=query_params)
+
+    with open(tempfile.NamedTemporaryFile()) as tmp:
+        wb.save(tmp.name)
+        tmp.seek(0)
+        stream = io.BytesIO(tmp.read())
+
+    filename = '{user_id}-${date}'.format(user_id=user_id,
+                                              date=datetime.datetime.now())
+    return flask.send_file(
+        stream,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        attachment_filename=filename
+    )

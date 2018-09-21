@@ -24,5 +24,5 @@ def api():
         'export_credit_history': pachu.exports.export_credit_history,
     }
 
-
+    return methods[normalized.method]
 
