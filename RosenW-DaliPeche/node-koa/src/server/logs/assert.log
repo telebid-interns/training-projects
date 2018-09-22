@@ -39,3 +39,25 @@ Expecting 'CLOSE_RAW_BLOCK', 'CLOSE', 'CLOSE_UNESCAPED', 'OPEN_SEXPR', 'CLOSE_SE
 2018-09-21T15:28:14.502Z:  Error: Error while querying: error: there is no parameter $1
 2018-09-21T15:29:35.331Z:  Error: Error while querying: error: column "ct.id" must appear in the GROUP BY clause or be used in an aggregate function
 2018-09-21T15:34:10.501Z:  ReferenceError: total is not defined
+2018-09-22T16:43:10.822Z:  error: password authentication failed for user "dalipecheclient"
+2018-09-22T17:01:42.632Z:  TypeError: Cannot set property 'can_see_users' of undefined
+2018-09-22T17:02:34.903Z:  Error: Error while querying: error: function unaccent(text) does not exist
+2018-09-22T17:08:30.148Z:  Error: Error while querying: error: function unaccent(text) does not exist
+2018-09-22T17:36:02.311Z:  ReferenceError: term is not defined
+2018-09-22T17:36:34.031Z:  ReferenceError: page is not defined
+2018-09-22T17:52:57.088Z:  Error: Parse error on line 66:
+...elected');</script>
+----------------------^
+Expecting 'OPEN_INVERSE_CHAIN', 'INVERSE', 'OPEN_ENDBLOCK', got 'EOF'
+2018-09-22T17:53:28.868Z:  Error: Parse error on line 66:
+...elected');</script>
+----------------------^
+Expecting 'OPEN_INVERSE_CHAIN', 'INVERSE', 'OPEN_ENDBLOCK', got 'EOF'
+2018-09-22T17:54:46.693Z:  Error: Parse error on line 66:
+...elected');</script>
+----------------------^
+Expecting 'OPEN_INVERSE_CHAIN', 'INVERSE', 'OPEN_ENDBLOCK', got 'EOF'
+2018-09-22T17:57:03.112Z:  Error: Parse error on line 66:
+...elected');</script>
+----------------------^
+Expecting 'OPEN_INVERSE_CHAIN', 'INVERSE', 'OPEN_ENDBLOCK', got 'EOF'

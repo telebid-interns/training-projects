@@ -11,6 +11,7 @@
     <ul class="list-group-item col-lg-10">
     <h2 class="col-lg-12 col-md-12 col-sm-12 col-xs-12 text-center">Requests</h2>
       <form class="inline">
+        <input type="text" name="search" hidden="hidden" value="true">
         <div style="height: 20.8em">
           <br>
           <label class="col-lg-12">IATA Code / City:</label>
@@ -28,23 +29,25 @@
         </div>
       </form>
     </ul>
-    <h3 class="col-lg-10 text-center">Report</h3>
-    <div id="table-container" class="col-lg-10 pre-scrollable" style="max-height: 33em; height: 33em">
-      <table id="request-table" class="table table-hover table-bordered">
-        <tr>
-          <th>Request</th>
-          <th>Type</th>
-          <th>Call Count</th>
-        </tr>
-        {{#each requests}}
-          <tr class="gen-tr">
-            <td>{{request}}</td>
-            <td>{{type}}</td>
-            <td class="text-right">{{call_count}}</td>
+    {{#if search}}
+      <h3 class="col-lg-10 text-center">Report</h3>
+      <div id="table-container" class="col-lg-10 pre-scrollable" style="max-height: 33em; height: 33em">
+        <table id="request-table" class="table table-hover table-bordered">
+          <tr>
+            <th>Request</th>
+            <th>Type</th>
+            <th>Call Count</th>
           </tr>
-        {{/each}}
-      </table>
-    </div>
+          {{#each requests}}
+            <tr class="gen-tr">
+              <td>{{request}}</td>
+              <td>{{type}}</td>
+              <td class="text-right">{{call_count}}</td>
+            </tr>
+          {{/each}}
+        </table>
+      </div>
+    {{/if}}
   </body>
 </html>
 

@@ -3,7 +3,7 @@ const { AppError } = require('./../asserts/exceptions.js');
 const { assert } = require('./../asserts/asserts.js');
 
 const pool = new Pool({
-  user: 'dalipecheclient',
+  user: 'postgres', // change back
   host: 'localhost',
   database: 'forecast',
   password: '1234',

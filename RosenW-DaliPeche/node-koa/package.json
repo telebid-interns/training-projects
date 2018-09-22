@@ -17,10 +17,11 @@
     "mocha": "^5.2.0"
   },
   "dependencies": {
-    "bcrypt": "^3.0.0",
+    "bcrypt": "^3.0.1",
     "braintree": "^2.12.0",
     "co-body": "^6.0.0",
     "handlebars": "^4.0.11",
+    "koa": "^2.5.3",
     "koa-body": "^4.0.4",
     "koa-bodyparser": "^4.2.1",
     "koa-mount": "^3.0.0",

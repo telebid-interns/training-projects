@@ -101,6 +101,16 @@ router.get(paths.users, async (ctx, next) => {
     return next();
   }
 
+  if (ctx.query.search !== 'true') {
+    await ctx.render('admin_users', {
+      maxRequests: MAX_REQUESTS_PER_HOUR,
+      users: [],
+      permissions: ctx.session.permissions,
+      admin: ctx.session.username
+    });
+    return next();
+  }
+
   const username = ctx.query.username == null ? '' : ctx.query.username;
   const email = ctx.query.email == null ? '' : ctx.query.email;
   const creditsFrom = ctx.query['credits-from'] == null ? 0 : Number(ctx.query['credits-from']);
@@ -115,9 +125,9 @@ router.get(paths.users, async (ctx, next) => {
   assert(typeof creditsFrom === 'number', `in 'admin/user' creditsFrom expected to be number, actual: ${creditsFrom}`, 125);
   assert(typeof creditsTo === 'number', `in 'admin/user' creditsTo expected to be number, actual: ${creditsTo}`, 126);
 
-  const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
-
   dateTo.setDate(dateTo.getDate() + 1); // include chosen day
+  
+
 
   const users = (await db.sql(`
     SELECT * FROM users
@@ -126,17 +136,13 @@ router.get(paths.users, async (ctx, next) => {
       AND LOWER(email) LIKE LOWER($2)
       AND (date_registered BETWEEN $3 AND $4)
       AND (credits BETWEEN $5 AND $6)
-    ORDER BY id
-    OFFSET $7
-    LIMIT $8`,
+    ORDER BY id`,
   `%${username}%`,
   `%${email}%`,
   dateFrom,
   dateTo,
   creditsFrom,
-  creditsTo,
-  0 + (ROWS_PER_PAGE * page),
-  ROWS_PER_PAGE
+  creditsTo
   )).map((u) => {
     u.date_registered = u.date_registered.toISOString().replace('T', ' ').slice(0, -5);
     return u;
@@ -147,9 +153,6 @@ router.get(paths.users, async (ctx, next) => {
   await ctx.render('admin_users', {
     maxRequests: MAX_REQUESTS_PER_HOUR,
     users,
-    page,
-    prevPage: page - 1,
-    nextPage: page + 1,
     username,
     email,
     creditsFrom,
@@ -157,7 +160,8 @@ router.get(paths.users, async (ctx, next) => {
     dateFrom: dateFrom.toISOString().substr(0, 10),
     dateTo: dateTo.toISOString().substr(0, 10),
     permissions: ctx.session.permissions,
-    admin: ctx.session.username
+    admin: ctx.session.username,
+    search: ctx.query.search
   });
 });
 
@@ -167,6 +171,15 @@ router.get(paths.creditBalance, async (ctx, next) => {
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_credit_balance) {
     await ctx.redirect(paths.backOfficeMountPoint);
+    return next();
+  }
+
+  if (ctx.query.search !== 'true') {
+    await ctx.render('admin_credits', {
+      users: [],
+      admin: ctx.session.username,
+      search: ctx.query.search
+    });
     return next();
   }
 
@@ -224,11 +237,9 @@ router.get(paths.creditBalance, async (ctx, next) => {
     total_credits_purchased: total.total_credits_purchased,
     total_credits_spent: total.total_credits_spent,
     total_credits_remaining: total.total_credits_remaining,
-    page,
-    prevPage: page - 1,
-    nextPage: page + 1,
     username,
-    admin: ctx.session.username
+    admin: ctx.session.username,
+    search: ctx.query.search
   });
 });
 
@@ -238,6 +249,15 @@ router.get(paths.cities, async (ctx, next) => {
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_cities) {
     await ctx.redirect(paths.backOfficeMountPoint);
+    return next();
+  }
+
+  if (ctx.query.search !== 'true') {
+    await ctx.render('admin_cities', {
+      cities: [],
+      admin: ctx.session.username,
+      search: ctx.query.search
+    });
     return next();
   }
 
@@ -282,14 +302,12 @@ router.get(paths.cities, async (ctx, next) => {
 
   await ctx.render('admin_cities', {
     cities,
-    page,
-    prevPage: page - 1,
-    nextPage: page + 1,
     dateFrom: dateFrom.toISOString().substr(0, 10),
     dateTo: dateTo.toISOString().substr(0, 10),
     name,
     country,
-    admin: ctx.session.username
+    admin: ctx.session.username,
+    search: ctx.query.search
   });
 });
 
@@ -303,19 +321,23 @@ router.get(paths.requests, async (ctx, next) => {
   }
 
   const term = ctx.query.term == null ? '' : ctx.query.term;
-  const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
+
+  if (ctx.query.search !== 'true') {
+    await ctx.render('admin_requests', {
+      requests: [],
+      term,
+      admin: ctx.session.username
+    });
+    return next();
+  }
 
   const requests = (await db.sql(`
     SELECT * FROM requests
     WHERE
     LOWER(iata_code) LIKE LOWER($1)
     OR UNACCENT(LOWER(city)) LIKE LOWER($1)
-    ORDER BY id
-    OFFSET $2
-    LIMIT $3`,
+    ORDER BY id`,
   `%${term}%`,
-  0 + (ROWS_PER_PAGE * page),
-  ROWS_PER_PAGE
   )).sort((c1, c2) => c2.call_count - c1.call_count)
     .map((r) => {
       const request = r.city ? r.city : r.iata_code;
@@ -329,11 +351,9 @@ router.get(paths.requests, async (ctx, next) => {
 
   await ctx.render('admin_requests', {
     requests,
-    page,
-    prevPage: page - 1,
-    nextPage: page + 1,
     term,
-    admin: ctx.session.username
+    admin: ctx.session.username,
+    search: ctx.query.search
   });
 });
 
@@ -613,6 +633,15 @@ router.get(paths.creditTransfers, async (ctx, next) => {
   assert(isObject(dateTo), `in 'admin/ctransfers' dateTo expected to be object. actual: ${dateTo}`, 133);
   assert(typeof event === 'string', `in 'admin/ctransfers' event expected to be string, actual: ${event}`, 134);
 
+  if (ctx.query.search !== 'true') {
+    await ctx.render('admin_transfers', {
+      transfers: [],
+      admin: ctx.session.username,
+      search: ctx.query.search
+    });
+    return next();
+  }
+
   dateTo.setDate(dateTo.getDate() + 1); // include chosen day
 
   if (dateGroupByValue === 'day') {
@@ -733,7 +762,8 @@ router.get(paths.creditTransfers, async (ctx, next) => {
     dateTo: dateTo.toISOString().substr(0, 10),
     total,
     dateGroupByValue,
-    admin: ctx.session.username
+    admin: ctx.session.username,
+    search: ctx.query.search
   });
 });
 
@@ -876,6 +906,20 @@ router.post(paths.roles, async (ctx, next) => {
 
 // POST admin
 router.post('/', async (ctx, next) => {
+
+  // ctx.session.permissions = {};
+  // ctx.session.permissions.can_see_users = true;
+  // ctx.session.permissions.can_add_credits = true;
+  // ctx.session.permissions.can_see_transfers = true;
+  // ctx.session.permissions.can_see_cities = true;
+  // ctx.session.permissions.can_see_requests = true;
+  // ctx.session.permissions.can_see_credit_balance = true;
+  // ctx.session.permissions.can_see_credits_for_approval = true;
+  // ctx.session.permissions.can_approve_credits = true;
+  // ctx.session.permissions.can_see_roles = true;
+  // ctx.session.permissions.can_change_role_permissions = true;
+  // ctx.session.permissions.can_see_backoffice_users = true;
+  // ctx.session.permissions.can_edit_backoffice_users = true;
   trace(`POST '/${paths.backOfficeMountPoint}'`);
 
   assert(isObject(ctx.request.body), 'Post /admin has no body', 108);
