@@ -1,2 +1,2 @@
-FLASK_APP=/opt/parachute/pachu FLASK_ENV=development PARACHUTE_CONFIG_FILE=/opt/parachute/cfg/config.ini flask run
+FLASK_APP=/opt/parachute/pachu FLASK_ENV=prod PARACHUTE_CONFIG_FILE=/opt/parachute/cfg/config.ini flask run
 

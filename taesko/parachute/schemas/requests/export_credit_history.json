@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "request/credit_history",
-  "title": "Body of the credit_history API method sent from the client.",
+  "title": "Body of the export_credit_history API method sent from the client.",
   "type": "object",
   "properties": {
     "v": {
@@ -9,6 +9,12 @@
     },
     "api_key": {
       "type": "string"
+    },
+    "column_names": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     },
     "fly_from": {
       "type": "string"
@@ -44,7 +50,7 @@
     },
     "limit": {
       "type": "integer",
-      "exclusiveMinimum": 0,
+      "minimum": 0,
       "maximum": 10
     },
     "offset": {

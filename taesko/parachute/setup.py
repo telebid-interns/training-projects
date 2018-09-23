@@ -8,6 +8,6 @@ setup(
     install_requires=[
         'flask',
         'psycopg2',
-        'openpyxl'
+        'openpyxl', 'jsonschema'
     ]
 )

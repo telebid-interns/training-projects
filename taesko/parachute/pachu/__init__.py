@@ -1,23 +1,27 @@
 import logging.config
 
-from flask import Flask, g
+from flask import Flask, g, request
 
 from pachu.config import config
 import pachu.db
+import pachu.api
 
 logging.config.fileConfig(config['resources']['log_config_file'])
-stdout_logger = logging.getLogger('stdout')
-stderr_logger = logging.getLogger('stderr')
 app = Flask(__name__)
 
 
-@app.errorhandler(Exception)
-def handle_error(e):
-    g.exception_occurred = True
-    stderr_logger.critical('Unhandled exception.', exc_info=e)
+@app.before_request
+def connect_to_db():
+    cursor = pachu.db.connect()
+    g.cursor = cursor
+    g.exception_occurred = False
 
+@app.after_request
+def disconnect_from_db(response):
+    pachu.db.disconnect(exception_occurred=g.exception_occurred,
+                        cursors=[g.cursor],
+                        close_connections=True)
 
-app.before_request(pachu.db.connect)
-app.after_request(pachu.db.disconnect)
+    return response
 
-import pachu.routes
+app.register_blueprint(pachu.api.API)

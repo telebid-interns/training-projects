@@ -1,8 +1,10 @@
+import collections
 import logging
 
 from flask import g
 import psycopg2
 import psycopg2.extras
+import psycopg2.extensions
 
 from pachu.config import config
 
@@ -17,16 +19,25 @@ def connect():
     connection = psycopg2.connect(connection_str,
                                   connection_factory=psycopg2.extras.LoggingConnection)
     connection.initialize(stderr_logger)
-    g.cursor = connection.cursor()
-    g.exception_occurred = False
+    return connection.cursor()
 
 
-def disconnect():
-    if g.get('exception_occurred', True):
-        g.cursor.rollback()
-    else:
-        g.cursor.commit()
+def disconnect(exception_occurred, cursors, close_connections=True):
+    assert isinstance(exception_occurred, bool)
+    assert isinstance(cursors, collections.Iterable)
 
-    connection = g.cursor.connection
-    g.cursor.close()
-    connection.close()
+    for cursor in cursors:
+        assert isinstance(cursor, psycopg2.extensions.cursor)
+
+        connection = cursor.connection
+
+        if exception_occurred:
+            connection.rollback()
+        else:
+            connection.commit()
+
+        cursor.close()
+
+        if close_connections:
+            connection.close()
+

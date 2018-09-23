@@ -7,7 +7,7 @@ import flask
 import openpyxl
 import openpyxl.worksheet
 
-from pachu.err import assertPeer
+from pachu.err import assertPeer, assertUser
 
 DEFAULT_TRANSFERRED_DELTA = datetime.timedelta(weeks=4)
 ALLOWED_TRANSFERRED_DELTA = datetime.timedelta(weeks=52)
@@ -34,13 +34,15 @@ def workbook_from_records(*, column_names, records_iterable, filters, query_name
                  table_name=query_name,
                  offset=(new_row_offset, old_col_offset))
 
+    return wb
+
 
 def insert_table(*, sheet, columns, records, table_name, offset):
     assert isinstance(sheet, openpyxl.worksheet.Worksheet)
     assert isinstance(columns, collections.Iterable)
     assert isinstance(records, collections.Iterable)
     assert isinstance(table_name, str)
-    assert isinstance(offset, collections.Collection)
+    assert isinstance(offset, collections.Container)
 
     row_offset, col_offset = offset
 
@@ -74,7 +76,10 @@ def insert_table(*, sheet, columns, records, table_name, offset):
 
 def export_credit_history(
         cursor, *,
-        column_names,
+        column_names=('active', 'reason', 'plan_id',
+                      'transfer_amount', 'transferred_at',
+                      'airport_from_id', 'airport_to_id',
+                      'date_from', 'date_to', 'user_subscription_id'),
         v,
         api_key,
         fly_from=None,
@@ -92,15 +97,15 @@ def export_credit_history(
 
     user_id = cursor.fetchone()[0]
 
-    transferred_to = transferred_to or datetime.datetime.now()
-    transferred_from = (transferred_from or
-                        transferred_to - DEFAULT_TRANSFERRED_DELTA)
-
-    exceeded_format_msg = 'Transferred date range exceeded {}'.format(
-        ALLOWED_TRANSFERRED_DELTA)
-    assertPeer(transferred_to - transferred_from > ALLOWED_TRANSFERRED_DELTA,
-               msg=exceeded_format_msg,
-               code='API_CH_EXCEEDED_TRANSFERRED_DELTA')
+    # transferred_to = transferred_to or datetime.datetime.now()
+    # transferred_from = (transferred_from or
+    #                     transferred_to - DEFAULT_TRANSFERRED_DELTA)
+    #
+    # exceeded_format_msg = 'Transferred date range exceeded {}'.format(
+    #     ALLOWED_TRANSFERRED_DELTA)
+    # assertUser(transferred_to - transferred_from > ALLOWED_TRANSFERRED_DELTA,
+    #            msg=exceeded_format_msg,
+    #            code='API_CH_EXCEEDED_TRANSFERRED_DELTA')
 
     query_params = dict(
         user_id=user_id,
@@ -114,24 +119,35 @@ def export_credit_history(
         fly_to=fly_to,
     )
     filters = dict(
-        status_filter='AND users_subscriptions.active=%(status)s',
-        date_from_filter='AND users_subscriptions.date_from >= %(date_from)s',
-        date_to_filter='AND users_subscriptions.date_to <= %(date_to)s',
+        status_filter='AND users_subscriptions.active=%(status)s' if status else '',
+        date_from_filter='AND users_subscriptions.date_from >= %(date_from)s' if date_from else '',
+        date_to_filter='AND users_subscriptions.date_to <= %(date_to)s' if date_to else '',
         transferred_at_filter='''
         AND account_transfers.transferred_at BETWEEN 
             (%(transferred_from)s AND %(transferred_to)s)
-        ''',
-        transfer_amount_fitler='''
+        ''' if transferred_from and transferred_to else '',
+        transfer_amount_filter='''
         AND account_transfers.transfer_amount {transfer_amount_operator} %(transfer_amount)s
-        '''.format(transfer_amount_operator=transfer_amount_operator),
+        '''.format(transfer_amount_operator=transfer_amount_operator) if transfer_amount and transfer_amount_operator else '',
         airport_from_filter='''
         AND (ap_from.name=%(fly_from)s OR ap_from.iata_code=%(fly_from)s)
-        ''',
+        ''' if fly_from else '',
         airport_to_filter='''
         AND (ap_to.name=%(fly_to)s OR ap_to.iata_code=%(fly_to)s)
-        '''
+        ''' if fly_to else ''
     )
-    select_columns = '*'
+    select_columns = '''
+            active,
+            reason,
+            subscription_plan_id,
+            transfer_amount,
+            transferred_at,
+            airport_from_id,
+            airport_to_id, 
+            date_from,
+            date_to,
+            user_subscr_id
+    '''
     group_by_clause = ''
     query = '''
     SELECT {select_columns}
@@ -208,11 +224,10 @@ def export_credit_history(
                                records_iterable=cursor.fetchall(),
                                filters=query_params)
 
-    with open(tempfile.NamedTemporaryFile()) as tmp:
-        wb.save(tmp.name)
-        tmp.seek(0)
-        stream = io.BytesIO(tmp.read())
-
+    tmp = tempfile.NamedTemporaryFile()
+    wb.save(tmp.name)
+    tmp.seek(0)
+    stream = io.BytesIO(tmp.read())
     filename = '{user_id}-${date}'.format(user_id=user_id,
                                               date=datetime.datetime.now())
     return flask.send_file(
