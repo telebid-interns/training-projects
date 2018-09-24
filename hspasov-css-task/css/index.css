@@ -234,8 +234,7 @@ img.container-image {
 }
 
 img.container-image:hover {
-  width: 110%;
-  height: auto;
+  transform: scale(1.5);
 }
 
 button {
