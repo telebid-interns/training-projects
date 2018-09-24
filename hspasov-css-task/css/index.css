@@ -38,7 +38,7 @@
   background-color: #EBF5FB;
 }
 
-.subitem:active {
+.subitem:active, .collapsed-subitem:active {
   background-color: white;
 }
 
@@ -173,6 +173,10 @@ input[type=checkbox]:not(:checked) ~ div#content-wrap {
   display: block;
 }
 
+.collapsed-item-button ~ .subitems:hover {
+  display: block;
+}
+
 .collapsed-item-button ~ .subitems {
   display: none;
 }
@@ -304,5 +308,19 @@ button:active {
   height: 8%;
   background-color: #336D84;
   border: 1px solid black;
+}
+
+.print-msg {
+  display: none;
+}
+
+@media print {
+  #top-bar, #side-menu, #side-menu-collapsed, #bottom-bar {
+    display: none;
+  }
+
+  .print-msg {
+    display: block;
+  }
 }
 
