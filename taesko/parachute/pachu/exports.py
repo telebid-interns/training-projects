@@ -2,18 +2,23 @@ import collections.abc
 import datetime
 import io
 import tempfile
+import logging
 
 import flask
 import openpyxl
 import openpyxl.worksheet
+import psycopg2.extensions
 
-from pachu.err import assertPeer, assertUser
+from pachu.config import config
+from pachu.err import UserError
 
+stdout_logger = logging.getLogger('stdout')
 DEFAULT_TRANSFERRED_DELTA = datetime.timedelta(weeks=4)
 ALLOWED_TRANSFERRED_DELTA = datetime.timedelta(weeks=52)
 
 
-def workbook_from_records(*, column_names, records_iterable, filters, query_name):
+def workbook_from_records(*, column_names, records_iterable, filters,
+                          query_name):
     assert isinstance(column_names, collections.Iterable)
     assert isinstance(records_iterable, collections.Iterable)
     assert isinstance(filters, collections.Mapping)
@@ -22,17 +27,19 @@ def workbook_from_records(*, column_names, records_iterable, filters, query_name
     wb = openpyxl.Workbook()
     sheet = wb.create_sheet(query_name)
     offset = (1, 1)
-    new_row_offset, _ = insert_table(sheet=sheet,
-                                     columns=['Filter', 'Value'],
-                                     records=filters.items(),
-                                     table_name='Filters',
-                                     offset=offset)
-    _, old_col_offset = offset
+    offset = insert_table(sheet=sheet,
+                          columns=['Name', 'Value'],
+                          records=filters.items(),
+                          table_name='Filters',
+                          offset=offset)
+
+    offset = (offset[0] + 1, *offset[1:])
+
     insert_table(sheet=sheet,
                  columns=column_names,
                  records=records_iterable,
                  table_name=query_name,
-                 offset=(new_row_offset, old_col_offset))
+                 offset=offset)
 
     return wb
 
@@ -44,34 +51,25 @@ def insert_table(*, sheet, columns, records, table_name, offset):
     assert isinstance(table_name, str)
     assert isinstance(offset, collections.Container)
 
-    row_offset, col_offset = offset
+    def write_row(sheet, values, offset):
+        assert isinstance(sheet, openpyxl.worksheet.Worksheet)
+        assert isinstance(values, collections.Iterable)
+        assert isinstance(offset, collections.Container)
 
-    sheet.cell(row=row_offset, column=col_offset,
-               value="{}".format(table_name))
+        row, col = offset
 
-    row_offset += 1
-    column_len = 0
+        for col_offset, v in enumerate(values):
+            sheet.cell(row=row, column=col + col_offset,
+                       value=str(v))
 
-    for col, column_name in enumerate(columns):
-        sheet.cell(row=row_offset, column=col + col_offset,
-                   value="{}".format(column_name))
-        column_len = col
+        return (row + 1, col)
 
-    row_offset += 1
-    inserted_rows = 0
+    offset = write_row(sheet, [table_name], offset)
+    offset = write_row(sheet, columns, offset)
+    for row in records:
+        offset = write_row(sheet, row, offset)
 
-    for row, record in enumerate(records):
-        inserted_columns = 0
-        for col, field in enumerate(record):
-            sheet.cell(row=row + row_offset, column=col + col_offset,
-                       value="{}".format(field))
-            inserted_columns = col
-        assert inserted_columns == column_len
-
-    row_offset += inserted_rows
-    col_offset += column_len
-
-    return row_offset, col_offset
+    return offset
 
 
 def export_credit_history(
@@ -93,6 +91,8 @@ def export_credit_history(
         transfer_amount_operator=None,
         group_by=None
 ):
+    cursor.execute('SET statement_timeout=%(time)s',
+                   dict(time=config['api_export_credit_history']['timeout']))
     cursor.execute('SELECT id FROM users WHERE api_key=%s', [api_key])
 
     user_id = cursor.fetchone()[0]
@@ -128,7 +128,8 @@ def export_credit_history(
         ''' if transferred_from and transferred_to else '',
         transfer_amount_filter='''
         AND account_transfers.transfer_amount {transfer_amount_operator} %(transfer_amount)s
-        '''.format(transfer_amount_operator=transfer_amount_operator) if transfer_amount and transfer_amount_operator else '',
+        '''.format(
+            transfer_amount_operator=transfer_amount_operator) if transfer_amount and transfer_amount_operator else '',
         airport_from_filter='''
         AND (ap_from.name=%(fly_from)s OR ap_from.iata_code=%(fly_from)s)
         ''' if fly_from else '',
@@ -158,8 +159,8 @@ def export_credit_history(
             subscription_plan_id,
             transfer_amount,
             transferred_at,
-            airport_from_id,
-            airport_to_id, 
+            subscriptions.airport_from_id,
+            subscriptions.airport_to_id, 
             date_from,
             date_to,
             users_subscriptions.id AS user_subscr_id
@@ -217,7 +218,13 @@ def export_credit_history(
         group_by_clause=group_by_clause,
         select_columns=select_columns,
     )
-    cursor.execute(query, query_params)
+    try:
+        cursor.execute(query, query_params)
+    except psycopg2.extensions.QueryCanceledError:
+        stdout_logger.exception('Credit history query timed out.')
+        raise UserError(msg='Query took too long',
+                        code='API_CH_QUERY_TIMEOUT',
+                        userMsg='You are trying to export too much data at once.')
 
     wb = workbook_from_records(query_name='credit_history',
                                column_names=column_names,
@@ -229,10 +236,10 @@ def export_credit_history(
     tmp.seek(0)
     stream = io.BytesIO(tmp.read())
     filename = '{user_id}-${date}'.format(user_id=user_id,
-                                              date=datetime.datetime.now())
+                                          date=datetime.datetime.now())
     return flask.send_file(
         stream,
-        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        mimetype=config['api_export_credit_history']['xlsx_mime_type'],
         as_attachment=True,
         attachment_filename=filename
     )

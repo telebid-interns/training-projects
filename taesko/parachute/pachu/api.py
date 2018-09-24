@@ -37,13 +37,15 @@ def log_response(response):
     return response
 
 
+# TODO decorate API methods and hanlde user errors
 @API.errorhandler(PeerError)
 def error_handler(error):
     stderr_logger.info('A peer error occurred with code=%s', error.code)
     api_codes = {
         'API_DIFFERENT_FORMATS': 4100,
         'API_UNSUPPORTED_FORMAT': 4101,
-        'API_BAD_METHOD_PARAMS': 4200
+        'API_BAD_METHOD_PARAMS': 4200,
+
     }
 
     payload = dict(
