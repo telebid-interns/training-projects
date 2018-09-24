@@ -208,7 +208,9 @@ span.item-button:active {
 }
 
 @media print {
-  #top-bar, #side-menu, #side-menu-collapsed, #footer {
+  #top-bar, #side-menu, #side-menu-collapsed, #footer,
+  input[type=checkbox]:not(:checked) ~ div#side-menu,
+  input[type=checkbox]#side-menu-toggle:checked ~ div#side-menu-collapsed {
     display: none;
   }
 
