@@ -12,6 +12,8 @@ app = Flask(__name__)
 
 @app.before_request
 def connect_to_db():
+    print(request)
+    print('url is', request.url)
     cursor = pachu.db.connect()
     g.cursor = cursor
     g.exception_occurred = False

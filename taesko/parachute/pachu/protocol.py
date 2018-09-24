@@ -79,7 +79,9 @@ class YAMLRPC(BaseProtocol):
         return self.body
 
 
-def normalize_request(body, content_type, query_param):
+def normalize_request(body, content_type='', query_param=''):
+    query_param = query_param or ''
+    content_type = content_type or ''
     assert isinstance(content_type, str)
     assert isinstance(query_param, str)
 

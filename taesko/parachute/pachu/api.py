@@ -64,10 +64,7 @@ def error_handler(error):
 def api():
     format_param_key = 'format'
 
-    try:
-        format = request.args[format_param_key]
-    except KeyError:
-        raise PeerError(msg="Query parameter 'format' is required.")
+    format = request.args.get(format_param_key, None)
 
     normalized = normalize_request(body=request.get_json(force=True),
                                    content_type=request.content_type,
