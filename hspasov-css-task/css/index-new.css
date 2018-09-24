@@ -1,0 +1,179 @@
+* {
+  font-size: 100%;
+  font-family: Arial;
+}
+
+#top-bar {
+  grid-area: header;
+}
+
+#middle {
+  grid-area: main;
+}
+
+#side-menu-collapsed, #side-menu {
+  grid-area: sidemenu;
+}
+
+#footer {
+  grid-area: footer;
+}
+
+#container {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  transition: all 1s;
+}
+
+#alert {
+  position: fixed;
+  padding: 20px;
+  height: 200px;
+  width: 20%;
+  top: 10%;
+  right: 10%;
+  background-color: #ECF0F1;
+  transition: all 1s;
+}
+
+.subitem {
+  border: 1px solid black;
+  height: 40px;
+  width: 100%;
+  text-align: center;
+  background-color: #EBF5FB;
+}
+
+.collapsed-subitem {
+  width: 200%;
+  border: 1px solid black;
+  height: 40px;
+  text-align: center;
+  background-color: #EBF5FB;
+}
+
+.subitem:active, .collapsed-subitem:active {
+  background-color: white;
+}
+
+.subitems, #alert {
+  display: none;
+}
+
+.container {
+  display: grid;
+  grid-template-columns: 100px 100px auto 90px;
+  grid-template-rows: 50px auto;
+  grid-template-areas:
+    "header header header header"
+    "sidemenu sidemenu main .";
+  grid-column-gap: 5px;
+  grid-row-gap: 5px;
+}
+
+img.container-image:hover {
+  transform: scale(1.5);
+}
+
+input[type=checkbox] {
+  display: none;
+}
+
+input[type=checkbox]:checked ~ .subitems, input[type=checkbox]:checked ~ div#alert, input[type=checkbox]:checked ~ div#side-menu-collapsed {
+  display: block;
+}
+
+
+input[type=checkbox]:not(:checked) ~ div#side-menu {
+  display: block;
+}
+
+input[type=checkbox]:checked ~ div#side-menu {
+  display: none;
+}
+
+input[type=checkbox]:not(:checked) ~ div#side-menu-collapsed {
+  display: none;
+}
+
+#side-menu-item-label-1,
+#side-menu-item-label-2,
+#side-menu-item-label-3,
+#side-menu-item-label-4 {
+  display: block;
+}
+
+
+.collapsed-item-button {
+  display: block;
+  height: 70px;
+  text-align: center;
+  transition: all 1s;
+}
+
+.collapsed-item-button:hover ~ .subitems {
+  display: block;
+}
+
+.collapsed-item-button ~ .subitems:hover {
+  display: block;
+}
+
+.collapsed-item-button ~ .subitems {
+  display: none;
+}
+
+span.item-button {
+  padding: 5px;
+  display: block;
+  height: 70px;
+  text-align: center;
+  background-color: #A9CCE3;
+  border:1px solid black;
+  transition: all 1s;
+}
+
+.item-icon {
+  height: 70px;
+  float: left;
+}
+
+.top-bar-img {
+  height: 100%;
+}
+
+.logo {
+  animation-name: sad-spin;
+  animation-iteration-count: infinite;
+  animation-duration: 4000ms;
+  overflow:hidden;
+}
+
+@keyframes sad-spin {
+  0% {
+    transform: rotateY(0deg) skew(0deg, 0deg);
+  }
+  50% {
+    transform: rotateY(360deg) skew(0deg, -40deg);
+  }
+  100% {
+    transform: rotateY(0deg) skew(0deg, 0deg);
+  }
+}
+
+.print-msg {
+  display: none;
+}
+
+@media print {
+  #top-bar, #side-menu, #side-menu-collapsed, #bottom-bar {
+    display: none;
+  }
+
+  .print-msg {
+    display: block;
+  }
+}
+
