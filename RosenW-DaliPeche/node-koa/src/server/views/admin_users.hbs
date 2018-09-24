@@ -48,31 +48,37 @@
       </form>
     </ul>
     {{#if search}}
-      <h3 class="col-lg-10 text-center">Report</h3>
-      <div id="table-container" class="col-lg-10 pre-scrollable" style="max-height: 31em; height: 31em">
-        <table id="users-table" class="table table-hover table-bordered">
-          <tr>
-            <th>ID</th>
-            <th>Date Registered</th>
-            <th>User</th>
-            <th>Email</th>
-            <th>Successful Requests</th>
-            <th>Failed Requests</th>
-            <th>Credits</th>
-          </tr>
-          {{#each users}}
-            <tr class="gen-tr">
-              <td class="text-right">{{id}}</td>
-              <td>{{date_registered}}</td>
-              <td>{{username}}</td>
-              <td>{{email}}</td>
-              <td class="text-right">{{successful_requests}}</td>
-              <td class="text-right">{{failed_requests}}</td>
-              <td>{{credits}}</td>
+      {{#if show}}
+        <h3 class="col-lg-10 text-center">Report</h3>
+        <div id="table-container" class="col-lg-10 pre-scrollable" style="max-height: 31em; height: 31em">
+          <table id="users-table" class="table table-hover table-bordered">
+            <tr>
+              <th>ID</th>
+              <th>Date Registered</th>
+              <th>User</th>
+              <th>Email</th>
+              <th>Successful Requests</th>
+              <th>Failed Requests</th>
+              <th>Credits</th>
             </tr>
-          {{/each}}
-        </table>
-      </div>
+            {{#each users}}
+              <tr class="gen-tr">
+                <td class="text-right">{{id}}</td>
+                <td>{{date_registered}}</td>
+                <td>{{username}}</td>
+                <td>{{email}}</td>
+                <td class="text-right">{{successful_requests}}</td>
+                <td class="text-right">{{failed_requests}}</td>
+                <td>{{credits}}</td>
+              </tr>
+            {{/each}}
+          </table>
+        </div>
+      {{else}}
+        <div class="text-center">
+          <p>Too Many Results ({{resultCount}}) please check your filters. <a href="/admin/users?username={{username}}&dateFrom={{dateFrom}}&dateTo={{dateTo}}&email={{email}}&creditsFrom={{creditsFrom}}&creditsTo={{creditsTo}}&search=1&show=1"> display anyway </a></p>
+        </div>
+      {{/if}}
     {{/if}}
   </body>
 </html>

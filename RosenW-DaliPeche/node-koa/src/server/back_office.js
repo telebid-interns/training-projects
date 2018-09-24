@@ -23,6 +23,7 @@ const {
   MINIMUM_PASSWORD_LENGTH,
   SALT_ROUNDS,
   SALT_LENGTH,
+  MAX_HTML_ROWS_WITHOUT_CONFIRMATION
 } = require('./../utils/consts.js');
 const paths = require('./../etc/config.js');
 
@@ -161,7 +162,9 @@ router.get(paths.users, async (ctx, next) => {
     dateTo: dateTo.toISOString().substr(0, 10),
     permissions: ctx.session.permissions,
     admin: ctx.session.username,
-    search: ctx.query.search
+    show: users.length < MAX_HTML_ROWS_WITHOUT_CONFIRMATION || ctx.query.show != null,
+    search: ctx.query.search,
+    resultCount: users.length
   });
 });
 
@@ -239,7 +242,9 @@ router.get(paths.creditBalance, async (ctx, next) => {
     total_credits_remaining: total.total_credits_remaining,
     username,
     admin: ctx.session.username,
-    search: ctx.query.search
+    search: ctx.query.search,
+    show: users.length < MAX_HTML_ROWS_WITHOUT_CONFIRMATION || ctx.query.show != null,
+    resultCount: users.length
   });
 });
 
@@ -307,7 +312,9 @@ router.get(paths.cities, async (ctx, next) => {
     name,
     country,
     admin: ctx.session.username,
-    search: ctx.query.search
+    search: ctx.query.search,
+    show: cities.length < MAX_HTML_ROWS_WITHOUT_CONFIRMATION || ctx.query.show != null,
+    resultCount: cities.length
   });
 });
 
@@ -322,7 +329,7 @@ router.get(paths.requests, async (ctx, next) => {
 
   const term = ctx.query.term == null ? '' : ctx.query.term;
 
-  if (ctx.query.search !== 'true') {
+  if (ctx.query.search == null) { // TODO replace all !== "true" with this
     await ctx.render('admin_requests', {
       requests: [],
       term,
@@ -353,7 +360,9 @@ router.get(paths.requests, async (ctx, next) => {
     requests,
     term,
     admin: ctx.session.username,
-    search: ctx.query.search
+    search: ctx.query.search,
+    show: requests.length < MAX_HTML_ROWS_WITHOUT_CONFIRMATION || ctx.query.show != null,
+    resultCount: requests.length
   });
 });
 
@@ -703,7 +712,10 @@ router.get(paths.creditTransfers, async (ctx, next) => {
       dateTo: dateTo.toISOString().substr(0, 10),
       total,
       dateGroupByValue,
-      admin: ctx.session.username
+      search: ctx.query.search,
+      show: transfers.length < MAX_HTML_ROWS_WITHOUT_CONFIRMATION || ctx.query.show != null,
+      resultCount: transfers.length,
+      admin: ctx.session.username,
     });
     return next();
   }

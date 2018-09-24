@@ -40,29 +40,35 @@
       </form>
     </ul>
     {{#if search}}
-      <h3 class="col-lg-10 text-center">Report</h3>
-      <div id="table-container" class="col-lg-10 pre-scrollable" style="max-height: 33em; height: 33em">
-        <table id="cities-table" class="table table-hover table-bordered">
-          <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Country</th>
-            <th>Longitude</th>
-            <th>Latitude</th>
-            <th>Observed at</th>
-          </tr>
-          {{#each cities}}
-            <tr class="gen-tr">
-              <td class="text-right">{{id}}</td>
-              <td>{{name}}</td>
-              <td>{{country}}</td>
-              <td class="text-right">{{lng}}</td>
-              <td class="text-right">{{lat}}</td>
-              <td>{{observed_at}}</td>
+      {{#if show}}
+        <h3 class="col-lg-10 text-center">Report</h3>
+        <div id="table-container" class="col-lg-10 pre-scrollable" style="max-height: 33em; height: 33em">
+          <table id="cities-table" class="table table-hover table-bordered">
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Country</th>
+              <th>Longitude</th>
+              <th>Latitude</th>
+              <th>Observed at</th>
             </tr>
-          {{/each}}
-        </table>
-      </div>
+            {{#each cities}}
+              <tr class="gen-tr">
+                <td class="text-right">{{id}}</td>
+                <td>{{name}}</td>
+                <td>{{country}}</td>
+                <td class="text-right">{{lng}}</td>
+                <td class="text-right">{{lat}}</td>
+                <td>{{observed_at}}</td>
+              </tr>
+            {{/each}}
+          </table>
+        </div>
+      {{else}}
+        <div class="text-center">
+          <p>Too Many Results ({{resultCount}}) please check your filters. <a href="/admin/cities?name={{name}}&dateFrom={{dateFrom}}&dateTo={{dateTo}}&country={{country}}&search=1&show=1"> display anyway </a></p>
+        </div>
+      {{/if}}
     {{/if}}
   </body>
 </html>

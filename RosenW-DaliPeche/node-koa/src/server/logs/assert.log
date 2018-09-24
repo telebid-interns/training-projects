@@ -61,3 +61,11 @@ Expecting 'OPEN_INVERSE_CHAIN', 'INVERSE', 'OPEN_ENDBLOCK', got 'EOF'
 ...elected');</script>
 ----------------------^
 Expecting 'OPEN_INVERSE_CHAIN', 'INVERSE', 'OPEN_ENDBLOCK', got 'EOF'
+2018-09-22T18:27:53.488Z:  Error: getaddrinfo EAI_AGAIN localhost:5432
+2018-09-22T18:27:57.997Z:  Error: getaddrinfo EAI_AGAIN localhost:5432
+2018-09-22T18:29:43.504Z:  Error: getaddrinfo EAI_AGAIN localhost:5432
+2018-09-22T18:32:31.355Z:  Error: getaddrinfo EAI_AGAIN localhost:5432
+2018-09-24T09:07:55.063Z:  Error: Parse error on line 102:
+...{event}}';</script>
+----------------------^
+Expecting 'OPEN_INVERSE_CHAIN', 'INVERSE', 'OPEN_ENDBLOCK', got 'EOF'

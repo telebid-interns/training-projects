@@ -29,34 +29,40 @@
       </form>
     </ul>
     {{#if search}}
-      <h3 class="col-lg-10 text-center">Credit Balance</h3>
-      <div id="table-container" class="col-lg-10 pre-scrollable" style="max-height: 33em; height: 33em">
-        <table id="credits-table" class="table table-hover table-bordered">
-          <tr>
-            <th>ID</th>
-            <th>User</th>
-            <th>Credits Purchased</th>
-            <th>Credits Spent</th>
-            <th>Credits Remaining</th>
-          </tr>
-          {{#each users}}
-            <tr class="gen-tr">
-              <td class="text-right">{{id}}</td>
-              <td>{{username}}</td>
-              <td class="text-right">{{credits_purchased}}</td>
-              <td class="text-right">{{credits_spent}}</td>
-              <td class="text-right">{{credits_remaining}}</td>
+      {{#if show}}
+        <h3 class="col-lg-10 text-center">Credit Balance</h3>
+        <div id="table-container" class="col-lg-10 pre-scrollable" style="max-height: 33em; height: 33em">
+          <table id="credits-table" class="table table-hover table-bordered">
+            <tr>
+              <th>ID</th>
+              <th>User</th>
+              <th>Credits Purchased</th>
+              <th>Credits Spent</th>
+              <th>Credits Remaining</th>
             </tr>
-          {{/each}}
-          <tr>
-            <td class="text-right"><strong>#</strong></td>
-            <td><strong>Total</strong></td>
-            <td class="text-right"><strong>{{total_credits_purchased}}</strong></td>
-            <td class="text-right"><strong>{{total_credits_spent}}</strong></td>
-            <td class="text-right"><strong>{{total_credits_remaining}}</strong></td>
-          </tr>
-        </table>
-      </div>
+            {{#each users}}
+              <tr class="gen-tr">
+                <td class="text-right">{{id}}</td>
+                <td>{{username}}</td>
+                <td class="text-right">{{credits_purchased}}</td>
+                <td class="text-right">{{credits_spent}}</td>
+                <td class="text-right">{{credits_remaining}}</td>
+              </tr>
+            {{/each}}
+            <tr>
+              <td class="text-right"><strong>#</strong></td>
+              <td><strong>Total</strong></td>
+              <td class="text-right"><strong>{{total_credits_purchased}}</strong></td>
+              <td class="text-right"><strong>{{total_credits_spent}}</strong></td>
+              <td class="text-right"><strong>{{total_credits_remaining}}</strong></td>
+            </tr>
+          </table>
+        </div>
+      {{else}}
+        <div class="text-center">
+          <p>Too Many Results ({{resultCount}}) please check your filters. <a href="/admin/credits?username={{username}}&search=1&show=1"> display anyway </a></p>
+        </div>
+      {{/if}}
     {{/if}}
   </body>
 </html>
