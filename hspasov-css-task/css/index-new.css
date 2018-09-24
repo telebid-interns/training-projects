@@ -9,6 +9,7 @@
 
 #middle {
   grid-area: main;
+  overflow: auto;
 }
 
 #side-menu-collapsed, #side-menu {
@@ -16,7 +17,8 @@
 }
 
 #footer {
-  grid-area: footer;
+  position: fixed;
+  bottom: 0;
 }
 
 #container {
@@ -25,6 +27,22 @@
   flex-wrap: wrap;
   justify-content: space-between;
   transition: all 1s;
+}
+
+.container-item {
+  margin: 1%;
+  width: 18%;
+}
+
+button {
+  width: 100px;
+  height: 100px;
+  font-size: 40px;
+  background-color: #E3F4FB;
+}
+
+button:active {
+  background-color: white;
 }
 
 #alert {
@@ -47,7 +65,6 @@
 }
 
 .collapsed-subitem {
-  width: 200%;
   border: 1px solid black;
   height: 40px;
   text-align: center;
@@ -65,7 +82,7 @@
 .container {
   display: grid;
   grid-template-columns: 100px 100px auto 90px;
-  grid-template-rows: 50px auto;
+  grid-template-rows: 50px calc(100vh - 50px);
   grid-template-areas:
     "header header header header"
     "sidemenu sidemenu main .";
@@ -81,10 +98,13 @@ input[type=checkbox] {
   display: none;
 }
 
-input[type=checkbox]:checked ~ .subitems, input[type=checkbox]:checked ~ div#alert, input[type=checkbox]:checked ~ div#side-menu-collapsed {
+input[type=checkbox]:checked ~ .subitems, input[type=checkbox]#alert-toggle:checked ~ div#alert, input[type=checkbox]#side-menu-toggle:checked ~ div#side-menu-collapsed {
   display: block;
 }
 
+input[type=checkbox]:checked span.item-button {
+  background-color: white;
+}
 
 input[type=checkbox]:not(:checked) ~ div#side-menu {
   display: block;
@@ -135,6 +155,26 @@ span.item-button {
   transition: all 1s;
 }
 
+span.item-button:hover, span.item-button:active {
+  background-color: white;
+}
+
+span.item-button:active {
+  background-color: white;
+}
+
+#side-menu-button {
+  transition: all 0.5s;
+}
+
+#side-menu-button:hover {
+  background-color: white;
+}
+
+#side-menu-button:active {
+  background-color: white;
+}
+
 .item-icon {
   height: 70px;
   float: left;
@@ -168,7 +208,7 @@ span.item-button {
 }
 
 @media print {
-  #top-bar, #side-menu, #side-menu-collapsed, #bottom-bar {
+  #top-bar, #side-menu, #side-menu-collapsed, #footer {
     display: none;
   }
 
