@@ -540,22 +540,17 @@ router.get(paths.backOfficeUsers, async (ctx, next) => {
   }
 
   const username = ctx.query.username == null ? '' : ctx.query.username;
-  const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
 
   const roles = await db.sql(`SELECT id, role FROM roles ORDER BY id`);
 
-  const users = (await db.sql(`
-    SELECT bu.id, bu.username, r.role, r.id AS role_id
-    FROM backoffice_users AS bu
-    JOIN backoffice_users_roles AS bur
-      ON bu.id = bur.backoffice_user_id
-    JOIN roles AS r
-      ON r.id = bur.role_id
+  const users = await db.sql(`
+    SELECT *
+    FROM backoffice_users
     WHERE
       LOWER(username) LIKE LOWER($1)
-    ORDER BY bu.id`,
+    ORDER BY id`,
   `%${username}%`
-  )).sort((c1, c2) => c2.call_count - c1.call_count);
+  );
 
   const msg = ctx.session.msg != null ? ctx.session.msg : '';
   delete ctx.session.msg;
@@ -563,9 +558,6 @@ router.get(paths.backOfficeUsers, async (ctx, next) => {
   await ctx.render('admin_backoffice_users', {
     users,
     roles,
-    page,
-    prevPage: page - 1,
-    nextPage: page + 1,
     username,
     permissions: ctx.session.permissions,
     msg,
