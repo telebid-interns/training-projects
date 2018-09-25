@@ -69,3 +69,4 @@ Expecting 'OPEN_INVERSE_CHAIN', 'INVERSE', 'OPEN_ENDBLOCK', got 'EOF'
 ...{event}}';</script>
 ----------------------^
 Expecting 'OPEN_INVERSE_CHAIN', 'INVERSE', 'OPEN_ENDBLOCK', got 'EOF'
+2018-09-25T07:24:51.086Z:  Error: Error while querying: error: bind message supplies 3 parameters, but prepared statement "" requires 1

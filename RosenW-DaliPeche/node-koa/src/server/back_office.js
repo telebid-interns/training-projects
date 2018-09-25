@@ -102,7 +102,7 @@ router.get(paths.users, async (ctx, next) => {
     return next();
   }
 
-  if (ctx.query.search !== 'true') {
+  if (ctx.query.search == null) {
     await ctx.render('admin_users', {
       maxRequests: MAX_REQUESTS_PER_HOUR,
       users: [],
@@ -127,11 +127,12 @@ router.get(paths.users, async (ctx, next) => {
   assert(typeof creditsTo === 'number', `in 'admin/user' creditsTo expected to be number, actual: ${creditsTo}`, 126);
 
   dateTo.setDate(dateTo.getDate() + 1); // include chosen day
-  
+
 
 
   const users = (await db.sql(`
-    SELECT * FROM users
+    SELECT *
+    FROM users
     WHERE
       UNACCENT(LOWER(username)) LIKE LOWER($1)
       AND LOWER(email) LIKE LOWER($2)
@@ -177,7 +178,7 @@ router.get(paths.creditBalance, async (ctx, next) => {
     return next();
   }
 
-  if (ctx.query.search !== 'true') {
+  if (ctx.query.search == null) {
     await ctx.render('admin_credits', {
       users: [],
       admin: ctx.session.username,
@@ -201,12 +202,8 @@ router.get(paths.creditBalance, async (ctx, next) => {
     WHERE UNACCENT(LOWER(u.username)) LIKE LOWER($1)
     GROUP BY (u.id, u.username, u.credits)
     ORDER BY u.id
-    OFFSET $2
-    LIMIT $3
   `,
-  `%${username}%`,
-  0 + (ROWS_PER_PAGE * page),
-  ROWS_PER_PAGE
+  `%${username}%`
   );
 
   const total = (await db.sql(`
@@ -226,13 +223,9 @@ router.get(paths.creditBalance, async (ctx, next) => {
       ON ct.user_id = u.id
       WHERE UNACCENT(LOWER(u.username)) LIKE LOWER($1)
       GROUP BY (u.id, u.username, u.credits)
-      ORDER BY u.id
-      OFFSET $2
-      LIMIT $3) AS total_by_user;
+      ORDER BY u.id) AS total_by_user;
     `,
   `%${username}%`,
-  0 + (ROWS_PER_PAGE * page),
-  ROWS_PER_PAGE
   ))[0];
 
   await ctx.render('admin_credits', {
@@ -257,7 +250,7 @@ router.get(paths.cities, async (ctx, next) => {
     return next();
   }
 
-  if (ctx.query.search !== 'true') {
+  if (ctx.query.search == null) {
     await ctx.render('admin_cities', {
       cities: [],
       admin: ctx.session.username,
@@ -289,15 +282,11 @@ router.get(paths.cities, async (ctx, next) => {
       UNACCENT(LOWER(c.name)) LIKE LOWER($1)
       AND LOWER(ctr.name) LIKE LOWER($2)
       AND (c.observed_at BETWEEN $3 AND $4)
-    ORDER BY id
-    OFFSET $5
-    LIMIT $6`,
+    ORDER BY id`,
   `%${name}%`,
   `%${country}%`,
   dateFrom,
-  dateTo,
-  0 + (ROWS_PER_PAGE * page),
-  ROWS_PER_PAGE
+  dateTo
   )).map((c) => {
     if (c.observed_at != null) c.observed_at = c.observed_at.toISOString().replace('T', ' ').slice(0, -5);
     return c;
@@ -642,7 +631,7 @@ router.get(paths.creditTransfers, async (ctx, next) => {
   assert(isObject(dateTo), `in 'admin/ctransfers' dateTo expected to be object. actual: ${dateTo}`, 133);
   assert(typeof event === 'string', `in 'admin/ctransfers' event expected to be string, actual: ${event}`, 134);
 
-  if (ctx.query.search !== 'true') {
+  if (ctx.query.search == null) {
     await ctx.render('admin_transfers', {
       transfers: [],
       admin: ctx.session.username,
@@ -703,6 +692,7 @@ router.get(paths.creditTransfers, async (ctx, next) => {
     dateFrom,
     dateTo
     ))[0];
+    console.log(transfers.length);
 
     await ctx.render('admin_transfers', {
       transfers,
@@ -775,6 +765,8 @@ router.get(paths.creditTransfers, async (ctx, next) => {
     total,
     dateGroupByValue,
     admin: ctx.session.username,
+    show: transfers.length < MAX_HTML_ROWS_WITHOUT_CONFIRMATION || ctx.query.show != null,
+    resultCount: transfers.length,
     search: ctx.query.search
   });
 });
@@ -918,20 +910,6 @@ router.post(paths.roles, async (ctx, next) => {
 
 // POST admin
 router.post('/', async (ctx, next) => {
-
-  // ctx.session.permissions = {};
-  // ctx.session.permissions.can_see_users = true;
-  // ctx.session.permissions.can_add_credits = true;
-  // ctx.session.permissions.can_see_transfers = true;
-  // ctx.session.permissions.can_see_cities = true;
-  // ctx.session.permissions.can_see_requests = true;
-  // ctx.session.permissions.can_see_credit_balance = true;
-  // ctx.session.permissions.can_see_credits_for_approval = true;
-  // ctx.session.permissions.can_approve_credits = true;
-  // ctx.session.permissions.can_see_roles = true;
-  // ctx.session.permissions.can_change_role_permissions = true;
-  // ctx.session.permissions.can_see_backoffice_users = true;
-  // ctx.session.permissions.can_edit_backoffice_users = true;
   trace(`POST '/${paths.backOfficeMountPoint}'`);
 
   assert(isObject(ctx.request.body), 'Post /admin has no body', 108);
