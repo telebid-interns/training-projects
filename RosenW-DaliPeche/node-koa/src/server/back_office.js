@@ -121,16 +121,14 @@ router.get(paths.users, async (ctx, next) => {
   const dateFrom = ctx.query['date-from'] == null || isNaN(new Date(ctx.query['date-from'])) ? new Date('1970-01-01') : new Date(ctx.query['date-from']);
   const dateTo = ctx.query['date-to'] == null || isNaN(new Date(ctx.query['date-to'])) ? new Date() : new Date(ctx.query['date-to']);
 
-  assert(typeof username === 'string', `in 'admin/user' username expected to be string, actual: ${username}`, 121);
-  assert(isObject(dateFrom), `in 'admin/user' dateFrom expected to be object. actual: ${dateFrom}`, 122);
-  assert(isObject(dateTo), `in 'admin/user' dateTo expected to be object. actual: ${dateTo}`, 123);
-  assert(typeof email === 'string', `in 'admin/user' email expected to be string, actual: ${email}`, 124);
-  assert(typeof creditsFrom === 'number', `in 'admin/user' creditsFrom expected to be number, actual: ${creditsFrom}`, 125);
-  assert(typeof creditsTo === 'number', `in 'admin/user' creditsTo expected to be number, actual: ${creditsTo}`, 126);
+  assert(typeof username === 'string', `in 'admin/user' username expected to be string, actual: ${typeof username}`, 121);
+  assert(isObject(dateFrom), `in 'admin/user' dateFrom expected to be object. actual: ${typeof dateFrom}`, 122);
+  assert(isObject(dateTo), `in 'admin/user' dateTo expected to be object. actual: ${typeof dateTo}`, 123);
+  assert(typeof email === 'string', `in 'admin/user' email expected to be string, actual: ${typeof email}`, 124);
+  assert(typeof creditsFrom === 'number', `in 'admin/user' creditsFrom expected to be number, actual: ${typeof creditsFrom}`, 125);
+  assert(typeof creditsTo === 'number', `in 'admin/user' creditsTo expected to be number, actual: ${typeof creditsTo}`, 126);
 
   dateTo.setDate(dateTo.getDate() + 1); // include chosen day
-
-
 
   const users = (await db.sql(`
     SELECT *
@@ -363,6 +361,47 @@ router.get(paths.requests, async (ctx, next) => {
   });
 });
 
+// GET add credits
+router.get(paths.add, async (ctx, next) => {
+  trace(`GET '/${paths.backOfficeMountPoint}/${paths.add}'`);
+
+  if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_add_credits) {
+    await ctx.redirect(paths.backOfficeMountPoint);
+    return next();
+  }
+
+  if (ctx.query.search == null) {
+    await ctx.render('admin_add_credits', {
+      users: [],
+      permissions: ctx.session.permissions,
+      admin: ctx.session.username
+    });
+    return next();
+  }
+
+  const username = ctx.query.username == null ? '' : ctx.query.username;
+  assert(typeof username === 'string', `in 'admin/add-credits' username expected to be string, actual: ${typeof username}`, 1218);
+
+  const users = await db.sql(`
+    SELECT *
+    FROM users
+    WHERE
+      UNACCENT(LOWER(username)) LIKE LOWER($1)
+    ORDER BY id`,
+  `%${username}%`
+  );
+
+  await ctx.render('admin_add_credits', {
+    users,
+    username,
+    admin: ctx.session.username,
+    permissions: ctx.session.permissions,
+    show: users.length < MAX_HTML_ROWS_WITHOUT_CONFIRMATION || ctx.query.show != null,
+    search: ctx.query.search,
+    resultCount: users.length
+  });
+});
+
 // GET create user
 router.get(paths.backOfficeCreateUser, async (ctx, next) => {
   trace(`GET '/${paths.backOfficeMountPoint}/${paths.backOfficeCreateUser}'`);
@@ -506,20 +545,16 @@ router.get(paths.backOfficeUsers, async (ctx, next) => {
   const roles = await db.sql(`SELECT id, role FROM roles ORDER BY id`);
 
   const users = (await db.sql(`
-    SELECT bu.id, bu.username, r.role, r.id as role_id
-      FROM backoffice_users as bu
-    JOIN backoffice_users_roles as bur
+    SELECT bu.id, bu.username, r.role, r.id AS role_id
+    FROM backoffice_users AS bu
+    JOIN backoffice_users_roles AS bur
       ON bu.id = bur.backoffice_user_id
-    JOIN roles as r
+    JOIN roles AS r
       ON r.id = bur.role_id
     WHERE
       LOWER(username) LIKE LOWER($1)
-    ORDER BY bu.id
-    OFFSET $2
-    LIMIT $3`,
-  `%${username}%`,
-  0 + (ROWS_PER_PAGE * page),
-  ROWS_PER_PAGE
+    ORDER BY bu.id`,
+  `%${username}%`
   )).sort((c1, c2) => c2.call_count - c1.call_count);
 
   const msg = ctx.session.msg != null ? ctx.session.msg : '';
@@ -551,33 +586,40 @@ router.post(paths.backOfficeUsers, async (ctx, next) => {
   assert(isObject(ctx.request.body), 'Post /backoffice-users has no body', 194);
   assert(typeof ctx.request.body.username === 'string' , 'Post /backoffice-users has no username', 195);
 
-  const user = (await db.sql(`
-    SELECT * FROM backoffice_users
-      WHERE username = $1
-    `,
-  ctx.request.body.username
-  ))[0];
+  await db.makeTransaction(async (client) => {
+    const user = (await client.query(`
+      SELECT * FROM backoffice_users
+        WHERE username = $1
+      `,
+    [
+      ctx.request.body.username
+    ]
+    )).rows[0];
 
-  assert(typeof user.id === 'number' , 'Username in /backoffice-users has no id', 196);
+    assert(isObject(user), `User in /backoffice-users expected to be object but wasn't`, 1961);
+    assert(typeof user.id === 'number' , 'Username in /backoffice-users has no id', 1962);
 
-  await db.sql(`DELETE FROM backoffice_users_roles WHERE backoffice_user_id = $1`, user.id);
+    await client.query(`DELETE FROM backoffice_users_roles WHERE backoffice_user_id = $1`, [ user.id ]);
 
-  const rolesArr = [];
-  for (const role of Object.keys(ctx.request.body)) {
-    if (role === 'username') continue;
+    const rolesArr = [];
+    for (const role of Object.keys(ctx.request.body)) {
+      if (role === 'username') continue;
 
-    const roleId = (await db.sql(`select * from roles where role = $1`, role))[0].id;
-    rolesArr.push(roleId);
-  }
+      const roleId = (await client.query(`SELECT * FROM roles WHERE role = $1`, [ role ])).rows[0].id;
+      rolesArr.push(roleId);
+    }
 
-  for (const roleId of rolesArr) {
-    await db.sql(`
-      INSERT INTO backoffice_users_roles (backoffice_user_id, role_id)
-        VALUES ($1, $2)`,
-    user.id,
-    roleId
-    )
-  }
+    for (const roleId of rolesArr) {
+      await client.query(`
+        INSERT INTO backoffice_users_roles (backoffice_user_id, role_id)
+          VALUES ($1, $2)`,
+      [
+        user.id,
+        roleId
+      ]
+      )
+    }
+  });
 
   ctx.session.msg = `Successfuly updated user's role`;
   ctx.redirect(`${paths.backOfficeMountPoint}${paths.backOfficeUsers}`);
@@ -799,6 +841,7 @@ router.post('/addCreditsToUser', async (ctx, next) => {
 
   if (credits > 1000000) {
     ctx.body = { err: 'Credits Must be under 1,000,000' };
+    return next();
   }
 
   await db.makeTransaction(async (client) => {
@@ -822,7 +865,8 @@ router.post('/addCreditsToUser', async (ctx, next) => {
     ]
     );
   });
-  ctx.body = { msg: `Successfuly added ${credits} credits to user ${username}}` };
+
+  ctx.body = { msg: `Successfuly added ${credits} credits to user ${username}` };
 });
 
 // POST approve transfer

@@ -3,7 +3,7 @@
     <link rel="stylesheet" type="text/css" href="./../bootstrap.css">
     <link rel="stylesheet" type="text/css" href="./../sidebar.css">
     <link rel="stylesheet" type="text/css" href="./../navbar.css">
-    <link rel="stylesheet" type="text/css" href="./../modal.css">
+    <link rel="stylesheet" type="text/css" href="./../multiselect.css">
 
     <script src="./../jquery.min.js"></script>
     <script src="./../bootstrap.min.js"></script>
@@ -38,7 +38,7 @@
     {{> navBar }}
     {{> adminMenu }}
     <ul class="list-group-item col-lg-10">
-    <h2 class="col-lg-12 col-md-12 col-sm-12 col-xs-12 text-center">Backoffice Users</h2>
+      <h2 class="col-lg-12 col-md-12 col-sm-12 col-xs-12 text-center">Backoffice Users</h2>
       <form class="inline">
         <div style="height: 20.8em">
           <label class="col-lg-12">Username:</label>
@@ -61,15 +61,33 @@
       <table id="users-table" class="table table-hover table-bordered">
         <tr>
           <th>User</th>
-          <th>Edit Roles</th>
+          <th>Role</th>
+          <th>Save User/Role Pair</th>
         </tr>
         {{#each users}}
-          <tr class="gen-tr">
-            <td>{{username}}</td>
-            <td>
-              <button class="form-control btn-info" data-toggle="modal" data-target="#modale-roles" onclick="setModal('{{username}}')">Edit Roles</button>
-            </td>
-          </tr>
+          <form method="POST">
+            <tr class="gen-tr">
+              <td>{{username}}<input type="text" value="{{username}}" hidden="hidden" name="username"></td>
+              <td>
+                <div class="multiselect">
+                <div class="selectBox" onclick="showCheckboxes('{{role}}-{{username}}'); setCheckedBoxes('{{username}}')">
+                  <select class="form-control">
+                    <option>Select Roles</option>
+                  </select>
+                  <div class="overSelect"></div>
+                </div>
+                <div id="checkboxes-{{role}}-{{username}}" class="cbx">
+                  {{#each ../roles}}
+                    <label for="input-{{role}}-{{../role}}-{{../username}}"><input type="checkbox" id="input-{{role}}-{{../username}}" class="role-cbx" name="{{role}}">{{role}}</label>
+                  {{/each}}
+                </div>
+              </div>
+              </td>
+              <td>
+                <input type="submit" class="form-control btn-info" value="Save">
+              </td>
+            </tr>
+          </form>
         {{/each}}
       </table>
     </div>
@@ -79,10 +97,20 @@
 <script type="text/javascript">
   document.getElementById('menu-backoffice-users').setAttribute('class', 'selected');
 
-  async function setModal (username) {
-    document.getElementById('modal-text').innerHTML = `Changing ${username}'s roles`;
-    document.getElementById('modal-user').value = username;
+  let expanded = false;
 
+  function showCheckboxes(affix) {
+    let checkboxes = document.getElementById(`checkboxes-${affix}`);
+    if (!expanded) {
+      checkboxes.style.display = "block";
+      expanded = true;
+    } else {
+      checkboxes.style.display = "none";
+      expanded = false;
+    }
+  }
+
+  async function setCheckedBoxes (username) {
     const response = await fetch('get-user-roles', {
       headers: {
         "Content-Type": "application/json"
@@ -92,12 +120,14 @@
     });
     const data = await response.json();
 
-    for (const cb of document.getElementsByClassName(`modal-chbox`)) {
-      cb.checked = false;
+    for (const r of data.roles) {
+      for (const cbx of document.getElementsByClassName(`role-cbx`)) {
+        cbx.checked = false;
+      }
     }
 
     for (const r of data.roles) {
-      document.getElementById(`chbox-${r.role}`).checked = true;
+      document.getElementById(`input-${r.role}-${username}`).checked = true;
     }
   }
 </script>

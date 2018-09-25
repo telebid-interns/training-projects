@@ -70,3 +70,10 @@ Expecting 'OPEN_INVERSE_CHAIN', 'INVERSE', 'OPEN_ENDBLOCK', got 'EOF'
 ----------------------^
 Expecting 'OPEN_INVERSE_CHAIN', 'INVERSE', 'OPEN_ENDBLOCK', got 'EOF'
 2018-09-25T07:24:51.086Z:  Error: Error while querying: error: bind message supplies 3 parameters, but prepared statement "" requires 1
+2018-09-25T11:58:56.557Z:  Error: Parse error on line 75:
+...         {{#if role !== ../role}}      
+-----------------------^
+Expecting 'CLOSE_RAW_BLOCK', 'CLOSE', 'CLOSE_UNESCAPED', 'OPEN_SEXPR', 'CLOSE_SEXPR', 'ID', 'EQUALS', 'OPEN_BLOCK_PARAMS', 'STRING', 'NUMBER', 'BOOLEAN', 'UNDEFINED', 'NULL', 'DATA', 'SEP', got 'INVALID'
+2018-09-25T13:04:31.226Z:  Error: Error while querying: error: column "user_id" does not exist
+2018-09-25T13:04:59.909Z:  Error: Error while querying: error: column "user_id" does not exist
+2018-09-25T13:59:00.960Z:  Error: Error while making a transaction: Error: Query values must be an array

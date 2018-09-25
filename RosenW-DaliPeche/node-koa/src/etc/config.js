@@ -18,6 +18,7 @@ const paths = {
 	backOfficeLogout: '/logout',
 	APIMountPoint: '/api',
 	generateAPIKey: '/generateAPIKey',
+	add: '/add',
 	forecast: '/forecast'
 }
 

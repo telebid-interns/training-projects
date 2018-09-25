@@ -39,6 +39,9 @@
         {{#if permissions.can_edit_backoffice_users}}
           <a href="/admin/create-user" id="menu-create-user"><span>Create User</span></a>
         {{/if}}
+        {{#if permissions.can_add_credits}}
+          <a href="/admin/add" id="menu-give-credits"><span>Give Credits</span></a>
+        {{/if}}
       </div>
     </label>
   </div>
