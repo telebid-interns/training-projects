@@ -21,28 +21,57 @@
   bottom: 0;
 }
 
+#content {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
 #content-container {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
   justify-content: space-between;
   transition: all 1s;
+  float: inline-end;
+}
+
+#add-content-btn {
+  order: 1;
+}
+
+#remove-content-btn {
+  order: 2;
+}
+
+.btn {
+  width: 100px;
+  height: 100px;
+  font-size: 40px;
+  text-align: center;
+  display: table-cell;
+  vertical-align: middle;
+  line-height: 100px;
+  background-color: #E3F4FB;
+  border: 1px solid black;
+}
+
+.btn:active {
+  background-color: white;
+}
+
+#show-error-btn {
+  order: 3;
+}
+
+#content-container {
+  order: 4;
+  width: 100%;
 }
 
 .container-item {
   margin: 1%;
   width: 18%;
-}
-
-button {
-  width: 100px;
-  height: 100px;
-  font-size: 40px;
-  background-color: #E3F4FB;
-}
-
-button:active {
-  background-color: white;
 }
 
 .alert {
@@ -91,6 +120,11 @@ button:active {
   position: fixed;
 }
 
+img.container-image {
+  width: 100%;
+  height: auto;
+}
+
 img.container-image:hover {
   transform: scale(1.5);
 }
@@ -99,7 +133,11 @@ input[type=checkbox] {
   display: none;
 }
 
-input[type=checkbox]:checked ~ .subitems, input[type=checkbox]#alert-toggle:checked ~ div.alert, input[type=checkbox]#menu-toggle:checked ~ div.side-menu-collapsed {
+input[type=checkbox]:checked ~ .subitems,
+input[type=checkbox]:checked ~ .error-message,
+input[type=checkbox]#alert-toggle:checked ~ div.alert,
+input[type=checkbox]#error-alert-toggle:checked ~ div.alert,
+input[type=checkbox]#menu-toggle:checked ~ div.side-menu-collapsed {
   display: block;
 }
 
@@ -119,10 +157,25 @@ input[type=checkbox]:not(:checked) ~ div.side-menu-collapsed {
   display: none;
 }
 
+input[type=checkbox]:not(:checked) ~ div.error-message {
+  display: none;
+}
+
 .side-menu-item-label {
   display: block;
 }
 
+#remove-content-btn {
+  display: none;
+}
+
+div#content-container:not(:empty) ~ #remove-content-btn {
+  display: inline;
+}
+
+div#content-container:not(:empty) ~ #show-error-btn {
+  display: none;
+}
 
 .collapsed-item-button {
   display: block;

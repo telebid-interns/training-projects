@@ -111,9 +111,16 @@
         </div>
         <h1>Sample heading</h1>
         <div id="content">
-          <button id="add-content-btn">+</button>
-          <button id="remove-content-btn">-</button>
           <div id="content-container">
+          </div>
+          <label id="add-content-btn" class="btn">+</label>
+          <label id="remove-content-btn" class="btn">-</label>
+          <input type="checkbox" id="error-alert-toggle">
+          <label id="show-error-btn" class="btn" for="error-alert-toggle">-</span>
+          </label>
+          <div id="error-alert" class="alert error-message">
+            <label id="close-error-alert" for="error-alert-toggle">X</label>
+            <p>No more items to remove!</p>
           </div>
         </div>
       </div>
