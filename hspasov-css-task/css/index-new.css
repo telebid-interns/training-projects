@@ -3,25 +3,25 @@
   font-family: Arial;
 }
 
-#top-bar {
+.top-bar {
   grid-area: header;
 }
 
-#middle {
+.main {
   grid-area: main;
   overflow: auto;
 }
 
-#side-menu-collapsed, #side-menu {
+.side-menu-collapsed, .side-menu {
   grid-area: sidemenu;
 }
 
-#footer {
+.footer {
   position: fixed;
   bottom: 0;
 }
 
-#container {
+#content-container {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
@@ -45,7 +45,7 @@ button:active {
   background-color: white;
 }
 
-#alert {
+.alert {
   position: fixed;
   padding: 20px;
   height: 200px;
@@ -75,19 +75,20 @@ button:active {
   background-color: white;
 }
 
-.subitems, #alert {
+.subitems, .alert {
   display: none;
 }
 
 .container {
   display: grid;
-  grid-template-columns: 100px 100px auto 90px;
+  grid-template-columns: 100px 100px auto;
   grid-template-rows: 50px calc(100vh - 50px);
   grid-template-areas:
-    "header header header header"
-    "sidemenu sidemenu main .";
+    "header header header"
+    "sidemenu sidemenu main";
   grid-column-gap: 5px;
   grid-row-gap: 5px;
+  position: fixed;
 }
 
 img.container-image:hover {
@@ -98,7 +99,7 @@ input[type=checkbox] {
   display: none;
 }
 
-input[type=checkbox]:checked ~ .subitems, input[type=checkbox]#alert-toggle:checked ~ div#alert, input[type=checkbox]#side-menu-toggle:checked ~ div#side-menu-collapsed {
+input[type=checkbox]:checked ~ .subitems, input[type=checkbox]#alert-toggle:checked ~ div.alert, input[type=checkbox]#menu-toggle:checked ~ div.side-menu-collapsed {
   display: block;
 }
 
@@ -106,22 +107,19 @@ input[type=checkbox]:checked span.item-button {
   background-color: white;
 }
 
-input[type=checkbox]:not(:checked) ~ div#side-menu {
+input[type=checkbox]:not(:checked) ~ div.side-menu {
   display: block;
 }
 
-input[type=checkbox]:checked ~ div#side-menu {
+input[type=checkbox]:checked ~ div.side-menu {
   display: none;
 }
 
-input[type=checkbox]:not(:checked) ~ div#side-menu-collapsed {
+input[type=checkbox]:not(:checked) ~ div.side-menu-collapsed {
   display: none;
 }
 
-#side-menu-item-label-1,
-#side-menu-item-label-2,
-#side-menu-item-label-3,
-#side-menu-item-label-4 {
+.side-menu-item-label {
   display: block;
 }
 
@@ -163,15 +161,15 @@ span.item-button:active {
   background-color: white;
 }
 
-#side-menu-button {
+.menu-button {
   transition: all 0.5s;
 }
 
-#side-menu-button:hover {
+.menu-button:hover {
   background-color: white;
 }
 
-#side-menu-button:active {
+.menu-button:active {
   background-color: white;
 }
 
@@ -208,9 +206,9 @@ span.item-button:active {
 }
 
 @media print {
-  #top-bar, #side-menu, #side-menu-collapsed, #footer,
-  input[type=checkbox]:not(:checked) ~ div#side-menu,
-  input[type=checkbox]#side-menu-toggle:checked ~ div#side-menu-collapsed {
+  .top-bar, .side-menu, .side-menu-collapsed, .footer,
+  input[type=checkbox]:not(:checked) ~ div.side-menu,
+  input[type=checkbox].menu-toggle:checked ~ div.side-menu-collapsed {
     display: none;
   }
 

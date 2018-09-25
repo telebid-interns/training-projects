@@ -6,19 +6,19 @@
   </head>
   <body>
     <div class="container">
-      <input type="checkbox" id="side-menu-toggle">
-      <div id="top-bar">
+      <input type="checkbox" id="side-menu-toggle" class="toggle menu-toggle">
+      <div class="top-bar">
         <label id="side-menu-toggle-label" for="side-menu-toggle">
-          <span id="side-menu-button">
+          <span class="menu-button">
             <img class="top-bar-img" src="./images/list_alt-512.png">
           </span>
         </label>
         <img src="images/Okay-Face-Meme-PNG.png" class="logo top-bar-img" id="top-bar-logo">
       </div>
-      <div id="side-menu">
+      <div class="side-menu">
         <div class="item">
           <input type="checkbox" id="checkbox-toggle-1">
-          <label id="side-menu-item-label-1" for="checkbox-toggle-1">
+          <label class="side-menu-item-label" for="checkbox-toggle-1">
             <span class="item-button"><img class="item-icon" src="./images/triangular_bullet_u2023_icon_256x256.png">Item</span>
           </label>
           <div class="subitems">
@@ -30,7 +30,7 @@
         </div>
         <div class="item">
           <input type="checkbox" id="checkbox-toggle-2">
-          <label id="side-menu-item-label-2" for="checkbox-toggle-2">
+          <label class="side-menu-item-label" for="checkbox-toggle-2">
             <span class="item-button"><img class="item-icon" src="./images/triangular_bullet_u2023_icon_256x256.png">Item</span>
           </label>
           <div class="subitems">
@@ -42,7 +42,7 @@
         </div>
         <div class="item">
           <input type="checkbox" id="checkbox-toggle-3">
-          <label id="side-menu-item-label-3" for="checkbox-toggle-3">
+          <label class="side-menu-item-label" for="checkbox-toggle-3">
             <span class="item-button"><img class="item-icon" src="./images/triangular_bullet_u2023_icon_256x256.png">Item</span>
           </label>
           <div class="subitems">
@@ -54,7 +54,7 @@
         </div>
         <div class="item">
           <input type="checkbox" id="checkbox-toggle-4">
-          <label id="side-menu-item-label-4" for="checkbox-toggle-4">
+          <label class="side-menu-item-label" for="checkbox-toggle-4">
             <span class="item-button"><img class="item-icon" src="./images/triangular_bullet_u2023_icon_256x256.png">Item</span>
           </label>
           <div class="subitems">
@@ -66,7 +66,7 @@
         </div>
 
       </div>
-      <div id="side-menu-collapsed">
+      <div class="side-menu-collapsed">
         <div class="collapsed-item" class="item">
           <span class="collapsed-item-button"><img class="item-icon" src="./images/triangular_bullet_u2023_icon_256x256.png"></span>
           <div class="subitems">
@@ -105,7 +105,7 @@
         </div>
 
       </div>
-      <div id="middle">
+      <div class="main">
         <div class="print-msg">
           <p>This message is only visible when printing!</p>
         </div>
@@ -113,21 +113,21 @@
         <div id="content">
           <button id="add-content-btn">+</button>
           <button id="remove-content-btn">-</button>
-          <div id="container">
+          <div id="content-container">
           </div>
         </div>
       </div>
-      <div id="footer">
+      <div class="footer">
         <label id="open-alert-label" for="alert-toggle">
           <span id="open-alert">Open alert</span>
         </label>
       </div>
-      <input type="checkbox" id="alert-toggle">
-      <div id="alert">
+      <input type="checkbox" class="toggle" id="alert-toggle">
+      <div class="alert">
         <label id="close-alert" for="alert-toggle">X</label>
         <p>Alert</p>
       </div>
     </div>
-    <script src="./js/index.js"></script>
+    <script src="./js/index-new.js"></script>
   </body>
 </html>
