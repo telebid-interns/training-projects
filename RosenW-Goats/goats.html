@@ -13,7 +13,7 @@
 </html>
 
 <script type="text/javascript">
-  function draw(groups, shipSize, sheep) {
+  function draw (groups, shipSize, sheep) {
     console.log(groups);
     console.log(shipSize);
     let canvas = document.getElementById("myCanvas");
@@ -68,13 +68,22 @@
   }
 
   document.getElementById('submit').addEventListener('click', (e) => {
+    if (document.getElementById('courses').value === '') return alert('Max courses field cannot be empty');
+    if (isNaN(document.getElementById('courses').value)) return alert('Max courses must be a number');
     const maxCourses = document.getElementById('courses').value;
+    if (maxCourses > 1000 || maxCourses < 1) return alert('Max courses must be 0 <= N <= 1000');
+    if (document.getElementById('sheep').value === '') return alert('Sheep field cannot be empty');
     const sheep =
     document.getElementById('sheep')
       .value
       .split(' ')
       .map((e) => parseInt(e))
       .sort((a, b) => b - a);
+    if (sheep.length > 100000 || sheep.length < 1) return alert('Sheep count must be between 0 <= N <= 100000');
+
+    for (const s of sheep) {
+      if (isNaN(s)) return alert('All sheep weights must be numbers');
+    }
 
     let shipSize = sheep[0];
     console.log(sheep);
