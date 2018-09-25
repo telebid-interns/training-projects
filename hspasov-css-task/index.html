@@ -5,24 +5,21 @@
     <link rel="stylesheet" type="text/css" href="css/index.css">
   </head>
   <body>
-    <div id="top-bar">
-      <label id="side-menu-toggle-label" for="side-menu-toggle">
-        <span id="side-menu-button"><img class="top-bar-img" src="./images/list_alt-512.png"></span>
-      </label>
-      <img src="images/Okay-Face-Meme-PNG.png" class="logo top-bar-img" id="top-bar-logo">
-    </div>
-    <input type="checkbox" id="alert-toggle">
-    <div id="alert">
-      <label id="close-alert" for="alert-toggle">X</label>
-      <p>Alert</p>
-    </div>
-    <div id="middle">
-      <input type="checkbox" id="side-menu-toggle">
-      <div id="side-menu">
+    <div class="container">
+      <input type="checkbox" id="side-menu-toggle" class="toggle menu-toggle">
+      <div class="top-bar">
+        <label id="side-menu-toggle-label" for="side-menu-toggle">
+          <span class="menu-button">
+            <img class="top-bar-img" src="./images/menu-icon.png">
+          </span>
+        </label>
+        <img src="images/Okay-Face-Meme-PNG.png" class="logo top-bar-img" id="top-bar-logo">
+      </div>
+      <div class="side-menu">
         <div class="item">
           <input type="checkbox" id="checkbox-toggle-1">
-          <label id="side-menu-item-label-1" for="checkbox-toggle-1">
-            <span class="item-button"><img class="item-icon" src="./images/triangular_bullet_u2023_icon_256x256.png">Item</span>
+          <label class="side-menu-item-label" for="checkbox-toggle-1">
+            <span class="item-button"><img class="item-icon" src="./images/triangular_bullet_white.png">Item</span>
           </label>
           <div class="subitems">
             <div class="subitem">Subitem</div>
@@ -33,8 +30,8 @@
         </div>
         <div class="item">
           <input type="checkbox" id="checkbox-toggle-2">
-          <label id="side-menu-item-label-2" for="checkbox-toggle-2">
-            <span class="item-button"><img class="item-icon" src="./images/triangular_bullet_u2023_icon_256x256.png">Item</span>
+          <label class="side-menu-item-label" for="checkbox-toggle-2">
+            <span class="item-button"><img class="item-icon" src="./images/triangular_bullet_white.png">Item</span>
           </label>
           <div class="subitems">
             <div class="subitem">Subitem</div>
@@ -45,8 +42,8 @@
         </div>
         <div class="item">
           <input type="checkbox" id="checkbox-toggle-3">
-          <label id="side-menu-item-label-3" for="checkbox-toggle-3">
-            <span class="item-button"><img class="item-icon" src="./images/triangular_bullet_u2023_icon_256x256.png">Item</span>
+          <label class="side-menu-item-label" for="checkbox-toggle-3">
+            <span class="item-button"><img class="item-icon" src="./images/triangular_bullet_white.png">Item</span>
           </label>
           <div class="subitems">
             <div class="subitem">Subitem</div>
@@ -57,8 +54,8 @@
         </div>
         <div class="item">
           <input type="checkbox" id="checkbox-toggle-4">
-          <label id="side-menu-item-label-4" for="checkbox-toggle-4">
-            <span class="item-button"><img class="item-icon" src="./images/triangular_bullet_u2023_icon_256x256.png">Item</span>
+          <label class="side-menu-item-label" for="checkbox-toggle-4">
+            <span class="item-button"><img class="item-icon" src="./images/triangular_bullet_white.png">Item</span>
           </label>
           <div class="subitems">
             <div class="subitem">Subitem</div>
@@ -67,8 +64,9 @@
             <div class="subitem">Subitem</div>
           </div>
         </div>
+
       </div>
-      <div id="side-menu-collapsed">
+      <div class="side-menu-collapsed">
         <div class="collapsed-item" class="item">
           <span class="collapsed-item-button"><img class="item-icon" src="./images/triangular_bullet_u2023_icon_256x256.png"></span>
           <div class="subitems">
@@ -105,24 +103,35 @@
             <div class="collapsed-subitem">Subitem</div>
           </div>
         </div>
+
       </div>
-      <div id="content-wrap">
+      <div class="main">
         <div class="print-msg">
           <p>This message is only visible when printing!</p>
         </div>
         <h1>Sample heading</h1>
         <div id="content">
-          <button id="add-content-btn">+</button>
-          <button id="remove-content-btn">-</button>
-          <div id="container">
+          <div id="content-container">
+          </div>
+          <label id="add-content-btn" class="btn">+</label>
+          <label id="remove-content-btn" class="btn">-</label>
+          <input type="checkbox" id="error-alert-toggle">
+          <label id="show-error-btn" class="btn" for="error-alert-toggle">-</span>
+          </label>
+          <div id="error-alert" class="alert error-message">
+            <label class="close-alert" id="close-error-alert" for="error-alert-toggle">X</label>
+            <p>No more items to remove!</p>
           </div>
         </div>
       </div>
-    </div>
-    <div id="bottom-bar">
-      <label id="open-alert-label" for="alert-toggle">
-        <span id="open-alert">Open alert</span>
-      </label>
+      <div class="footer">
+        <label class="btn" id="open-alert-label" for="alert-toggle">Open alert</label>
+      </div>
+      <input type="checkbox" class="toggle" id="alert-toggle">
+      <div class="alert">
+        <label class="close-alert" id="close-alert" for="alert-toggle">X</label>
+        <p>Alert</p>
+      </div>
     </div>
     <script src="./js/index.js"></script>
   </body>
