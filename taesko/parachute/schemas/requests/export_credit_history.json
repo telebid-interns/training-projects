@@ -11,9 +11,73 @@
       "type": "string"
     },
     "column_names": {
-      "type": "array",
-      "items": {
-        "type": "string"
+      "type": "object",
+      "properties": {
+        "active": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "subscription_plan_id": {
+          "type": "string"
+        },
+        "transfer_amount": {
+          "type": "string"
+        },
+        "transferred_at": {
+          "type": "string"
+        },
+        "airport_from_id": {
+          "type": "string"
+        },
+        "airport_to_id": {
+          "type": "string"
+        },
+        "date_from": {
+          "type": "string"
+        },
+        "date_to": {
+          "type": "string"
+        },
+        "user_subscr_id": {
+          "type": "string"
+        }
+      }
+    },
+    "filter_names": {
+      "type": "object",
+      "properties": {
+        "user_id": {
+          "type": "string"
+        },
+        "fly_from": {
+          "type": "string"
+        },
+        "fly_to": {
+          "type": "string"
+        },
+        "date_from": {
+          "type": "string"
+        },
+        "date_to": {
+          "type": "string"
+        },
+        "transferred_from": {
+          "type": "string"
+        },
+        "transferred_to": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "transfer_amount": {
+          "type": "string"
+        },
+        "transfer_amount_operator": {
+          "type": "string"
+        }
       }
     },
     "fly_from": {
@@ -43,7 +107,11 @@
     },
     "transfer_amount_operator": {
       "type": "string",
-      "enum": ["=", ">", "<"]
+      "enum": [
+        "=",
+        ">",
+        "<"
+      ]
     },
     "transfer_amount": {
       "type": "integer"
@@ -71,7 +139,12 @@
         },
         "transferred_at": {
           "type": "string",
-          "enum": ["year", "month", "day", "default"]
+          "enum": [
+            "year",
+            "month",
+            "day",
+            "default"
+          ]
         }
       }
     }
