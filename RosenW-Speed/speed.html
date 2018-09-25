@@ -2,20 +2,20 @@
   <head>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
   </head>
-   <body>
-     <br>
-     <label>Cities</label>
-     <br>
-     <input type="text" id='cities' placeholder="Enter Number of Cities">
-     <br>
-     <br>
-     <label>Connections</label>
-     <br>
-     <input type="text" id="fts" placeholder="F1 T1 S1 ... Fn Tn Sn">
-     <button id='submit'>submit</button>
-     <p id='result'></p>
-     <canvas id="myCanvas" width="5000" height="5000">
-     </canvas>
+    <body>
+      <br>
+      <label>Cities</label>
+      <br>
+      <input type="text" id='cities' placeholder="Enter Number of Cities">
+      <br>
+      <br>
+      <label>Connections</label>
+      <br>
+      <input type="text" id="fts" placeholder="F1 T1 S1 ... Fn Tn Sn">
+      <button id='submit'>submit</button>
+      <p id='result'></p>
+      <canvas id="myCanvas" width="5000" height="5000">
+      </canvas>
     </body>
 </html>
 
@@ -88,9 +88,19 @@
   }
 
   document.getElementById('submit').addEventListener('click', (event) => {
-    const cityCount = document.getElementById('cities').value;
+    if (isNaN(document.getElementById('cities').value)) return alert('City count must be a number');
+    if (document.getElementById('cities').value === '') return alert('City count cannot be empty');
+    if (document.getElementById('fts').value === '') return alert('fts values cannot be empty');
+    const cityCount = Number(document.getElementById('cities').value);
+    console.log(cityCount);
+    if (cityCount > 1000 || cityCount < 2) return alert('City count must be 2 <= N <= 1000');
 
     const fts = document.getElementById('fts').value.split(' ');
+
+    for (const ftsValue of fts) {
+      if (isNaN(ftsValue)) return alert('All fts values must be numbers');
+    }
+
     const connections = [];
 
     for (let i = 0; i < fts.length; i+=3) {
