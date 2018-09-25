@@ -38,16 +38,17 @@
 
 #add-content-btn {
   order: 1;
+  font-size: 40px;
 }
 
 #remove-content-btn {
   order: 2;
+  font-size: 40px;
 }
 
 .btn {
   width: 100px;
   height: 100px;
-  font-size: 40px;
   text-align: center;
   display: table-cell;
   vertical-align: middle;
@@ -62,6 +63,7 @@
 
 #show-error-btn {
   order: 3;
+  font-size: 40px;
 }
 
 #content-container {
@@ -72,6 +74,10 @@
 .container-item {
   margin: 1%;
   width: 18%;
+}
+
+#open-alert-label {
+  font-size: 20px;
 }
 
 .alert {
@@ -137,7 +143,7 @@ input[type=checkbox]:checked ~ .subitems,
 input[type=checkbox]:checked ~ .error-message,
 input[type=checkbox]#alert-toggle:checked ~ div.alert,
 input[type=checkbox]#error-alert-toggle:checked ~ div.alert,
-input[type=checkbox]#menu-toggle:checked ~ div.side-menu-collapsed {
+input[type=checkbox].menu-toggle:checked ~ div.side-menu-collapsed {
   display: block;
 }
 
@@ -284,6 +290,10 @@ span.item-button:active {
 }
 
 @media screen and (max-width: 1080px) {
+  * {
+    font-size: 40px;
+  }
+
   .container {
     grid-template-columns: 100%;
     grid-template-rows: 100px auto auto;
@@ -299,7 +309,34 @@ span.item-button:active {
     width: 46%;
   }
 
+  input[type=checkbox].menu-toggle:not(:checked) ~ div.side-menu {
+    display: none;
+  }
+
+  input[type=checkbox].menu-toggle:checked ~ div.side-menu {
+    display: block;
+  }
+
   div.side-menu-collapsed {
     display: none;
+  }
+
+  input[type=checkbox].menu-toggle:checked ~ div.side-menu-collapsed {
+    display: none;
+  }
+
+  .alert {
+    padding: 20px;
+    height: 100%;
+    width: 100%;
+    top: 0;
+    left: 0;
+    background-color: #ECF0F1;
+    transition: all 1s;
+  }
+
+  .close-alert {
+    font-size: 100px;
+
   }
 }
