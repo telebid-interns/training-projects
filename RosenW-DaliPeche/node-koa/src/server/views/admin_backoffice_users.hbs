@@ -61,22 +61,14 @@
       <table id="users-table" class="table table-hover table-bordered">
         <tr>
           <th>User</th>
-          {{#if permissions.can_edit_backoffice_users}}
-            <th>Edit Roles</th>
-          {{/if}}
+          <th>Edit Roles</th>
         </tr>
         {{#each users}}
           <tr class="gen-tr">
             <td>{{username}}</td>
-            {{#if ../permissions.can_edit_backoffice_users}}
-            {{else}}
-              <td>{{role}}</td>
-            {{/if}}
-            {{#if ../permissions.can_edit_backoffice_users}}
-              <td>
-                <button class="form-control btn-info" data-toggle="modal" data-target="#modale-roles" onclick="setModal('{{username}}')">Edit Roles</button>
-              </td>
-            {{/if}}
+            <td>
+              <button class="form-control btn-info" data-toggle="modal" data-target="#modale-roles" onclick="setModal('{{username}}')">Edit Roles</button>
+            </td>
           </tr>
         {{/each}}
       </table>

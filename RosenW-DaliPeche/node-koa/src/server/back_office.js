@@ -90,7 +90,9 @@ router.get('/', async (ctx, next) => {
     return next();
   }
 
-  await ctx.redirect('/admin/users');
+  await ctx.render('admin', {
+    permissions: ctx.session.permissions
+  });
 });
 
 // GET users
@@ -182,7 +184,8 @@ router.get(paths.creditBalance, async (ctx, next) => {
     await ctx.render('admin_credits', {
       users: [],
       admin: ctx.session.username,
-      search: ctx.query.search
+      search: ctx.query.search,
+      permissions: ctx.session.permissions,
     });
     return next();
   }
@@ -237,7 +240,8 @@ router.get(paths.creditBalance, async (ctx, next) => {
     admin: ctx.session.username,
     search: ctx.query.search,
     show: users.length < MAX_HTML_ROWS_WITHOUT_CONFIRMATION || ctx.query.show != null,
-    resultCount: users.length
+    resultCount: users.length,
+    permissions: ctx.session.permissions,
   });
 });
 
@@ -254,7 +258,8 @@ router.get(paths.cities, async (ctx, next) => {
     await ctx.render('admin_cities', {
       cities: [],
       admin: ctx.session.username,
-      search: ctx.query.search
+      search: ctx.query.search,
+      permissions: ctx.session.permissions,
     });
     return next();
   }
@@ -303,7 +308,8 @@ router.get(paths.cities, async (ctx, next) => {
     admin: ctx.session.username,
     search: ctx.query.search,
     show: cities.length < MAX_HTML_ROWS_WITHOUT_CONFIRMATION || ctx.query.show != null,
-    resultCount: cities.length
+    resultCount: cities.length,
+    permissions: ctx.session.permissions,
   });
 });
 
@@ -322,7 +328,8 @@ router.get(paths.requests, async (ctx, next) => {
     await ctx.render('admin_requests', {
       requests: [],
       term,
-      admin: ctx.session.username
+      admin: ctx.session.username,
+      permissions: ctx.session.permissions,
     });
     return next();
   }
@@ -351,7 +358,8 @@ router.get(paths.requests, async (ctx, next) => {
     admin: ctx.session.username,
     search: ctx.query.search,
     show: requests.length < MAX_HTML_ROWS_WITHOUT_CONFIRMATION || ctx.query.show != null,
-    resultCount: requests.length
+    resultCount: requests.length,
+    permissions: ctx.session.permissions,
   });
 });
 
@@ -374,7 +382,8 @@ router.get(paths.backOfficeCreateUser, async (ctx, next) => {
     roles,
     error,
     msg,
-    admin: ctx.session.username
+    admin: ctx.session.username,
+    permissions: ctx.session.permissions,
   });
 });
 
@@ -486,7 +495,7 @@ router.del('/role', async (ctx, next) => {
 router.get(paths.backOfficeUsers, async (ctx, next) => {
   trace(`GET '/${paths.backOfficeMountPoint}/${paths.backOfficeUsers}'`);
 
-  if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_backoffice_users) {
+  if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_edit_backoffice_users) {
     await ctx.redirect(paths.backOfficeMountPoint);
     return next();
   }
@@ -635,6 +644,7 @@ router.get(paths.creditTransfers, async (ctx, next) => {
     await ctx.render('admin_transfers', {
       transfers: [],
       admin: ctx.session.username,
+      permissions: ctx.session.permissions,
       search: ctx.query.search
     });
     return next();
@@ -706,6 +716,7 @@ router.get(paths.creditTransfers, async (ctx, next) => {
       show: transfers.length < MAX_HTML_ROWS_WITHOUT_CONFIRMATION || ctx.query.show != null,
       resultCount: transfers.length,
       admin: ctx.session.username,
+      permissions: ctx.session.permissions,
     });
     return next();
   }
@@ -767,7 +778,8 @@ router.get(paths.creditTransfers, async (ctx, next) => {
     admin: ctx.session.username,
     show: transfers.length < MAX_HTML_ROWS_WITHOUT_CONFIRMATION || ctx.query.show != null,
     resultCount: transfers.length,
-    search: ctx.query.search
+    search: ctx.query.search,
+    permissions: ctx.session.permissions,
   });
 });
 
@@ -977,7 +989,7 @@ router.post('/', async (ctx, next) => {
   }
 
   assert(isObject(ctx.session.permissions), 'Post /admin user has no permissions', 112);
-  return ctx.redirect(paths.backOfficeMountPoint);
+  return ctx.redirect(`${paths.backOfficeMountPoint}${paths.users}`);
 
   await ctx.render('/admin_login', { error: 'Invalid log in information' });
 });
