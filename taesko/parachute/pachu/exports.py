@@ -136,13 +136,18 @@ def export_credit_history(
     )
     assertUser(transferred_to - transferred_from > ALLOWED_TRANSFERRED_DELTA,
                msg=exceeded_format_msg,
-               code='API_CH_EXCEEDED_TRANSFERRED_DELTA')
+               code='API_ECH_EXCEEDED_TRANSFERRED_DELTA')
 
     cursor.execute('SET statement_timeout=%(time)s',
                    dict(time=config['api_export_credit_history']['timeout']))
     cursor.execute('SELECT id FROM users WHERE api_key=%s', [api_key])
 
-    user_id = cursor.fetchone()[0]
+    try:
+        user_id = cursor.fetchone()[0]
+    except IndexError:
+        raise UserError(code='API_ECH_INVALID_CREDENTIALS',
+                        msg='User entered invalid api key.',
+                        user_msg='Invalid api key.')
 
     query_params = dict(
         user_id=user_id,
@@ -318,8 +323,8 @@ def export_credit_history(
     except psycopg2.extensions.QueryCanceledError:
         stdout_logger.exception('Credit history query timed out.')
         raise UserError(msg='Query took too long',
-                        code='API_CH_QUERY_TIMEOUT',
-                        userMsg='Export is too large. Use the filters, Luke.')
+                        code='API_ECH_QUERY_TIMEOUT',
+                        user_msg='Export is too large. Use the filters, Luke.')
 
     column_names = {column: export_name
                     for column, export_name in column_names.items()
