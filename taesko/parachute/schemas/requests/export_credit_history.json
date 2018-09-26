@@ -43,7 +43,12 @@
         "user_subscr_id": {
           "type": "string"
         }
-      }
+      },
+      "required": [
+        "active", "reason", "subscription_plan_id", "transfer_amount",
+        "transferred_at", "airport_from_id", "airport_to_id",
+        "date_from", "date_to", "user_subscr_id"
+      ]
     },
     "filter_names": {
       "type": "object",
@@ -78,7 +83,12 @@
         "transfer_amount_operator": {
           "type": "string"
         }
-      }
+      },
+      "required": [
+        "user_id", "fly_from", "fly_to", "date_from", "date_to",
+        "transferred_from", "transferred_to", "status",
+        "transfer_amount", "transfer_amount_operator"
+      ]
     },
     "fly_from": {
       "type": "string"

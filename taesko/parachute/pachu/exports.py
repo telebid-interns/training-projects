@@ -90,35 +90,24 @@ def export_credit_history(
         transfer_amount_operator=None,
         group_by=None
 ):
-    column_names = column_names or dict(
-        active='Activated',
-        reason='Reason',
-        subscription_plan_id='Subscription plan',
-        transfer_amount='Transferred Amount',
-        transferred_at='Date of transfer',
-        airport_from_id='Departure airport',
-        airport_to_id='Arrival airport',
-        date_from='Earliest departure date',
-        date_to='Latest arrival date',
-        user_subscr_id='ID of subscription',
-    )
-    filter_column_names = filter_column_names or collections.OrderedDict(
-        [('user_id', 'User ID'),
-         ('fly_from', column_names['airport_from_id']),
-         ('fly_to', column_names['airport_to_id']),
-         ('date_from', column_names['date_from']),
-         ('date_to', column_names['date_from']),
-         ('transferred_from', 'Earliest transfer date'),
-         ('transferred_to', 'Latest transfer date'),
-         ('status', 'Activated'),
-         ('transfer_amount', 'Amount'),
-         ('transfer_amount_operator', 'Less than')]
+    method_config = config['api_export_credit_history']
+    column_names = (column_names or
+                    config['api_export_credit_history_column_names'])
+    column_names = dict(column_names)
+    filter_column_names = (filter_column_names or
+                           config['api_export_credit_history_filter_names'])
+    filter_column_names = dict(filter_column_names)
+    # TODO this is wrong
+    filter_order = method_config['filter_names_order'].split(',')
+    filter_column_names = collections.OrderedDict(
+        sorted(filter_column_names.items(),
+               key=lambda e: filter_order.index(e[0]))
     )
 
     if transferred_to:
         transferred_to = datetime.datetime.strptime(
             transferred_to,
-            config['api_export_credit_history']['transferred_dates_format']
+            method_config['transferred_dates_format']
         )
     else:
         transferred_to = datetime.datetime.now()
@@ -126,7 +115,7 @@ def export_credit_history(
     if transferred_from:
         transferred_from = datetime.datetime.strptime(
             transferred_from,
-            config['api_export_credit_history']['transferred_dates_format']
+            method_config['transferred_dates_format']
         )
     else:
         transferred_from = transferred_to - DEFAULT_TRANSFERRED_DELTA
@@ -139,7 +128,7 @@ def export_credit_history(
                code='API_ECH_EXCEEDED_TRANSFERRED_DELTA')
 
     cursor.execute('SET statement_timeout=%(time)s',
-                   dict(time=config['api_export_credit_history']['timeout']))
+                   dict(time=method_config['timeout']))
     cursor.execute('SELECT id FROM users WHERE api_key=%s', [api_key])
 
     try:
@@ -198,10 +187,10 @@ def export_credit_history(
         (('transferred_at', 'transferred_at'),
          ('active', 'active'),
          ('reason', 'reason'),
-         ('subscription_plan_id', 'subscription_plan_id'),
+         ('subscription_plan', 'subscription_plans.name'),
          ('transfer_amount', 'transfer_amount'),
-         ('airport_from_id', 'airport_from_id'),
-         ('airport_to_id', 'airport_to_id'),
+         ('airport_from', 'ap_from.name'),
+         ('airport_to', 'ap_to.name'),
          ('date_from', 'date_from'),
          ('date_to', 'date_to'),
          ('user_subscr_id', 'user_subscr_id'))
@@ -311,6 +300,8 @@ def export_credit_history(
     JOIN airports AS ap_to
       ON taxes.airport_to_id=ap_to.id
         {airport_to_filter}
+    JOIN subscription_plans
+        ON taxes.subscription_plan_id=subscription_plans.id
     {group_by_clause}
     ORDER BY 1 DESC
     '''.format(
@@ -326,6 +317,7 @@ def export_credit_history(
                         code='API_ECH_QUERY_TIMEOUT',
                         user_msg='Export is too large. Use the filters, Luke.')
 
+    # TODO refactor this code into a generic class that works for every query
     column_names = {column: export_name
                     for column, export_name in column_names.items()
                     if column in select_columns}
@@ -353,7 +345,7 @@ def export_credit_history(
                                           date=datetime.datetime.now())
     return flask.send_file(
         stream,
-        mimetype=config['api_export_credit_history']['xlsx_mime_type'],
+        mimetype=method_config['xlsx_mime_type'],
         as_attachment=True,
         attachment_filename=filename
     )

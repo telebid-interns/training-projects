@@ -15,18 +15,6 @@ API = Blueprint('RPC_API', __name__)
 stderr_logger = logging.getLogger('stderr')
 api_req_logger = logging.getLogger('api_requests')
 api_res_logger = logging.getLogger('api_responses')
-rpc_api_methods = {}
-
-
-def register_rpc_api_method(method_name):
-    assert isinstance(method_name, str)
-
-    def decorator(func):
-        rpc_api_methods[method_name] = func
-
-        return func
-
-    return decorator
 
 
 def log_request(method, params):
@@ -132,23 +120,3 @@ def api():
 
     return response
 
-
-@register_rpc_api_method('export_credit_history')
-def export_credit_history(
-        cursor, *,
-        column_names=None,
-        filter_column_names=None,
-        v,
-        api_key,
-        fly_from=None,
-        fly_to=None,
-        date_from=None,
-        date_to=None,
-        transferred_from=None,
-        transferred_to=None,
-        status=None,
-        transfer_amount=None,
-        transfer_amount_operator=None,
-        group_by=None
-):
-    transferred_from = transferred_from or config[]
