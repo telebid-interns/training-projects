@@ -1,17 +1,17 @@
-function exportToExcel (event, tableID, reportName, filterNames, filterValues) {
+async function exportToExcel (event, filters, reportName) {
   event.preventDefault();
-  const uri = 'data:application/vnd.ms-excel;base64,';
-  const template = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>{worksheet}</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body><table>{table}</table></body></html>';
+  const uri = 'data:data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,';
+  const template = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head></head><body><table>{table}</table></body></html>';
 
-  const base64 = function(s) {
-      return window.btoa(unescape(encodeURIComponent(s)))
+  const base64 = (s) => {
+    return window.btoa(unescape(encodeURIComponent(s)))
   };
 
-  const format = function(s, c) {
-      return s.replace(/{(\w+)}/g, (m, p) => {
-          return c[p];
-      });
-  };
+  const format = (s, c) => {
+    return s.replace(/{(\w+)}/g, (m, p) => {
+        return c[p];
+    });
+  }
 
   const filterTable = document.createElement('table');
 
@@ -28,13 +28,13 @@ function exportToExcel (event, tableID, reportName, filterNames, filterValues) {
     filterTable.appendChild(thRow);
   }
 
-  for (let i = 0; i < filterNames.length; i++) {
+  for (const [key, value] of Object.entries(filters)) {
     const row = document.createElement('tr');
     const tdName = document.createElement('td');
     const tdVal = document.createElement('td');
 
-    tdName.innerHTML = filterNames[i];
-    tdVal.innerHTML = filterValues[i];
+    tdName.innerHTML = key;
+    tdVal.innerHTML = value;
 
     row.appendChild(tdName);
     row.appendChild(tdVal);
@@ -42,15 +42,23 @@ function exportToExcel (event, tableID, reportName, filterNames, filterValues) {
     filterTable.appendChild(row);
   }
 
-  let htmls = filterTable.innerHTML + document.getElementById(tableID).innerHTML;
+  const response = await fetch(`/admin/xlsx/${reportName}`, {
+    headers: {
+      "Content-Type": "application/json"
+    },
+    method : "POST",
+    body: JSON.stringify({ filters })
+  });
+  const data = await response.json();
+  const htmls = `${filterTable.innerHTML}<tr></tr>${data.table}`;
 
   const ctx = {
-      worksheet : 'Worksheet',
-      table : htmls
+    worksheet : 'Worksheet',
+    table : htmls
   }
 
   const link = document.createElement("a");
-  link.download = `${reportName}-report-${new Date().toISOString()}.xls`;
+  link.download = `${reportName}-report-${new Date().toISOString()}.xlsx`;
   link.href = uri + base64(format(template, ctx));
   link.click();
 }

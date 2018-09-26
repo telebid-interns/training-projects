@@ -189,7 +189,6 @@ router.get(paths.creditBalance, async (ctx, next) => {
   }
 
   const username = ctx.query.username == null ? '' : ctx.query.username;
-  const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
   const users = await db.sql(`
     SELECT
       u.id,
@@ -888,6 +887,111 @@ router.post(paths.approveTransfers, async (ctx, next) => {
 
   ctx.body = {isApproveSuccessful: true};
 });
+
+// POST xlsx requests
+router.post('/xlsx/requests', async (ctx, next) => {
+  const filters = ctx.request.body.filters
+
+  assert(isObject(ctx.session), 'No session in post /xlsx/requests', 1777);
+  assert(isObject(ctx.session.permissions), 'No permissions in post /xlsx/requests', 1778);
+  assert(isObject(ctx.request.body), 'Post /xlsx/requests has no body', 1779);
+  assert(isObject(filters), 'Post /xlsx/requests has no filters', 1780);
+  assert(typeof filters.term === 'string', `Post /xlsx/requests term expected to be string but was ${typeof filters.term}`, 1781);
+
+  const term = filters.term;
+
+  const requests = (await db.sql(`
+    SELECT *
+    FROM requests
+    WHERE
+      LOWER(iata_code) LIKE LOWER($1)
+      OR UNACCENT(LOWER(city)) LIKE LOWER($1)
+    ORDER BY id`,
+  `%${term}%`,
+  )).sort((c1, c2) => c2.call_count - c1.call_count)
+    .map((r) => {
+      const request = r.city ? r.city : r.iata_code;
+      const type = r.city ? 'City' : 'Airport IATA Code';
+      return {
+        request,
+        type,
+        call_count: r.call_count
+      }
+  });
+
+  let table = '<tr><th>Request</th><th>Type</th><th>Call Count</th></tr>';
+  for (const req of requests) {
+    table += `<tr><td>${req.request}</td><td>${req.type}</td><td>${req.call_count}</td></tr>`
+  }
+
+  ctx.body = { table };
+});
+
+// POST xlsx credits
+router.post('/xlsx/credits', async (ctx, next) => {
+  const filters = ctx.request.body.filters
+
+  assert(isObject(ctx.session), 'No session in post /xlsx/credits', 1877);
+  assert(isObject(ctx.session.permissions), 'No permissions in post /xlsx/credits', 1878);
+  assert(isObject(ctx.request.body), 'Post /xlsx/credits has no body', 1879);
+  assert(isObject(filters), 'Post /xlsx/credits has no filters', 1880);
+  assert(typeof filters.username === 'string', `Post /xlsx/credits username expected to be string but was ${typeof filters.username}`, 1881);
+
+  const username = filters.username;
+
+  const users = await db.sql(`
+    SELECT
+      u.id,
+      u.username,
+      SUM(ct.credits_received) AS credits_purchased,
+      SUM(ct.credits_spent) AS credits_spent,
+      u.credits AS credits_remaining
+    FROM users AS u
+    JOIN credit_transfers AS ct
+    ON ct.user_id = u.id
+    WHERE UNACCENT(LOWER(u.username)) LIKE LOWER($1)
+    GROUP BY (u.id, u.username, u.credits)
+    ORDER BY u.id
+  `,
+  `%${username}%`
+  );
+
+  const total = (await db.sql(`
+    SELECT
+      SUM(credits_purchased) AS total_credits_purchased,
+      SUM(credits_spent) AS total_credits_spent,
+      SUM(credits_remaining) AS total_credits_remaining
+    FROM (
+      SELECT
+        u.id,
+        u.username,
+        SUM(ct.credits_received) AS credits_purchased,
+        SUM(ct.credits_spent) AS credits_spent,
+        u.credits AS credits_remaining
+      FROM users AS u
+      JOIN credit_transfers AS ct
+      ON ct.user_id = u.id
+      WHERE UNACCENT(LOWER(u.username)) LIKE LOWER($1)
+      GROUP BY (u.id, u.username, u.credits)
+      ORDER BY u.id) AS total_by_user;
+    `,
+  `%${username}%`,
+  ))[0];
+
+  let table = '<tr><th>ID</th><th>User</th><th>Credits Purchased</th><th>Credits Spent</th><th>Credits Remaining</th></tr>';
+
+  for (const u of users) {
+    for (let [key, value] of Object.entries(u)) {
+      if (value == null) u[key] = '';
+    }
+    table += `<tr><td>${u.id}</td><td>${u.username}</td><td>${u.credits_purchased}</td><td>${u.credits_spent}</td><td>${u.credits_remaining}</td></tr>`
+  }
+
+  table += `<tr><td>Total</td><td></td><td>${total.total_credits_purchased}</td><td>$${total.total_credits_spent}</td><td>${total.total_credits_remaining}</td></tr>`
+
+  ctx.body = { table };
+});
+
 
 // POST roles
 router.post(paths.roles, async (ctx, next) => {

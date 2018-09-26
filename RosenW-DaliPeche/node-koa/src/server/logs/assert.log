@@ -77,3 +77,7 @@ Expecting 'CLOSE_RAW_BLOCK', 'CLOSE', 'CLOSE_UNESCAPED', 'OPEN_SEXPR', 'CLOSE_SE
 2018-09-25T13:04:31.226Z:  Error: Error while querying: error: column "user_id" does not exist
 2018-09-25T13:04:59.909Z:  Error: Error while querying: error: column "user_id" does not exist
 2018-09-25T13:59:00.960Z:  Error: Error while making a transaction: Error: Query values must be an array
+2018-09-26T13:49:22.895Z:  ReferenceError: filters is not defined
+2018-09-26T15:09:41.962Z:  TypeError: Assignment to constant variable.
+2018-09-26T16:34:05.833Z:  TypeError: u.entries(...) is not a function or its return value is not iterable
+2018-09-26T16:35:13.043Z:  TypeError: Assignment to constant variable.

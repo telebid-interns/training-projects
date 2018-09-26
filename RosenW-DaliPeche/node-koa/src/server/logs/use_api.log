@@ -1,10 +1,9 @@
-(node:25144) UnhandledPromiseRejectionWarning: FetchError: request to http://127.0.0.1:3001/api/forecast failed, reason: connect ECONNREFUSED 127.0.0.1:3001
+(node:24599) UnhandledPromiseRejectionWarning: FetchError: request to http://127.0.0.1:3001/api/forecast failed, reason: socket hang up
     at ClientRequest.<anonymous> (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/node_modules/node-fetch/lib/index.js:1345:11)
     at ClientRequest.emit (events.js:182:13)
-    at Socket.socketErrorListener (_http_client.js:382:9)
-    at Socket.emit (events.js:182:13)
-    at emitErrorNT (internal/streams/destroy.js:82:8)
-    at emitErrorAndCloseNT (internal/streams/destroy.js:50:3)
+    at Socket.socketOnEnd (_http_client.js:416:9)
+    at Socket.emit (events.js:187:15)
+    at endReadableNT (_stream_readable.js:1081:12)
     at process._tickCallback (internal/process/next_tick.js:63:19)
-(node:25144) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 1)
-(node:25144) [DEP0018] DeprecationWarning: Unhandled promise rejections are deprecated. In the future, promise rejections that are not handled will terminate the Node.js process with a non-zero exit code.
+(node:24599) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 1)
+(node:24599) [DEP0018] DeprecationWarning: Unhandled promise rejections are deprecated. In the future, promise rejections that are not handled will terminate the Node.js process with a non-zero exit code.
