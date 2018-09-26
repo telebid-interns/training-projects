@@ -133,7 +133,7 @@ def export_credit_history(
 
     try:
         user_id = cursor.fetchone()[0]
-    except IndexError:
+    except TypeError:  # cursor.fetchone() returns None instead of []
         raise UserError(code='API_ECH_INVALID_CREDENTIALS',
                         msg='User entered invalid api key.',
                         user_msg='Invalid api key.')

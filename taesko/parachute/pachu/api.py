@@ -60,7 +60,7 @@ def peer_error_handler(error):
         error=dict(
             code=api_codes[error.code],
             message=error.msg,
-            payload=extra_payload
+            data=extra_payload
         )
     )
     response = jsonify(payload)
@@ -89,7 +89,7 @@ def user_error_handler(error):
         error=dict(
             code=api_codes[error.code],
             message=error.msg,
-            payload=extra_payload
+            data=extra_payload
         )
     )
     response = jsonify(payload)

@@ -3,7 +3,7 @@ class BaseError(Exception):
         super().__init__(msg)
 
         self.code = code
-        self.userMsg = user_msg
+        self.user_msg = user_msg
         self.msg = msg
 
     @classmethod
