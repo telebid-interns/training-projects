@@ -15,23 +15,29 @@
         <div style="height: 20.8em">
           <label class="col-lg-12">City Name:</label>
           <div class="col-lg-12">
-            <input type="text" name="name" class="form-control" value="{{name}}">
+            <input id="city" type="text" name="name" class="form-control" value="{{name}}">
           </div>
           <label class="col-lg-12">Country:</label>
           <div class="col-lg-12">
-            <input type="text" name="country" class="form-control" value="{{country}}">
+            <input id="country" type="text" name="country" class="form-control" value="{{country}}">
           </div>
           <label class="col-lg-12">Last Observed From/To:</label>
           <div class="col-lg-6">
-            <input type="date" name="date-from" class="form-control" value="{{dateFrom}}">
+            <input id="dateFrom" type="date" name="date-from" class="form-control" value="{{dateFrom}}">
           </div>
           <div class="col-lg-6">
-            <input type="date" name="date-to" class="form-control" value="{{dateTo}}">
+            <input id="dateTo" type="date" name="date-to" class="form-control" value="{{dateTo}}">
           </div>
         </div>
         <div>
           <div class="col-lg-6">
-            <button id="export-btn" class='form-control btn-info' onclick="exportToExcel(event, 'cities-table', 'cities', ['Name', 'Country'], ['{{name}}', '{{country}}'])">Export</button>
+            <button id="export-btn" class='form-control btn-info' onclick="exportToExcel(event,
+            {
+              city: document.getElementById('city').value,
+              country: document.getElementById('country').value,
+              dateFrom: document.getElementById('dateFrom').value,
+              dateTo: document.getElementById('dateTo').value
+            }, 'cities')">Export</button>
           </div>
           <div class="col-lg-6">
             <input type="submit" id="search-btn" value="Search" class='form-control btn-success'>

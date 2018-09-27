@@ -81,3 +81,6 @@ Expecting 'CLOSE_RAW_BLOCK', 'CLOSE', 'CLOSE_UNESCAPED', 'OPEN_SEXPR', 'CLOSE_SE
 2018-09-26T15:09:41.962Z:  TypeError: Assignment to constant variable.
 2018-09-26T16:34:05.833Z:  TypeError: u.entries(...) is not a function or its return value is not iterable
 2018-09-26T16:35:13.043Z:  TypeError: Assignment to constant variable.
+2018-09-27T07:57:39.612Z:  ReferenceError: dateTos is not defined
+2018-09-27T08:47:53.853Z:  ReferenceError: c is not defined
+2018-09-27T08:47:58.079Z:  ReferenceError: c is not defined

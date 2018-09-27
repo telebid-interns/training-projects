@@ -271,8 +271,6 @@ router.get(paths.cities, async (ctx, next) => {
   assert(typeof name === 'string', `in 'admin/cities' name expected to be string, actual: ${name}`, 141);
   assert(typeof country === 'string', `in 'admin/cities' country expected to be string, actual: ${country}`, 142);
 
-  const page = !Number(ctx.query.page) || ctx.query.page < 0 ? 0 : Number(ctx.query.page);
-
   dateTo.setDate(dateTo.getDate() + 1); // include chosen day
 
   const cities = (await db.sql(`
@@ -992,6 +990,114 @@ router.post('/xlsx/credits', async (ctx, next) => {
   ctx.body = { table };
 });
 
+// POST xlsx cities
+router.post('/xlsx/cities', async (ctx, next) => {
+  const filters = ctx.request.body.filters
+
+  assert(isObject(ctx.session), 'No session in post /xlsx/cities', 1977);
+  assert(isObject(ctx.session.permissions), 'No permissions in post /xlsx/cities', 1978);
+  assert(isObject(ctx.request.body), 'Post /xlsx/cities has no body', 1979);
+  assert(isObject(filters), 'Post /xlsx/cities has no filters', 1980);
+
+  const name = filters.city == null ? '' : filters.city;
+  const country = filters.country == null ? '' : filters.country;
+  const dateFrom = filters.dateFrom == null || isNaN(new Date(filters.dateFrom)) ? new Date('1970-01-01') : new Date(filters.dateFrom);
+  const dateTo = filters.dateTo == null || isNaN(new Date(filters.dateTo)) ? new Date() : new Date(filters.dateTo);
+
+  assert(isObject(dateFrom), `in 'xlsx/cities' dateFrom expected to be object. actual: ${typeof dateFrom}`, 1981);
+  assert(isObject(dateTo), `in 'xlsx/cities' dateTo expected to be object. actual: ${typeof dateTo}`, 1982);
+  assert(typeof name === 'string', `in 'xlsx/cities' name expected to be string, actual: ${typeof name}`, 1983);
+  assert(typeof country === 'string', `in 'xlsx/cities' country expected to be string, actual: ${typeof country}`, 1984);
+
+  const cities = (await db.sql(`
+    SELECT c.*, ctr.name as country
+    FROM cities as c
+    JOIN countries as ctr
+      ON c.country_code = ctr.country_code
+    WHERE
+      UNACCENT(LOWER(c.name)) LIKE LOWER($1)
+      AND LOWER(ctr.name) LIKE LOWER($2)
+      AND (c.observed_at BETWEEN $3 AND $4)
+    ORDER BY id`,
+  `%${name}%`,
+  `%${country}%`,
+  dateFrom,
+  dateTo
+  )).map((c) => {
+    if (c.observed_at != null) c.observed_at = c.observed_at.toISOString().replace('T', ' ').slice(0, -5);
+    return c;
+  }).sort((c1, c2) => c1.id - c2.id);
+
+  let table = '<tr><th>ID</th><th>Name</th><th>Country</th><th>Longitude</th><th>Latitude</th><th>Observed at</th></tr>';
+
+  for (const c of cities) {
+    for (let [key, value] of Object.entries(c)) {
+      if (value == null) c[key] = '';
+    }
+    table += `<tr><td>${c.id}</td><td>${c.name}</td><td>${c.country}</td><td>${c.lng}</td><td>${c.lat}</td><td>${c.observed_at}</td></tr>`
+  }
+
+  ctx.body = { table };
+});
+
+// POST xlsx users
+router.post('/xlsx/users', async (ctx, next) => {
+  assert(isObject(ctx.session), 'No session in post /xlsx/users', 2077);
+  assert(isObject(ctx.session.permissions), 'No permissions in post /xlsx/users', 2078);
+  assert(isObject(ctx.request.body), 'Post /xlsx/users has no body', 2079);
+  assert(isObject(ctx.request.body.filters), 'Post /xlsx/users has no filters', 2080);
+
+  const filters = ctx.request.body.filters;
+
+  const username = filters.username == null ? '' : filters.username;
+  const dateFrom = filters.dateFrom == null || isNaN(new Date(filters.dateFrom)) ? new Date('1970-01-01') : new Date(filters.dateFrom);
+  const dateTo = filters.dateTo == null || isNaN(new Date(filters.dateTo)) ? new Date() : new Date(filters.dateTo);
+  const email = filters.email == null ? '' : filters.email;
+  const creditsFrom = filters.creditsFrom == null ? 0 : Number(filters.creditsFrom);
+  const creditsTo = filters.creditsTo == null || Number(filters.creditsTo) === 0 ? MAXIMUM_CREDITS_ALLOWED : Number(filters.creditsTo);
+
+  assert(typeof username === 'string', `in 'xlsx/user' username expected to be string, actual: ${typeof username}`, 2081);
+  assert(isObject(dateFrom), `in 'xlsx/users' dateFrom expected to be object. actual: ${typeof dateFrom}`, 2082);
+  assert(isObject(dateTo), `in 'xlsx/users' dateTo expected to be object. actual: ${typeof dateTo}`, 2083);
+  assert(typeof email === 'string', `in 'xlsx/user' email expected to be string, actual: ${typeof email}`, 2084);
+  assert(typeof creditsFrom === 'number', `in 'xlsx/user' creditsFrom expected to be number, actual: ${typeof creditsFrom}`, 2085);
+  assert(typeof creditsTo === 'number', `in 'xlsx/user' creditsTo expected to be number, actual: ${typeof creditsTo}`, 2086);
+
+  dateTo.setDate(dateTo.getDate() + 1); // include chosen day
+
+  const users = (await db.sql(`
+    SELECT *
+    FROM users
+    WHERE
+      UNACCENT(LOWER(username)) LIKE LOWER($1)
+      AND LOWER(email) LIKE LOWER($2)
+      AND (date_registered BETWEEN $3 AND $4)
+      AND (credits BETWEEN $5 AND $6)
+    ORDER BY id`,
+  `%${username}%`,
+  `%${email}%`,
+  dateFrom,
+  dateTo,
+  creditsFrom,
+  creditsTo
+  )).map((u) => {
+    u.date_registered = u.date_registered.toISOString().replace('T', ' ').slice(0, -5);
+    return u;
+  });
+
+  dateTo.setDate(dateTo.getDate() - 1); // show original date
+
+  let table = '<tr><th>ID</th><th>Date Registered</th><th>User</th><th>Email</th><th>Successful Requests</th><th>Failed Requests</th><th>Credits</th></tr>';
+
+  for (const u of users) {
+    for (let [key, value] of Object.entries(u)) {
+      if (value == null) u[key] = '';
+    }
+    table += `<tr><td>${u.id}</td><td>${u.date_registered}</td><td>${u.username}</td><td>${u.email}</td><td>${u.successful_requests}</td><td>${u.failed_requests}</td><td>${u.credits}</td></tr>`
+  }
+
+  ctx.body = { table };
+});
 
 // POST roles
 router.post(paths.roles, async (ctx, next) => {

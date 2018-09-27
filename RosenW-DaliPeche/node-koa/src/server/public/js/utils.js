@@ -52,6 +52,8 @@ async function exportToExcel (event, filters, reportName) {
   const data = await response.json();
   const htmls = `${filterTable.innerHTML}<tr></tr>${data.table}`;
 
+  console.log(htmls);
+
   const ctx = {
     worksheet : 'Worksheet',
     table : htmls

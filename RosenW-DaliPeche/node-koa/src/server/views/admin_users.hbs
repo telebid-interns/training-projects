@@ -16,30 +16,38 @@
           <br>
           <label class="col-lg-12">Username:</label>
           <div class="col-lg-12">
-            <input type="text" name="username" class="form-control" value="{{username}}">
+            <input id="username" type="text" name="username" class="form-control" value="{{username}}">
           </div>
           <label class="col-lg-12">Date From/To:</label>
           <div class="col-lg-6">
-            <input type="date" name="date-from" class="form-control" value="{{dateFrom}}">
+            <input id="dateFrom" type="date" name="date-from" class="form-control" value="{{dateFrom}}">
           </div>
           <div class="col-lg-6">
-            <input type="date" name="date-to" class="form-control" value="{{dateTo}}">
+            <input id="dateTo" type="date" name="date-to" class="form-control" value="{{dateTo}}">
           </div>
             <label class="col-lg-12">Email:</label>
           <div class="col-lg-12">
-            <input type="text" name="email" class="form-control" value="{{email}}">
+            <input id="email" type="text" name="email" class="form-control" value="{{email}}">
           </div>
           <label class="col-lg-12">Credits From/To:</label>
           <div class="col-lg-6">
-            <input type="text" name="credits-from" class="form-control" value="{{creditsFrom}}">
+            <input id="creditsFrom" type="text" name="credits-from" class="form-control" value="{{creditsFrom}}">
           </div>
           <div class="col-lg-6">
-            <input type="text" name="credits-to" class="form-control" value="{{creditsTo}}">
+            <input id="creditsTo" type="text" name="credits-to" class="form-control" value="{{creditsTo}}">
           </div>
         </div>
         <div>
           <div class="col-lg-6">
-            <button id="export-btn" class='form-control btn-info' onclick="exportToExcel(event, 'users-table', 'users', ['Username', 'Date From/To', 'Email', 'Credits From/To'], ['{{username}}', '{{dateFrom}} - {{dateTo}}', '{{email}}', '{{creditsFrom}} - {{creditsTo}}'])">Export</button>
+            <button id="export-btn" class='form-control btn-info' onclick="exportToExcel(event,
+            {
+              username: document.getElementById('username').value,
+              dateFrom: document.getElementById('dateFrom').value,
+              dateTo: document.getElementById('dateTo').value,
+              email: document.getElementById('email').value,
+              creditsFrom: document.getElementById('creditsFrom').value,
+              creditsTo: document.getElementById('creditsTo').value
+            }, 'users')">Export</button>
           </div>
           <div class="col-lg-6">
             <input type="submit" id="search-btn" value="Search" class='form-control btn-success'>
@@ -76,7 +84,7 @@
         </div>
       {{else}}
         <div class="text-center">
-          <p>Too Many Results ({{resultCount}}) please check your filters. <a href="/admin/users?username={{username}}&dateFrom={{dateFrom}}&dateTo={{dateTo}}&email={{email}}&creditsFrom={{creditsFrom}}&creditsTo={{creditsTo}}&search=1&show=1"> display anyway </a></p>
+          <p>Too Many Results ({{resultCount}}) please check your filters. <a href="/admin/users?username={{username}}&date-from={{dateFrom}}&date-to={{dateTo}}&email={{email}}&credits-from={{creditsFrom}}&credits-to={{creditsTo}}&search=1&show=1"> display anyway </a></p>
         </div>
       {{/if}}
     {{/if}}
