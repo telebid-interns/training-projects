@@ -9511,3 +9511,255 @@ Getting data for city Hilton Head failed
 (node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
     at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
 (node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2378)
+Getting data for city Wallburg failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2379)
+Getting data for city Maud failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2380)
+Getting data for city Cross Plains failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2381)
+Getting data for city Pennsport failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2382)
+Getting data for city Evendale failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2383)
+Getting data for city Gallipolis failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2384)
+Getting data for city South Congaree failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2385)
+Getting data for city Masontown failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2386)
+Getting data for city Rocky Top failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2387)
+Getting data for city Munday failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2388)
+Getting data for city Porter Heights failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2389)
+Getting data for city Jamaica Beach failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2390)
+Getting data for city César Chávez failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2391)
+Getting data for city Pawlet failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2392)
+Getting data for city Ottumwa failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2393)
+Getting data for city Launching Place failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2394)
+Getting data for city East Garfield Park failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2395)
+Getting data for city Belmont Cragin failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2396)
+Getting data for city Mount Greenwood failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2397)
+Getting data for city South Lawndale failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2398)
+Getting data for city Portage Park failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2399)
+Getting data for city Near North Side failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2400)
+Getting data for city Brighton Park failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2401)
+Getting data for city Logan Square failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2402)
+Getting data for city McKinley Park failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2403)
+Getting data for city South Chicago failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2404)
+Getting data for city Chicago Lawn failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2405)
+Getting data for city Gage Park failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2406)
+Getting data for city Lower West Side failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2407)
+Getting data for city Near South Side failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2408)
+Getting data for city North Lawndale failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2409)
+Getting data for city West Garfield Park failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2410)
+Getting data for city Manchester-by-the-Sea failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2411)
+Getting data for city Lincoln Square failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2412)
+Getting data for city Grand Boulevard failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2413)
+Getting data for city North Center failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2414)
+Getting data for city West Elsdon failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2415)
+Getting data for city Norwood (historical) failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2416)
+Getting data for city Clinton Township failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2417)
+Getting data for city Padbury failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2418)
+Getting data for city Baychester failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2419)
+Getting data for city Glen Ridge failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2420)
+Getting data for city East Tremont failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2421)
+Getting data for city Apalachin failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2422)
+Getting data for city Jamesburg failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2423)
+Getting data for city Collie failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2424)
+Getting data for city Brightwaters failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2425)
+Getting data for city Wodonga failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2426)
+Getting data for city Cabramatta West failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2427)
+Getting data for city Gwinn failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2428)
+Getting data for city Mancelona failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2429)
+Getting data for city Lakewood Club failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2430)
+Getting data for city Imlay City failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2431)
+Getting data for city Bushwick failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2432)
+Getting data for city City Island failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2433)
+Getting data for city College Point failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2434)
+Getting data for city Dyker Heights failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2435)
+Getting data for city Bellingen failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2436)
+Getting data for city Pernik failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2437)
+Getting data for city Arverne failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2438)
+Getting data for city Cambria Heights failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2439)
+Getting data for city East Flatbush failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2440)
+Getting data for city Fort Hamilton failed
+(node:1311) UnhandledPromiseRejectionWarning: TypeError: Cannot read property 'city' of undefined
+    at Timeout.setTimeout [as _onTimeout] (/home/ros/Desktop/repo/RosenW-DaliPeche/node-koa/src/api/update.js:27:27)
+(node:1311) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). (rejection id: 2441)

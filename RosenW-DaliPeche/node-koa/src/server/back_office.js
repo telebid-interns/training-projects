@@ -1050,6 +1050,108 @@ router.post('/xlsx/users', async (ctx, next) => {
   ctx.body = { table };
 });
 
+// POST xlsx ctransfers
+router.post('/xlsx/ctransfers', async (ctx, next) => {
+  assert(isObject(ctx.session), 'No session in post /xlsx/users', 2177);
+  assert(isObject(ctx.session.permissions), 'No permissions in post /xlsx/users', 2178);
+
+  if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_transfers) {
+    await ctx.redirect(paths.backOfficeMountPoint);
+    return next();
+  }
+
+  assert(isObject(ctx.request.body), 'Post /xlsx/users has no body', 2179);
+  assert(isObject(ctx.request.body.filters), 'Post /xlsx/users has no filters', 2180);
+  const filters = ctx.request.body.filters;
+
+  const username = filters.username == null ? '' : filters.username;
+  const dateGroupByValue = filters.dateGroupByValue == null ? '' : filters.dateGroupByValue;
+  const dateFrom = filters.dateFrom == null || isNaN(new Date(filters.dateFrom)) ? new Date('1970-01-01') : new Date(filters.dateFrom);
+  const dateTo = filters.dateTo == null || isNaN(new Date(filters.dateTo)) ? new Date() : new Date(filters.dateTo);
+  const event = filters.event == null ? '' : filters.event;
+
+  assert(typeof username === 'string', `in 'admin/ctransfers' username expected to be string, actual: ${typeof username}`, 2181);
+  assert(typeof dateGroupByValue === 'string', `in 'admin/ctransfers' dateGroupByValue expected to be string, actual: ${typeof dateGroupByValue}`, 2182);
+  assert(isObject(dateFrom), `in 'admin/ctransfers' dateFrom expected to be object. actual: ${dateFrom}`, 2183);
+  assert(isObject(dateTo), `in 'admin/ctransfers' dateTo expected to be object. actual: ${dateTo}`, 2184);
+  assert(typeof event === 'string', `in 'admin/ctransfers' event expected to be string, actual: ${event}`, 2185);
+
+  dateTo.setDate(dateTo.getDate() + 1); // include chosen day
+
+  let selectValues = '';
+
+  selectValues += dateGroupByValue === 'all' ? 'ct.id, ' : '';
+  selectValues += dateGroupByValue === 'all' ? 'transfer_date, ' : 'DATE(transfer_date) AS transfer_date, ';
+  selectValues += dateGroupByValue === 'all' ? 'username, ' : '';
+  selectValues += dateGroupByValue === 'all' ? 'credits_received, ' : 'SUM(ct.credits_received) AS credits_received, ';
+  selectValues += dateGroupByValue === 'all' ? 'credits_spent, ' : 'SUM(ct.credits_spent) AS credits_spent, ';
+  selectValues += dateGroupByValue === 'all' ? 'event, ' : '';
+  selectValues = selectValues.substr(0, selectValues.length - 2); // removes trailing , from select
+
+  let groupByValues = ``;
+  groupByValues += dateGroupByValue === 'all' ? '' : 'DATE(transfer_date), ';
+
+  if (groupByValues.length > 0) {
+    groupByValues = groupByValues.substr(0, groupByValues.length - 2); // removes trailing , from group by
+    groupByValues = 'GROUP BY ' + groupByValues
+  }
+
+  const query = `
+    SELECT
+      ${selectValues}
+    FROM users AS u
+    JOIN credit_transfers as ct
+      ON ct.user_id = u.id
+    WHERE
+      UNACCENT(LOWER(username)) LIKE LOWER($1)
+      AND LOWER(event) LIKE LOWER($2)
+      AND (ct.transfer_date BETWEEN $3 AND $4)
+      AND approved = true
+    ${groupByValues}
+    ORDER BY DATE(ct.transfer_date) DESC
+  `;
+
+  const transfers = (await db.sql(
+    query,
+  `%${username}%`,
+  `%${event}%`,
+  dateFrom,
+  dateTo
+  )).map((t) => {
+    if (dateGroupByValue === 'all') {
+      t.transfer_date = t.transfer_date.toISOString().replace('T', ' ').slice(0, -5);
+    } else {
+      t.transfer_date.setDate(t.transfer_date.getDate() + 1);
+      t.transfer_date = t.transfer_date.toISOString().substr(0, 10);
+    }
+    return t;
+  });
+
+  const total = (await db.sql(`
+    SELECT
+      SUM(credits_received) AS total_received,
+      SUM(credits_spent) AS total_spent
+    FROM (${query}) as subq`,
+  `%${username}%`,
+  `%${event}%`,
+  dateFrom,
+  dateTo
+  ))[0];
+
+  dateTo.setDate(dateTo.getDate() - 1); // show original date
+
+  let table = '<tr><th>ID</th><th>Transfer Date</th><th>User</th><th>Event</th><th>Credits Received</th><th>Credits Spent</th></tr>';
+
+  for (const t of transfers) {
+    for (let [key, value] of Object.entries(t)) {
+      if (value == null) t[key] = '';
+    }
+    table += `<tr><td>${t.id}</td><td>${t.transfer_date}</td><td>${t.username}</td><td>${t.event}</td><td>${t.credits_received}</td><td>${t.credits_spent}</td></tr>`;
+  }
+
+  ctx.body = { table };
+});
+
 // POST roles
 router.post(paths.roles, async (ctx, next) => {
   assert(isObject(ctx.session), 'No session in post /roles', 182);
