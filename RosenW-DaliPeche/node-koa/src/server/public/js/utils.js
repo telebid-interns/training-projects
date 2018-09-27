@@ -52,15 +52,23 @@ async function exportToExcel (event, filters, reportName) {
   const data = await response.json();
   const htmls = `${filterTable.innerHTML}<tr></tr>${data.table}`;
 
-  console.log(htmls);
-
   const ctx = {
     worksheet : 'Worksheet',
     table : htmls
   }
-
+  const finish = new Date() - start;
   const link = document.createElement("a");
   link.download = `${reportName}-report-${new Date().toISOString()}.xlsx`;
-  link.href = uri + base64(format(template, ctx));
+
+  const blob = new Blob([stringToArrayBuffer(atob(base64(format(template, ctx))))], { type: '' });
+  link.href = URL.createObjectURL(blob);
+
   link.click();
+}
+
+function stringToArrayBuffer(s) {
+  const buf = new ArrayBuffer(s.length);
+  const view = new Uint8Array(buf);
+  for (let i=0; i!=s.length; ++i) view[i] = s.charCodeAt(i) & 0xFF;
+  return buf;
 }
