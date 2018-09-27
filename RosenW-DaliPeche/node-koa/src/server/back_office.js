@@ -683,98 +683,52 @@ router.get(paths.creditTransfers, async (ctx, next) => {
 
   dateTo.setDate(dateTo.getDate() + 1); // include chosen day
 
-  if (dateGroupByValue === 'day') {
-    const transfers = (await db.sql(`
-      SELECT
-        DATE(ct.transfer_date) AS transfer_date,
-        SUM(ct.credits_received) AS credits_received,
-        SUM(ct.credits_spent) AS credits_spent
-      FROM users AS u
-      JOIN credit_transfers as ct
-        ON ct.user_id = u.id
-      WHERE
-        UNACCENT(LOWER(username)) LIKE LOWER($1)
-        AND LOWER(event) LIKE LOWER($2)
-        AND (ct.transfer_date BETWEEN $3 AND $4)
-        AND approved = true
-      GROUP BY DATE(transfer_date)
-      ORDER BY DATE(ct.transfer_date) DESC`,
-    `%${username}%`,
-    `%${event}%`,
-    dateFrom,
-    dateTo
-    )).map((t) => {
-      t.transfer_date.setDate(t.transfer_date.getDate() + 1);
-      t.transfer_date = t.transfer_date.toISOString().substr(0, 10);
-      return t;
-    });
+  let selectValues = '';
 
-    const total = (await db.sql(`
-      SELECT
-        SUM(total.credits_received) AS total_received,
-        SUM(total.credits_spent) AS total_spent
-      FROM (
-        SELECT
-          DATE(ct.transfer_date) AS transfer_date,
-          SUM(ct.credits_received) AS credits_received,
-          SUM(ct.credits_spent) AS credits_spent
-        FROM users AS u
-        JOIN credit_transfers as ct
-          ON ct.user_id = u.id
-        WHERE
-          UNACCENT(LOWER(username)) LIKE LOWER($1)
-          AND LOWER(event) LIKE LOWER($2)
-          AND (ct.transfer_date BETWEEN $3 AND $4)
-          AND approved = true
-        GROUP BY DATE(transfer_date)
-        ORDER BY DATE(ct.transfer_date) DESC) as total`,
-    `%${username}%`,
-    `%${event}%`,
-    dateFrom,
-    dateTo
-    ))[0];
-    console.log(transfers.length);
+  selectValues += dateGroupByValue === 'all' ? 'ct.id, ' : '';
+  selectValues += dateGroupByValue === 'all' ? 'transfer_date, ' : 'DATE(transfer_date) AS transfer_date, ';
+  selectValues += dateGroupByValue === 'all' ? 'username, ' : '';
+  selectValues += dateGroupByValue === 'all' ? 'credits_received, ' : 'SUM(ct.credits_received) AS credits_received, ';
+  selectValues += dateGroupByValue === 'all' ? 'credits_spent, ' : 'SUM(ct.credits_spent) AS credits_spent, ';
+  selectValues += dateGroupByValue === 'all' ? 'event, ' : '';
+  selectValues = selectValues.substr(0, selectValues.length - 2); // removes trailing , from select
 
-    await ctx.render('admin_transfers', {
-      transfers,
-      username,
-      event,
-      dateFrom: dateFrom.toISOString().substr(0, 10),
-      dateTo: dateTo.toISOString().substr(0, 10),
-      total,
-      dateGroupByValue,
-      search: ctx.query.search,
-      show: transfers.length < MAX_HTML_ROWS_WITHOUT_CONFIRMATION || ctx.query.show != null,
-      resultCount: transfers.length,
-      admin: ctx.session.username,
-      permissions: ctx.session.permissions,
-    });
-    return next();
+  let groupByValues = ``;
+  groupByValues += dateGroupByValue === 'all' ? '' : 'DATE(transfer_date), ';
+
+  if (groupByValues.length > 0) {
+    groupByValues = groupByValues.substr(0, groupByValues.length - 2); // removes trailing , from group by
+    groupByValues = 'GROUP BY ' + groupByValues
   }
 
-  const transfers = (await db.sql(`
-      SELECT
-        ct.id,
-        transfer_date,
-        username,
-        credits_received,
-        credits_spent,
-        event
-      FROM users AS u
-      JOIN credit_transfers as ct
-        ON ct.user_id = u.id
-      WHERE
-        UNACCENT(LOWER(username)) LIKE LOWER($1)
-        AND LOWER(event) LIKE LOWER($2)
-        AND (ct.transfer_date BETWEEN $3 AND $4)
-        AND approved = true
-      ORDER BY ct.id DESC`,
+  const query = `
+    SELECT
+      ${selectValues}
+    FROM users AS u
+    JOIN credit_transfers as ct
+      ON ct.user_id = u.id
+    WHERE
+      UNACCENT(LOWER(username)) LIKE LOWER($1)
+      AND LOWER(event) LIKE LOWER($2)
+      AND (ct.transfer_date BETWEEN $3 AND $4)
+      AND approved = true
+    ${groupByValues}
+    ORDER BY DATE(ct.transfer_date) DESC
+  `;
+
+  const transfers = (await db.sql(
+    query,
   `%${username}%`,
   `%${event}%`,
   dateFrom,
   dateTo
   )).map((t) => {
-    t.transfer_date = t.transfer_date.toISOString().replace('T', ' ').slice(0, -5);
+    if (dateGroupByValue === 'all') {
+      t.transfer_date = t.transfer_date.toISOString().replace('T', ' ').slice(0, -5);
+    } else {
+      t.transfer_date.setDate(t.transfer_date.getDate() + 1);
+      t.transfer_date = t.transfer_date.toISOString().substr(0, 10);
+    }
     return t;
   });
 
@@ -782,14 +736,7 @@ router.get(paths.creditTransfers, async (ctx, next) => {
     SELECT
       SUM(credits_received) AS total_received,
       SUM(credits_spent) AS total_spent
-    FROM users AS u
-    JOIN credit_transfers AS ct
-      ON ct.user_id = u.id
-    WHERE
-      UNACCENT(LOWER(username)) LIKE LOWER($1)
-      AND LOWER(event) LIKE LOWER($2)
-      AND (ct.transfer_date BETWEEN $3 AND $4)
-      AND approved = true`,
+    FROM (${query}) as subq`,
   `%${username}%`,
   `%${event}%`,
   dateFrom,
@@ -918,7 +865,11 @@ router.post('/xlsx/requests', async (ctx, next) => {
   });
 
   let table = '<tr><th>Request</th><th>Type</th><th>Call Count</th></tr>';
+
   for (const req of requests) {
+    for (let [key, value] of Object.entries(req)) {
+      if (value == null) req[key] = '';
+    }
     table += `<tr><td>${req.request}</td><td>${req.type}</td><td>${req.call_count}</td></tr>`
   }
 
