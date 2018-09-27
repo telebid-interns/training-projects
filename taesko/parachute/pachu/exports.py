@@ -1,3 +1,4 @@
+import collections
 import collections.abc
 import datetime
 import io
@@ -10,7 +11,7 @@ import openpyxl.worksheet
 import psycopg2.extensions
 
 from pachu.config import config
-from pachu.err import UserError
+from pachu.err import UserError, assertUser
 
 stdout_logger = logging.getLogger('stdout')
 DEFAULT_TRANSFERRED_DELTA = datetime.timedelta(weeks=4)
@@ -62,7 +63,7 @@ def insert_table(*, sheet, columns, records, table_name, offset):
             sheet.cell(row=row, column=col + col_offset,
                        value=str(v))
 
-        return (row + 1, col)
+        return row + 1, col
 
     offset = write_row(sheet, [table_name], offset)
     offset = write_row(sheet, columns, offset)
@@ -74,10 +75,8 @@ def insert_table(*, sheet, columns, records, table_name, offset):
 
 def export_credit_history(
         cursor, *,
-        column_names=('active', 'reason', 'plan_id',
-                      'transfer_amount', 'transferred_at',
-                      'airport_from_id', 'airport_to_id',
-                      'date_from', 'date_to', 'user_subscription_id'),
+        column_names=None,
+        filter_column_names=None,
         v,
         api_key,
         fly_from=None,
@@ -91,21 +90,53 @@ def export_credit_history(
         transfer_amount_operator=None,
         group_by=None
 ):
+    method_config = config['api_export_credit_history']
+    column_names = (column_names or
+                    config['api_export_credit_history_column_names'])
+    column_names = dict(column_names)
+    filter_column_names = (filter_column_names or
+                           config['api_export_credit_history_filter_names'])
+    filter_column_names = dict(filter_column_names)
+    # TODO this is wrong
+    filter_order = method_config['filter_names_order'].split(',')
+    filter_column_names = collections.OrderedDict(
+        sorted(filter_column_names.items(),
+               key=lambda e: filter_order.index(e[0]))
+    )
+
+    if transferred_to:
+        transferred_to = datetime.datetime.strptime(
+            transferred_to,
+            method_config['transferred_dates_format']
+        )
+    else:
+        transferred_to = datetime.datetime.now()
+
+    if transferred_from:
+        transferred_from = datetime.datetime.strptime(
+            transferred_from,
+            method_config['transferred_dates_format']
+        )
+    else:
+        transferred_from = transferred_to - DEFAULT_TRANSFERRED_DELTA
+
+    exceeded_format_msg = 'Transferred date range exceeded {}'.format(
+        ALLOWED_TRANSFERRED_DELTA
+    )
+    assertUser(transferred_to - transferred_from > ALLOWED_TRANSFERRED_DELTA,
+               msg=exceeded_format_msg,
+               code='API_ECH_EXCEEDED_TRANSFERRED_DELTA')
+
     cursor.execute('SET statement_timeout=%(time)s',
-                   dict(time=config['api_export_credit_history']['timeout']))
+                   dict(time=method_config['timeout']))
     cursor.execute('SELECT id FROM users WHERE api_key=%s', [api_key])
 
-    user_id = cursor.fetchone()[0]
-
-    # transferred_to = transferred_to or datetime.datetime.now()
-    # transferred_from = (transferred_from or
-    #                     transferred_to - DEFAULT_TRANSFERRED_DELTA)
-    #
-    # exceeded_format_msg = 'Transferred date range exceeded {}'.format(
-    #     ALLOWED_TRANSFERRED_DELTA)
-    # assertUser(transferred_to - transferred_from > ALLOWED_TRANSFERRED_DELTA,
-    #            msg=exceeded_format_msg,
-    #            code='API_CH_EXCEEDED_TRANSFERRED_DELTA')
+    try:
+        user_id = cursor.fetchone()[0]
+    except TypeError:  # cursor.fetchone() returns None instead of []
+        raise UserError(code='API_ECH_INVALID_CREDENTIALS',
+                        msg='User entered invalid api key.',
+                        user_msg='Invalid api key.')
 
     query_params = dict(
         user_id=user_id,
@@ -119,39 +150,97 @@ def export_credit_history(
         fly_to=fly_to,
     )
     filters = dict(
-        status_filter='AND users_subscriptions.active=%(status)s' if status else '',
-        date_from_filter='AND users_subscriptions.date_from >= %(date_from)s' if date_from else '',
-        date_to_filter='AND users_subscriptions.date_to <= %(date_to)s' if date_to else '',
-        transferred_at_filter='''
-        AND account_transfers.transferred_at BETWEEN 
-            (%(transferred_from)s AND %(transferred_to)s)
-        ''' if transferred_from and transferred_to else '',
-        transfer_amount_filter='''
-        AND account_transfers.transfer_amount {transfer_amount_operator} %(transfer_amount)s
-        '''.format(
-            transfer_amount_operator=transfer_amount_operator) if transfer_amount and transfer_amount_operator else '',
-        airport_from_filter='''
-        AND (ap_from.name=%(fly_from)s OR ap_from.iata_code=%(fly_from)s)
-        ''' if fly_from else '',
-        airport_to_filter='''
-        AND (ap_to.name=%(fly_to)s OR ap_to.iata_code=%(fly_to)s)
-        ''' if fly_to else ''
+        status_filter=('AND users_subscriptions.active=%(status)s',
+                       bool(status)),
+        date_from_filter=('AND users_subscriptions.date_from >= %(date_from)s',
+                          bool(date_from)),
+        date_to_filter=('AND users_subscriptions.date_to <= %(date_to)s',
+                        bool(date_to)),
+        transferred_at_filter=(
+            '''
+            AND account_transfers.transferred_at BETWEEN 
+                %(transferred_from)s AND %(transferred_to)s
+            ''',
+            bool(transferred_from)
+        ),
+        transfer_amount_filter=(
+            '''
+            AND account_transfers.transfer_amount {transfer_amount_operator} %(transfer_amount)s
+            '''.format(transfer_amount_operator=transfer_amount_operator),
+            transfer_amount and transfer_amount_operator
+        ),
+        airport_from_filter=(
+            '''
+            AND (ap_from.name=%(fly_from)s OR ap_from.iata_code=%(fly_from)s)
+            ''',
+            bool(fly_from)),
+        airport_to_filter=(
+            '''AND (ap_to.name=%(fly_to)s OR ap_to.iata_code=%(fly_to)s)''',
+            bool(fly_to)
+        )
     )
-    select_columns = '''
-            active,
-            reason,
-            subscription_plan_id,
-            transfer_amount,
-            transferred_at,
-            airport_from_id,
-            airport_to_id, 
-            date_from,
-            date_to,
-            user_subscr_id
-    '''
-    group_by_clause = ''
+    for key, filter_ in filters.items():
+        clause, activated = filter_
+        filters[key] = clause if activated else ''
+
+    select_config = collections.OrderedDict(
+        (('transferred_at', 'transferred_at'),
+         ('active', 'active'),
+         ('reason', 'reason'),
+         ('subscription_plan', 'subscription_plans.name'),
+         ('transfer_amount', 'transfer_amount'),
+         ('airport_from', 'ap_from.name'),
+         ('airport_to', 'ap_to.name'),
+         ('date_from', 'date_from'),
+         ('date_to', 'date_to'),
+         ('user_subscr_id', 'user_subscr_id'))
+    )
+    extra_select_config_when_grouping = dict(
+        transfer_amount='SUM(transfer_amount) AS amount'
+    )
+    group_by_config = dict(
+        transferred_at=dict(
+            year="date_trunc('year', CAST(transferred_at AS date))",
+            month="date_trunc('month', CAST(transferred_at AS date))",
+            day="date_trunc('day', CAST(transferred_at AS date))",
+            default="date_trunc('day', CAST(transferred_at AS date))"
+        ),
+        active=dict(default='active'),
+        reason=dict(default='reason')
+    )
+
+    select_columns = tuple(select_config.keys())
+    if group_by:
+        select_statements = {}
+        group_by_statements = []
+
+        for column, type_ in group_by.items():
+            statement = group_by_config[column][type_]
+            group_by_statements.append(statement)
+            select_st = '{} AS {}'.format(statement, column)
+            select_statements[column] = select_st
+
+        for column, select_st in select_config.items():
+            if column in group_by:
+                continue
+            select_statements[column] = extra_select_config_when_grouping.get(
+                column,
+                "'ALL' AS {}".format(column)
+            )
+
+        select_statements = sorted(
+            select_statements.items(),
+            key=lambda pair: select_columns.index(pair[0])
+        )
+        select_statements = [pair[1] for pair in select_statements]
+        group_by_clause = 'GROUP BY {}'.format(','.join(group_by_statements))
+        select_clause = ','.join(select_statements)
+    else:
+        group_by_clause = ''
+        select_clause = ','.join(select_config.values())
+
     query = '''
-    SELECT {select_columns}
+    SELECT {select_clause}
     FROM (
         SELECT 
             users_subscriptions.active,
@@ -211,25 +300,42 @@ def export_credit_history(
     JOIN airports AS ap_to
       ON taxes.airport_to_id=ap_to.id
         {airport_to_filter}
+    JOIN subscription_plans
+        ON taxes.subscription_plan_id=subscription_plans.id
     {group_by_clause}
     ORDER BY 1 DESC
     '''.format(
         **filters,
         group_by_clause=group_by_clause,
-        select_columns=select_columns,
+        select_clause=select_clause,
     )
     try:
         cursor.execute(query, query_params)
     except psycopg2.extensions.QueryCanceledError:
         stdout_logger.exception('Credit history query timed out.')
         raise UserError(msg='Query took too long',
-                        code='API_CH_QUERY_TIMEOUT',
-                        userMsg='You are trying to export too much data at once.')
+                        code='API_ECH_QUERY_TIMEOUT',
+                        user_msg='Export is too large. Use the filters, Luke.')
+
+    # TODO refactor this code into a generic class that works for every query
+    column_names = {column: export_name
+                    for column, export_name in column_names.items()
+                    if column in select_columns}
+    ordered_column_names = sorted(
+        column_names.items(),
+        key=lambda entry: select_columns.index(entry[0])
+    )
+    ordered_column_names = tuple(e[1] for e in ordered_column_names)
+
+    human_readable_filters = collections.OrderedDict()
+    for f, column_name in filter_column_names.items():
+        if f in query_params:
+            human_readable_filters[column_name] = query_params[f]
 
     wb = workbook_from_records(query_name='credit_history',
-                               column_names=column_names,
+                               column_names=ordered_column_names,
                                records_iterable=cursor.fetchall(),
-                               filters=query_params)
+                               filters=human_readable_filters)
 
     tmp = tempfile.NamedTemporaryFile()
     wb.save(tmp.name)
@@ -239,7 +345,7 @@ def export_credit_history(
                                           date=datetime.datetime.now())
     return flask.send_file(
         stream,
-        mimetype=config['api_export_credit_history']['xlsx_mime_type'],
+        mimetype=method_config['xlsx_mime_type'],
         as_attachment=True,
         attachment_filename=filename
     )

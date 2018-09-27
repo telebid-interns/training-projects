@@ -1,9 +1,9 @@
 class BaseError(Exception):
-    def __init__(self, *, msg=None, code=None, userMsg=None):
+    def __init__(self, *, msg=None, code=None, user_msg=None):
         super().__init__(msg)
 
         self.code = code
-        self.userMsg = userMsg
+        self.user_msg = user_msg
         self.msg = msg
 
     @classmethod
@@ -11,23 +11,26 @@ class BaseError(Exception):
         if not condition:
             cls(*args, **kwargs)
 
+
 class AppError(BaseError, AssertionError):
     def __init__(self, *args,
-                 userMsg='An application error occurred.', **kwargs):
-        super().__init__(*args, userMsg=userMsg, **kwargs)
+                 user_msg='An application error occurred.', **kwargs):
+        super().__init__(*args, user_msg=user_msg, **kwargs)
+
 
 class SystemError(BaseError):
-    def __init__(self, *args, userMsg='An internal error occurred.', **kwargs):
-        super().__init__(*args, userMsg=userMsg, **kwargs)
+    def __init__(self, *args, user_msg='An internal error occurred.', **kwargs):
+        super().__init__(*args, user_msg=user_msg, **kwargs)
 
 
 class PeerError(BaseError):
-    def __init__(self, *, msg, code, userMsg=None):
-        super().__init__(msg=msg, code=code, userMsg=userMsg)
+    def __init__(self, *, msg, code, user_msg=None):
+        super().__init__(msg=msg, code=code, user_msg=user_msg)
+
 
 class UserError(BaseError):
-    def __init__(self, *, msg, code, userMsg):
-        super().__init__(msg=msg, code=code, userMsg=userMsg)
+    def __init__(self, *, msg, code, user_msg):
+        super().__init__(msg=msg, code=code, user_msg=user_msg)
 
 
 assertApp = AppError.assert_

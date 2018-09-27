@@ -1,4 +1,5 @@
-import json
+import collections
+import functools
 import logging
 
 from flask import request, g, jsonify, Blueprint
@@ -6,7 +7,7 @@ from flask import request, g, jsonify, Blueprint
 from pachu.config import config
 from pachu.protocol import normalize_request
 from pachu.validation import validate_request_of_method
-from pachu.err import assertPeer, PeerError
+from pachu.err import PeerError, UserError
 import pachu.exports
 
 
@@ -39,7 +40,7 @@ def log_response(response):
 
 # TODO decorate API methods and hanlde user errors
 @API.errorhandler(PeerError)
-def error_handler(error):
+def peer_error_handler(error):
     stderr_logger.info('A peer error occurred with code=%s', error.code)
     api_codes = {
         'API_DIFFERENT_FORMATS': 4100,
@@ -48,13 +49,18 @@ def error_handler(error):
 
     }
 
+    extra_payload = {}
+
+    if error.user_msg:
+        extra_payload['user_message'] = error.user_msg
+
     payload = dict(
         jsonrpc='2.0',
-        id=0, # TODO
+        id=0,  # TODO
         error=dict(
             code=api_codes[error.code],
             message=error.msg,
-            data=dict()
+            data=extra_payload
         )
     )
     response = jsonify(payload)
@@ -62,15 +68,45 @@ def error_handler(error):
 
     return response
 
+
+@API.errorhandler(UserError)
+def user_error_handler(error):
+    stderr_logger.info('An user error occurred with code=%s', error.code)
+    api_codes = {
+        'API_ECH_INVALID_CREDENTIALS': 2100,
+        'API_ECH_EXCEEDED_TRANSFERRED_DELTA': 2105,
+        'API_ECH_QUERY_TIMEOUT': 2106
+    }
+
+    extra_payload = {}
+
+    if error.user_msg:
+        extra_payload['user_message'] = error.user_msg
+
+    payload = dict(
+        jsonrpc='2.0',
+        id=0,
+        error=dict(
+            code=api_codes[error.code],
+            message=error.msg,
+            data=extra_payload
+        )
+    )
+    response = jsonify(payload)
+    response.status_code = 200
+
+    return response
+
+
 @API.route(config['routes']['api'], methods=['POST'])
 def api():
     format_param_key = 'format'
 
-    format = request.args.get(format_param_key, None)
+    format_ = request.args.get(format_param_key, None)
 
     normalized = normalize_request(body=request.get_json(force=True),
                                    content_type=request.content_type,
-                                   query_param=format)
+                                   query_param=format_)
 
     log_request(method=normalized['method'], params=normalized['params'])
 
