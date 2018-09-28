@@ -28,7 +28,7 @@ class Server:
         self.listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #level, optname, value
         self.listen_socket.bind(server_address)
         self.listen_socket.listen(self.request_queue_size)
-        print 'Server started on port %s' % server_address[1]
+        print('Server started on port %s' % server_address[1])
 
     def start(self):
         counter = 0
@@ -41,13 +41,14 @@ class Server:
         while True:
             try:
                 self.client_connection, self.client_address = self.listen_socket.accept()
+                print(self.client_connection)
                 pid = os.fork()
                 if pid == 0:
                     self.handle_request()
                     break
             except Exception as e:
                 # self.client_connection.sendall("HTTP/1.1 500 INTERNAL SERVER ERROR\n\n")
-                print e
+                print(e)
             finally:
                 self.client_connection.close()
 
@@ -63,12 +64,12 @@ class Server:
             file.write('DATE: ' + now + "\n")
             file.write(request)
         except Exception as e:
-            print 'Error while logging: \n'
-            print e
+            print('Error while logging: \n')
+            print(e)
         finally:
             file.close()
 
-        # Print formatted request data a la 'curl -v'
+        # Print formatted request data a via 'curl -v'
         print(''.join(
             '< {line}\n'.format(line=line)
             for line in request.splitlines()
@@ -121,7 +122,7 @@ class Server:
             }.get(self.path)
             return func()
         except Exception as e:
-            print e
+            print(e)
             return "HTTP/1.1 404 NOT FOUND\n\n"
 
     def call_post_function(self):
@@ -131,7 +132,7 @@ class Server:
             }.get(self.path)
             return func()
         except Exception as e:
-            print e
+            print(e)
             return "HTTP/1.1 404 NOT FOUND\n\n"
 
     def get_login(self):
@@ -236,15 +237,15 @@ class Server:
             return "HTTP/1.1 404 NOT FOUND\n\n"
 
     def post_file(self):
-        print 'hello ?'
+        print('hello ?')
         try:
-            print 'start'
+            print('start')
             inside = False
             startAppending = 0
             fileName = ''
             fileContent = ''
             for line in self.request.split('\n'):
-                print 'spliting'
+                print('spliting')
                 if inside == True:
                     startAppending+=1
                 if line[:6] == '------':
@@ -260,14 +261,14 @@ class Server:
 
 
             if fileName:
-                print 'opening'
+                print('opening')
                 file = open("./received-files/%s" % fileName,"w+")
                 file.write(fileContent)
                 file.close()
 
             return self.get_file()
         except Exception as e:
-            print e
+            print(e)
 
     def recv_timeout(self, the_socket, timeout=0.01):
         #make socket non blocking
@@ -305,7 +306,7 @@ class Server:
         return ''.join(total_data)
 
     def start_monitoring(self, main_process):
-        print 'server process id: %s' % main_process
+        print('server process id: %s' % main_process)
         while True:
             try:
                 log_file = open("./monitoring/forkserver-parameters.txt","w")
@@ -316,8 +317,8 @@ class Server:
                 report += '----VMS: ' + str(p.memory_info()[1]) + '\n'
                 log_file.write(report)
             except Exception as e:
-                print 'Error while logging: \n'
-                print e
+                print('Error while logging: \n')
+                print(e)
             finally:
                 log_file.close()
                 time.sleep(0.1)
@@ -336,7 +337,7 @@ class Server:
                 return
 
     def is_logged_in(self):
-        print 'IS LOGGED INT'
+        print('IS LOGGED INT')
         c_user = ''
         c_pass = ''
         for kv in self.param_values:
@@ -345,8 +346,8 @@ class Server:
             if kv[0] == 'pass':
                 c_pass = kv[1]
 
-        print c_user
-        print c_pass
+        print (c_user)
+        print (c_pass)
         if c_user == self.user and c_pass == self.password:
             return True
         else:

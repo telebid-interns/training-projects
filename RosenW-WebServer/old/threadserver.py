@@ -21,7 +21,7 @@ class Server:
         self.listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #level, optname, value
         listen_socket.bind(server_address)
         listen_socket.listen(self.request_queue_size)
-        print 'Server started on port %s' % server_address[1]
+        print('Server started on port %s' % server_address[1])
 
     def start(self):
         listen_socket = self.listen_socket
@@ -31,22 +31,20 @@ class Server:
             try:
                 # New client connection
                 client_connection, client_address = listen_socket.accept()
-                print client_connection
-                print client_address
-                print 'ACCEPT'
+                print('accepted')
                 # Handle one request and close the client connection. Then
                 # loop over to wait for another client connection
                 currentThread = Thread(target = self.handle_request, args=[client_connection, client_address]).start()
-                print currentThread
+                print(currentThread)
 
             except Exception as e:
                 # self.client_connection.sendall("HTTP/1.1 500 INTERNAL SERVER ERROR\n\n")
-                print e
+                print(e)
             finally:
                 self.main_process_running = False
 
     def handle_request(self, client, address):
-        print 'HANDLING'
+        print('HANDLING')
         #receive request data
         request = self.recv_timeout(client)
         today = datetime.date.today()
@@ -58,8 +56,8 @@ class Server:
             file.write('DATE: ' + now + "\n")
             file.write(request)
         except Exception as e:
-            print 'Error while logging: \n'
-            print e
+            print('Error while logging: \n')
+            print(e)
         finally:
             file.close()
 
@@ -76,7 +74,7 @@ class Server:
 
 
     def send_response(self, request, client):
-        print 'request before exception 79'
+        print('request before exception 79')
         print(request)
         line = request.splitlines()[0]
         line = line.rstrip('\r\n')
@@ -86,7 +84,7 @@ class Server:
          version  # HTTP/1.1
          ) = line.split()
         response = self.dispatch_request(request, client, method, path)
-        client.send(response)
+        client.send(response.encode('utf-8'))
 
     def dispatch_request(self, request, client, method, path):
         params = []
@@ -116,7 +114,7 @@ class Server:
             }.get(path)
             return func(request, params)
         except Exception as e:
-            print e
+            print(e)
             return "HTTP/1.1 404 NOT FOUND\n\n"
 
     def call_post_function(self, path, request):
@@ -126,7 +124,7 @@ class Server:
             }.get(path)
             return func(request)
         except Exception as e:
-            print e
+            print(e)
             return "HTTP/1.1 404 NOT FOUND\n\n"
 
     def get_sum(self, request, params):
@@ -174,12 +172,12 @@ class Server:
                         </html>"""
             return returnStr.format(filesAsParagraphs)
         except Exception as e:
-            print 'here'
-            print e
+            print('here')
+            print(e)
             return "HTTP/1.1 404 NOT FOUND\n\n"
 
     def post_file(self, request):
-        print 'in post'
+        print('in post')
         inside = False
         startAppending = 0
         fileName = ''
@@ -205,9 +203,9 @@ class Server:
 
         return self.get_file('redirected', [])
 
-    def recv_timeout(self, the_socket, timeout=0.01):
+    def recv_timeout(self, socket, timeout=0.01):
         #make socket non blocking
-        the_socket.setblocking(0)
+        socket.setblocking(0)
 
         #total data partwise in an array
         total_data=[];
@@ -226,9 +224,11 @@ class Server:
 
             #recv something
             try:
-                data = the_socket.recv(1024)
+                data = socket.recv(1024)
                 if data:
-                    total_data.append(data)
+                    print('data {}'.format(data))
+                    print('DATA DECODED: {}'.format(data.decode('utf-8')))
+                    total_data.append(data.decode('utf-8'))
                     #change the beginning time for measurement
                     begin=time.time()
                 else:
@@ -238,11 +238,12 @@ class Server:
                 pass
 
         #join all parts to make final string
+        print('total data {}'.format(total_data))
         return ''.join(total_data)
 
 
     def start_monitoring(self, main_process):
-        print 'server process id: %s' % main_process
+        print('server process id: %s' % main_process)
         while self.main_process_running:
             try:
                 log_file = open("./monitoring/forkserver-parameters.txt","w")
@@ -253,12 +254,11 @@ class Server:
                 report += '----VMS: ' + str(p.memory_info()[1]) + '\n'
                 log_file.write(report)
             except Exception as e:
-                print 'Error while logging: \n'
-                print e
+                print('Error while logging: \n')
+                print(e)
             finally:
                 log_file.close()
                 time.sleep(0.1)
-
 
 if __name__ == '__main__':
     port = 8888
