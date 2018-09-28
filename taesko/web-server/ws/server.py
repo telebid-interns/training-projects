@@ -1,20 +1,17 @@
+import collections
+import logging
 import os
 import socket
-import logging
-import collections
+import time
 
-
-from ws.err import *
 import ws.config
 import ws.serve
-from ws.http.parser import HTTPParser
+from ws.err import *
 
 ws.config.configure_logging()
 
-
 host = 'localhost'
 port = 5678
-
 
 error_log = logging.getLogger('error')
 
@@ -104,7 +101,13 @@ def listen(sock):
             error_log.debug('Closing client socket')
             client_socket.close()
 
-    error_log.info('Exiting...')
+        # TODO this might raise OSError
+        error_log.debug('Waiting on child processes. Wait result - %s',
+                        os.wait3(os.WNOHANG))
+
+    if child_pid == 0:
+        error_log.info('Exiting from worker...')
+        os._exit(0)
 
 
 def main():
@@ -118,8 +121,11 @@ def main():
     except BaseException:
         error_log.exception('Unhandled exception occurred. Shutting down...')
     finally:
+        error_log.info('Exiting...')
         error_log.info('Cleaning up listening socket')
         server.close()
+        error_log.info('Cleaning up child processes')
+        os.wait()
 
 
 if __name__ == '__main__':
