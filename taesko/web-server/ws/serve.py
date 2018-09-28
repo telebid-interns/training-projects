@@ -7,7 +7,7 @@ from ws.config import config
 from ws.err import *
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('error')
 STATIC_ROUTE = config['routes']['static']
 STATIC_DIR = config['resources']['static_dir']
 
@@ -26,7 +26,7 @@ def serve_file(sock, route):
     rel_path = route[len(STATIC_ROUTE):]
     abs_path = os.path.join(STATIC_DIR, rel_path)
 
-    with open(abs_path, mode='rb') as f:
+    with open(abs_path, mode='r', encoding='utf-8') as f:
         content = f.read()
 
     response = Response(status=200,

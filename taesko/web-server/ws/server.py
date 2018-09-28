@@ -1,6 +1,7 @@
 import os
 import socket
 import logging
+import collections
 
 
 from ws.err import *
@@ -54,16 +55,24 @@ class RequestReceiver:
 
         return next(self.current_chunk)
 
+    def recv_until_body(self):
+        last_four = collections.deque(maxlen=4)
+        for b in self:
+            last_four.append(b)
+
+            if bytes(last_four) == b'\r\n\r\n':
+                error_log.debug('Received request headers.')
+                break
+        else:
+            raise PeerError(msg='HTTP request has no trailing CR-LF-CR-LF',
+                            code='REQUEST_HAS_NO_END')
+
 
 def handle_connection(sock, address):
     request_receiver = RequestReceiver(sock)
-    # parser = HTTPParser()
-    # parsed = parser.parse(request_receiver)
+    request_receiver.recv_until_body()
 
-    message = b''.join(request_receiver)
-    error_log.debug('Message is %s', message)
-
-    ws.serve.serve_file(sock, '/static/greeting.html')
+    return ws.serve.serve_file(sock, '/static/greeting.html')
 
 
 def listen(sock):
@@ -100,6 +109,7 @@ def listen(sock):
 
 def main():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind((host, port))
 
     # noinspection PyBroadException
