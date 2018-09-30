@@ -3,10 +3,10 @@ import logging
 import os
 import socket
 
-from ws.config import config
-from ws.err import *
 import ws.http.parser
 import ws.serve
+from ws.config import config
+from ws.err import *
 
 error_log = logging.getLogger('error')
 
@@ -66,7 +66,7 @@ def handle_connection(sock, address):
 
     request = ws.http.parser.parse(request_receiver)
 
-    return ws.serve.serve_file(sock, '/static/greeting.html')
+    return ws.serve.serve_file(sock, request.request_line.request_target.path)
 
 
 def listen(sock):

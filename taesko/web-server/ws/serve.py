@@ -1,11 +1,10 @@
-import os
 import logging
+import os
 import socket
 
-from ws.http.response import Response
 from ws.config import config
 from ws.err import *
-
+from ws.http.response import Response
 
 logger = logging.getLogger('error')
 STATIC_ROUTE = config['routes']['static']
@@ -21,7 +20,10 @@ assert_sys(os.path.isdir(STATIC_DIR),
 
 def serve_file(sock, route):
     assert isinstance(sock, socket.socket)
-    assert route.startswith(STATIC_ROUTE)
+
+    if not route.startswith(STATIC_ROUTE):
+        response = Response(status=404, headers={'Content-Type': 'ascii'})
+        return serve_response(sock, response)
 
     rel_path = route[len(STATIC_ROUTE):]
     abs_path = os.path.join(STATIC_DIR, rel_path)
@@ -31,9 +33,14 @@ def serve_file(sock, route):
 
     response = Response(status=200,
                         headers={
-                            'Content-Length': len(content)
+                            'Content-Length': len(content),
+                            'Content-Type': 'ascii'
                         },
                         body=content)
 
+    return serve_response(sock, response)
+
+
+def serve_response(sock, response):
     logger.debug('Sending back response %s', response)
     return sock.sendall(bytes(response))

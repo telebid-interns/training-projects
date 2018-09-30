@@ -61,14 +61,14 @@ def parse(iterable):
 
 def parse_request_line(it, *,
                        methods={
-                           b'HEAD',
-                           b'GET',
-                           b'POST',
-                           b'PUT',
-                           b'DELETE',
-                           b'CONNECT',
-                           b'OPTIONS',
-                           b'TRACE'
+                           'HEAD',
+                           'GET',
+                           'POST',
+                           'PUT',
+                           'DELETE',
+                           'CONNECT',
+                           'OPTIONS',
+                           'TRACE'
                        },
                        max_uri_len=config.getint('http', 'max_uri_len')):
     max_request_len = (max_uri_len +
@@ -92,13 +92,14 @@ def parse_request_line(it, *,
                 code='PARSER_BAD_REQUEST_LINE')
 
     method, request_target, http_version = parts
+    method = method.decode('ascii')
 
     assert_peer(method in methods,
                 msg='Unknown HTTP method {method}'.format(method=method),
                 code='PARSER_UNKNOWN_METHOD')
     logger.debug('Parsed method %r', method)
 
-    uri = parse_uri(request_target)
+    uri = parse_request_target(request_target)
     logger.debug('Parsed uri %r', uri)
 
     matched = re.match(b'HTTP/(\\d\\.\\d)', http_version)
@@ -106,17 +107,83 @@ def parse_request_line(it, *,
                 msg='Incorrect HTTP-version.'
                     'Got {}.'.format(http_version),
                 code='PARSER_BAD_HTTP_VERSION')
-    version = matched.group(1)
+    version = matched.group(1).decode('ascii')
     logger.debug('Parsed version %r', version)
 
     return ws.http.request.HTTPRequestLine(method=method,
                                            request_target=uri,
-                                           http_version=version,
-                                           decoded=False)
+                                           http_version=version)
 
 
-def parse_uri(iterable):
-    return ws.http.request.URI(bytes(iterable))
+def parse_request_target(iterable):
+    string = bytes(iterable).decode('ascii')
+
+    def parse_authority(authority):
+        matched = re.match(r'([^@:]*@)?([^@:]+)(:\d*)?', authority)
+        assert_peer(matched,
+                    msg='Invalid authority of uri {}'.format(string),
+                    code='PARSER_INVALID_AUTHORITY')
+        user_info, host, port = matched.groups()
+        user_info = user_info[:-1] if user_info else None
+        port = port[1:] if port else None
+
+        return user_info, host, port
+
+    def parse_path(full_path):
+        parts = string.split('?')
+        if len(parts) == 1:
+            return (parts[0], None)
+        else:
+            # TODO is '?' allowed more than once ?
+            return (parts[0], parts[1:])
+
+    if string[0] == '/':
+        # origin form
+        path, query = parse_path(string)
+        return ws.http.request.URI(
+            protocol=None,
+            host=None,
+            port=None,
+            path=path,
+            query=query,
+        )
+    elif re.match(r'^\w+://', string):
+        # absolute-form
+        protocol, *rest = string.split('://')
+        assert_peer(len(rest) == 1,
+                    msg='Invalid absolute-form for uri {}'.format(string),
+                    code='PARSER_BAD_ABSOLUTE_FORM_URI')
+
+        parts = rest[0].split('/')
+        assert_peer(len(parts) > 1,
+                    msg='Missing authority of uri {}'.format(string),
+                    code='PARSER_MISSING_AUTHORITY')
+        user_info, host, port = parse_authority(parts[0])
+
+        absolute_path = '/'.join(parts[1:])
+        path, query = parse_path(string)
+
+        return ws.http.request.URI(
+            protocol=protocol,
+            host=host,
+            port=port,
+            path=path,
+            query=query
+        )
+    elif string == '*':
+        # asterisk form
+        raise NotImplementedError()
+    else:
+        # authority form
+        user_info, host, port = parse_authority(string)
+
+        return ws.http.request.URI(
+            protocol=None,
+            host=host,
+            port=port,
+            path=None,
+            query=None
+        )
 
 
 def parse_headers(message_iterable):
@@ -140,7 +207,8 @@ def parse_headers(message_iterable):
             break
 
         sep_index = line.find(b':')
-        field = line[:sep_index]
+        # TODO research if this never fails ?
+        field = line[:sep_index].decode('ascii')
         value = line[sep_index + 1:]
         headers[field] = value
         logger.debug('Parsed header field %s with value %r', field, value)

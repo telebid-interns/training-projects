@@ -16,7 +16,7 @@ class Response:
         return template.format(self=self)
 
     def __bytes__(self):
-        return str(self).encode('utf-8')
+        return str(self).encode(self.headers['Content-Type'])
 
 
 class StatusLine:
@@ -38,4 +38,3 @@ class Headers(collections.UserDict):
     def __str__(self):
         lines = ('{}:{}'.format(field, value) for field, value in self.items())
         return '\r\n'.join(lines)
-
