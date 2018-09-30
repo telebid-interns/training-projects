@@ -5,6 +5,7 @@ import socket
 
 from ws.config import config
 from ws.err import *
+import ws.http.parser
 import ws.serve
 
 error_log = logging.getLogger('error')
@@ -61,7 +62,9 @@ class RequestReceiver:
 
 def handle_connection(sock, address):
     request_receiver = RequestReceiver(sock)
-    request_receiver.recv_until_body()
+    # request_receiver.recv_until_body()
+
+    request = ws.http.parser.parse(request_receiver)
 
     return ws.serve.serve_file(sock, '/static/greeting.html')
 
@@ -100,6 +103,7 @@ def listen(sock):
 
     if child_pid == 0:
         error_log.info('Exiting from worker...')
+        # noinspection PyProtectedMember
         os._exit(0)
 
 
