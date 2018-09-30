@@ -2,16 +2,10 @@ import collections
 import logging
 import os
 import socket
-import time
 
-import ws.config
-import ws.serve
+from ws.config import config
 from ws.err import *
-
-ws.config.configure_logging()
-
-host = 'localhost'
-port = 5678
+import ws.serve
 
 error_log = logging.getLogger('error')
 
@@ -73,8 +67,7 @@ def handle_connection(sock, address):
 
 
 def listen(sock):
-    sock.listen(5)
-    error_log.debug('Started server on %s:%s', host, port)
+    sock.listen(config.getint('settings', 'max_concurrent_requests'))
 
     while True:
         error_log.debug('Listening...')
@@ -113,6 +106,9 @@ def listen(sock):
 def main():
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+    host, port = config['settings']['host'], config.getint('settings', 'port')
+    error_log.debug('Starting server on %s:%s', host, port)
     server.bind((host, port))
 
     # noinspection PyBroadException
