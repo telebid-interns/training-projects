@@ -2,6 +2,7 @@ import collections
 import logging
 import os
 import socket
+import time
 
 import ws.http.parser
 import ws.serve
@@ -60,72 +61,107 @@ class RequestReceiver:
                             code='REQUEST_HAS_NO_END')
 
 
+class Server:
+    ActiveWorker = collections.namedtuple('ActiveWorker', ['pid', 'created_on'])
+
+    def __init__(self):
+        self.host = config['settings']['host']
+        self.port = config.getint('settings', 'port')
+        self.timeout = config.getint('settings', 'request_timeout')
+        self.concurrency = config.getint('settings', 'max_concurrent_requests')
+
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.workers = collections.deque()
+
+    def listen(self):
+        error_log.debug('Listening...')
+        self.sock.listen(self.concurrency)
+
+        while True:
+            client_socket, address = self.sock.accept()
+            error_log.debug('Accepted connection. '
+                            'client_socket=%s and address=%s',
+                            client_socket, address)
+            child_pid = os.fork()  # TODO not always child_pid name
+
+            if child_pid == 0:
+                error_log.debug('Closing listening socket in child.')
+                return client_socket, address
+            else:
+                error_log.info('Spawned child process with pid %d', child_pid)
+                error_log.debug('Closing client socket in parent process')
+
+                client_socket.close()
+                self.workers.append(self.ActiveWorker(pid=child_pid,
+                                                      created_on=time.time()))
+                # TODO this might raise OSError
+                finished = os.wait3(os.WNOHANG)
+                pid = finished[0]
+
+                if pid:
+                    old_len = len(self.workers)
+
+                    for i, w in enumerate(self.workers):
+                        if w.pid == pid:
+                            del self.workers[i]
+                            error_log.info('Popped worker %s', w)
+                            break
+
+                    assert old_len != len(self.workers)
+
+    def __enter__(self):
+        error_log.debug('Binding server on %s:%s', self.host, self.port)
+        self.sock.bind((self.host, self.port))
+
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if not exc_type:
+            error_log.info("Closing server's leftover listening socket")
+            self.sock.close()
+            return False
+
+        error_log.exception('Unhandled error while listening.'
+                            'Shutting down...')
+        error_log.info("Closing server's listening socket")
+
+        self.sock.close()
+
+        if self.workers:
+            error_log.info('%d child process found. Waiting completion',
+                           len(self.workers))
+            os.wait()
+
+        return False
+
+
 def handle_connection(sock, address):
     request_receiver = RequestReceiver(sock)
-    # request_receiver.recv_until_body()
 
     request = ws.http.parser.parse(request_receiver)
 
     return ws.serve.serve_file(sock, request.request_line.request_target.path)
 
 
-def listen(sock):
-    sock.listen(config.getint('settings', 'max_concurrent_requests'))
-
-    while True:
-        error_log.debug('Listening...')
-        client_socket, address = sock.accept()
-        error_log.debug('Accepted connection. client_socket=%s and address=%s',
-                        client_socket, address)
-        child_pid = os.fork()
-
-        if child_pid == 0:
-            error_log.debug('Closing listening socket')
-            sock.close()
-            # noinspection PyBroadException
-            try:
-                handle_connection(client_socket, address)
-            except BaseException:
-                error_log.exception('Failed to handle connection of socket %s',
-                                    client_socket)
-            finally:
-                error_log.debug('Closing client socket. %s', client_socket)
-                client_socket.close()
-            break
-        else:
-            error_log.info('Spawned child process with pid %d', child_pid)
-            error_log.debug('Closing client socket')
-            client_socket.close()
-
-        # TODO this might raise OSError
-        error_log.debug('Waiting on child processes. Wait result - %s',
-                        os.wait3(os.WNOHANG))
-
-    if child_pid == 0:
-        error_log.info('Exiting from worker...')
-        # noinspection PyProtectedMember
-        os._exit(0)
-
-
 def main():
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    with Server() as server:
+        client_socket, address = server.listen()
 
-    host, port = config['settings']['host'], config.getint('settings', 'port')
-    error_log.debug('Starting server on %s:%s', host, port)
-    server.bind((host, port))
-
+    # handle_connection must be outside the server context
+    # so the parent process' listening socket can be cleaned up
     # noinspection PyBroadException
     try:
-        listen(server)
+        handle_connection(client_socket, address)
     except BaseException:
-        error_log.exception('Unhandled exception occurred. Shutting down...')
+        error_log.exception(
+            'Failed to handle connection of socket %s',
+            client_socket
+        )
     finally:
-        error_log.info('Exiting...')
-        error_log.info('Cleaning up listening socket')
-        server.close()
-        error_log.info('Cleaning up child processes')
-        os.wait()
+        error_log.debug('Closing client socket. %s', client_socket)
+        # TODO shutdown ?
+        client_socket.close()
 
 
 if __name__ == '__main__':
