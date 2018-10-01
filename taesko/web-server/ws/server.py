@@ -83,32 +83,31 @@ class Server:
             error_log.debug('Accepted connection. '
                             'client_socket=%s and address=%s',
                             client_socket, address)
-            child_pid = os.fork()  # TODO not always child_pid name
+            forked_pid = os.fork()
 
-            if child_pid == 0:
+            if forked_pid == 0:
                 error_log.debug('Closing listening socket in child.')
                 return client_socket, address
             else:
-                error_log.info('Spawned child process with pid %d', child_pid)
+                error_log.info('Spawned child process with pid %d', forked_pid)
                 error_log.debug('Closing client socket in parent process')
 
                 client_socket.close()
-                self.workers.append(self.ActiveWorker(pid=child_pid,
+                self.workers.append(self.ActiveWorker(pid=forked_pid,
                                                       created_on=time.time()))
-                # TODO this might raise OSError
-                finished = os.wait3(os.WNOHANG)
-                pid = finished[0]
+                leftover_workers = collections.deque()
 
-                if pid:
-                    old_len = len(self.workers)
+                for worker in list(self.workers):
+                    # TODO this might raise OSError
+                    has_finished, status = os.waitpid(worker.pid, os.WNOHANG)
 
-                    for i, w in enumerate(self.workers):
-                        if w.pid == pid:
-                            del self.workers[i]
-                            error_log.info('Popped worker %s', w)
-                            break
+                    if has_finished:
+                        error_log.info('Worker %s has finished.', worker)
+                    else:
+                        leftover_workers.append(worker)
 
-                    assert old_len != len(self.workers)
+                self.workers = leftover_workers
+                error_log.info('%d active workers left.', len(self.workers))
 
     def __enter__(self):
         error_log.debug('Binding server on %s:%s', self.host, self.port)
