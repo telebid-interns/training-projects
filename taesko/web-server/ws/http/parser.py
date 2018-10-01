@@ -7,7 +7,7 @@ import ws.http.request
 from ws.config import config
 from ws.err import *
 
-logger = logging.getLogger('error')
+error_log = logging.getLogger('error')
 
 
 class SpyIterator:
@@ -48,7 +48,7 @@ def parse(iterable):
     message_iter = SpyIterator(iterable)
     request_line = parse_request_line(message_iter)
     headers = parse_headers(message_iter)
-    logger.debug('headers is %r with type %r', headers, type(headers))
+    error_log.debug('headers is %r with type %r', headers, type(headers))
     body = parse_body(message_iter, headers.get('Content-Length', 0))
 
     return ws.http.request.HTTPRequest(
@@ -60,7 +60,7 @@ def parse(iterable):
 
 
 def parse_request_line(it, *,
-                       methods={
+                       methods=frozenset({
                            'HEAD',
                            'GET',
                            'POST',
@@ -69,7 +69,7 @@ def parse_request_line(it, *,
                            'CONNECT',
                            'OPTIONS',
                            'TRACE'
-                       },
+                       }),
                        max_uri_len=config.getint('http', 'max_uri_len')):
     max_request_len = (max_uri_len +
                        max(map(len, methods)) +
@@ -97,10 +97,10 @@ def parse_request_line(it, *,
     assert_peer(method in methods,
                 msg='Unknown HTTP method {method}'.format(method=method),
                 code='PARSER_UNKNOWN_METHOD')
-    logger.debug('Parsed method %r', method)
+    error_log.debug('Parsed method %r', method)
 
     uri = parse_request_target(request_target)
-    logger.debug('Parsed uri %r', uri)
+    error_log.debug('Parsed uri %r', uri)
 
     matched = re.match(b'HTTP/(\\d\\.\\d)', http_version)
     assert_peer(matched,
@@ -108,7 +108,7 @@ def parse_request_line(it, *,
                     'Got {}.'.format(http_version),
                 code='PARSER_BAD_HTTP_VERSION')
     version = matched.group(1).decode('ascii')
-    logger.debug('Parsed version %r', version)
+    error_log.debug('Parsed version %r', version)
 
     return ws.http.request.HTTPRequestLine(method=method,
                                            request_target=uri,
@@ -211,7 +211,7 @@ def parse_headers(message_iterable):
         field = line[:sep_index].decode('ascii')
         value = line[sep_index + 1:]
         headers[field] = value
-        logger.debug('Parsed header field %s with value %r', field, value)
+        error_log.debug('Parsed header field %s with value %r', field, value)
 
     return headers
 
