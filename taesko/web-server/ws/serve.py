@@ -18,7 +18,7 @@ assert_sys(os.path.isdir(STATIC_DIR),
            code='CONFIG_BAD_STATIC_DIR')
 
 
-def serve_file(sock, route):
+def serve_file_depreciated(sock, route):
     assert isinstance(sock, socket.socket)
 
     not_found_response = HTTPResponse(
@@ -56,6 +56,42 @@ def serve_file(sock, route):
 
     response.send(sock)
     return
+
+
+def get_file(route):
+
+    not_found_response = HTTPResponse(
+        status_line=HTTPStatusLine(http_version='HTTP/1.1',
+                                   status_code=404,
+                                   reason_phrase=''),
+        headers=HTTPHeaders({'Content-Encoding': 'ascii'}),
+        body=None
+    )
+
+    if not route.startswith(STATIC_ROUTE):
+        return not_found_response
+
+    rel_path = route[len(STATIC_ROUTE):]
+    abs_path = os.path.join(STATIC_DIR, rel_path)
+
+    try:
+        with open(abs_path, mode='r', encoding='utf-8') as f:
+            content = f.read()
+    except FileNotFoundError:
+        return not_found_response
+
+    response = HTTPResponse(
+        status_line=HTTPStatusLine(http_version='HTTP/1.1',
+                                   status_code=200,
+                                   reason_phrase=''),
+        headers=HTTPHeaders({
+            'Content-Length': len(content),
+            'Content-Encoding': 'ascii'
+        }),
+        body=content
+    )
+
+    return response
 
 
 def serve_response_depreciated(sock, response):

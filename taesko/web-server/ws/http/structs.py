@@ -1,9 +1,6 @@
 import collections
-import logging
 
 from ws.err import *
-
-error_log = logging.getLogger('error')
 
 
 HTTPRequest = collections.namedtuple('HTTPRequest', ['request_line',
@@ -24,7 +21,6 @@ class HTTPResponse(
                                             'body'])
 ):
     def send(self, sock):
-        error_log.debug('Sending back response %s', self)
         msg = bytes(self)
         total_sent = 0
 
