@@ -5,78 +5,72 @@ import time
 import signal
 import os
 import datetime
+import logging # TODO google
 
 class Server:
-  address_family = socket.AF_INET #IPv4 addresses
-  socket_type = socket.SOCK_STREAM
-  request_queue_size = 5;
+  REQUEST_QUEUE_SIZE = 5
+  HEADERS_END_STRING_LENGTH = 4
 
   def __init__(self, address, port):
-    self.listen_socket = socket.socket(self.address_family, self.socket_type)
-    self.listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #level, optname, value
-    self.listen_socket.bind((address, port))
-    self.listen_socket.listen(self.request_queue_size)
-    # signal.signal(signal.SIGCHLD, self.kill_child)
+    self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #level, optname, value
+    self.sock.bind((address, port))
+    self.sock.listen(self.REQUEST_QUEUE_SIZE) # TODO google
+    # signal.signal(signal.SIGCHLD, self.reap_child)
     print('Server started on port {}'.format(port))
 
   def start (self):
-    print('START')
-
-    while 1:
+    while True:
       try:
-        self.connection, self.client_address = self.listen_socket.accept()
-        print('accepted connection: {}'.format(self.client_address))
+        connection, client_address = self.sock.accept()
+        print('accepted connection: {}'.format(client_address))
 
         pid = os.fork()
         if pid == 0:
-          self.handle_request()
+          self.sock.close()
+          self.handle_request(connection, client_address)
           print('request handled')
           break
+        else:
+          connection.close()
       except Exception as e:
-        with open('./logs/error.log', "a+") as file:
-          file.write('Error Info:\n{}\n{}\n\n'.format(str(datetime.datetime.now()), e))
+        raise e
+        # with open('./logs/error.log', "a+") as file:
+        #   file.write('Error Info:\n{}\n{}\n\n'.format(str(datetime.datetime.now()), e))
 
-  def handle_request(self):
-    print('handling')
+  def handle_request(self, connection, address):
     try:
       #receive request data
-      request = self.recv_timeout()
-
+      request = self.recv_timeout(connection)
       self.parse_request(request)
-      self.log_request(request)
+      self.log_request(request, address)
 
-      print('gen resp')
-      response = self.generate_header(200)
-      print('gen file')
-      print(self.whole_path)
-      html = self.get_requested_file(self.whole_path)
-      print('after')
-
-      if self.request_method == 'GET': response += html
-      self.connection.send(response)
+      headers = self.generate_headers(200)
+      connection.send(headers)
+      if self.request_method == 'GET':
+        html = self.get_requested_file(self.whole_path)
+        connection.send(html)
     except Exception as e:
-      self.connection.send("HTTP/1.1 500 INTERNAL SERVER ERROR\n\n")
+      connection.send("HTTP/1.1 500 INTERNAL SERVER ERROR\n\n") # TODO finish also can send after headers already sent
       raise e
     finally:
-      self.connection.close()
+      connection.close()
 
   def get_requested_file(self, path):
     try:
       with open('./static/{}'.format(path), "r") as file:
         return file.read()
-    except:
-      return """
-                <html>
+    except Exception as e: # file not found exception
+      return """<html>
                     <head>
                     </head>
                     <body>
                         <p>Not Found 404<p>
                     </body>
-                </html>
-              """
+                </html>"""
 
   def parse_request(self, request):
-    line = request.splitlines()[0]
+    line = request.splitlines()[0] # asserts
     line = line.rstrip('\r\n') #trim
     # Break down the request line into components
     (self.request_method,  # GET
@@ -84,66 +78,64 @@ class Server:
      self.request_version  # HTTP/1.1
      ) = line.split()
 
-  def log_request(self, request):
+  def log_request(self, request, address):
     today = datetime.date.today()
     now = str(datetime.datetime.now())
 
     with open('./logs/access.log', "a+") as file:
-      file.write('IP: {}\n'.format(str(self.client_address)))
+      file.write('IP: {}\n'.format(str(address)))
       file.write('DATE: {}\n'.format(now))
       file.write(request)
 
-  def recv_timeout(self, timeout=0.01):
-    #total data partwise in an array
-    total_data=[];
-    data='';
+  def recv_timeout(self, connection, timeout = 5):
+    data = ''
+    data += connection.recv(1024)
+    total_length = self.parse_recv_data(data)
+    while len(data) != total_length:
+      data += connection.recv(1024)
+    return data
 
-    startTime=time.time()
+  def parse_recv_data(self, data):
+    # print(len(data))
+    if data.find('\r\n\r\n') == -1: raise Exception('Headers too long') # TODO handle, custom exception
+    headers_length = data.find('\r\n\r\n') + self.HEADERS_END_STRING_LENGTH
+    header_dict = {}
+    for header in data[:headers_length].split('\r\n'):
+      if header.find(': ') != -1:
+        header_tokens = header.split(': ')
+        header_dict[header_tokens[0]] = header_tokens[1]
+    if 'Content-Length' in header_dict:
+      content_length = header_dict['Content-Length']
+    else:
+      content_length = 0
+    return headers_length + content_length
 
-    while 1:
-      #break after timeout if data
-      if total_data and time.time() - startTime > timeout:
-        break
-      #wait twice if no data then break
-      elif time.time() - startTime > timeout*2:
-        break
-
-      #recv
-      data = self.connection.recv(1024)
-      if data:
-        total_data.append(data)
-        startTime=time.time()
-      else:
-        # sleep for sometime to indicate a gap
-        time.sleep(0.1)
-
-      #join all parts to make final string
-      return ''.join(total_data)
-
-  def generate_header(self, response_code):
+  def generate_headers(self, response_code):
     header = ''
     if response_code == 200:
         header += 'HTTP/1.1 200 OK\n'
     elif response_code == 404:
         header += 'HTTP/1.1 404 Not Found\n'
 
+    header += 'Host: 127.0.0.1'
     time_now = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
     header += 'Date: {now}\n'.format(now=time_now)
-    header += 'Connection: close\n\n' # Signal that connection will be closed after completing the request
+    header += 'Content-Type: text/html\n'
+    header += 'Connection: close\r\n\r\n' # Signal that connection will be closed after completing the request
     return header
 
-  def kill_child(self, signum, frame):
-    while True:
-      try:
-        pid, status = os.waitpid(
-          -1,          # Wait for any child process
-           os.WNOHANG  # Do not block and return EWOULDBLOCK error
-        )
-      except OSError:
-        return
+  # def reap_child(self, signum, frame):
+  #   while True:
+  #     try:
+  #       pid, status = os.waitpid( # TODO wait3
+  #         -1,          # Wait for any child process
+  #          os.WNOHANG  # Do not block and return EWOULDBLOCK error
+  #       )
+  #     except OSError: # TODO log
+  #       return
 
-      if pid == 0:  # no more zombies
-        return
+  #     if pid == 0:  # no more zombies
+  #       return
 
 if __name__ == '__main__':
   port = 8888
