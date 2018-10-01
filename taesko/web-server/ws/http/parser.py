@@ -3,7 +3,7 @@ import itertools
 import logging
 import re
 
-import ws.http.request
+import ws.http.structs
 from ws.config import config
 from ws.err import *
 
@@ -51,7 +51,7 @@ def parse(iterable):
     error_log.debug('headers is %r with type %r', headers, type(headers))
     body = parse_body(message_iter, headers.get('Content-Length', 0))
 
-    return ws.http.request.HTTPRequest(
+    return ws.http.structs.HTTPRequest(
         request_line=request_line,
         headers=headers,
         body=body,
@@ -110,7 +110,7 @@ def parse_request_line(it, *,
     version = matched.group(1).decode('ascii')
     error_log.debug('Parsed version %r', version)
 
-    return ws.http.request.HTTPRequestLine(method=method,
+    return ws.http.structs.HTTPRequestLine(method=method,
                                            request_target=uri,
                                            http_version=version)
 
@@ -140,7 +140,7 @@ def parse_request_target(iterable):
     if string[0] == '/':
         # origin form
         path, query = parse_path(string)
-        return ws.http.request.URI(
+        return ws.http.structs.URI(
             protocol=None,
             host=None,
             port=None,
@@ -163,7 +163,7 @@ def parse_request_target(iterable):
         absolute_path = '/'.join(parts[1:])
         path, query = parse_path(string)
 
-        return ws.http.request.URI(
+        return ws.http.structs.URI(
             protocol=protocol,
             host=host,
             port=port,
@@ -177,7 +177,7 @@ def parse_request_target(iterable):
         # authority form
         user_info, host, port = parse_authority(string)
 
-        return ws.http.request.URI(
+        return ws.http.structs.URI(
             protocol=None,
             host=host,
             port=port,

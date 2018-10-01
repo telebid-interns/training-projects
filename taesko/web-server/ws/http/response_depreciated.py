@@ -1,10 +1,10 @@
 import collections
 
 
-class Response:
+class ResponseDepreciated:
     def __init__(self, *, status, version='HTTP/1.1', headers, body=None):
-        self.status_line = StatusLine(version=version, status=status)
-        self.headers = Headers(headers)
+        self.status_line = StatusLineDepreciated(version=version, status=status)
+        self.headers = HeadersDepreciated(headers)
         self.body = body
 
     def __str__(self):
@@ -16,10 +16,17 @@ class Response:
         return template.format(self=self)
 
     def __bytes__(self):
-        return str(self).encode(self.headers['Content-Type'])
+        msg = '{self.status_line}\r\n{self.headers}\r\n\r\n'.format(self=self)
+        msg = msg.encode('ascii')
+
+        if self.body:
+            body = '{self.body}'.format(self=self)
+            msg += body.encode(self.headers['Content-Encoding'])
+
+        return msg
 
 
-class StatusLine:
+class StatusLineDepreciated:
     allowed_versions = ('HTTP/1.1', )
 
     def __init__(self, version, status, reason=''):
@@ -34,7 +41,7 @@ class StatusLine:
         )
 
 
-class Headers(collections.UserDict):
+class HeadersDepreciated(collections.UserDict):
     def __str__(self):
         lines = ('{}:{}'.format(field, value) for field, value in self.items())
         return '\r\n'.join(lines)

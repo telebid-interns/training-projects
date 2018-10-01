@@ -4,9 +4,9 @@ import socket
 
 from ws.config import config
 from ws.err import *
-from ws.http.response import Response
+from ws.http.structs import HTTPResponse, HTTPStatusLine, HTTPHeaders
 
-logger = logging.getLogger('error')
+error_log = logging.getLogger('error')
 STATIC_ROUTE = config['routes']['static']
 STATIC_DIR = config['resources']['static_dir']
 
@@ -21,26 +21,43 @@ assert_sys(os.path.isdir(STATIC_DIR),
 def serve_file(sock, route):
     assert isinstance(sock, socket.socket)
 
+    not_found_response = HTTPResponse(
+        status_line=HTTPStatusLine(http_version='HTTP/1.1',
+                                   status_code=404,
+                                   reason_phrase=''),
+        headers=HTTPHeaders({'Content-Encoding': 'ascii'}),
+        body=None
+    )
+
     if not route.startswith(STATIC_ROUTE):
-        response = Response(status=404, headers={'Content-Type': 'ascii'})
-        return serve_response(sock, response)
+        not_found_response.send(sock)
+        return
 
     rel_path = route[len(STATIC_ROUTE):]
     abs_path = os.path.join(STATIC_DIR, rel_path)
 
-    with open(abs_path, mode='r', encoding='utf-8') as f:
-        content = f.read()
+    try:
+        with open(abs_path, mode='r', encoding='utf-8') as f:
+            content = f.read()
+    except FileNotFoundError:
+        not_found_response.send(sock)
+        return
 
-    response = Response(status=200,
-                        headers={
-                            'Content-Length': len(content),
-                            'Content-Type': 'ascii'
-                        },
-                        body=content)
+    response = HTTPResponse(
+        status_line=HTTPStatusLine(http_version='HTTP/1.1',
+                                   status_code=200,
+                                   reason_phrase=''),
+        headers=HTTPHeaders({
+            'Content-Length': len(content),
+            'Content-Encoding': 'ascii'
+        }),
+        body=content
+    )
 
-    return serve_response(sock, response)
+    response.send(sock)
+    return
 
 
-def serve_response(sock, response):
-    logger.debug('Sending back response %s', response)
+def serve_response_depreciated(sock, response):
+    error_log.debug('Sending back response %s', response)
     return sock.sendall(bytes(response))
