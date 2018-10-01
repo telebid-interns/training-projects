@@ -6,6 +6,7 @@ import signal
 import os
 import datetime
 import logging # TODO google
+from error.asserts import *
 
 class Server:
   REQUEST_QUEUE_SIZE = 5
@@ -15,8 +16,7 @@ class Server:
     self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #level, optname, value
     self.sock.bind((address, port))
-    self.sock.listen(self.REQUEST_QUEUE_SIZE) # TODO google
-    # signal.signal(signal.SIGCHLD, self.reap_child)
+    self.sock.listen(self.REQUEST_QUEUE_SIZE)
     print('Server started on port {}'.format(port))
 
   def start (self):
@@ -123,19 +123,6 @@ class Server:
     header += 'Content-Type: text/html\n'
     header += 'Connection: close\r\n\r\n' # Signal that connection will be closed after completing the request
     return header
-
-  # def reap_child(self, signum, frame):
-  #   while True:
-  #     try:
-  #       pid, status = os.waitpid( # TODO wait3
-  #         -1,          # Wait for any child process
-  #          os.WNOHANG  # Do not block and return EWOULDBLOCK error
-  #       )
-  #     except OSError: # TODO log
-  #       return
-
-  #     if pid == 0:  # no more zombies
-  #       return
 
 if __name__ == '__main__':
   port = 8888
