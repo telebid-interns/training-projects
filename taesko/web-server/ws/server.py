@@ -138,14 +138,18 @@ class Worker:
                     " Client won't receive an HTTP response."
                 )
 
-            self.sock.shutdown(socket.SHUT_WR)
+            self.sock.shutdown(socket.SHUT_RDWR)
             self.sock.close()
             return False
 
         response = ws.err_responses.handle_err(exc_val)
+        response.headers['Connection'] = 'close'
         self.respond(response)
+
         error_log.debug('Shutting down and closing client socket. %s',
                         self.sock)
+        # TODO the socket needs to be shutdown for reading as well, but
+        # only after the client has received this response ?
         self.sock.shutdown(socket.SHUT_WR)
         self.sock.close()
 
@@ -167,7 +171,9 @@ class Worker:
         # No salvation if bytes have already been sent over the socket
         assert not self.responding
 
-        ws.err_responses.service_unavailable().send(self.sock)
+        response = ws.err_responses.service_unavailable()
+        response.headers['Connection'] = 'close'
+        response.send(self.sock)
 
         # TODO what kind of error is this ?
         # raise PeerError(msg='Parent process requested termination.',
