@@ -51,6 +51,10 @@ class Server:
         if self.workers:
             error_log.info('%d child process found. Waiting completion',
                            len(self.workers))
+
+            for worker in self.workers:
+                os.kill(signal.SIGTERM, worker.pid)
+
             os.wait()
 
         return False
@@ -85,7 +89,7 @@ class Server:
 
         leftover_workers = collections.deque()
 
-        for worker in list(self.workers):
+        for worker in self.workers:
             # TODO this might raise OSError
             has_finished, status = os.waitpid(worker.pid, os.WNOHANG)
 
