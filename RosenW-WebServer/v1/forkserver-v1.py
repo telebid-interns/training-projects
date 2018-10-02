@@ -6,6 +6,7 @@ import signal
 import os
 import datetime
 from error.asserts import *
+from error.exceptions import *
 from utils.logger import Logger
 from ConfigParser import ConfigParser
 
@@ -14,27 +15,28 @@ class Server:
   ERROR_LOG_PATH = './logs/error.log'
 
   def __init__(self, opts):
-    log = Logger({'error': self.ERROR_LOG_PATH})
+    self.log = Logger({'error': self.ERROR_LOG_PATH})
     self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) # level, optname, value
     self.sock.bind((opts['address'], opts['port']))
     self.sock.listen(opts['request_queue_size'])
-    log.info('Server started on port {}'.format(opts['port']))
+    self.log.info('Server started on port {}'.format(opts['port']))
 
   def start (self):
     while True:
       try:
         connection, client_address = self.sock.accept()
-        log.info('accepted connection: {}'.format(client_address))
+        self.log.info('accepted connection: {}'.format(client_address))
 
         if os.fork() == 0:
           self.handle_request(connection, client_address)
         else:
           connection.close()
       except KeyboardInterrupt as e:
-        sys.exit() # check
-      except BaseException as e:
-        log.error(e)
+        self.log.info('Stopping Server...')
+        sys.exit()
+      except BaseException as e: # TODO check if some exceptions need to stop the server
+        self.log.error(e)
 
   def handle_request(self, connection, address):
     try:
@@ -47,9 +49,11 @@ class Server:
 
       connection.send(self.generate_headers(200))
       connection.send(html) #assert ?
+    except UserError:
+      connection.send(self.generate_headers(408))
     except IOError:
       connection.send(self.generate_headers(404))
-    except BaseException as e:
+    except BaseException:
       connection.send(self.generate_headers(500))
     finally:
       self.log_request(request, address)
@@ -84,9 +88,12 @@ class Server:
       file.write(request)
 
   def recv_timeout(self, connection, timeout = 5):
+    start_time = time.time()
     data = connection.recv(1024)
     total_length = self.parse_recv_data(data)
     while len(data) != total_length:
+      if time.time() - start_time > timeout:
+        raise UserError('Request Timeout', 1000)
       data += connection.recv(1024)
     return data
 
@@ -108,16 +115,16 @@ class Server:
   def generate_headers(self, response_code):
     header = ''
     if response_code == 200:
-      header += 'HTTP/1.1 200 OK\r\n' # TODO \r\n
+      header += 'HTTP/1.1 200 OK\r\n'
     elif response_code == 404:
-      header += 'HTTP/1.1 404 Not Found\n'
+      header += 'HTTP/1.1 404 Not Found\r\n'
+    elif response_code == 408:
+      header += 'HTTP/1.1 408 Request Timeout\r\n'
     elif response_code == 500:
-      header += 'HTTP/1.1 500 INTERNAL SERVER ERROR\n'
+      header += 'HTTP/1.1 500 INTERNAL SERVER ERROR\r\n'
 
-    header += 'Host: 127.0.0.1'
-    time_now = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
-    header += 'Date: {now}\n'.format(now=time_now)
-    header += 'Content-Type: text/html\n'
+    header += 'Date: {}\r\n'.format(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime()))
+    header += 'Content-Type: text/html\r\n'
     header += 'Connection: close\r\n\r\n'
     return header
 
