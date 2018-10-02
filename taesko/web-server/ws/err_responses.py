@@ -38,6 +38,21 @@ def err_handler(err_type, err_code):
     return decorator
 
 
+# noinspection PyUnusedLocal
+@err_handler(PeerError, 'PEER_STOPPED_SENDING')
+def bad_request(err=None):
+    return HTTPResponse(
+        status_line=HTTPStatusLine(
+            http_version='HTTP/1.1',
+            status_code=400,
+            reason_phrase=''
+        ),
+        headers=HTTPHeaders({'Content-Encoding': 'ascii'}),
+        body='Did not receive the entirety of the request.'
+    )
+
+
+# noinspection PyUnusedLocal
 def not_found(err=None):
     return HTTPResponse(
         status_line=HTTPStatusLine(http_version='HTTP/1.1',

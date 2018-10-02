@@ -1,6 +1,10 @@
 import collections
+import logging
 
 from ws.err import *
+
+
+error_log = logging.getLogger('error')
 
 
 HTTPRequest = collections.namedtuple('HTTPRequest', ['request_line',
@@ -33,12 +37,20 @@ class HTTPResponse(
             total_sent += sent
 
     def __bytes__(self):
-        msg = '{self.status_line}\r\n{self.headers}\r\n\r\n'.format(self=self)
-        msg = msg.encode('ascii')
-
         if self.body:
             body = '{self.body}'.format(self=self)
-            msg += body.encode(self.headers['Content-Encoding'])
+            encoded_body = body.encode(self.headers['Content-Encoding'])
+        else:
+            encoded_body = b''
+
+        assert ('Content-Length' not in self.headers or
+                self.headers['Content-Length'] == len(encoded_body))
+
+        self.headers['Content-Length'] = len(encoded_body)
+        msg = '{self.status_line}\r\n{self.headers}\r\n\r\n'.format(self=self)
+        msg = msg.encode('ascii')
+        msg += encoded_body
+        error_log.debug('Sending response - %s', msg)
 
         return msg
 

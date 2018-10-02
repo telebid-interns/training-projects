@@ -1,4 +1,5 @@
 import collections
+import errno
 import logging
 import os
 import signal
@@ -11,6 +12,7 @@ import ws.serve
 from ws.config import config
 from ws.err import *
 
+# TODO logging lib needs to be wrapped.
 error_log = logging.getLogger('error')
 
 
@@ -53,9 +55,13 @@ class Server:
                            len(self.workers))
 
             for worker in self.workers:
-                os.kill(signal.SIGTERM, worker.pid)
+                has_finished, exit_code = os.waitpid(worker.pid, os.WNOHANG)
 
-            os.wait()
+                if not has_finished:
+                    error_log.info('Termination worker %d', worker.pid)
+                    os.kill(signal.SIGTERM, worker.pid)
+                else:
+                    error_log.info('Reaped worker %d.', worker.pid)
 
         return False
 
@@ -114,9 +120,23 @@ class Server:
 
 
 class Worker:
+    """ Receives/parses requests and sends/encodes back responses.
+
+    Instances of this class MUST be used through a context manager to ensure
+    proper clean up of resources.
+
+    The methods self.parse_request() and self.respond() MUST only be used
+    when the property self.http_connection_is_open is True.
+
+    Persistent connections are handled, but require self.parse_request() to be
+    repeatedly called.
+    """
+
     # noinspection PyUnusedLocal
     def __init__(self, sock, address):
         self.sock = sock
+        self.last_request = None
+        self.last_response = None
         self.responding = False
 
         signal.signal(signal.SIGTERM, self.handle_termination)
@@ -124,31 +144,65 @@ class Worker:
 
         self.request_receiver = RequestReceiver(sock)
 
+    @property
+    def http_connection_is_open(self):
+        def client_closed_connection(request):
+            if not request:
+                return False
+            elif 'Connection' not in request.headers:
+                return False
+            else:
+                pass
+
+            c = request.headers['Connection']
+            hop_by_hop_headers = (h.strip() for h in c.split(b','))
+
+            return b'close' in hop_by_hop_headers
+
+        def server_closed_connection(response):
+            if not response:
+                return False
+            elif 'Connection' not in response.headers:
+                return False
+            else:
+                pass
+
+            c = response.headers['Connection']
+            hop_by_hop_headers = (h.strip() for h in c.split(','))
+
+            return b'close' in hop_by_hop_headers
+
+        return not (client_closed_connection(request=self.last_request) or
+                    server_closed_connection(response=self.last_response))
+
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if not exc_val:
             error_log.info('Cleaning up worker after successful execution.'
-                           ' Shutting down for both r/w')
+                           ' Shutting down socket %d for both r/w',
+                           self.sock.fileno())
             self.sock.shutdown(socket.SHUT_RDWR)
             self.sock.close()
             return False
-        elif self.responding:
-            error_log.critical(
+        if self.responding:
+            error_log.exception(
                 'An exception occurred after worker had sent bytes over'
                 ' the socket. Client will receive an invalid HTTP response.'
             )
-            error_log.info('Shutting down socket for both r/w')
+            error_log.info('Shutting down socket %d for both r/w',
+                           self.sock.fileno())
             self.sock.shutdown(socket.SHUT_RDWR)
             self.sock.close()
             return False
         elif not ws.err_responses.can_handle_err(exc_val):
-            error_log.critical(
+            error_log.exception(
                 'Worker cannot handle error.'
                 ' Client will not receive an HTTP response.'
             )
-            error_log.info('Shutting down socket for both r/w')
+            error_log.info('Shutting down socket %d for both r/w',
+                           self.sock.fileno())
             self.sock.shutdown(socket.SHUT_RDWR)
             self.sock.close()
             return False
@@ -157,25 +211,48 @@ class Worker:
 
         response = ws.err_responses.handle_err(exc_val)
         response.headers['Connection'] = 'close'
-        self.respond(response)
+        try:
+            self.respond(response)
+        except OSError as e:
+            error_log.critical('Caught OSError with errno %d', e.errno)
+            if e.errno == errno.ECONNRESET:
+                error_log.warning('Client stopped listening prematurely.'
+                                  ' (no Connection: close header was received)')
+                self.sock.close()
+                return True
+            else:
+                raise
 
-        error_log.debug('Shutting down and closing client socket. %s',
-                        self.sock)
+        error_log.debug('Shutting down and closing client socket %d',
+                        self.sock.fileno())
         # TODO the socket needs to be shutdown for reading as well, but
         # only after the client has received this response ?
-        self.sock.shutdown(socket.SHUT_WR)
+        try:
+            self.sock.shutdown(socket.SHUT_WR)
+        except OSError as e:
+            if e.errno == errno.ENOTCONN:
+                error_log.warning('Got ENOTCONN when shutting down socket.')
+            else:
+                raise
         self.sock.close()
 
-        # suppress successfully handled errors.
         return True
 
     def parse_request(self):
-        return ws.http.parser.parse(self.request_receiver)
+        assert self.http_connection_is_open
+
+        self.last_request = ws.http.parser.parse(self.request_receiver)
+        return self.last_request
 
     def respond(self, response):
-        error_log.debug('Sending back response %s', response)
+        assert self.http_connection_is_open
+
+        # TODO there needs to be a way to send Close connection through here.
+        # instead of timing out and getting terminated.
         self.responding = True
         response.send(self.sock)
+        self.last_response = response
+        self.responding = False
 
     # noinspection PyUnusedLocal
     def handle_termination(self, signum, stack_info):
@@ -229,11 +306,10 @@ class RequestReceiver:
         error_log.debug('Read chunk %s', chunk)
 
         if chunk == b'':
-            error_log.info('Socket %s broke', self.sock)
+            error_log.info('Socket %d broke', self.sock.fileno())
             self.socket_broke = True
-            raise StopIteration()
-            # raise ws.err.PeerError(code='BROKEN_SOCKET',
-            #                        msg='Client send 0 bytes through socket.')
+            raise PeerError(code='PEER_STOPPED_SENDING',
+                            msg='Client send 0 bytes through socket.')
 
         self.chunks.append(chunk)
         self.current_chunk = iter(chunk)
@@ -265,6 +341,11 @@ def handle_connection_depreciated(sock, address):
     )
 
 
+def handle_request(request):
+    file_path = request.request_line.request_target.path
+    return ws.serve.get_file(file_path)
+
+
 def main():
     # Main process should never exit from the server.listen() loop unless
     # an exception occurs.
@@ -274,10 +355,12 @@ def main():
     # noinspection PyBroadException
     try:
         with Worker(client_socket, address) as worker:
-            request = worker.parse_request()
-            file_path = request.request_line.request_target.path
-            response = ws.serve.get_file(file_path)
-            worker.respond(response)
+            while worker.http_connection_is_open:
+                request = worker.parse_request()
+                response = handle_request(request)
+                worker.respond(response)
+                error_log.debug('Completed response')
+            error_log.debug('http connection is not open')
     except BaseException:
         status = 1
         logging.exception("Couldn't respond to client."
