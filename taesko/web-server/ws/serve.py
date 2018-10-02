@@ -2,6 +2,7 @@ import logging
 import os
 import socket
 
+import ws.err_responses
 from ws.config import config
 from ws.err import *
 from ws.http.structs import HTTPResponse, HTTPStatusLine, HTTPHeaders
@@ -59,17 +60,8 @@ def serve_file_depreciated(sock, route):
 
 
 def get_file(route):
-
-    not_found_response = HTTPResponse(
-        status_line=HTTPStatusLine(http_version='HTTP/1.1',
-                                   status_code=404,
-                                   reason_phrase=''),
-        headers=HTTPHeaders({'Content-Encoding': 'ascii'}),
-        body=None
-    )
-
     if not route.startswith(STATIC_ROUTE):
-        return not_found_response
+        return ws.err_responses.not_found()
 
     rel_path = route[len(STATIC_ROUTE):]
     abs_path = os.path.join(STATIC_DIR, rel_path)
@@ -78,9 +70,9 @@ def get_file(route):
         with open(abs_path, mode='r', encoding='utf-8') as f:
             content = f.read()
     except FileNotFoundError:
-        return not_found_response
+        return ws.err_responses.not_found()
 
-    response = HTTPResponse(
+    return HTTPResponse(
         status_line=HTTPStatusLine(http_version='HTTP/1.1',
                                    status_code=200,
                                    reason_phrase=''),
@@ -90,8 +82,6 @@ def get_file(route):
         }),
         body=content
     )
-
-    return response
 
 
 def serve_response_depreciated(sock, response):

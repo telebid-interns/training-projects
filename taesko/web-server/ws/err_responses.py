@@ -1,5 +1,3 @@
-import collections
-
 from ws.err import *
 from ws.http.structs import HTTPResponse, HTTPStatusLine, HTTPHeaders
 
@@ -40,6 +38,16 @@ def err_handler(err_type, err_code):
     return decorator
 
 
+def not_found(err=None):
+    return HTTPResponse(
+        status_line=HTTPStatusLine(http_version='HTTP/1.1',
+                                   status_code=404,
+                                   reason_phrase=''),
+        headers=HTTPHeaders({'Content-Encoding': 'ascii'}),
+        body='File not found\n'
+    )
+
+
 # noinspection PyUnusedLocal
 @err_handler(PeerError, 'RECEIVING_REQUEST_TIMED_OUT')
 def request_timed_out(err=None):
@@ -54,7 +62,8 @@ def request_timed_out(err=None):
     )
 
 
-def service_unavailable():
+# noinspection PyUnusedLocal
+def service_unavailable(err=None):
     return HTTPResponse(
         status_line=HTTPStatusLine(
             http_version='HTTP/1.1',
