@@ -77,6 +77,7 @@ class Server:
                 self.workers.append(self.ActiveWorker(pid=forked_pid,
                                                       created_on=time.time()))
 
+    # noinspection PyUnusedLocal
     def terminate_hanged_workers(self, signum, stack_frame):
         assert signum == signal.SIGALRM
 
@@ -104,11 +105,12 @@ class Server:
                 error_log.info('Sent SIGTERM to hanged worker %s', worker)
 
         error_log.debug('Rescheduling SIGALRM signal to after %s seconds',
-                       self.process_timeout)
+                        self.process_timeout)
         signal.alarm(self.process_timeout)
 
 
 class Worker:
+    # noinspection PyUnusedLocal
     def __init__(self, sock, address):
         self.sock = sock
         self.responding = False
@@ -122,25 +124,32 @@ class Worker:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        # No salvation if bytes have already been sent over the socket
-        if not ws.err_responses.can_handle_err(exc_val) or self.responding:
-            error_log.debug('Shutting down and closing client socket. %s',
-                            self.sock)
-
-            if self.responding:
-                error_log.critical(
-                    'Worker had sent bytes over the socket.'
-                    ' Client will receive an invalid HTTP response.'
-                )
-            else:
-                error_log.critical(
-                    'Worker cannot handle error.'
-                    " Client won't receive an HTTP response."
-                )
-
+        if not exc_val:
+            error_log.info('Cleaning up worker after successful execution.'
+                           ' Shutting down for both r/w')
             self.sock.shutdown(socket.SHUT_RDWR)
             self.sock.close()
             return False
+        elif self.responding:
+            error_log.critical(
+                'An exception occurred after worker had sent bytes over'
+                ' the socket. Client will receive an invalid HTTP response.'
+            )
+            error_log.info('Shutting down socket for both r/w')
+            self.sock.shutdown(socket.SHUT_RDWR)
+            self.sock.close()
+            return False
+        elif not ws.err_responses.can_handle_err(exc_val):
+            error_log.critical(
+                'Worker cannot handle error.'
+                ' Client will not receive an HTTP response.'
+            )
+            error_log.info('Shutting down socket for both r/w')
+            self.sock.shutdown(socket.SHUT_RDWR)
+            self.sock.close()
+            return False
+        else:
+            pass
 
         response = ws.err_responses.handle_err(exc_val)
         response.headers['Connection'] = 'close'
@@ -153,6 +162,9 @@ class Worker:
         self.sock.shutdown(socket.SHUT_WR)
         self.sock.close()
 
+        # suppress successfully handled errors.
+        return True
+
     def parse_request(self):
         return ws.http.parser.parse(self.request_receiver)
 
@@ -161,6 +173,7 @@ class Worker:
         self.responding = True
         response.send(self.sock)
 
+    # noinspection PyUnusedLocal
     def handle_termination(self, signum, stack_info):
         assert signum == signal.SIGTERM
 
@@ -242,8 +255,10 @@ def handle_connection_depreciated(sock, address):
 
     request = ws.http.parser.parse(request_receiver)
 
-    return ws.serve.serve_file_depreciated(sock,
-                                           request.request_line.request_target.path)
+    return ws.serve.serve_file_depreciated(
+        sock,
+        request.request_line.request_target.path
+    )
 
 
 def main():
