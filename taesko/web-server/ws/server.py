@@ -1,13 +1,13 @@
 import collections
 import logging
 import os
-import socket
 import signal
+import socket
 import time
 
+import ws.err_responses
 import ws.http.parser
 import ws.serve
-import ws.err_responses
 from ws.config import config
 from ws.err import *
 
@@ -108,61 +108,6 @@ class Server:
         signal.alarm(self.process_timeout)
 
 
-class RequestReceiver:
-    buffer_size = 2048
-
-    def __init__(self, sock):
-        self.sock = sock
-        self.chunks = []
-        self.current_chunk = None
-        self.socket_broke = False
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        if self.current_chunk:
-            try:
-                return next(self.current_chunk)
-            except StopIteration:
-                pass
-        elif self.socket_broke:
-            raise StopIteration()
-
-        try:
-            chunk = self.sock.recv(self.__class__.buffer_size)
-        except socket.timeout as e:
-            error_log.exception('Socket timed out while receiving request.')
-            raise PeerError(msg='Waited too long for a request',
-                            code='RECEIVING_REQUEST_TIMED_OUT') from e
-
-        error_log.debug('Read chunk %s', chunk)
-
-        if chunk == b'':
-            error_log.info('Socket %s broke', self.sock)
-            self.socket_broke = True
-            raise StopIteration()
-            # raise ws.err.PeerError(code='BROKEN_SOCKET',
-            #                        msg='Client send 0 bytes through socket.')
-
-        self.chunks.append(chunk)
-        self.current_chunk = iter(chunk)
-
-        return next(self.current_chunk)
-
-    def recv_until_body_depreciated(self):
-        last_four = collections.deque(maxlen=4)
-        for b in self:
-            last_four.append(b)
-
-            if bytes(last_four) == b'\r\n\r\n':
-                error_log.debug('Received request headers.')
-                break
-        else:
-            raise PeerError(msg='HTTP request has no trailing CR-LF-CR-LF',
-                            code='REQUEST_HAS_NO_END')
-
-
 class Worker:
     def __init__(self, sock, address):
         self.sock = sock
@@ -228,6 +173,61 @@ class Worker:
         # raise PeerError(msg='Parent process requested termination.',
         #                 code='PROCESSING_TIMED_OUT')
         raise RuntimeError('Parent process requested termination.')
+
+
+class RequestReceiver:
+    buffer_size = 2048
+
+    def __init__(self, sock):
+        self.sock = sock
+        self.chunks = []
+        self.current_chunk = None
+        self.socket_broke = False
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.current_chunk:
+            try:
+                return next(self.current_chunk)
+            except StopIteration:
+                pass
+        elif self.socket_broke:
+            raise StopIteration()
+
+        try:
+            chunk = self.sock.recv(self.__class__.buffer_size)
+        except socket.timeout as e:
+            error_log.exception('Socket timed out while receiving request.')
+            raise PeerError(msg='Waited too long for a request',
+                            code='RECEIVING_REQUEST_TIMED_OUT') from e
+
+        error_log.debug('Read chunk %s', chunk)
+
+        if chunk == b'':
+            error_log.info('Socket %s broke', self.sock)
+            self.socket_broke = True
+            raise StopIteration()
+            # raise ws.err.PeerError(code='BROKEN_SOCKET',
+            #                        msg='Client send 0 bytes through socket.')
+
+        self.chunks.append(chunk)
+        self.current_chunk = iter(chunk)
+
+        return next(self.current_chunk)
+
+    def recv_until_body_depreciated(self):
+        last_four = collections.deque(maxlen=4)
+        for b in self:
+            last_four.append(b)
+
+            if bytes(last_four) == b'\r\n\r\n':
+                error_log.debug('Received request headers.')
+                break
+        else:
+            raise PeerError(msg='HTTP request has no trailing CR-LF-CR-LF',
+                            code='REQUEST_HAS_NO_END')
 
 
 # noinspection PyUnusedLocal
