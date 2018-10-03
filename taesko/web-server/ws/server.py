@@ -45,6 +45,11 @@ class Server:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        # don't cleanup workers because their sockets were already closed
+        # during the self.fork() call
+        if self.execution_context == self.ExecutionContext.worker:
+            return False
+
         if exc_type:
             error_log.exception('Unhandled error while listening.'
                                 'Shutting down...')
@@ -56,14 +61,19 @@ class Server:
             error_log.info('%d child process found. Waiting completion',
                            len(self.workers))
 
+            active_workers = collections.deque()
+
             for worker in self.workers:
                 has_finished, exit_code = os.waitpid(worker.pid, os.WNOHANG)
 
                 if not has_finished:
-                    error_log.info('Termination worker %d', worker.pid)
+                    error_log.info('Terminating worker %d', worker.pid)
                     os.kill(signal.SIGTERM, worker.pid)
                 else:
                     error_log.info('Reaped worker %d.', worker.pid)
+                    active_workers.append(worker)
+
+            self.workers = active_workers
 
         return False
 
@@ -85,6 +95,7 @@ class Server:
                                          errno.EINVAL, errno.ENOTSOCK,
                                          errno.EOPNOTSUPP)
 
+                # TODO this might be caused on per connection basis
                 assert_sys(err.errno != errno.EPERM,
                            msg='Firewall forbids connections.'
                                'Server will now shutdown.',
@@ -96,10 +107,10 @@ class Server:
                     continue
                 elif err.errno in (errno.EMFILE, errno.ENFILE,
                                    errno.ENOBUFS, errno.ENOMEM):
-                    error_log.critical('Socket memory or file descriptors run '
-                                       'out. Server will continue listening. '
-                                       'But connections will be refused until '
-                                       'resources are free.')
+                    error_log.error('Socket memory or file descriptors run '
+                                    'out. Server will continue listening. '
+                                    'But connections will be refused until '
+                                    'resources are free.')
                     continue
 
                 assert False
@@ -455,8 +466,7 @@ def main():
                 request = worker.parse_request()
                 response = handle_request(request)
                 worker.respond(response)
-                error_log.debug('Completed response')
-            error_log.debug('http connection is not open')
+        error_log.info('Exiting from worker.')
     except BaseException:
         status = 1
         logging.exception("Couldn't respond to client."
