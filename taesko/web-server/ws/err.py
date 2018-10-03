@@ -6,9 +6,12 @@ class BaseError(Exception):
         self.code = code
 
     @classmethod
-    def assert_(cls, condition, *, msg, code):
+    def assert_(cls, condition, *, msg, code, from_=None):
         if not condition:
-            raise cls(msg=msg, code=code)
+            if from_:
+                raise cls(msg=msg, code=code) from from_
+            else:
+                raise cls(msg=msg, code=code)
 
 
 class PeerError(BaseError):
