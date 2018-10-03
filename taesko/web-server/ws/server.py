@@ -119,18 +119,16 @@ class Server:
             except OSError:
                 # TODO should the caught error here be OSError ?
                 # TODO reply to client with 503
+                # noinspection PyBroadException
                 try:
-                    client_socket.shutdown(socket.SHUT_RDWR)
-                except OSError as err:
-                    error_log.warning('close() on client socket raised '
-                                      'ERRNO=%d. Reason: %s',
-                                      err.errno, err.strerror)
-                try:
-                    client_socket.close()
-                except OSError as err:
-                    error_log.warning('close() on client socket raised '
-                                      'ERRNO=%d. Reason: %s',
-                                      err.errno, err.strerror)
+                    response = ws.err_responses.service_unavailable()
+                    self.work(client_socket, address,
+                              quick_reply_with=response)
+                except BaseException:
+                    logging.exception('Unhandled exception occurred while '
+                                      'responding to client from the main'
+                                      'process. Catching and continuing'
+                                      'to listen.')
                 continue
 
             if forked_pid == 0:
@@ -138,10 +136,10 @@ class Server:
                 # noinspection PyBroadException
                 try:
                     self.work(client_socket, address)
-                except BaseException:
+                except Exception:
                     status = 1
-                    logging.exception("Unhandled exception occurred while"
-                                      " Exiting with status code %s", status)
+                    logging.exception('Unhandled exception occurred while'
+                                      ' Exiting with status code %s', status)
                 # noinspection PyProtectedMember
                 os._exit(status)
             else:
@@ -200,8 +198,12 @@ class Server:
         return pid
 
     @staticmethod
-    def work(client_socket, address):
+    def work(client_socket, address, quick_reply_with=None):
         with Worker(client_socket, address) as worker:
+            if quick_reply_with:
+                worker.respond(quick_reply_with, closing=True)
+                return
+
             while worker.http_connection_is_open:
                 request = worker.parse_request()
                 response = handle_request(request)
@@ -365,11 +367,14 @@ class Worker:
         self.last_request = ws.http.parser.parse(self.request_receiver)
         return self.last_request
 
-    def respond(self, response):
+    def respond(self, response, closing=False):
         assert self.http_connection_is_open
 
         # TODO there needs to be a way to send Close connection through here.
         # instead of timing out and getting terminated.
+        if closing:
+            response.headers['Connection'] = 'close'
+
         self.responding = True
         response.send(self.sock)
         self.last_response = response
