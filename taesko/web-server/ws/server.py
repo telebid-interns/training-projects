@@ -1,4 +1,5 @@
 import collections
+import enum
 import errno
 import logging
 import os
@@ -17,6 +18,10 @@ error_log = logging.getLogger('error')
 
 
 class Server:
+    class ExecutionContext(enum.Enum):
+        main = 'main'
+        worker = 'worker'
+
     ActiveWorker = collections.namedtuple('ActiveWorker', ['pid', 'created_on'])
 
     def __init__(self):
@@ -24,6 +29,7 @@ class Server:
         self.port = config.getint('settings', 'port')
         self.process_timeout = config.getint('settings', 'process_timeout')
         self.concurrency = config.getint('settings', 'max_concurrent_requests')
+        self.execution_context = self.ExecutionContext.main
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -39,15 +45,11 @@ class Server:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if not exc_type:
-            error_log.info("Closing server's leftover listening socket")
-            self.sock.close()
-            return False
+        if exc_type:
+            error_log.exception('Unhandled error while listening.'
+                                'Shutting down...')
 
-        error_log.exception('Unhandled error while listening.'
-                            'Shutting down...')
         error_log.info("Closing server's listening socket")
-
         self.sock.close()
 
         if self.workers:
@@ -100,46 +102,86 @@ class Server:
                                        'resources are free.')
                     continue
 
-                raise
+                assert False
 
             error_log.debug('Accepted connection. '
                             'client_socket.fileno=%d and address=%s',
                             client_socket.fileno(), address)
             try:
-                forked_pid = os.fork()
-            except OSError as err:
-                error_log.warning('fork() raised ERRNO=%d. Reason: %s',
-                                  err.errno, err.strerror)
-
-                assert_sys(err.errno != errno.ENOSYS,
-                           msg='Server cannot continue running without fork '
-                               'support. Shutting down.',
-                           code='FORK_NO_SUPPORT',
-                           from_=err)
-
-                if err.errno in (errno.ENOMEM, errno.EAGAIN):
-                    error_log.warning('Not enough resources to serve the '
-                                      'connection client. Server will continue '
-                                      'listening but connections will be '
-                                      'refused until resources are free.')
-                    continue
-
-                raise
-
-            if forked_pid == 0:
-                error_log.debug('Closing listening socket in child.')
-                return client_socket, address
-            else:
-                error_log.info('Spawned child process with pid %d', forked_pid)
-                error_log.debug('Closing client socket in parent process')
-
+                forked_pid = self.fork(client_socket)
+            except OSError:
+                # TODO should the caught error here be OSError ?
+                # TODO reply to client with 503
+                try:
+                    client_socket.shutdown(socket.SHUT_RDWR)
+                except OSError as err:
+                    error_log.warning('close() on client socket raised '
+                                      'ERRNO=%d. Reason: %s',
+                                      err.errno, err.strerror)
                 try:
                     client_socket.close()
-                except OSError:
-                    error_log.exception('Failed to clean up client socket in '
-                                        'parent process.')
-                self.workers.append(self.ActiveWorker(pid=forked_pid,
-                                                      created_on=time.time()))
+                except OSError as err:
+                    error_log.warning('close() on client socket raised '
+                                      'ERRNO=%d. Reason: %s',
+                                      err.errno, err.strerror)
+                continue
+
+            if forked_pid == 0:
+                return client_socket, address
+            else:
+                pass
+
+    def fork(self, client_socket):
+        """ Forks the process and sets the self.execution_context field.
+
+        Also closes the listening socket in the child process and
+        the client socket in the parent process.
+
+        Raises the following exceptions:
+            OSError with errno = ENOMEM or EAGAIN - if this exception is raised
+                the process isn't forked and no sockets are closed.
+        """
+        assert self.execution_context == self.ExecutionContext.main
+        assert isinstance(client_socket, socket.socket)
+
+        try:
+            pid = os.fork()
+        except OSError as err:
+            error_log.warning('fork() raised ERRNO=%d. Reason: %s',
+                              err.errno, err.strerror)
+
+            assert_sys(err.errno != errno.ENOSYS,
+                       msg='Server cannot continue running without fork '
+                           'support. Shutting down.',
+                       code='FORK_NO_SUPPORT',
+                       from_=err)
+
+            if err.errno in (errno.ENOMEM, errno.EAGAIN):
+                error_log.warning('Not enough resources to serve the '
+                                  'client connection. Server will continue '
+                                  'listening but connections will receive '
+                                  '503 until resources are free.')
+                raise
+
+            assert False
+
+        if pid == 0:
+            self.execution_context = self.ExecutionContext.worker
+            error_log.debug('Closing listening socket in child.')
+            self.sock.close()
+        else:
+            error_log.info('Spawned child process with pid %d', pid)
+            error_log.debug('Closing client socket in parent process')
+
+            try:
+                client_socket.close()
+            except OSError:
+                error_log.exception('Failed to clean up client socket in '
+                                    'parent process.')
+            self.workers.append(self.ActiveWorker(pid=pid,
+                                                  created_on=time.time()))
+
+        return pid
 
     # noinspection PyUnusedLocal
     def terminate_hanged_workers(self, signum, stack_frame):
