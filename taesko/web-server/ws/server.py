@@ -78,7 +78,7 @@ class Server:
         return False
 
     def listen(self):
-        error_log.debug('Listening...')
+        error_log.info('Listening...')
         self.sock.listen(self.concurrency)
 
         while True:
@@ -289,8 +289,9 @@ class Worker:
             self.sock.shutdown(socket.SHUT_RDWR)
             self.sock.close()
             return False
+
         if self.responding:
-            error_log.exception(
+            error_log.error(
                 'An exception occurred after worker had sent bytes over'
                 ' the socket. Client will receive an invalid HTTP response.'
             )
@@ -300,8 +301,8 @@ class Worker:
             self.sock.close()
             return False
         elif not ws.err_responses.can_handle_err(exc_val):
-            error_log.exception(
-                'Worker cannot handle error.'
+            error_log.error(
+                'An exception occurred that the worker cannot handle.'
                 ' Client will not receive an HTTP response.'
             )
             error_log.info('Shutting down socket %d for both r/w',
