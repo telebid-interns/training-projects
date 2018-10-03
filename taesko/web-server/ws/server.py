@@ -70,11 +70,61 @@ class Server:
         self.sock.listen(self.concurrency)
 
         while True:
-            client_socket, address = self.sock.accept()
+            try:
+                client_socket, address = self.sock.accept()
+            except OSError as err:
+                # kernel specific errors are not handled:
+                # ENOSR, ESOCKTNOSUPPORT, EPROTONOSUPPORT, ETIMEDOUT
+                # consult man 2 socket
+
+                error_log.warning('accept() raised ERRNO=%s', err.errno)
+
+                assert err.errno not in (errno.EBADF, errno.EFAULT,
+                                         errno.EINVAL, errno.ENOTSOCK,
+                                         errno.EOPNOTSUPP)
+
+                assert_sys(err.errno != errno.EPERM,
+                           msg='Firewall forbids connections.'
+                               'Server will now shutdown.',
+                           code='ACCEPT_FORBIDDEN_FROM_FIREWALL',
+                           from_=err)
+
+                if err.errno in (errno.EPROTO, errno.ECONNABORTED):
+                    error_log.info('Protocol or connection error from client.')
+                    continue
+                elif err.errno in (errno.EMFILE, errno.ENFILE,
+                                   errno.ENOBUFS, errno.ENOMEM):
+                    error_log.critical('Socket memory or file descriptors run '
+                                       'out. Server will continue listening. '
+                                       'But connections will be refused until '
+                                       'resources are free.')
+                    continue
+
+                raise
+
             error_log.debug('Accepted connection. '
-                            'client_socket=%s and address=%s',
-                            client_socket, address)
-            forked_pid = os.fork()
+                            'client_socket.fileno=%d and address=%s',
+                            client_socket.fileno(), address)
+            try:
+                forked_pid = os.fork()
+            except OSError as err:
+                error_log.warning('fork() raised ERRNO=%d. Reason: %s',
+                                  err.errno, err.strerror)
+
+                assert_sys(err.errno != errno.ENOSYS,
+                           msg='Server cannot continue running without fork '
+                               'support. Shutting down.',
+                           code='FORK_NO_SUPPORT',
+                           from_=err)
+
+                if err.errno in (errno.ENOMEM, errno.EAGAIN):
+                    error_log.warning('Not enough resources to serve the '
+                                      'connection client. Server will continue '
+                                      'listening but connections will be '
+                                      'refused until resources are free.')
+                    continue
+
+                raise
 
             if forked_pid == 0:
                 error_log.debug('Closing listening socket in child.')
@@ -83,7 +133,11 @@ class Server:
                 error_log.info('Spawned child process with pid %d', forked_pid)
                 error_log.debug('Closing client socket in parent process')
 
-                client_socket.close()
+                try:
+                    client_socket.close()
+                except OSError:
+                    error_log.exception('Failed to clean up client socket in '
+                                        'parent process.')
                 self.workers.append(self.ActiveWorker(pid=forked_pid,
                                                       created_on=time.time()))
 
