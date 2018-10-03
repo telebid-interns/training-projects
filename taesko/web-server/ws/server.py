@@ -95,14 +95,10 @@ class Server:
                                          errno.EINVAL, errno.ENOTSOCK,
                                          errno.EOPNOTSUPP)
 
-                # TODO this might be caused on per connection basis
-                assert_sys(err.errno != errno.EPERM,
-                           msg='Firewall forbids connections.'
-                               'Server will now shutdown.',
-                           code='ACCEPT_FORBIDDEN_FROM_FIREWALL',
-                           from_=err)
-
-                if err.errno in (errno.EPROTO, errno.ECONNABORTED):
+                if err.errno == errno.EPERM:
+                    error_log.info('Denied client connection, because firewall '
+                                   'blocked the accept() call.')
+                elif err.errno in (errno.EPROTO, errno.ECONNABORTED):
                     error_log.info('Protocol or connection error from client.')
                     continue
                 elif err.errno in (errno.EMFILE, errno.ENFILE,
