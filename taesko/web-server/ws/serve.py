@@ -9,7 +9,7 @@ from ws.http.structs import HTTPResponse, HTTPStatusLine, HTTPHeaders
 
 error_log = logging.getLogger('error')
 STATIC_ROUTE = config['routes']['static']
-STATIC_DIR = config['resources']['static_dir']
+STATIC_DIR = os.path.abspath(config['resources']['static_dir'])
 
 assert_sys(STATIC_ROUTE.endswith('/'),
            msg="routes.static must end with a '/'",
@@ -64,12 +64,17 @@ def get_file(route):
         return ws.err_responses.not_found()
 
     rel_path = route[len(STATIC_ROUTE):]
-    abs_path = os.path.join(STATIC_DIR, rel_path)
+    file_path = os.path.join(STATIC_DIR, rel_path)
+    resolved = os.path.abspath(os.path.realpath(file_path))
+    # if a symlink get's created after this if does the check an exploit is
+    # possible
+    if not resolved.startswith(STATIC_DIR):
+        return ws.err_responses.not_found()
 
     try:
-        with open(abs_path, mode='r', encoding='utf-8') as f:
+        with open(resolved, mode='r', encoding='utf-8') as f:
             content = f.read()
-    except FileNotFoundError:
+    except (FileNotFoundError, IsADirectoryError):
         return ws.err_responses.not_found()
 
     return HTTPResponse(
