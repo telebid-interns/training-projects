@@ -134,7 +134,16 @@ class Server:
                 continue
 
             if forked_pid == 0:
-                return client_socket, address
+                status = 0
+                # noinspection PyBroadException
+                try:
+                    self.work(client_socket, address)
+                except BaseException:
+                    status = 1
+                    logging.exception("Unhandled exception occurred while"
+                                      " Exiting with status code %s", status)
+                # noinspection PyProtectedMember
+                os._exit(status)
             else:
                 pass
 
@@ -189,6 +198,14 @@ class Server:
                                                   created_on=time.time()))
 
         return pid
+
+    @staticmethod
+    def work(client_socket, address):
+        with Worker(client_socket, address) as worker:
+            while worker.http_connection_is_open:
+                request = worker.parse_request()
+                response = handle_request(request)
+                worker.respond(response)
 
     # noinspection PyUnusedLocal
     def terminate_hanged_workers(self, signum, stack_frame):
@@ -454,22 +471,7 @@ def main():
     # Main process should never exit from the server.listen() loop unless
     # an exception occurs.
     with Server() as server:
-        client_socket, address = server.listen()
-
-    # noinspection PyBroadException
-    try:
-        with Worker(client_socket, address) as worker:
-            while worker.http_connection_is_open:
-                request = worker.parse_request()
-                response = handle_request(request)
-                worker.respond(response)
-        error_log.info('Exiting from worker.')
-    except BaseException:
-        status = 1
-        logging.exception("Couldn't respond to client."
-                          " Exiting with status code %s", status)
-        # noinspection PyProtectedMember
-        os._exit(status)
+        server.listen()
 
 
 if __name__ == '__main__':
