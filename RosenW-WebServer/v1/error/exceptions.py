@@ -1,12 +1,13 @@
-class Error(Exception):
+class PeerError(Exception):
   def __init__(self, message, status_code):
-    super(Exception, self).__init__(message)
+    super(PeerError, self).__init__(message)
     self.status_code = status_code
 
-class PeerError(Error):
+class UserError(Exception):
   def __init__(self, message, status_code):
-    super(Error, self).__init__(message, status_code)
+    super(UserError, self).__init__(message)
+    self.status_code = status_code
 
-class UserError(Error):
-  def __init__(self, message, status_code):
-    super(Error, self).__init__(message, status_code)
+class FileNotFoundException(IOError): # TODO remove
+  def __init__(self, message=''):
+    super(IOError, self).__init__(message)
