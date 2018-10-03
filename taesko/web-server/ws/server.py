@@ -29,6 +29,8 @@ class Server:
         self.port = config.getint('settings', 'port')
         self.process_timeout = config.getint('settings', 'process_timeout')
         self.concurrency = config.getint('settings', 'max_concurrent_requests')
+        self.process_count_limit = config.getint('settings',
+                                                 'process_count_limit')
         self.execution_context = self.ExecutionContext.main
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -116,9 +118,9 @@ class Server:
                             client_socket.fileno(), address)
             try:
                 forked_pid = self.fork(client_socket)
-            except OSError:
-                # TODO should the caught error here be OSError ?
-                # TODO reply to client with 503
+            except PeerError as err:
+                error_log.warning(err)
+
                 # noinspection PyBroadException
                 try:
                     response = ws.err_responses.service_unavailable()
@@ -158,6 +160,9 @@ class Server:
         assert self.execution_context == self.ExecutionContext.main
         assert isinstance(client_socket, socket.socket)
 
+        assert_peer(len(self.workers) < self.process_count_limit,
+                    msg='Cannot fork because process limit has been reached.',
+                    code='FORK_PROCESS_COUNT_LIMIT_REACHED')
         try:
             pid = os.fork()
         except OSError as err:
@@ -175,7 +180,9 @@ class Server:
                                   'client connection. Server will continue '
                                   'listening but connections will receive '
                                   '503 until resources are free.')
-                raise
+                raise PeerError(msg='Not enough resources to serve client '
+                                    'request through fork.',
+                                code='FORK_NOT_ENOUGH_RESOURCES') from err
 
             assert False
 
