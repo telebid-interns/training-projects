@@ -32,18 +32,20 @@ class Server:
         if os.fork() == 0:
           try:
             self.handle_request(connection, client_address)
+            self.log.info('Request Handled')
           except BaseException as e:
             self.log.error(e)
-          self.log.info('Request Handled')
           break
         else:
           connection.close()
       except KeyboardInterrupt as e:
         self.log.info('Stopping Server...')
         sys.exit()
-      except IOError as e: # socket.error is child of IOError
+      except (IOError, OSError) as e: # socket.error is child of IOError
         self.log.error(e)
-      except BaseException as e: # TODO check if some exceptions need to stop the server
+      except (IndexError, ValueError) as e
+        self.log.error(e)
+      except BaseException as e:
         self.log.error(e)
 
     sys.exit()
@@ -61,14 +63,13 @@ class Server:
 
       send(connection, self.generate_headers(200))
       send(connection, html)
-    except UserError as e:
+    except PeerError as e:
       if e.status_code == 'RECEIVING_SOCKET_TIMEOUT':
         send(connection, self.generate_headers(408))
+      elif e.status_code == 'FILE_NOT_FOUND':
+        send(connection, self.generate_headers(404))
       else:
         send(connection, self.generate_headers(400))
-      self.log.warn(e)
-    except FileNotFoundException as e:
-      send(connection, self.generate_headers(404))
       self.log.warn(e)
     except IOError as e:
       self.log.error(e)
@@ -84,10 +85,10 @@ class Server:
     try:
       path = self.resolve_path(path)
       self.log.info(os.path.abspath('./static/{}'.format(path)))
-      with open('./static{}'.format(path), "r") as file: # TODO security vulnerabilty
+      with open('./static{}'.format(path), "r") as file:
         return file.read()
     except IOError:
-      raise FileNotFoundException('File not found: {}'.format(path)) # TODO change to peer
+      raise PeerError('File not found: {}'.format(path), 'FILE_NOT_FOUND')
 
   def parse_request(self, request):
     assert type(request) is str
@@ -121,13 +122,13 @@ class Server:
     data = connection.recv(1024)
     total_length = self.parse_recv_data(data)
     while len(data) != total_length:
-      assertUser(time.time() - start_time < timeout, 'Request Timeout', 'RECEIVING_SOCKET_TIMEOUT')
+      assertPeer(time.time() - start_time < timeout, 'Request Timeout', 'RECEIVING_SOCKET_TIMEOUT')
       data += connection.recv(1024)
     self.log.info('Request Recved')
     return data
 
   def parse_recv_data(self, data):
-    assertUser(data.find('\r\n\r\n') != -1, 'Headers too long', 1001) # TODO use in
+    assertPeer('\r\n\r\n' in data, 'Headers too long', 'HEADERS_TOO_LONG')
     headers_length = data.find('\r\n\r\n') + self.HEADERS_END_STRING_LENGTH
     header_dict = {}
     for header in data[:headers_length].split('\r\n'):
@@ -140,7 +141,7 @@ class Server:
       content_length = 0
     return headers_length + content_length
 
-  def generate_headers(self, response_code): # TODO datafication
+  def generate_headers(self, response_code):
     header = ''
     if response_code == 200:
       header += 'HTTP/1.1 200 OK\r\n'
@@ -182,9 +183,9 @@ if __name__ == '__main__':
   assert type(request_queue_size) is int
 
   opts = {
-    'port': port if port else DEFAULT_PORT,
-    'address': address if address else DEFAULT_ADDRESS, # TODO replace with or
-    'request_queue_size': request_queue_size if request_queue_size else DEFAULT_REQUEST_QUEUE_SIZE
+    'port': port or DEFAULT_PORT,
+    'address': address or DEFAULT_ADDRESS,
+    'request_queue_size': request_queue_size or DEFAULT_REQUEST_QUEUE_SIZE
   }
 
   Server(opts).start()

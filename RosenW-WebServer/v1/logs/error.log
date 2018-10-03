@@ -1,3 +1,6 @@
 [Error] - 2018-10-03 16:15:02.139913 - repr() takes exactly one argument (2 given)
 [Error] - 2018-10-03 16:16:02.433951 - repr() takes exactly one argument (2 given)
 [Error] - 2018-10-03 18:01:41.020807 - global name 'resolve_path' is not defined
+[Error] - 2018-10-03 18:31:57.419112 - tuple index out of range
+[Error] - 2018-10-03 18:32:14.410387 - tuple index out of range
+[Error] - 2018-10-03 18:33:20.200986 - tuple index out of range

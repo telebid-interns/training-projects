@@ -13,8 +13,10 @@ class Logger:
       else:
         print(s.strip('\n'))
     except BaseException as e:
-      print e # TODO handle
-      pass
+      try:
+        print e
+      except:
+        pass
 
   def trace(self, s):
     self.log('trace', s)
