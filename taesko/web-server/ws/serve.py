@@ -1,3 +1,5 @@
+import collections
+import errno
 import logging
 import os
 
@@ -19,14 +21,10 @@ assert_sys(os.path.isdir(STATIC_DIR),
 
 
 def get_file(route):
-    if not route.startswith(STATIC_ROUTE):
-        return ws.err_responses.not_found()
+    resolved = resolve_route(route,
+                             route_prefix=STATIC_ROUTE, dir_prefix=STATIC_DIR)
 
-    rel_path = route[len(STATIC_ROUTE):]
-    file_path = os.path.join(STATIC_DIR, rel_path)
-    resolved = os.path.abspath(os.path.realpath(file_path))
-    # if a symlink get's created after this if an exploit is possible
-    if not resolved.startswith(STATIC_DIR):
+    if not resolved:
         return ws.err_responses.not_found()
 
     try:
@@ -46,3 +44,77 @@ def get_file(route):
         body=content
     )
 
+
+def resolve_route(route, route_prefix, dir_prefix):
+    if not route.startswith(route_prefix):
+        return None
+
+    rel_path = route[len(route_prefix):]
+    file_path = os.path.join(dir_prefix, rel_path)
+    resolved = os.path.abspath(os.path.realpath(file_path))
+
+    # if a symlink get's created after this if statement an exploit is possible
+    if not resolved.startswith(dir_prefix):
+        return None
+
+    return resolved
+
+
+def upload_file(route, body_stream, encoding):
+    assert isinstance(route, (str, bytes))
+    assert isinstance(body_stream, collections.Iterable)
+
+    resolved = resolve_route(route,
+                             route_prefix=STATIC_ROUTE, dir_prefix=STATIC_DIR)
+
+    error_log.info('Uploading file to route %s (resolves to %s)',
+                   route, resolved)
+
+    if not resolved:
+        return ws.err_responses.forbidden()
+
+    if os.path.exists(resolved):
+        return ws.err_responses.see_other()
+
+    try:
+        with open(resolved, mode='x', encoding='utf-8') as f:
+            f.write(bytes(body_stream).decode(encoding))
+    except FileExistsError:
+        return ws.err_responses.see_other()
+    except OSError as err:
+        if os.path.exists(resolved):
+            os.remove(resolved)
+
+        if err.errno == errno.ENAMETOOLONG:
+            return ws.err_responses.uri_too_long
+        elif err.errno == errno.EFBIG:
+            return ws.err_responses.payload_too_large
+        else:
+            raise
+
+    response = ws.err_responses.created()
+    response.headers['Location'] = route
+
+    return response
+
+
+def delete_file(route):
+    assert isinstance(route, (str, bytes))
+
+    resolved = resolve_route(route,
+                             route_prefix=STATIC_ROUTE, dir_prefix=STATIC_DIR)
+
+    error_log.info('Deleting file from route %s (resolves to %s).',
+                   route, resolved)
+
+    if not resolved:
+        return ws.err_responses.forbidden()
+
+    try:
+        os.remove(resolved)
+    except IsADirectoryError:
+        return ws.err_responses.method_not_allowed()
+    except FileNotFoundError:
+        return ws.err_responses.not_found()
+
+    return ws.err_responses.ok()

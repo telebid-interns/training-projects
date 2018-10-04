@@ -49,7 +49,15 @@ def parse(iterable):
     request_line = parse_request_line(message_iter)
     headers = parse_headers(message_iter)
     error_log.debug('headers is %r with type %r', headers, type(headers))
-    body = parse_body(message_iter, headers.get('Content-Length', 0))
+
+    try:
+        cl = int(headers.get('Content-Length', 0))
+    except ValueError as e:
+        raise PeerError(code='BAD_CONTENT_LENGTH',
+                        msg='Content length must be a string.') from e
+
+    body = parse_body(message_iter, cl)
+    error_log.debug('Received body. %s', body)
 
     return ws.http.structs.HTTPRequest(
         request_line=request_line,
@@ -225,11 +233,8 @@ def parse_body(iterator, content_len):
     if content_len == 0:
         return b''
 
-    for count, b in enumerate(iterator):
-        if count + 1 == content_len:
-            break
-
-        parts.append(b)
+    for _ in range(content_len):
+        parts.append(next(iterator))
 
     return bytes(parts)
 

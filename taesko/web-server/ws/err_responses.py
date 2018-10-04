@@ -10,9 +10,10 @@ def can_handle_err(err):
         if isinstance(err, err_type):
             break
 
-    return (err_type and
-            hasattr(err, 'code') and
-            err.code in err_handlers[err_type])
+    handlers = err_handlers[err_type]
+
+    return ((not hasattr(err, 'code') and None in handlers) or
+            (hasattr(err, 'code') and err.code in handlers))
 
 
 def handle_err(err, *args, **kwargs):
@@ -23,7 +24,9 @@ def handle_err(err, *args, **kwargs):
         if isinstance(err, err_type):
             break
 
-    return err_handlers[err_type][err.code](err, *args, **kwargs)
+    code = err.code if hasattr(err, 'code') else None
+
+    return err_handlers[err_type][code](err, *args, **kwargs)
 
 
 def err_handler(err_type, err_code):
@@ -38,6 +41,26 @@ def err_handler(err_type, err_code):
     return decorator
 
 
+def response_factory(status_code):
+    def response_builder(err=None):
+        return HTTPResponse(
+            status_line=HTTPStatusLine(
+                http_version='HTTP/1.1',
+                status_code=status_code,
+                reason_phrase=''
+            ),
+            headers=HTTPHeaders(),
+            body=None
+        )
+
+    return response_builder
+
+
+ok = response_factory(200)
+created = response_factory(201)
+see_other = response_factory(303)
+
+
 # noinspection PyUnusedLocal
 @err_handler(PeerError, 'PEER_STOPPED_SENDING')
 def bad_request(err=None):
@@ -50,6 +73,21 @@ def bad_request(err=None):
         headers=HTTPHeaders({'Content-Encoding': 'ascii'}),
         body='Did not receive the entirety of the request.'
     )
+
+
+def forbidden(err=None):
+    return HTTPResponse(
+        status_line=HTTPStatusLine(
+            http_version='HTTP/1.1',
+            status_code=403,
+            reason_phrase=''
+        ),
+        headers=HTTPHeaders({'Content-Encoding': 'ascii'}),
+        body='You do not have permission to access that directory'
+    )
+
+
+method_not_allowed = response_factory(405)
 
 
 # noinspection PyUnusedLocal
@@ -75,6 +113,13 @@ def request_timed_out(err=None):
         headers=HTTPHeaders(),
         body='',
     )
+
+
+length_required = response_factory(411)
+payload_too_large = response_factory(413)
+uri_too_long = response_factory(414)
+
+internal_server_error = response_factory(500)
 
 
 # noinspection PyUnusedLocal

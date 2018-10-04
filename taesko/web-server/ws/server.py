@@ -467,8 +467,19 @@ class RequestReceiver:
 
 
 def handle_request(request):
-    file_path = request.request_line.request_target.path
-    return ws.serve.get_file(file_path)
+    route = request.request_line.request_target.path
+
+    if request.request_line.method == 'GET':
+        return ws.serve.get_file(route)
+    elif request.request_line.method == 'POST':
+        encoding = request.headers.get('Content-Encoding', 'utf-8')
+        body = request.body
+        return ws.serve.upload_file(route=route, body_stream=body,
+                                    encoding=encoding)
+    elif request.request_line.method == 'DELETE':
+        return ws.serve.delete_file(route)
+    else:
+        return ws.err_responses.method_not_allowed()
 
 
 def main():
