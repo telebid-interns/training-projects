@@ -3,7 +3,7 @@ import errno
 import logging
 import os
 
-import ws.err_responses
+import ws.responses
 from ws.config import config
 from ws.err import *
 from ws.http.structs import HTTPResponse, HTTPStatusLine, HTTPHeaders
@@ -25,13 +25,13 @@ def get_file(route):
                              route_prefix=STATIC_ROUTE, dir_prefix=STATIC_DIR)
 
     if not resolved:
-        return ws.err_responses.not_found()
+        return ws.responses.not_found
 
     try:
         with open(resolved, mode='r', encoding='utf-8') as f:
             content = f.read()
     except (FileNotFoundError, IsADirectoryError):
-        return ws.err_responses.not_found()
+        return ws.responses.not_found
 
     return HTTPResponse(
         status_line=HTTPStatusLine(http_version='HTTP/1.1',
@@ -71,28 +71,28 @@ def upload_file(route, body_stream, encoding):
                    route, resolved)
 
     if not resolved:
-        return ws.err_responses.forbidden()
+        return ws.responses.forbidden
 
     if os.path.exists(resolved):
-        return ws.err_responses.see_other()
+        return ws.responses.see_other
 
     try:
         with open(resolved, mode='x', encoding='utf-8') as f:
             f.write(bytes(body_stream).decode(encoding))
     except FileExistsError:
-        return ws.err_responses.see_other()
+        return ws.responses.see_other
     except OSError as err:
         if os.path.exists(resolved):
             os.remove(resolved)
 
         if err.errno == errno.ENAMETOOLONG:
-            return ws.err_responses.uri_too_long
+            return ws.responses.uri_too_long
         elif err.errno == errno.EFBIG:
-            return ws.err_responses.payload_too_large
+            return ws.responses.payload_too_large
         else:
             raise
 
-    response = ws.err_responses.created()
+    response = ws.responses.created
     response.headers['Location'] = route
 
     return response
@@ -108,13 +108,13 @@ def delete_file(route):
                    route, resolved)
 
     if not resolved:
-        return ws.err_responses.forbidden()
+        return ws.responses.forbidden
 
     try:
         os.remove(resolved)
     except IsADirectoryError:
-        return ws.err_responses.method_not_allowed()
+        return ws.responses.method_not_allowed
     except FileNotFoundError:
-        return ws.err_responses.not_found()
+        return ws.responses.not_found
 
-    return ws.err_responses.ok()
+    return ws.responses.ok
