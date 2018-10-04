@@ -27,3 +27,4 @@
 127.0.0.1 - - Thu, 04 Oct 2018 13:21:55 "GET /hello.html HTTP/1.1" 200 -
 127.0.0.1 - - Thu, 04 Oct 2018 13:22:07 "GET /hello.html HTTP/1.1" 200 -
 127.0.0.1 - - Thu, 04 Oct 2018 13:22:07 "GET /hello.html HTTP/1.1" 200 -
+127.0.0.1 - - Thu, 04 Oct 2018 13:24:40 "GET /not_found.html HTTP/1.1" 200 -
