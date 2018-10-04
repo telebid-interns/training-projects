@@ -1,6 +1,10 @@
+import logging
+
 from ws.err import *
 from ws.http.structs import HTTPResponse, HTTPStatusLine, HTTPHeaders
 
+logging.getLogger('error').warning('The module %s is depreciated. Please '
+                                   'consider using ws/')
 err_handlers = {}
 
 
