@@ -10,6 +10,7 @@ import time
 import ws.err_responses
 import ws.http.parser
 import ws.http.structs
+import ws.responses
 import ws.serve
 from ws.config import config
 from ws.err import *
@@ -92,6 +93,8 @@ class Server:
 
                 error_log.warning('accept() raised ERRNO=%s', err.errno)
 
+                # TODO don't handle every exception code
+                # TODO perhaps reopen failed listening sockets.
                 assert err.errno not in (errno.EBADF, errno.EFAULT,
                                          errno.EINVAL, errno.ENOTSOCK,
                                          errno.EOPNOTSUPP)
@@ -122,7 +125,11 @@ class Server:
 
                 # noinspection PyBroadException
                 try:
-                    response = ws.err_responses.service_unavailable()
+                    response = ws.responses.service_unavailable
+                    # TODO perhaps move parser out into the main process so
+                    # not to consume resources
+                    # TODO reject invalid requests from the same client if it
+                    # happens multiple times
                     self.work(client_socket, address,
                               quick_reply_with=response)
                 except BaseException:
@@ -168,6 +175,7 @@ class Server:
             error_log.warning('fork() raised ERRNO=%d. Reason: %s',
                               err.errno, err.strerror)
 
+            # TODO check if this can change dynamically
             assert_sys(err.errno != errno.ENOSYS,
                        msg='Server cannot continue running without fork '
                            'support. Shutting down.',
@@ -212,6 +220,8 @@ class Server:
                 return
 
             while worker.http_connection_is_open:
+                # TODO client's connection might drop while recv()
+                # no need to send him a response
                 request = worker.parse_request()
                 response = handle_request(request)
                 worker.respond(response)
@@ -327,20 +337,17 @@ class Worker:
             self.sock.shutdown(socket.SHUT_RDWR)
             self.sock.close()
             return False
-        elif not ws.err_responses.can_handle_err(exc_val):
-            error_log.error(
-                'An exception occurred that the worker cannot handle.'
-                ' Client will not receive an HTTP response.'
-            )
-            error_log.info('Shutting down socket %d for both r/w',
-                           self.sock.fileno())
-            self.sock.shutdown(socket.SHUT_RDWR)
-            self.sock.close()
-            return False
         else:
             pass
 
-        response = ws.err_responses.handle_err(exc_val)
+        # server_err_response always returns a response regardless
+        # of config, so we need to check for client_err
+        if not ws.responses.client_err_response(exc_val):
+            error_log.exception('Server error occurred. ')
+
+        response = (ws.responses.client_err_response(exc_val) or
+                    ws.responses.server_err_response(exc_val))
+
         response.headers['Connection'] = 'close'
         ignored_request = False
 

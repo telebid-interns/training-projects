@@ -1,6 +1,6 @@
+from ws.config import config
 from ws.err import *
 from ws.http.structs import HTTPResponse, HTTPStatusLine, HTTPHeaders
-from ws.config import config
 
 
 def build_response(status_code, *, body=None, reason_phrase='', headers=None,
@@ -50,15 +50,17 @@ service_unavailable = HTTPResponse(
     body=None,
 )
 
-client_err_responses = {
-    PeerError: {
-        'PEER_STOPPED_SENDING': bad_request,
-        'RECEIVING_REQUEST_TIMED_OUT': request_timeout
+error_responses = {
+    'client': {
+        PeerError: {
+            'PEER_STOPPED_SENDING': bad_request,
+            'RECEIVING_REQUEST_TIMED_OUT': request_timeout
+        },
     },
-}
-server_err_responses = {
-    AssertionError: {
-        None: internal_server_error
+    'server': {
+        AssertionError: {
+            None: internal_server_error
+        }
     }
 }
 
@@ -75,9 +77,9 @@ def get_err_response(dct, exc_val):
 
 
 def client_err_response(exc_val):
-    return get_err_response(client_err_responses, exc_val)
+    return get_err_response(error_responses['client'], exc_val)
 
 
 def server_err_response(exc_val):
-    return (get_err_response(server_err_responses, exc_val) or
+    return (get_err_response(error_responses['server'], exc_val) or
             internal_server_error)
