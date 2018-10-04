@@ -31,9 +31,12 @@ class Server:
         self.log.info('accepted connection: {}'.format(client_address))
         if os.fork() == 0:
           try:
-            self.handle_request(connection, client_address)
+            assert type(client_address) is tuple and len(client_address) == 2
+            self.env = {'host': client_address[0], 'port': client_address[1]}
+            self.handle_request(connection)
             self.log.info('Request Handled')
           except BaseException as e:
+            traceback.print_exc()
             self.log.error(e)
           break
         else:
@@ -41,25 +44,25 @@ class Server:
       except KeyboardInterrupt as e:
         self.log.info('Stopping Server...')
         sys.exit()
-      except (IOError, OSError) as e: # socket.error is child of IOError
-        self.log.error(e)
-      except (IndexError, ValueError) as e
+      except (IOError, OSError, IndexError, ValueError) as e: # socket.error is child of IOError
         self.log.error(e)
       except BaseException as e:
         self.log.error(e)
+        break
 
     sys.exit()
 
-  def handle_request(self, connection, address):
+  def handle_request(self, connection):
     request = None
 
     try:
       self.sock.close()
       request = self.recv_request(connection)
+      self.env['request_time'] = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
       self.parse_request(request)
 
-      if self.request_method == 'GET':
-        html = self.get_requested_file(self.whole_path)
+      if self.env['request_method'] == 'GET':
+        html = self.get_requested_file(self.env['whole_path'])
 
       send(connection, self.generate_headers(200))
       send(connection, html)
@@ -79,7 +82,7 @@ class Server:
     finally:
       connection.close()
       if request:
-        self.log_request(request, address)
+        self.log_request(request)
 
   def get_requested_file(self, path):
     try:
@@ -94,28 +97,33 @@ class Server:
     assert type(request) is str
     assert len(request) > 0
 
-    line = request.splitlines()[0]
-    line = line.rstrip('\r\n')
+    self.env['request_first_line'] = request.splitlines()[0].rstrip('\r\n')
 
-    tokens = line.split()
+    tokens = self.env['request_first_line'].split()
     assert len(tokens) == 3
     (
-      self.request_method,  # GET
-      self.whole_path,      # /hello.html
-      self.request_version  # HTTP/1.1
+      self.env['request_method'],  # GET
+      self.env['whole_path'],      # /hello.html
+      self.env['request_version']  # HTTP/1.1
     ) = tokens
 
-  def log_request(self, request, address):
+  def log_request(self, request):
     today = datetime.date.today()
     now = str(datetime.datetime.now())
 
-    assert type(address[0]) is str and type(address[1]) is int
+    assert type(self.env['host']) is str and type(self.env['port']) is int
+    assert self.env
 
     with open('./logs/access.log', "a+") as file:
-      file.write('IP: {}\n'.format(address[0]))
-      file.write('PORT: {}\n'.format(address[1]))
-      file.write('DATE: {}\n'.format(now))
-      file.write(request)
+      file.write('{} {} {} {} "{}" {} {}\n'.format(
+        self.env['host'] if 'host' in self.env else '-',
+        self.env['remote_logname'] if 'remote_logname' in self.env else '-',
+        self.env['remote_user'] if 'remote_user' in self.env else '-',
+        self.env['request_time'] if 'request_time' in self.env else '-',
+        self.env['request_first_line'] if 'request_first_line' in self.env else '-',
+        self.env['status_code'] if 'status_code' in self.env else '-',
+        self.env['content_length'] if 'content_length' in self.env and self.env['content_length'] > 0 else '-'
+      ))
 
   def recv_request(self, connection, timeout = 5):
     start_time = time.time()
@@ -139,9 +147,16 @@ class Server:
       content_length = header_dict['Content-Length']
     else:
       content_length = 0
+
+    self.env['headers'] = header_dict
+    self.env['headers_length'] = headers_length
+    self.env['content_length'] = content_length
+
     return headers_length + content_length
 
   def generate_headers(self, response_code):
+    self.env['status_code'] = response_code
+
     header = ''
     if response_code == 200:
       header += 'HTTP/1.1 200 OK\r\n'

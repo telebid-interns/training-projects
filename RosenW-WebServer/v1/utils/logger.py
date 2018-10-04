@@ -14,7 +14,7 @@ class Logger:
         print(s.strip('\n'))
     except BaseException as e:
       try:
-        print e
+        print(e)
       except:
         pass
 
