@@ -12,7 +12,7 @@ class HTTPRequestLine(collections.namedtuple('HTTPStartLine',
                                               'request_target',
                                               'http_version'])):
     def __str__(self):
-        return ' '.join(self)
+        return ' '.join(map(str, self))
 
     def __bytes__(self):
         return str(self).encode('ascii')

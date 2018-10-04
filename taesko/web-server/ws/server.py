@@ -9,12 +9,11 @@ import time
 
 import ws.err_responses
 import ws.http.parser
+import ws.http.structs
 import ws.serve
 from ws.config import config
 from ws.err import *
-
-# TODO logging lib needs to be wrapped.
-error_log = logging.getLogger('error')
+from ws.logs import error_log, access_log
 
 
 class Server:
@@ -208,7 +207,8 @@ class Server:
     def work(client_socket, address, quick_reply_with=None):
         with Worker(client_socket, address) as worker:
             if quick_reply_with:
-                worker.respond(quick_reply_with, closing=True)
+                worker.respond(quick_reply_with, closing=True,
+                               ignored_request=True)
                 return
 
             while worker.http_connection_is_open:
@@ -267,6 +267,7 @@ class Worker:
         self.last_request = None
         self.last_response = None
         self.responding = False
+        self.request_queue = collections.deque()
 
         signal.signal(signal.SIGTERM, self.handle_termination)
         sock.settimeout(config.getint('http', 'request_timeout'))
@@ -341,8 +342,16 @@ class Worker:
 
         response = ws.err_responses.handle_err(exc_val)
         response.headers['Connection'] = 'close'
+        ignored_request = False
+
+        if hasattr(exc_val, 'code'):
+            ignored_request = exc_val.code in (
+                'RECEIVING_REQUEST_TIMED_OUT',
+                'PEER_STOPPED_SENDING'
+            )
+
         try:
-            self.respond(response)
+            self.respond(response, ignored_request=ignored_request)
         except OSError as e:
             error_log.critical('Caught OSError with errno %d', e.errno)
             if e.errno == errno.ECONNRESET:
@@ -374,7 +383,9 @@ class Worker:
         self.last_request = ws.http.parser.parse(self.request_receiver)
         return self.last_request
 
-    def respond(self, response, closing=False):
+    def respond(self, response, *, closing=False, ignored_request=False):
+        assert isinstance(response, ws.http.structs.HTTPResponse)
+        assert isinstance(closing, bool)
         assert self.http_connection_is_open
 
         # TODO there needs to be a way to send Close connection through here.
@@ -383,9 +394,14 @@ class Worker:
             response.headers['Connection'] = 'close'
 
         self.responding = True
-        response.send(self.sock)
         self.last_response = response
+        response.send(self.sock)
         self.responding = False
+
+        if ignored_request:
+            access_log.log(request=None, response=response)
+        else:
+            access_log.log(request=self.last_request, response=response)
 
     # noinspection PyUnusedLocal
     def handle_termination(self, signum, stack_info):
