@@ -54,8 +54,7 @@ def parse(iterable):
     return ws.http.structs.HTTPRequest(
         request_line=request_line,
         headers=headers,
-        body=body,
-        decoded=False
+        body=body
     )
 
 
@@ -107,12 +106,11 @@ def parse_request_line(it, *,
                 msg='Incorrect HTTP-version.'
                     'Got {}.'.format(http_version),
                 code='PARSER_BAD_HTTP_VERSION')
-    version = matched.group(1).decode('ascii')
-    error_log.debug('Parsed version %r', version)
+    http_version = http_version.decode('ascii')
 
     return ws.http.structs.HTTPRequestLine(method=method,
                                            request_target=uri,
-                                           http_version=version)
+                                           http_version=http_version)
 
 
 def parse_request_target(iterable):
@@ -123,19 +121,19 @@ def parse_request_target(iterable):
         assert_peer(matched,
                     msg='Invalid authority of uri {}'.format(string),
                     code='PARSER_INVALID_AUTHORITY')
-        user_info, host, port = matched.groups()
-        user_info = user_info[:-1] if user_info else None
-        port = port[1:] if port else None
+        user_info_, host_, port_ = matched.groups()
+        user_info_ = user_info_[:-1] if user_info_ else None
+        port_ = port_[1:] if port_ else None
 
-        return user_info, host, port
+        return user_info_, host_, port_
 
     def parse_path(full_path):
-        parts = string.split('?')
-        if len(parts) == 1:
-            return (parts[0], None)
+        parts_ = full_path.split('?')
+        if len(parts_) == 1:
+            return parts_[0], None
         else:
             # TODO is '?' allowed more than once ?
-            return (parts[0], parts[1:])
+            return parts_[0], parts_[1:]
 
     if string[0] == '/':
         # origin form
@@ -160,8 +158,8 @@ def parse_request_target(iterable):
                     code='PARSER_MISSING_AUTHORITY')
         user_info, host, port = parse_authority(parts[0])
 
-        absolute_path = '/'.join(parts[1:])
-        path, query = parse_path(string)
+        absolute_path = '/' + '/'.join(parts[1:])
+        path, query = parse_path(absolute_path)
 
         return ws.http.structs.URI(
             protocol=protocol,
