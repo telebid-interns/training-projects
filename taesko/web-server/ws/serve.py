@@ -25,8 +25,7 @@ def get_file(route):
     rel_path = route[len(STATIC_ROUTE):]
     file_path = os.path.join(STATIC_DIR, rel_path)
     resolved = os.path.abspath(os.path.realpath(file_path))
-    # if a symlink get's created after this if does the check an exploit is
-    # possible
+    # if a symlink get's created after this if an exploit is possible
     if not resolved.startswith(STATIC_DIR):
         return ws.err_responses.not_found()
 
