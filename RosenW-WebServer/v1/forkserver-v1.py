@@ -23,6 +23,7 @@ class Server:
     self.sock.bind((opts['address'], opts['port']))
     self.sock.listen(opts['request_queue_size'])
     self.log.info('Server started on port {}'.format(opts['port']))
+    self.env = {}
 
   def start (self):
     while True:
@@ -36,19 +37,29 @@ class Server:
             self.handle_request(connection)
             self.log.info('Request Handled')
           except BaseException as e:
-            traceback.print_exc()
+            try:
+              send(connection, self.generate_headers(500))
+            except BaseException as ex:
+              self.log.error(ex)
             self.log.error(e)
           break
-        else:
-          connection.close()
       except KeyboardInterrupt as e:
         self.log.info('Stopping Server...')
         sys.exit()
-      except (IOError, OSError, IndexError, ValueError) as e: # socket.error is child of IOError
+      except (IOError, OSError, IndexError, ValueError) as e:
+        try:
+          send(connection, self.generate_headers(500))
+        except BaseException as ex:
+          self.log.error(ex)
         self.log.error(e)
       except BaseException as e:
         self.log.error(e)
         break
+      finally:
+        try:
+          connection.close()
+        except BaseException as e:
+          self.log.error(e)
 
     sys.exit()
 

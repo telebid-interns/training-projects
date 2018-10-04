@@ -1,18 +1,1 @@
-[Error] - 2018-10-03 16:15:02.139913 - repr() takes exactly one argument (2 given)
-[Error] - 2018-10-03 16:16:02.433951 - repr() takes exactly one argument (2 given)
-[Error] - 2018-10-03 18:01:41.020807 - global name 'resolve_path' is not defined
-[Error] - 2018-10-03 18:31:57.419112 - tuple index out of range
-[Error] - 2018-10-03 18:32:14.410387 - tuple index out of range
-[Error] - 2018-10-03 18:33:20.200986 - tuple index out of range
-[Error] - 2018-10-04 10:36:37.446455 - tuple index out of range
-[Error] - 2018-10-04 11:13:00.838963 - 'dict' object has no attribute 'headers'
-[Error] - 2018-10-04 11:14:19.845932 - 'dict' object has no attribute 'request_method'
-[Error] - 2018-10-04 11:16:34.547984 - 'dict' object has no attribute 'request_method'
-[Error] - 2018-10-04 11:17:56.769479 - 'dict' object has no attribute 'whole_path'
-[Error] - 2018-10-04 11:23:33.336295 - string index out of range
-[Error] - 2018-10-04 11:35:10.751644 - 'remote_logname'
-[Error] - 2018-10-04 11:35:31.231082 - 'remote_logname'
-[Error] - 2018-10-04 11:36:11.493467 - 'remote_logname'
-[Error] - 2018-10-04 11:36:26.597276 - 'remote_logname'
-[Error] - 2018-10-04 11:39:48.241007 - 'remote_user'
-[Error] - 2018-10-04 12:01:20.196064 - 
+[Error] - 2018-10-04 13:22:13.018043 - 
