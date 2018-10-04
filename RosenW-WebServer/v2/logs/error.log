@@ -1,0 +1,35 @@
+[Error] - 2018-10-04 13:22:13.018043 - 
+[Error] - 2018-10-04 13:24:57.539879 - 
+[Error] - 2018-10-04 13:41:55.145592 - object of type 'type' has no len()
+[Error] - 2018-10-04 13:42:28.624333 - global name 'print_exc' is not defined
+[Error] - 2018-10-04 13:43:06.056349 - global name 'print_status' is not defined
+[Error] - 2018-10-04 13:43:48.749296 - object of type 'type' has no len()
+[Error] - 2018-10-04 13:44:02.495090 - object of type 'type' has no len()
+[Error] - 2018-10-04 13:58:31.479376 - a bytes-like object is required, not 'str'
+[Error] - 2018-10-04 13:58:31.479942 - a bytes-like object is required, not 'str'
+[Error] - 2018-10-04 13:58:31.499554 - a bytes-like object is required, not 'str'
+[Error] - 2018-10-04 13:58:31.500195 - a bytes-like object is required, not 'str'
+[Error] - 2018-10-04 13:58:31.516876 - a bytes-like object is required, not 'str'
+[Error] - 2018-10-04 13:58:31.523371 - a bytes-like object is required, not 'str'
+[Error] - 2018-10-04 13:58:31.529605 - a bytes-like object is required, not 'str'
+[Error] - 2018-10-04 13:58:31.531406 - a bytes-like object is required, not 'str'
+[Error] - 2018-10-04 13:58:31.541115 - a bytes-like object is required, not 'str'
+[Error] - 2018-10-04 13:58:31.543582 - a bytes-like object is required, not 'str'
+[Error] - 2018-10-04 13:58:31.559067 - a bytes-like object is required, not 'str'
+[Error] - 2018-10-04 13:58:31.565671 - a bytes-like object is required, not 'str'
+[Error] - 2018-10-04 13:58:31.569569 - a bytes-like object is required, not 'str'
+[Error] - 2018-10-04 13:58:31.571831 - a bytes-like object is required, not 'str'
+[Error] - 2018-10-04 13:58:31.581186 - a bytes-like object is required, not 'str'
+[Error] - 2018-10-04 13:58:31.582005 - a bytes-like object is required, not 'str'
+[Error] - 2018-10-04 13:58:31.592046 - a bytes-like object is required, not 'str'
+[Error] - 2018-10-04 13:58:31.596385 - a bytes-like object is required, not 'str'
+[Error] - 2018-10-04 13:58:31.606852 - a bytes-like object is required, not 'str'
+[Error] - 2018-10-04 13:58:31.614485 - a bytes-like object is required, not 'str'
+[Error] - 2018-10-04 14:06:52.084444 - string argument without an encoding
+[Error] - 2018-10-04 14:06:52.085033 - string argument without an encoding
+[Error] - 2018-10-04 14:08:45.362790 - a bytes-like object is required, not 'str'
+[Error] - 2018-10-04 14:19:17.704237 - a bytes-like object is required, not 'str'
+[Error] - 2018-10-04 14:19:32.150770 - a bytes-like object is required, not 'str'
+[Error] - 2018-10-04 14:23:48.233999 - a bytes-like object is required, not 'str'
+[Error] - 2018-10-04 14:24:48.681828 - a bytes-like object is required, not 'str'
+[Error] - 2018-10-04 17:00:44.473554 - __init__() missing 1 required positional argument: 'status_code'

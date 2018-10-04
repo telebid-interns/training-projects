@@ -10,9 +10,9 @@ from error.asserts import *
 from error.exceptions import *
 from utils.sender import *
 from utils.logger import Logger
-from ConfigParser import ConfigParser
+import configparser
 
-class Server:
+class Server(object):
   HEADERS_END_STRING_LENGTH = 4
   ERROR_LOG_PATH = './logs/error.log'
 
@@ -32,7 +32,7 @@ class Server:
         self.log.info('accepted connection: {}'.format(client_address))
         if os.fork() == 0:
           try:
-            assert type(client_address) is tuple and len(client_address) == 2
+            assert type(client_address) is tuple and len(client_address) == 2 # isinstance(cl_addr, collections.sequence)
             self.env = {'host': client_address[0], 'port': client_address[1]}
             self.handle_request(connection)
             self.log.info('Request Handled')
@@ -46,7 +46,7 @@ class Server:
       except KeyboardInterrupt as e:
         self.log.info('Stopping Server...')
         sys.exit()
-      except (IOError, OSError, IndexError, ValueError) as e:
+      except (OSError, IndexError, ValueError) as e:
         try:
           send(connection, self.generate_headers(500))
         except BaseException as ex:
@@ -80,13 +80,12 @@ class Server:
     except PeerError as e:
       if e.status_code == 'RECEIVING_SOCKET_TIMEOUT':
         send(connection, self.generate_headers(408))
-      elif e.status_code == 'FILE_NOT_FOUND':
-        send(connection, self.generate_headers(404))
       else:
         send(connection, self.generate_headers(400))
       self.log.warn(e)
-    except IOError as e:
-      self.log.error(e)
+    except FileNotFoundError as e:
+      send(connection, self.generate_headers(404))
+      self.log.warn(e)
     except BaseException as e:
       send(connection, self.generate_headers(500))
       self.log.error(e)
@@ -96,13 +95,10 @@ class Server:
         self.log_request(request)
 
   def get_requested_file(self, path):
-    try:
-      path = self.resolve_path(path)
-      self.log.info(os.path.abspath('./static/{}'.format(path)))
-      with open('./static{}'.format(path), "r") as file:
-        return file.read()
-    except IOError:
-      raise PeerError('File not found: {}'.format(path), 'FILE_NOT_FOUND')
+    path = self.resolve_path(path)
+    self.log.info(os.path.abspath('./static/{}'.format(path)))
+    with open('./static{}'.format(path), "r") as file:
+      return file.read()
 
   def parse_request(self, request):
     assert type(request) is str
@@ -136,9 +132,9 @@ class Server:
         self.env['content_length'] if 'content_length' in self.env and self.env['content_length'] > 0 else '-'
       ))
 
-  def recv_request(self, connection, timeout = 5):
+  def recv_request(self, connection, timeout=5):
     start_time = time.time()
-    data = connection.recv(1024)
+    data = connection.recv(1024).decode('UTF-8')
     total_length = self.parse_recv_data(data)
     while len(data) != total_length:
       assertPeer(time.time() - start_time < timeout, 'Request Timeout', 'RECEIVING_SOCKET_TIMEOUT')
@@ -197,7 +193,7 @@ if __name__ == '__main__':
   DEFAULT_ADDRESS = ''
   DEFAULT_PORT = 8888
 
-  config = ConfigParser()
+  config = configparser.ConfigParser()
   config.read('./etc/config.ini')
 
   port = config.getint('server', 'port')
