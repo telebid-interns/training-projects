@@ -24,6 +24,7 @@ class Server:
     self.sock.listen(opts['request_queue_size'])
     self.log.info('Server started on port {}'.format(opts['port']))
     self.env = {}
+    self.workers = 0
 
   def start(self):
     while True:
@@ -43,15 +44,15 @@ class Server:
               self.log.error(ex)
             self.log.error(e)
           break
-      except KeyboardInterrupt as e:
-        self.log.info('Stopping Server...')
-        sys.exit()
       except (IOError, OSError, IndexError, ValueError) as e:
         try:
           send(connection, self.generate_headers(500))
         except BaseException as ex:
           self.log.error(ex)
         self.log.error(e)
+      except KeyboardInterrupt as e:
+        self.log.info('Stopping Server...')
+        sys.exit()
       except BaseException as e:
         self.log.error(e)
         break
@@ -68,6 +69,7 @@ class Server:
 
     try:
       self.sock.close()
+      connection.settimeout(5)
       request = self.recv_request(connection)
       self.env['request_time'] = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
       self.parse_request(request)
@@ -78,15 +80,14 @@ class Server:
       send(connection, self.generate_headers(200))
       send(connection, html)
     except PeerError as e:
-      if e.status_code == 'RECEIVING_SOCKET_TIMEOUT':
-        send(connection, self.generate_headers(408))
-      elif e.status_code == 'FILE_NOT_FOUND':
-        send(connection, self.generate_headers(404))
-      else:
-        send(connection, self.generate_headers(400))
+      send(connection, self.generate_headers(400))
+      self.log.warn(e)
+    except FileNotFoundError as e:
+      send(connection, self.generate_headers(404))
       self.log.warn(e)
     except IOError as e:
-      self.log.error(e)
+      send(connection, self.generate_headers(408))
+      self.log.warn(e)
     except BaseException as e:
       send(connection, self.generate_headers(500))
       self.log.error(e)
@@ -102,7 +103,7 @@ class Server:
       with open('./static{}'.format(path), "r") as file:
         return file.read()
     except IOError:
-      raise PeerError('File not found: {}'.format(path), 'FILE_NOT_FOUND')
+      raise FileNotFoundError('File not found: {}'.format(path), 'FILE_NOT_FOUND')
 
   def parse_request(self, request):
     assert type(request) is str
@@ -135,23 +136,25 @@ class Server:
         self.env['status_code'] if 'status_code' in self.env else '-',
         self.env['content_length'] if 'content_length' in self.env and self.env['content_length'] > 0 else '-'
       ))
+    self.log.info('request logged')
 
-  def recv_request(self, connection, timeout = 5):
+  def recv_request(self, connection):
     start_time = time.time()
     data = connection.recv(1024)
-    total_length = self.parse_recv_data(data)
+    while '\r\n\r\n' not in data:
+      data += connection.recv(1024)
+    total_length = self.parse_headers(data)
     while len(data) != total_length:
-      assertPeer(time.time() - start_time < timeout, 'Request Timeout', 'RECEIVING_SOCKET_TIMEOUT')
       data += connection.recv(1024)
     self.log.info('Request Recved')
     return data
 
-  def parse_recv_data(self, data):
-    assertPeer('\r\n\r\n' in data, 'Headers too long', 'HEADERS_TOO_LONG')
+  def parse_headers(self, data):
+    assertPeer(len(data) <= 1024, 'Headers too long', 'HEADERS_TOO_LONG')
     headers_length = data.find('\r\n\r\n') + self.HEADERS_END_STRING_LENGTH
     header_dict = {}
     for header in data[:headers_length].split('\r\n'):
-      if header.find(': ') != -1:
+      if ': ' in header:
         header_tokens = header.split(': ')
         header_dict[header_tokens[0]] = header_tokens[1]
     if 'Content-Length' in header_dict:

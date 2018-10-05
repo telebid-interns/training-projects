@@ -1,4 +1,5 @@
 import datetime
+import traceback
 
 class Logger:
   def __init__(self, opts):
@@ -12,6 +13,8 @@ class Logger:
           file.write(s)
       else:
         print(s.strip('\n'))
+      if level_str in ['error', 'fatal']:
+        traceback.print_exc()
     except BaseException as e:
       try:
         print(e)
