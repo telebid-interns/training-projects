@@ -92,7 +92,6 @@ class Server:
 
                 error_log.warning('accept() raised ERRNO=%s', err.errno)
 
-                # TODO don't handle every exception code
                 # TODO perhaps reopen failed listening sockets.
                 assert err.errno not in (errno.EBADF, errno.EFAULT,
                                          errno.EINVAL, errno.ENOTSOCK,
@@ -103,24 +102,24 @@ class Server:
                                    'blocked the accept() call.')
                 elif err.errno in (errno.EPROTO, errno.ECONNABORTED):
                     error_log.info('Protocol or connection error from client.')
-                    continue
                 elif err.errno in (errno.EMFILE, errno.ENFILE,
                                    errno.ENOBUFS, errno.ENOMEM):
                     error_log.error('Socket memory or file descriptors run '
                                     'out. Server will continue listening. '
                                     'But connections will be refused until '
                                     'resources are free.')
-                    continue
 
-                assert False
+                # don't break the listening loop just because one accept failed
+                continue
 
             error_log.debug('Accepted connection. '
                             'client_socket.fileno=%d and address=%s',
                             client_socket.fileno(), address)
             try:
                 forked_pid = self.fork(client_socket)
-            except PeerError as err:
-                error_log.warning(err)
+            except SysError as err:
+                if err.code == 'FORK_NOT_IMPLEMENTED':
+                    raise
 
                 # noinspection PyBroadException
                 try:
@@ -174,23 +173,27 @@ class Server:
             error_log.warning('fork() raised ERRNO=%d. Reason: %s',
                               err.errno, err.strerror)
 
-            # TODO check if this can change dynamically
+            # TODO this doesn't change dynamically and should be checked
+            # statically at startup
             assert_sys(err.errno != errno.ENOSYS,
                        msg='Server cannot continue running without fork '
                            'support. Shutting down.',
-                       code='FORK_NO_SUPPORT',
+                       code='FORK_NOT_IMPLEMENTED',
                        from_=err)
 
+            # TODO are these SysErrors ? or should the OSError be reraised
+            # instead of transformed ?
             if err.errno in (errno.ENOMEM, errno.EAGAIN):
                 error_log.warning('Not enough resources to serve the '
                                   'client connection. Server will continue '
                                   'listening but connections will receive '
                                   '503 until resources are free.')
-                raise PeerError(msg='Not enough resources to serve client '
-                                    'request through fork.',
-                                code='FORK_NOT_ENOUGH_RESOURCES') from err
-
-            assert False
+                raise SysError(msg='Not enough resources to serve client '
+                                   'request through fork.',
+                               code='FORK_NOT_ENOUGH_RESOURCES') from err
+            raise SysError(msg='Unhandled ERRNO={.d} raised from fork().'
+                               'Exception reason: {}',
+                           code='FORK_UNKNOWN_ERROR')
 
         if pid == 0:
             self.execution_context = self.ExecutionContext.worker
