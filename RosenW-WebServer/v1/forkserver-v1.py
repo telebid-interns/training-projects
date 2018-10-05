@@ -24,26 +24,29 @@ class Server:
     self.sock.listen(opts['request_queue_size'])
     self.log.info('Server started on port {}'.format(opts['port']))
     self.env = {}
-    self.workers = 0
+    self.workers = []
+    self.timeout = opts['timeout']
 
   def start(self):
+    # if os.fork() == 0:
+    #   self.reap_children()
     while True:
       try:
-        connection, client_address = self.sock.accept()
-        self.log.info('accepted connection: {}'.format(client_address))
-        if os.fork() == 0:
-          try:
-            assert type(client_address) is tuple and len(client_address) == 2
-            self.env = {'host': client_address[0], 'port': client_address[1]}
-            self.handle_request(connection)
-            self.log.info('Request Handled')
-          except BaseException as e:
+          connection, client_address = self.sock.accept()
+          self.log.info('accepted connection: {}'.format(client_address))
+          if os.fork() == 0:
             try:
-              send(connection, self.generate_headers(500))
-            except BaseException as ex:
-              self.log.error(ex)
-            self.log.error(e)
-          break
+              assert type(client_address) is tuple and len(client_address) == 2
+              self.env = {'host': client_address[0], 'port': client_address[1]}
+              self.handle_request(connection)
+              self.log.info('Request Handled')
+            except BaseException as e:
+              try:
+                send(connection, self.generate_headers(500))
+              except BaseException as ex:
+                self.log.error(ex)
+              self.log.error(e)
+            break
       except (IOError, OSError, IndexError, ValueError) as e:
         try:
           send(connection, self.generate_headers(500))
@@ -69,7 +72,7 @@ class Server:
 
     try:
       self.sock.close()
-      connection.settimeout(5)
+      connection.settimeout(self.timeout)
       request = self.recv_request(connection)
       self.env['request_time'] = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
       self.parse_request(request)
@@ -85,7 +88,7 @@ class Server:
     except FileNotFoundError as e:
       send(connection, self.generate_headers(404))
       self.log.warn(e)
-    except IOError as e:
+    except socket.timeout as e:
       send(connection, self.generate_headers(408))
       self.log.warn(e)
     except BaseException as e:
@@ -195,26 +198,32 @@ class Server:
       return ''
     return path
 
+  def reap_children(self):
+    while True:
+      try:
+        pass
+      except BaseException as e:
+        self.log.error(e)
+
 if __name__ == '__main__':
   DEFAULT_REQUEST_QUEUE_SIZE = 5
+  DEFAULT_TIMEOUT = 5
   DEFAULT_ADDRESS = ''
   DEFAULT_PORT = 8888
 
   config = ConfigParser()
   config.read('./etc/config.ini')
 
-  port = config.getint('server', 'port')
+  port = config.get('server', 'port')
   address = config.get('server', 'address')
-  request_queue_size = config.getint('server', 'request_queue_size')
-
-  assert type(port) is int
-  assert type(address) is str
-  assert type(request_queue_size) is int
+  request_queue_size = config.get('server', 'request_queue_size')
+  timeout = config.get('server', 'timeout')
 
   opts = {
-    'port': port or DEFAULT_PORT,
+    'port': port if type(port) is int else DEFAULT_PORT,
     'address': address or DEFAULT_ADDRESS,
-    'request_queue_size': request_queue_size or DEFAULT_REQUEST_QUEUE_SIZE
+    'request_queue_size': request_queue_size if type(request_queue_size) is int else DEFAULT_REQUEST_QUEUE_SIZE,
+    'timeout': timeout if type(timeout) is int else DEFAULT_TIMEOUT
   }
 
   Server(opts).start()
