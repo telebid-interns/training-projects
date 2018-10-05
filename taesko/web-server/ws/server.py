@@ -11,6 +11,7 @@ import ws.http.parser
 import ws.http.structs
 import ws.responses
 import ws.serve
+import ws.sockets
 from ws.config import config
 from ws.err import *
 from ws.logs import error_log, access_log
@@ -88,7 +89,7 @@ class Server:
 
         while True:
             try:
-                client_socket, address = self.sock.accept()
+                accepted_socket, address = self.sock.accept()
             except OSError as err:
                 # kernel specific errors are not handled:
                 # ENOSR, ESOCKTNOSUPPORT, EPROTONOSUPPORT, ETIMEDOUT
@@ -117,20 +118,29 @@ class Server:
                 continue
 
             error_log.debug('Accepted connection. '
-                            'client_socket.fileno=%d and address=%s',
-                            client_socket.fileno(), address)
+                            'accepted_socket.fileno=%d and address=%s',
+                            accepted_socket.fileno(), address)
+            error_log.info('Pre-parsing request to verify syntax of headers.')
+
+            client_socket = ws.sockets.ClientSocket(
+                accepted_socket,
+                socket_timeout=config.getint('http', 'request_timeout'),
+                connection_timeout=config.getint('http', 'connection_timeout')
+            )
+
+            if not pre_verify_request_syntax(client_socket, address):
+                continue
+
             try:
-                forked_pid = self.fork(client_socket)
+                forked_pid = self.fork(accepted_socket)
             except SysError:
                 error_log.exception('')
                 # noinspection PyBroadException
                 try:
                     response = ws.responses.service_unavailable
-                    # TODO perhaps move parser out into the main process so
-                    # not to consume resources
                     # TODO reject invalid requests from the same client if it
                     # happens multiple times
-                    self.work(client_socket, address,
+                    self.work(accepted_socket, address,
                               quick_reply_with=response)
                 except BaseException:
                     logging.exception('Unhandled exception occurred while '
@@ -143,7 +153,7 @@ class Server:
                 status = 0
                 # noinspection PyBroadException
                 try:
-                    self.work(client_socket, address)
+                    self.work(accepted_socket, address)
                 except Exception:
                     status = 1
                     logging.exception('Unhandled exception occurred while'
@@ -306,17 +316,20 @@ class Worker:
     """
 
     # noinspection PyUnusedLocal
-    def __init__(self, sock, address):
-        self.sock = sock
+    def __init__(self,
+                 iterable_socket,
+                 address,
+                 *,
+                 max_headers_len=config.getint('http', 'max_headers_len'),
+                 ):
+        assert isinstance(iterable_socket, ws.sockets.ClientSocket)
+        self.sock = iterable_socket
         self.last_request = None
         self.last_response = None
         self.responding = False
         self.request_queue = collections.deque()
 
         signal.signal(signal.SIGTERM, self.handle_termination)
-        sock.settimeout(config.getint('http', 'request_timeout'))
-
-        self.request_receiver = RequestReceiver(sock)
 
     @property
     def http_connection_is_open(self):
@@ -354,9 +367,7 @@ class Worker:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if not exc_val:
-            error_log.info('Cleaning up worker after successful execution.'
-                           ' Shutting down socket %d for both r/w',
-                           self.sock.fileno())
+            error_log.info('Cleaning up worker after successful execution.')
             self.sock.shutdown(socket.SHUT_RDWR)
             self.sock.close()
             return False
@@ -387,8 +398,9 @@ class Worker:
 
         if hasattr(exc_val, 'code'):
             ignored_request = exc_val.code in (
-                'RECEIVING_REQUEST_TIMED_OUT',
-                'PEER_STOPPED_SENDING'
+                'CS_CONNECTION_TIMED_OUT',
+                'CS_PEER_SEND_IS_TOO_SLOW',
+                'CS_PEER_NOT_SENDING'
             )
 
         try:
@@ -421,12 +433,13 @@ class Worker:
     def parse_request(self):
         assert self.http_connection_is_open
 
-        self.last_request = ws.http.parser.parse(self.request_receiver)
+        self.last_request = ws.http.parser.parse(self.sock)
         return self.last_request
 
     def respond(self, response, *, closing=False, ignored_request=False):
         assert isinstance(response, ws.http.structs.HTTPResponse)
         assert isinstance(closing, bool)
+        assert isinstance(ignored_request, bool)
         assert self.http_connection_is_open
 
         # TODO there needs to be a way to send Close connection through here.
@@ -436,7 +449,7 @@ class Worker:
 
         self.responding = True
         self.last_response = response
-        response.send(self.sock)
+        self.sock.send_all(bytes(response))
         self.responding = False
 
         if ignored_request:
@@ -457,7 +470,7 @@ class Worker:
 
         response = ws.responses.service_unavailable
         response.headers['Connection'] = 'close'
-        response.send(self.sock)
+        self.sock.send_all(bytes(response))
 
         # TODO what kind of error is this ?
         # raise PeerError(msg='Parent process requested termination.',
@@ -465,7 +478,7 @@ class Worker:
         raise RuntimeError('Parent process requested termination.')
 
 
-class RequestReceiver:
+class RequestReceiverDepreciated:
     """ Optimal byte iterator over plain sockets.
 
     The __next__ method of this class ALWAYS returns one byte from the
@@ -517,6 +530,26 @@ class RequestReceiver:
         self.current_chunk = iter(chunk)
 
         return next(self.current_chunk)
+
+
+def pre_verify_request_syntax(client_socket, address):
+    """ Checks if the syntax of the incoming request from the socket is ok.
+
+    If the syntax is malformed an adequete response is sent to the client.
+
+    It's possible for this function to raise:
+        SystemExit
+        KeyboardInterrupt
+    """
+    assert isinstance(client_socket, ws.sockets.ClientSocket)
+
+    # noinspection PyBroadException
+    try:
+        with Worker(client_socket, address) as worker:
+            worker.parse_request()
+            return True
+    except Exception:
+        return False
 
 
 def handle_request(request):

@@ -110,6 +110,9 @@ class ClientSocket:
     def reiterate(self):
         self.current_chunk = b''.join(self.chunks)
 
+    def fileno(self):
+        return self.sock.fileno()
+
     def shutdown(self, how):
         msgs = {
             socket.SHUT_RD: 'Shutting down socket %d for reading/receiving.',

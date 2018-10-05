@@ -42,8 +42,9 @@ class SpyIterator:
             return value
 
 
-def parse(iterable):
+def parse(iterable, lazy=False):
     assert isinstance(iterable, collections.Iterable)
+    assert isinstance(lazy, bool)
 
     message_iter = SpyIterator(iterable)
     request_line = parse_request_line(message_iter)
@@ -56,8 +57,12 @@ def parse(iterable):
         raise PeerError(code='BAD_CONTENT_LENGTH',
                         msg='Content length must be a string.') from e
 
-    body = parse_body(message_iter, cl)
-    error_log.debug('Received body. %s', body)
+    if lazy:
+        body = parse_body(message_iter, cl)
+        error_log.debug('Received body. %s', body)
+    else:
+        body = parse_body_lazily(message_iter, cl)
+        error_log.debug('Deferring parsing of body to later.')
 
     return ws.http.structs.HTTPRequest(
         request_line=request_line,
@@ -237,6 +242,20 @@ def parse_body(iterator, content_len):
         parts.append(next(iterator))
 
     return bytes(parts)
+
+
+def parse_body_lazily(iterator, content_len):
+    assert isinstance(iterator, SpyIterator)
+    assert isinstance(content_len, int)
+
+    # because iterator might be iteration over a wrapper around socket.recv()
+    # calling next() on it might hang indefinitely.
+    if content_len == 0:
+        yield b''
+        return
+
+    for _ in range(content_len):
+        yield next(iterator)
 
 
 def take_until(characters, spy_iter, take_max=None):
