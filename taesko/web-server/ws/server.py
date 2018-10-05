@@ -257,8 +257,15 @@ class Server:
         leftover_workers = collections.deque()
 
         for worker in self.workers:
-            # TODO this might raise OSError
-            has_finished, status = os.waitpid(worker.pid, os.WNOHANG)
+            try:
+                has_finished, status = os.waitpid(worker.pid, os.WNOHANG)
+            except OSError as err:
+                error_log.exception('Could not reap child worker with pid %d.'
+                                    'waitpid() returned ERRNO=%d and reason=%s',
+                                    worker.pid, err.errno, err.strerror)
+                # don't stop the listening loop and continue reaping the rest
+                # of the workers.
+                continue
 
             if has_finished:
                 error_log.info('Worker %s has finished.', worker)
@@ -272,8 +279,13 @@ class Server:
         now = time.time()
         for worker in self.workers:
             if now - worker.created_on > self.process_timeout:
-                os.kill(worker.pid, signal.SIGTERM)
-                error_log.info('Sent SIGTERM to hanged worker %s', worker)
+                try:
+                    os.kill(worker.pid, signal.SIGTERM)
+                    error_log.info('Sent SIGTERM to hanged worker with pid=%d',
+                                   worker.pid)
+                except OSError:
+                    error_log.exception('Failed to sent SIGTERM to '
+                                        'hanged worker with pid=%d', worker.pid)
 
         error_log.debug('Rescheduling SIGALRM signal to after %s seconds',
                         self.process_timeout)
@@ -454,6 +466,18 @@ class Worker:
 
 
 class RequestReceiver:
+    """ Optimal byte iterator over plain sockets.
+
+    The __next__ method of this class ALWAYS returns one byte from the
+    underlying socket or raises an exception.
+
+    Exceptions raised:
+        PeerError(code='RECEIVING_REQUEST_TIMED_OUT') - when __next__ is called
+            and the socket times out.
+        PeerError(code='PEER_STOPPED_SENDING' - when __next__ is called and
+            the client sends 0 bytes through the socket indication he is done.
+        StopIteration() - if __next__ is called after the socket was broken
+    """
     buffer_size = 2048
 
     def __init__(self, sock):
