@@ -7,7 +7,6 @@ import signal
 import socket
 import time
 
-import ws.err_responses
 import ws.http.parser
 import ws.http.structs
 import ws.responses
@@ -421,7 +420,7 @@ class Worker:
         # No salvation if bytes have already been sent over the socket
         assert not self.responding
 
-        response = ws.err_responses.service_unavailable()
+        response = ws.responses.service_unavailable
         response.headers['Connection'] = 'close'
         response.send(self.sock)
 
@@ -486,7 +485,7 @@ def handle_request(request):
     elif request.request_line.method == 'DELETE':
         return ws.serve.delete_file(route)
     else:
-        return ws.err_responses.method_not_allowed()
+        return ws.responses.method_not_allowed
 
 
 def main():
