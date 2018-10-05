@@ -23,4 +23,4 @@ class SysError(BaseError):
 
 
 assert_peer = PeerError.assert_
-assert_sys = PeerError.assert_
+assert_system = PeerError.assert_

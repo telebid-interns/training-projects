@@ -24,6 +24,10 @@ class Server:
     ActiveWorker = collections.namedtuple('ActiveWorker', ['pid', 'created_on'])
 
     def __init__(self):
+        assert_system(self.sys_has_fork_support(),
+                      msg="Kernel or C lib versions don't have fork() support.",
+                      code='FORK_NOT_IMPLEMENTED')
+
         self.host = config['settings']['host']
         self.port = config.getint('settings', 'port')
         self.process_timeout = config.getint('settings', 'process_timeout')
@@ -117,10 +121,8 @@ class Server:
                             client_socket.fileno(), address)
             try:
                 forked_pid = self.fork(client_socket)
-            except SysError as err:
-                if err.code == 'FORK_NOT_IMPLEMENTED':
-                    raise
-
+            except SysError:
+                error_log.exception('')
                 # noinspection PyBroadException
                 try:
                     response = ws.responses.service_unavailable
@@ -158,8 +160,9 @@ class Server:
         the client socket in the parent process.
 
         Raises the following exceptions:
-            OSError with errno = ENOMEM or EAGAIN - if this exception is raised
-                the process isn't forked and no sockets are closed.
+            SysError with codes FORK_NOT_ENOUGH_RESOURCES or FORK_UNKNOWN_ERROR
+                if this exception is raised the process isn't forked and
+                no sockets are closed.
         """
         assert self.execution_context == self.ExecutionContext.main
         assert isinstance(client_socket, socket.socket)
@@ -173,14 +176,6 @@ class Server:
             error_log.warning('fork() raised ERRNO=%d. Reason: %s',
                               err.errno, err.strerror)
 
-            # TODO this doesn't change dynamically and should be checked
-            # statically at startup
-            assert_sys(err.errno != errno.ENOSYS,
-                       msg='Server cannot continue running without fork '
-                           'support. Shutting down.',
-                       code='FORK_NOT_IMPLEMENTED',
-                       from_=err)
-
             # TODO are these SysErrors ? or should the OSError be reraised
             # instead of transformed ?
             if err.errno in (errno.ENOMEM, errno.EAGAIN):
@@ -191,9 +186,11 @@ class Server:
                 raise SysError(msg='Not enough resources to serve client '
                                    'request through fork.',
                                code='FORK_NOT_ENOUGH_RESOURCES') from err
-            raise SysError(msg='Unhandled ERRNO={.d} raised from fork().'
-                               'Exception reason: {}',
-                           code='FORK_UNKNOWN_ERROR')
+
+            raise SysError(msg='Unhandled ERRNO={0.d} raised from fork().'
+                               'Exception reason: {1}'.format(err.errno,
+                                                              err.strerror),
+                           code='FORK_UNKNOWN_ERROR') from err
 
         if pid == 0:
             self.execution_context = self.ExecutionContext.worker
@@ -227,6 +224,29 @@ class Server:
                 request = worker.parse_request()
                 response = handle_request(request)
                 worker.respond(response)
+
+    @staticmethod
+    def sys_has_fork_support():
+        error_log.info('Checking if system has fork support by doing a '
+                       'dummy fork...')
+        try:
+            pid = os.fork()
+        except OSError as err:
+            if err.errno == errno.ENOSYS:
+                error_log.critical('System does not have fork() support.')
+                return False
+            else:
+                return True
+
+        if pid == 0:
+            # noinspection PyProtectedMember
+            os._exit(0)
+        else:
+            error_log.info('Fork successful. Cleaning up dummy child '
+                           '(pid={:d})...'.format(pid))
+            os.waitpid(pid, 0)
+
+        return True
 
     # noinspection PyUnusedLocal
     def terminate_hanged_workers(self, signum, stack_frame):
