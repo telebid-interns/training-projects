@@ -1,9 +1,24 @@
 import collections
+import itertools
 import socket
 import time
+# noinspection PyUnresolvedReferences
+from socket import SHUT_WR, SHUT_RD, SHUT_RDWR
 
 from ws.err import *
 from ws.logs import error_log
+
+
+class ClientSocketError(PeerError):
+    default_msg = 'Client socket caused an error.'
+    default_code = 'CS_ERROR'
+
+    def __init__(self, msg=default_code, code=default_code):
+        super().__init__(msg=msg, code=code)
+
+    def assert_(cls, condition, *, msg=default_msg, code=default_code,
+                from_=None):
+        super().assert_(condition, msg=msg, code=code)
 
 
 class ClientSocket:
@@ -12,17 +27,14 @@ class ClientSocket:
     The __next__ method of this class ALWAYS returns one byte from the
     underlying socket or raises an exception.
 
-    Exceptions raised:
-        PeerError(code='CS_PEER_SEND_IS_TOO_SLOW') - when __next__ is called
-            and the socket times out.
-        PeerError(code='CS_PEER_NOT_SENDING' - when __next__ is called and
-            the client sends 0 bytes through the socket indication he is done.
-        PeerError(code='CS_CONNECTION_TIMED_OUT') - when __next__ is but
+    Exceptions raised during iteration:
+        ClientSocketError(code='CS_PEER_SEND_IS_TOO_SLOW') - when __next__ is
+            called and the socket times out.
+        ClientSocketError(code='CS_PEER_NOT_SENDING' - when __next__ is called
+            and the client sends 0 bytes through the socket indication he is done.
+        ClientSocketError(code='CS_CONNECTION_TIMED_OUT') - when __next__ is but
             the connection_timeout has been exceeded.
         StopIteration() - if __next__ is called after the socket was broken
-
-        PeerError(code='CS_PEER_NOT_RECEIVING') - when send_all is called
-            but the socket has been shutdown for sending from the peer.
     """
     buffer_size = 2048
 
@@ -52,24 +64,21 @@ class ClientSocket:
         elif self.socket_broke:
             raise StopIteration()
 
-        if self.connected_on < time.time():
-            raise PeerError(msg='Connection with peer timed out.',
-                            code='CS_CONNECTION_TIMED_OUT')
+        if self.connected_on + self.connection_timeout < time.time():
+            raise ClientSocketError(code='CS_CONNECTION_TIMED_OUT')
 
         try:
             chunk = self.sock.recv(self.__class__.buffer_size)
         except socket.timeout as e:
             error_log.exception('Socket timed out while receiving request.')
-            raise PeerError(msg='Waited too long for a request',
-                            code='CS_PEER_SEND_IS_TOO_SLOW') from e
+            raise ClientSocketError(code='CS_PEER_SEND_IS_TOO_SLOW') from e
 
         error_log.debug('Read chunk %s', chunk)
 
         if chunk == b'':
             error_log.info('Socket %d broke', self.sock.fileno())
             self.socket_broke = True
-            raise PeerError(code='CS_PEER_NOT_SENDING',
-                            msg='Client send 0 bytes through socket.')
+            raise ClientSocketError(code='CS_PEER_NOT_SENDING')
 
         self.chunks.append(chunk)
         self.current_chunk = iter(chunk)
@@ -77,16 +86,25 @@ class ClientSocket:
         return next(self.current_chunk)
 
     def recv_until_after(self, bytes_token, recv_max_bytes):
+        """ Yields bytes one by one until a bytes_token is met.
+
+        Parameter :bytes_token: can be of any length less than :recv_max_bytes:.
+
+        Raises the following exceptions:
+            ClientSocketError(code='CS_PEER_SENDING_TOO_MUCH') - if the token
+                is not met until :recv_max_bytes: are yielded
+        """
         assert isinstance(bytes_token, bytes)
         assert len(bytes_token) > 0
+        assert isinstance(recv_max_bytes, int)
+        assert len(bytes_token) < recv_max_bytes
 
         last = collections.deque(maxlen=len(bytes_token))
 
         for count, byte in enumerate(self):
-            assert_peer(count != recv_max_bytes,
-                        msg='Reached max bytes for recv_until_after call. '
-                            'Peer is most likely sending a very long response.',
-                        code='PEER_SENDING_TOO_MUCH')
+            if count == recv_max_bytes:
+                raise ClientSocketError(code='CS_PEER_SENDING_TOO_MUCH')
+
             yield byte
 
             last.append(byte)
@@ -95,20 +113,27 @@ class ClientSocket:
                 return
 
     def send_all(self, bytes_response):
+        """ Sends bytes through the socket until everything is received.
+
+
+        Raises the following exceptions:
+            ClientSocketError(code='CS_PEER_NOT_RECEIVING') - the socket has
+                been shutdown for sending from the peer.
+        """
         assert isinstance(bytes_response, bytes)
 
         total_sent = 0
 
         while total_sent < len(bytes_response):
             sent = self.sock.send(bytes_response[total_sent:])
-            assert_peer(sent != 0,
-                        msg='Peer broke socket connection while server '
-                            'was sending.',
-                        code='CS_PEER_NOT_RECEIVING')
+
+            if sent == 0:
+                raise ClientSocketError(code='CS_PEER_NOT_RECEIVING')
+
             total_sent += sent
 
     def reiterate(self):
-        self.current_chunk = b''.join(self.chunks)
+        self.current_chunk = itertools.chain(*self.chunks)
 
     def fileno(self):
         return self.sock.fileno()

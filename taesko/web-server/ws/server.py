@@ -89,12 +89,14 @@ class Server:
 
         while True:
             try:
-                accepted_socket, address = self.sock.accept()
+                client_socket, address = self.sock.accept()
+                client_socket = ws.sockets.ClientSocket(
+                    client_socket,
+                    socket_timeout=config.getint('http', 'request_timeout'),
+                    connection_timeout=config.getint('http',
+                                                     'connection_timeout')
+                )
             except OSError as err:
-                # kernel specific errors are not handled:
-                # ENOSR, ESOCKTNOSUPPORT, EPROTONOSUPPORT, ETIMEDOUT
-                # consult man 2 socket
-
                 error_log.warning('accept() raised ERRNO=%s', err.errno)
 
                 # TODO perhaps reopen failed listening sockets.
@@ -118,21 +120,17 @@ class Server:
                 continue
 
             error_log.debug('Accepted connection. '
-                            'accepted_socket.fileno=%d and address=%s',
-                            accepted_socket.fileno(), address)
+                            'client_socket.fileno=%d and address=%s',
+                            client_socket.fileno(), address)
             error_log.info('Pre-parsing request to verify syntax of headers.')
 
-            client_socket = ws.sockets.ClientSocket(
-                accepted_socket,
-                socket_timeout=config.getint('http', 'request_timeout'),
-                connection_timeout=config.getint('http', 'connection_timeout')
-            )
-
             if not pre_verify_request_syntax(client_socket, address):
+                client_socket.shutdown(ws.sockets.SHUT_RDWR)
+                client_socket.close()
                 continue
 
             try:
-                forked_pid = self.fork(accepted_socket)
+                forked_pid = self.fork(client_socket)
             except SysError:
                 error_log.exception('')
                 # noinspection PyBroadException
@@ -140,7 +138,7 @@ class Server:
                     response = ws.responses.service_unavailable
                     # TODO reject invalid requests from the same client if it
                     # happens multiple times
-                    self.work(accepted_socket, address,
+                    self.work(client_socket, address,
                               quick_reply_with=response)
                 except BaseException:
                     logging.exception('Unhandled exception occurred while '
@@ -153,7 +151,7 @@ class Server:
                 status = 0
                 # noinspection PyBroadException
                 try:
-                    self.work(accepted_socket, address)
+                    self.work(client_socket, address)
                 except Exception:
                     status = 1
                     logging.exception('Unhandled exception occurred while'
@@ -175,8 +173,9 @@ class Server:
                 no sockets are closed.
         """
         assert self.execution_context == self.ExecutionContext.main
-        assert isinstance(client_socket, socket.socket)
+        assert isinstance(client_socket, ws.sockets.ClientSocket)
 
+        # TODO this shouldn't be a PeerError.
         assert_peer(len(self.workers) < self.process_count_limit,
                     msg='Cannot fork because process limit has been reached.',
                     code='FORK_PROCESS_COUNT_LIMIT_REACHED')
@@ -316,12 +315,7 @@ class Worker:
     """
 
     # noinspection PyUnusedLocal
-    def __init__(self,
-                 iterable_socket,
-                 address,
-                 *,
-                 max_headers_len=config.getint('http', 'max_headers_len'),
-                 ):
+    def __init__(self, iterable_socket, address):
         assert isinstance(iterable_socket, ws.sockets.ClientSocket)
         self.sock = iterable_socket
         self.last_request = None
@@ -372,6 +366,7 @@ class Worker:
             self.sock.close()
             return False
 
+        error_log.info('Cleaning up worker after unsuccessful execution.')
         if self.responding:
             error_log.error(
                 'An exception occurred after worker had sent bytes over'
@@ -535,21 +530,41 @@ class RequestReceiverDepreciated:
 def pre_verify_request_syntax(client_socket, address):
     """ Checks if the syntax of the incoming request from the socket is ok.
 
-    If the syntax is malformed an adequete response is sent to the client.
+    If the syntax is malformed an adequate response is sent to the client.
 
     It's possible for this function to raise:
         SystemExit
         KeyboardInterrupt
     """
-    assert isinstance(client_socket, ws.sockets.ClientSocket)
-
     # noinspection PyBroadException
     try:
-        with Worker(client_socket, address) as worker:
-            worker.parse_request()
-            return True
-    except Exception:
+        ws.http.parser.parse(client_socket, lazy=True)
+    except ws.http.parser.ParserError as err:
+        error_log.warning('During pre-parsing: failed to parse request from '
+                          'client socket %s. Error code=%s',
+                          client_socket.fileno(), err.code)
+
+        try:
+            client_socket.send_all(bytes(ws.responses.bad_request))
+            access_log.log(request=None, response=ws.responses.bad_request)
+        except ws.sockets.ClientSocketError:
+            error_log.warning('Client socket %s did not receive response.')
+
         return False
+    except ws.sockets.ClientSocketError as err:
+        error_log.warning('During pre-parsing: client socket %s caused an '
+                          'error with code %s ',
+                          client_socket.fileno(), err.code)
+        return False
+    except Exception:
+        error_log.exception('During pre-parsing: parser failed on socket %s ',
+                            client_socket.fileno())
+    finally:
+        # reset the client socket so later handling of the request does not have
+        # to do it manually.
+        client_socket.reiterate()
+
+    return True
 
 
 def handle_request(request):

@@ -109,7 +109,7 @@ def parse_request_line(it, *,
 
     parts = line.split(b' ')
 
-    if len(parts) <= 3:
+    if len(parts) < 3:
         raise ParserError(code='PARSER_BAD_REQUEST_LINE')
 
     method, request_target, http_version = parts
@@ -215,24 +215,21 @@ def parse_headers(message_iterable):
 
     headers = {}
 
-    while True:
-        try:
-            line = bytes(take_until(
-                (b'\r\n',),
-                message_iterable,
-                take_max=config.getint('http', 'max_header_len')))
-        except RuntimeError as e:
-            raise ParserError(code='PARSER_HEADERS_TOO_LONG') from e
+    try:
+        headers_part = bytes(take_until(
+            (b'\r\n\r\n',),
+            message_iterable,
+            take_max=config.getint('http', 'max_headers_len')
+        ))
+    except RuntimeError as e:
+        raise ParserError(code='PARSER_HEADERS_TOO_LONG') from e
 
-        skipped = message_iterable.skip(2)
-
-        if skipped != b'\r\n':
-            raise ParserError(code='PARSER_BAD_HEADERS')
-
-        if line == b'':
-            break
-
+    for line in headers_part.split(b'\r\n'):
         sep_index = line.find(b':')
+
+        if sep_index == -1:
+            raise ParserError(code='PARSER_BAD_HEADER')
+
         # TODO research if this never fails ?
         field = line[:sep_index].decode('ascii')
         value = line[sep_index + 1:]
