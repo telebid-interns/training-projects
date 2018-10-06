@@ -10,6 +10,18 @@ from ws.err import *
 error_log = logging.getLogger('error')
 
 
+class ParserError(PeerError):
+    default_msg = 'Failed to parse request due to bad syntax.'
+    default_code = 'PARSER_BAD_SYNTAX'
+
+    def __init__(self, msg=default_msg, code=default_code):
+        super().__init__(msg=msg, code=code)
+
+    def assert_(cls, condition, *, msg=default_msg, code=default_code,
+                from_=None):
+        super().assert_(condition, msg=msg, code=code, from_=from_)
+
+
 class SpyIterator:
     def __init__(self, iterable):
         self.it = iter(iterable)
@@ -54,8 +66,7 @@ def parse(iterable, lazy=False):
     try:
         cl = int(headers.get('Content-Length', 0))
     except ValueError as e:
-        raise PeerError(code='BAD_CONTENT_LENGTH',
-                        msg='Content length must be a string.') from e
+        raise ParserError(code='BAD_CONTENT_LENGTH') from e
 
     if lazy:
         body = parse_body(message_iter, cl)
@@ -92,33 +103,29 @@ def parse_request_line(it, *,
         line = bytes(take_until((b'\r\n',), it,
                                 take_max=max_request_len))
     except RuntimeError as e:
-        err = PeerError(msg='Request line is too long',
-                        code='PARSER_LONG_REQUEST_LINE')
-        raise err from e
+        raise ParserError(code='PARSER_LONG_REQUEST_LINE') from e
 
     it.skip(2)  # advance through \r\n
 
     parts = line.split(b' ')
-    assert_peer(len(parts) >= 3,
-                msg='Request line does not have enough parts',
-                code='PARSER_BAD_REQUEST_LINE')
+
+    if len(parts) <= 3:
+        raise ParserError(code='PARSER_BAD_REQUEST_LINE')
 
     method, request_target, http_version = parts
     method = method.decode('ascii')
 
-    assert_peer(method in methods,
-                msg='Unknown HTTP method {method}'.format(method=method),
-                code='PARSER_UNKNOWN_METHOD')
+    if method not in methods:
+        raise ParserError(code='PARSER_UNKNOWN_METHOD')
+
     error_log.debug('Parsed method %r', method)
 
     uri = parse_request_target(request_target)
     error_log.debug('Parsed uri %r', uri)
 
-    matched = re.match(b'HTTP/(\\d\\.\\d)', http_version)
-    assert_peer(matched,
-                msg='Incorrect HTTP-version.'
-                    'Got {}.'.format(http_version),
-                code='PARSER_BAD_HTTP_VERSION')
+    if not re.match(b'HTTP/(\\d\\.\\d)', http_version):
+        raise ParserError(code='PARSER_BAD_HTTP_VERSION')
+
     http_version = http_version.decode('ascii')
 
     return ws.http.structs.HTTPRequestLine(method=method,
@@ -131,9 +138,10 @@ def parse_request_target(iterable):
 
     def parse_authority(authority):
         matched = re.match(r'([^@:]*@)?([^@:]+)(:\d*)?', authority)
-        assert_peer(matched,
-                    msg='Invalid authority of uri {}'.format(string),
-                    code='PARSER_INVALID_AUTHORITY')
+
+        if not matched:
+            raise ParserError(code='PARSER_INVALID_AUTHORITY')
+
         user_info_, host_, port_ = matched.groups()
         user_info_ = user_info_[:-1] if user_info_ else None
         port_ = port_[1:] if port_ else None
@@ -161,14 +169,15 @@ def parse_request_target(iterable):
     elif re.match(r'^\w+://', string):
         # absolute-form
         protocol, *rest = string.split('://')
-        assert_peer(len(rest) == 1,
-                    msg='Invalid absolute-form for uri {}'.format(string),
-                    code='PARSER_BAD_ABSOLUTE_FORM_URI')
+
+        if len(rest) != 1:
+            raise ParserError(code='PARSER_BAD_ABSOLUTE_FORM_URI')
 
         parts = rest[0].split('/')
-        assert_peer(len(parts) > 1,
-                    msg='Missing authority of uri {}'.format(string),
-                    code='PARSER_MISSING_AUTHORITY')
+
+        if len(parts) <= 1:
+            raise ParserError(code='PARSER_MISSING_AUTHORITY')
+
         user_info, host, port = parse_authority(parts[0])
 
         absolute_path = '/' + '/'.join(parts[1:])
@@ -207,12 +216,18 @@ def parse_headers(message_iterable):
     headers = {}
 
     while True:
-        line = bytes(take_until((b'\r\n',), message_iterable))
+        try:
+            line = bytes(take_until(
+                (b'\r\n',),
+                message_iterable,
+                take_max=config.getint('http', 'max_header_len')))
+        except RuntimeError as e:
+            raise ParserError(code='PARSER_HEADERS_TOO_LONG') from e
+
         skipped = message_iterable.skip(2)
 
-        assert_peer(skipped == b'\r\n',
-                    msg='Invalid header line {}'.format(line),
-                    code='PARSER_BAD_HEADER_LINE')
+        if skipped != b'\r\n':
+            raise ParserError(code='PARSER_BAD_HEADERS')
 
         if line == b'':
             break
