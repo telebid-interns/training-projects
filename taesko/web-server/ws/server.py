@@ -480,60 +480,6 @@ class Worker:
         raise RuntimeError('Parent process requested termination.')
 
 
-class RequestReceiverDepreciated:
-    """ Optimal byte iterator over plain sockets.
-
-    The __next__ method of this class ALWAYS returns one byte from the
-    underlying socket or raises an exception.
-
-    Exceptions raised:
-        PeerError(code='RECEIVING_REQUEST_TIMED_OUT') - when __next__ is called
-            and the socket times out.
-        PeerError(code='PEER_STOPPED_SENDING' - when __next__ is called and
-            the client sends 0 bytes through the socket indication he is done.
-        StopIteration() - if __next__ is called after the socket was broken
-    """
-    buffer_size = 2048
-
-    def __init__(self, sock):
-        self.sock = sock
-        self.chunks = []
-        self.current_chunk = None
-        self.socket_broke = False
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        if self.current_chunk:
-            try:
-                return next(self.current_chunk)
-            except StopIteration:
-                pass
-        elif self.socket_broke:
-            raise StopIteration()
-
-        try:
-            chunk = self.sock.recv(self.__class__.buffer_size)
-        except socket.timeout as e:
-            error_log.exception('Socket timed out while receiving request.')
-            raise PeerError(msg='Waited too long for a request',
-                            code='RECEIVING_REQUEST_TIMED_OUT') from e
-
-        error_log.debug('Read chunk %s', chunk)
-
-        if chunk == b'':
-            error_log.info('Socket %d broke', self.sock.fileno())
-            self.socket_broke = True
-            raise PeerError(code='PEER_STOPPED_SENDING',
-                            msg='Client send 0 bytes through socket.')
-
-        self.chunks.append(chunk)
-        self.current_chunk = iter(chunk)
-
-        return next(self.current_chunk)
-
-
 def pre_verify_request_syntax(client_socket, address):
     """ Checks if the syntax of the incoming request from the socket is ok.
 

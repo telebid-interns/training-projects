@@ -53,8 +53,9 @@ service_unavailable = HTTPResponse(
 error_responses = {
     'client': {
         PeerError: {
-            'PEER_STOPPED_SENDING': bad_request,
-            'RECEIVING_REQUEST_TIMED_OUT': request_timeout
+            'CS_PEER_NOT_SENDING': bad_request,
+            'CS_PEER_SEND_IS_TOO_SLOW': request_timeout,
+            'CS_CONNECTION_TIMED_OUT': request_timeout
         },
     },
     'server': {
@@ -68,12 +69,18 @@ error_responses = {
 def get_err_response(dct, exc_val):
     assert isinstance(exc_val, Exception)
 
-    if exc_val.__class__ not in dct:
+    handlers = None
+
+    for cls in dct:
+        if isinstance(exc_val, cls):
+            handlers = dct[cls]
+
+    if not handlers:
         return None
 
     code = getattr(exc_val, 'code', None)
 
-    return dct[exc_val.__class__].get(code, None)
+    return handlers.get(code, None)
 
 
 def client_err_response(exc_val):
