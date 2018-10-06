@@ -131,8 +131,14 @@ class Server:
 
             try:
                 forked_pid = self.fork(client_socket)
-            except SysError:
-                error_log.exception('')
+            except SysError as err:
+                if err.code == 'FORK_PROCESS_COUNT_LIMIT_REACH':
+                    error_log.warning('Process count limit has been reached '
+                                      'and server cannot fork itself any more '
+                                      '503 will be the status code of all '
+                                      'requests until resources are freed.')
+                else:
+                    error_log.exception('Forking failed.')
                 # noinspection PyBroadException
                 try:
                     response = ws.responses.service_unavailable
@@ -175,10 +181,11 @@ class Server:
         assert self.execution_context == self.ExecutionContext.main
         assert isinstance(client_socket, ws.sockets.ClientSocket)
 
-        # TODO this shouldn't be a PeerError.
-        assert_peer(len(self.workers) < self.process_count_limit,
-                    msg='Cannot fork because process limit has been reached.',
-                    code='FORK_PROCESS_COUNT_LIMIT_REACHED')
+        if len(self.workers) >= self.process_count_limit:
+            raise SysError(msg='Cannot fork because process limit has been '
+                               'reached.',
+                           code='FORK_PROCESS_COUNT_LIMIT_REACHED')
+
         try:
             pid = os.fork()
         except OSError as err:
