@@ -1,7 +1,6 @@
 import collections
 import errno
 import signal
-import socket
 
 import ws.http.parser
 import ws.http.structs
@@ -72,7 +71,7 @@ class Worker:
     def __exit__(self, exc_type, exc_val, exc_tb):
         if not exc_val:
             error_log.info('Cleaning up worker after successful execution.')
-            self.sock.shutdown(socket.SHUT_RDWR)
+            self.sock.shutdown(ws.sockets.SHUT_RDWR)
             self.sock.close()
             return False
 
@@ -84,7 +83,7 @@ class Worker:
             )
             error_log.info('Shutting down socket %d for both r/w',
                            self.sock.fileno())
-            self.sock.shutdown(socket.SHUT_RDWR)
+            self.sock.shutdown(ws.sockets.SHUT_RDWR)
             self.sock.close()
             return False
         else:
@@ -125,7 +124,7 @@ class Worker:
         # TODO the socket needs to be shutdown for reading as well, but
         # only after the client has received this response ?
         try:
-            self.sock.shutdown(socket.SHUT_WR)
+            self.sock.shutdown(ws.sockets.SHUT_WR)
         except OSError as e:
             if e.errno == errno.ENOTCONN:
                 error_log.warning('Got ENOTCONN when shutting down socket.')
