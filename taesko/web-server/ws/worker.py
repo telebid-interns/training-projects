@@ -28,8 +28,8 @@ class Worker:
     def __init__(self, iterable_socket, address):
         assert isinstance(iterable_socket, ws.sockets.ClientSocket)
         self.sock = iterable_socket
-        self.last_request = None
-        self.last_response = None
+        self.request = None
+        self.response = None
         self.responding = False
         self.request_queue = collections.deque()
 
@@ -50,11 +50,11 @@ class Worker:
 
             return b'close' in hop_by_hop_headers
 
-        if not self.last_request or not self.last_response:
+        if not self.request or not self.response:
             return True
 
-        return (not server_closed_connection(self.last_response) and
-                ws.http.utils.request_is_persistent(self.last_request))
+        return (not server_closed_connection(self.response) and
+                ws.http.utils.request_is_persistent(self.request))
 
     def __enter__(self):
         return self
@@ -122,10 +122,12 @@ class Worker:
     def parse_request(self):
         assert self.http_connection_is_open
 
-        self.last_request = ws.http.parser.parse(self.sock)
-        self.last_response = None
+        self.request = None
+        self.response = None
 
-        return self.last_request
+        self.request = ws.http.parser.parse(self.sock)
+
+        return self.request
 
     def respond(self, response, *, closing=False, ignored_request=False):
         assert isinstance(response, ws.http.structs.HTTPResponse)
@@ -137,16 +139,20 @@ class Worker:
         # instead of timing out and getting terminated.
         if closing:
             response.headers['Connection'] = 'close'
+        elif not ignored_request:
+            c_headers = str(self.request.headers.get('Connection', b''),
+                            encoding='ascii')
+            response.headers['Connection'] = c_headers
 
         self.responding = True
-        self.last_response = response
+        self.response = response
         self.sock.send_all(bytes(response))
         self.responding = False
 
         if ignored_request:
             access_log.log(request=None, response=response)
         else:
-            access_log.log(request=self.last_request, response=response)
+            access_log.log(request=self.request, response=response)
 
     # noinspection PyUnusedLocal
     def handle_termination(self, signum, stack_info):
