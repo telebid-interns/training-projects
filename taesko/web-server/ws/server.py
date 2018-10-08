@@ -375,7 +375,7 @@ class Worker:
 
         error_log.info('Cleaning up worker after unsuccessful execution.')
         if self.responding:
-            error_log.error(
+            error_log.exception(
                 'An exception occurred after worker had sent bytes over'
                 ' the socket. Client will receive an invalid HTTP response.'
             )
