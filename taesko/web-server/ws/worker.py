@@ -1,6 +1,7 @@
 import collections
 import errno
 import signal
+import time
 
 import ws.http.parser
 import ws.http.structs
@@ -178,11 +179,6 @@ class Worker:
 def work(client_socket, address, quick_reply_with=None):
     with Worker(client_socket, address) as worker:
         if quick_reply_with:
-            # TODO if the data from the socket is not read through recv()
-            # sending data and then quickly doing shutdown() + close()
-            # may cause the peer to not receive the response
-            # (this can be seen when running ab with large number of requests.)
-            worker.parse_request()
             worker.respond(quick_reply_with, closing=True,
                            ignored_request=True)
             return

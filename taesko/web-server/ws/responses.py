@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 from ws.config import config
 from ws.err import *
 from ws.http.structs import HTTPResponse, HTTPStatusLine, HTTPHeaders
@@ -84,9 +86,9 @@ def get_err_response(dct, exc_val):
 
 
 def client_err_response(exc_val):
-    return get_err_response(error_responses['client'], exc_val)
+    return deepcopy(get_err_response(error_responses['client'], exc_val))
 
 
 def server_err_response(exc_val):
-    return (get_err_response(error_responses['server'], exc_val) or
-            internal_server_error)
+    return deepcopy((get_err_response(error_responses['server'], exc_val) or
+                     internal_server_error))
