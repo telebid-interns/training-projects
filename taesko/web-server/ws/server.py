@@ -82,7 +82,9 @@ class Server:
 
         return False
 
-    def listen(self):
+    def listen(self, client_socket_handler):
+        assert isinstance(client_socket_handler, collections.Callable)
+
         error_log.info('Listening...')
         self.sock.listen(self.concurrency)
 
@@ -143,8 +145,8 @@ class Server:
                     response = ws.responses.service_unavailable
                     # TODO reject invalid requests from the same client if it
                     # happens multiple times
-                    ws.worker.work(client_socket, address,
-                                   quick_reply_with=response)
+                    client_socket_handler(client_socket, address,
+                                          quick_reply_with=response)
                 except BaseException:
                     logging.exception('Unhandled exception occurred while '
                                       'responding to client from the main'
@@ -156,7 +158,7 @@ class Server:
                 status = 0
                 # noinspection PyBroadException
                 try:
-                    ws.worker.work(client_socket, address)
+                    client_socket_handler(client_socket, address)
                 except Exception:
                     status = 1
                     logging.exception('Unhandled exception occurred while'
@@ -336,7 +338,7 @@ def main():
     # Main process should never exit from the server.listen() loop unless
     # an exception occurs.
     with Server() as server:
-        server.listen()
+        server.listen(ws.worker.work)
 
 
 if __name__ == '__main__':
