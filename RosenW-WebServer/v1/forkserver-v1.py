@@ -36,6 +36,7 @@ class Server:
     while True:
       try:
         connection, client_address = self.sock.accept()
+        self.log.debug(self.workers)
         if self.workers >= self.max_subprocess_count:
           raise SubprocessLimitError('Accepted Connection, but workers where over the allowed limit')
         self.log.info('accepted connection: {}'.format(client_address))
@@ -49,13 +50,12 @@ class Server:
             self.log.error(e)
           finally:
             break
-      # except SubprocessLimitError as e:
-      #   try:
-      #     self.log.warn(e)
-      #     send(connection, self.generate_headers(503))
-      #   except BaseException as ex:
-      #     self.log.error(ex)
-      #   self.log.error(e)
+      except SubprocessLimitError as e:
+        try:
+          self.log.warn(e)
+          send(connection, self.generate_headers(503))
+        except BaseException as ex:
+          self.log.error(ex)
       except IOError as e:
         if e.errno != os.errno.EINTR:
           try:
@@ -103,6 +103,8 @@ class Server:
 
       send(connection, self.generate_headers(200))
       send(connection, html)
+    except KeyboardInterrupt as e:
+      pass
     except PeerError as e:
       self.log.warn(e)
       send(connection, self.generate_headers(400))
@@ -165,7 +167,6 @@ class Server:
     self.log.info('request logged')
 
   def recv_request(self, connection):
-    start_time = time.time()
     data = connection.recv(1024)
     while '\r\n\r\n' not in data:
       data += connection.recv(1024)
@@ -176,6 +177,8 @@ class Server:
     return data
 
   def parse_headers(self, data):
+    self.log.debug('data')
+    self.log.debug(data)
     assertPeer(len(data) <= 1024, 'Headers too long', 'HEADERS_TOO_LONG')
     headers_length = data.find('\r\n\r\n') + self.HEADERS_END_STRING_LENGTH
     header_dict = {}
