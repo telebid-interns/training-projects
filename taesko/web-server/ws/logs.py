@@ -15,7 +15,8 @@ class AccessLogger:
         self.logger.critical('ACCESSED', extra=dict(
             request_line=req_line,
             headers=response.headers,
-            status_code=response.status_line.status_code
+            status_code=response.status_line.status_code,
+            body=response.body
         ))
 
 
