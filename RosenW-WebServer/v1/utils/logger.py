@@ -8,16 +8,16 @@ class Logger:
   def log(self, level_str, s):
     try:
       s = self.format(level_str, s)
+      if level_str in ['error', 'fatal']:
+        s += traceback.format_exc()
       if level_str in self.opts:
         with open(self.opts[level_str], "a+") as file:
           file.write(s)
       else:
         print(s.strip('\n'))
-      if level_str in ['error', 'fatal']:
-        traceback.print_exc()
-    except BaseException as e:
+    except:
       try:
-        print(e)
+        traceback.print_exc()
       except:
         pass
 

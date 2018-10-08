@@ -24,54 +24,75 @@ class Server:
     self.sock.listen(opts['request_queue_size'])
     self.log.info('Server started on port {}'.format(opts['port']))
     self.env = {}
-    self.workers = []
+    self.max_subprocess_count = opts['subprocess_count']
+    self.workers = 0
     self.timeout = opts['timeout']
+    signal.signal(signal.SIGCHLD, self.kill_children) # TODO make non-controversial
 
   def start(self):
-    # if os.fork() == 0:
-    #   self.reap_children()
+    connection = None
+    pid = None
+
     while True:
       try:
-          connection, client_address = self.sock.accept()
-          self.log.info('accepted connection: {}'.format(client_address))
-          if os.fork() == 0:
-            try:
-              assert type(client_address) is tuple and len(client_address) == 2
-              self.env = {'host': client_address[0], 'port': client_address[1]}
-              self.handle_request(connection)
-              self.log.info('Request Handled')
-            except BaseException as e:
-              try:
-                send(connection, self.generate_headers(500))
-              except BaseException as ex:
-                self.log.error(ex)
-              self.log.error(e)
+        connection, client_address = self.sock.accept()
+        if self.workers >= self.max_subprocess_count:
+          raise SubprocessLimitError('Accepted Connection, but workers where over the allowed limit')
+        self.log.info('accepted connection: {}'.format(client_address))
+
+        self.workers += 1
+        pid = os.fork()
+        if pid == 0:
+          try:
+            self.handle_request(connection, client_address)
+          except BaseException as e:
+            self.log.error(e)
+          finally:
             break
-      except (IOError, OSError, IndexError, ValueError) as e:
+      # except SubprocessLimitError as e:
+      #   try:
+      #     self.log.warn(e)
+      #     send(connection, self.generate_headers(503))
+      #   except BaseException as ex:
+      #     self.log.error(ex)
+      #   self.log.error(e)
+      except IOError as e:
+        if e.errno != os.errno.EINTR:
+          try:
+            self.log.error(e)
+            send(connection, self.generate_headers(500))
+          except BaseException as ex:
+            self.log.error(ex)
+          self.log.error(e)
+        else:
+          pass
+      except (OSError, IndexError, ValueError) as e:
         try:
+          self.log.error(e)
           send(connection, self.generate_headers(500))
         except BaseException as ex:
           self.log.error(ex)
         self.log.error(e)
       except KeyboardInterrupt as e:
         self.log.info('Stopping Server...')
-        sys.exit()
+        break
       except BaseException as e:
         self.log.error(e)
         break
       finally:
-        try:
+        if connection and pid != 0:
+          self.log.debug('Server closing sending socket')
           connection.close()
-        except BaseException as e:
-          self.log.error(e)
 
     sys.exit()
 
-  def handle_request(self, connection):
+  def handle_request(self, connection, client_address):
     request = None
 
     try:
       self.sock.close()
+      assert type(client_address) is tuple and len(client_address) == 2 # TODO isinstance of
+      self.env = {'host': client_address[0], 'port': client_address[1]}
       connection.settimeout(self.timeout)
       request = self.recv_request(connection)
       self.env['request_time'] = time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())
@@ -83,21 +104,22 @@ class Server:
       send(connection, self.generate_headers(200))
       send(connection, html)
     except PeerError as e:
+      self.log.warn(e)
       send(connection, self.generate_headers(400))
-      self.log.warn(e)
     except FileNotFoundError as e:
+      self.log.warn(e)
       send(connection, self.generate_headers(404))
-      self.log.warn(e)
     except socket.timeout as e:
-      send(connection, self.generate_headers(408))
       self.log.warn(e)
+      send(connection, self.generate_headers(408))
     except BaseException as e:
-      send(connection, self.generate_headers(500))
       self.log.error(e)
+      send(connection, self.generate_headers(500))
     finally:
       connection.close()
       if request:
         self.log_request(request)
+    self.log.info('Request Handled')
 
   def get_requested_file(self, path):
     try:
@@ -129,6 +151,7 @@ class Server:
     assert type(self.env['host']) is str and type(self.env['port']) is int
     assert self.env
 
+    # TODO self.env.get('host', '-')
     with open('./logs/access.log', "a+") as file:
       file.write('{} {} {} {} "{}" {} {}\n'.format(
         self.env['host'] if 'host' in self.env else '-',
@@ -198,11 +221,15 @@ class Server:
       return ''
     return path
 
-  def reap_children(self):
-    while True:
-      try:
-        pass
-      except BaseException as e:
+  def kill_children(self, signum, frame):
+    try:
+      while True:
+        (pid, exit_status) = os.waitpid(-1, os.WNOHANG)
+        if pid == 0:
+          break
+        self.workers -= 1
+    except BaseException as e:
+      if e.errno != os.errno.ECHILD:
         self.log.error(e)
 
 if __name__ == '__main__':
@@ -210,6 +237,7 @@ if __name__ == '__main__':
   DEFAULT_TIMEOUT = 5
   DEFAULT_ADDRESS = ''
   DEFAULT_PORT = 8888
+  DEFAULT_SUBPROCESS_COUNT = 20
 
   config = ConfigParser()
   config.read('./etc/config.ini')
@@ -218,12 +246,14 @@ if __name__ == '__main__':
   address = config.get('server', 'address')
   request_queue_size = config.get('server', 'request_queue_size')
   timeout = config.get('server', 'timeout')
+  subprocess_count = config.get('server', 'subprocess_count')
 
   opts = {
     'port': port if type(port) is int else DEFAULT_PORT,
     'address': address or DEFAULT_ADDRESS,
     'request_queue_size': request_queue_size if type(request_queue_size) is int else DEFAULT_REQUEST_QUEUE_SIZE,
-    'timeout': timeout if type(timeout) is int else DEFAULT_TIMEOUT
+    'timeout': timeout if type(timeout) is int else DEFAULT_TIMEOUT,
+    'subprocess_count': subprocess_count if type(subprocess_count) is int else DEFAULT_SUBPROCESS_COUNT
   }
 
   Server(opts).start()

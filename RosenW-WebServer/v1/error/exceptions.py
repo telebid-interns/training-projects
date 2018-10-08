@@ -3,6 +3,10 @@ class FileNotFoundError(Exception):
     super(FileNotFoundError, self).__init__(message)
     self.status_code = status_code
 
+class SubprocessLimitError(Exception):
+  def __init__(self, message):
+    super(SubprocessLimitError, self).__init__(message)
+
 class PeerError(Exception):
   def __init__(self, message, status_code):
     super(PeerError, self).__init__(message)
