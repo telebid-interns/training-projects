@@ -8,9 +8,7 @@ import socket
 import time
 
 import ws.http.parser
-import ws.http.structs
 import ws.responses
-import ws.serve
 import ws.sockets
 import ws.worker
 from ws.config import config
@@ -26,7 +24,7 @@ class Server:
     ActiveWorker = collections.namedtuple('ActiveWorker', ['pid', 'created_on'])
 
     def __init__(self):
-        assert_system(self.sys_has_fork_support(),
+        assert_system(sys_has_fork_support(),
                       msg="Kernel or C lib versions don't have fork() support.",
                       code='FORK_NOT_IMPLEMENTED')
 
@@ -227,29 +225,6 @@ class Server:
 
         return pid
 
-    @staticmethod
-    def sys_has_fork_support():
-        error_log.info('Checking if system has fork support by doing a '
-                       'dummy fork...')
-        try:
-            pid = os.fork()
-        except OSError as err:
-            if err.errno == errno.ENOSYS:
-                error_log.critical('System does not have fork() support.')
-                return False
-            else:
-                return True
-
-        if pid == 0:
-            # noinspection PyProtectedMember
-            os._exit(0)
-        else:
-            error_log.info('Fork successful. Cleaning up dummy child '
-                           '(pid={:d})...'.format(pid))
-            os.waitpid(pid, 0)
-
-        return True
-
     # noinspection PyUnusedLocal
     def terminate_hanged_workers(self, signum, stack_frame):
         assert signum == signal.SIGALRM
@@ -330,6 +305,29 @@ def pre_verify_request_syntax(client_socket, address):
         # reset the client socket so later handling of the request does not have
         # to do it manually.
         client_socket.reiterate()
+
+    return True
+
+
+def sys_has_fork_support():
+    error_log.info('Checking if system has fork support by doing a '
+                   'dummy fork...')
+    try:
+        pid = os.fork()
+    except OSError as err:
+        if err.errno == errno.ENOSYS:
+            error_log.critical('System does not have fork() support.')
+            return False
+        else:
+            return True
+
+    if pid == 0:
+        # noinspection PyProtectedMember
+        os._exit(0)
+    else:
+        error_log.info('Fork successful. Cleaning up dummy child '
+                       '(pid={:d})...'.format(pid))
+        os.waitpid(pid, 0)
 
     return True
 
