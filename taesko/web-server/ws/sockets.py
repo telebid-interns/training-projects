@@ -16,6 +16,7 @@ class ClientSocketError(PeerError):
     def __init__(self, msg=default_code, code=default_code):
         super().__init__(msg=msg, code=code)
 
+    @classmethod
     def assert_(cls, condition, *, msg=default_msg, code=default_code,
                 from_=None):
         super().assert_(condition, msg=msg, code=code)
@@ -93,6 +94,8 @@ class ClientSocket:
         Raises the following exceptions:
             ClientSocketError(code='CS_PEER_SENDING_TOO_MUCH') - if the token
                 is not met until :recv_max_bytes: are yielded
+
+            All exceptions raised from __next__().
         """
         assert isinstance(bytes_token, bytes)
         assert len(bytes_token) > 0
