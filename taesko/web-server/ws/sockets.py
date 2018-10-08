@@ -70,7 +70,7 @@ class ClientSocket:
         try:
             chunk = self.sock.recv(self.__class__.buffer_size)
         except socket.timeout as e:
-            error_log.exception('Socket timed out while receiving request.')
+            error_log.warning('Socket timed out while receiving request.')
             raise ClientSocketError(code='CS_PEER_SEND_IS_TOO_SLOW') from e
 
         error_log.debug('Read chunk %s', chunk)
