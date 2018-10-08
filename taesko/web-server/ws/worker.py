@@ -4,6 +4,7 @@ import signal
 
 import ws.http.parser
 import ws.http.structs
+import ws.http.utils
 import ws.responses
 import ws.serve
 import ws.sockets
@@ -36,19 +37,6 @@ class Worker:
 
     @property
     def http_connection_is_open(self):
-        def client_closed_connection(request):
-            if not request:
-                return False
-            elif 'Connection' not in request.headers:
-                return False
-            else:
-                pass
-
-            c = request.headers['Connection']
-            hop_by_hop_headers = (h.strip() for h in c.split(b','))
-
-            return b'close' in hop_by_hop_headers
-
         def server_closed_connection(response):
             if not response:
                 return False
@@ -62,8 +50,11 @@ class Worker:
 
             return b'close' in hop_by_hop_headers
 
-        return not (client_closed_connection(request=self.last_request) or
-                    server_closed_connection(response=self.last_response))
+        if not self.last_request or not self.last_response:
+            return True
+
+        return (not server_closed_connection(self.last_response) and
+                ws.http.utils.request_is_persistent(self.last_request))
 
     def __enter__(self):
         return self
@@ -96,16 +87,10 @@ class Worker:
 
         response = (ws.responses.client_err_response(exc_val) or
                     ws.responses.server_err_response(exc_val))
-
         response.headers['Connection'] = 'close'
-        ignored_request = False
 
-        if hasattr(exc_val, 'code'):
-            ignored_request = exc_val.code in (
-                'CS_CONNECTION_TIMED_OUT',
-                'CS_PEER_SEND_IS_TOO_SLOW',
-                'CS_PEER_NOT_SENDING'
-            )
+        ignored_request = isinstance(exc_val, (ws.sockets.ClientSocketError,
+                                               ws.http.parser.ParserError))
 
         try:
             self.respond(response, ignored_request=ignored_request)
@@ -138,6 +123,8 @@ class Worker:
         assert self.http_connection_is_open
 
         self.last_request = ws.http.parser.parse(self.sock)
+        self.last_response = None
+
         return self.last_request
 
     def respond(self, response, *, closing=False, ignored_request=False):
@@ -185,11 +172,17 @@ class Worker:
 def work(client_socket, address, quick_reply_with=None):
     with Worker(client_socket, address) as worker:
         if quick_reply_with:
+            # TODO if the data from the socket is not read through recv()
+            # sending data and then quickly doing shutdown() + close()
+            # may cause the peer to not receive the response
+            # (this can be seen when running ab with large number of requests.)
+            worker.parse_request()
             worker.respond(quick_reply_with, closing=True,
                            ignored_request=True)
             return
 
         while worker.http_connection_is_open:
+            error_log.info('HTTP Connection is open. Parsing request...')
             # TODO client's connection might drop while recv()
             # no need to send him a response
             request = worker.parse_request()

@@ -119,10 +119,9 @@ class Server:
                 # don't break the listening loop just because one accept failed
                 continue
 
-            error_log.debug('Accepted connection. '
-                            'client_socket.fileno=%d and address=%s',
-                            client_socket.fileno(), address)
-            error_log.info('Pre-parsing request to verify syntax of headers.')
+            error_log.info('Accepted connection. '
+                           'client_socket.fileno=%d and address=%s',
+                           client_socket.fileno(), address)
 
             try:
                 forked_pid = self.fork(client_socket)
@@ -143,9 +142,9 @@ class Server:
                                           quick_reply_with=response)
                 except BaseException:
                     error_log.exception('Unhandled exception occurred while '
-                                      'responding to client from the main'
-                                      'process. Catching and continuing'
-                                      'to listen.')
+                                        'responding to client from the main'
+                                        'process. Catching and continuing'
+                                        'to listen.')
                 continue
 
             if forked_pid == 0:
@@ -155,8 +154,8 @@ class Server:
                     client_socket_handler(client_socket, address)
                 except Exception:
                     status = 1
-                    error_log.exception('Unhandled exception occurred while'
-                                      ' Exiting with status code %s', status)
+                    error_log.exception('Unhandled exception occurred in worker'
+                                        '. Exiting with status code %s', status)
                 # noinspection PyProtectedMember
                 os._exit(status)
             else:
