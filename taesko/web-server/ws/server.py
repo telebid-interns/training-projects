@@ -1,7 +1,6 @@
 import collections
 import enum
 import errno
-import logging
 import os
 import signal
 import socket
@@ -125,11 +124,6 @@ class Server:
                             client_socket.fileno(), address)
             error_log.info('Pre-parsing request to verify syntax of headers.')
 
-            if not pre_verify_request_syntax(client_socket, address):
-                client_socket.shutdown(ws.sockets.SHUT_RDWR)
-                client_socket.close()
-                continue
-
             try:
                 forked_pid = self.fork(client_socket)
             except SysError as err:
@@ -148,7 +142,7 @@ class Server:
                     client_socket_handler(client_socket, address,
                                           quick_reply_with=response)
                 except BaseException:
-                    logging.exception('Unhandled exception occurred while '
+                    error_log.exception('Unhandled exception occurred while '
                                       'responding to client from the main'
                                       'process. Catching and continuing'
                                       'to listen.')
@@ -161,7 +155,7 @@ class Server:
                     client_socket_handler(client_socket, address)
                 except Exception:
                     status = 1
-                    logging.exception('Unhandled exception occurred while'
+                    error_log.exception('Unhandled exception occurred while'
                                       ' Exiting with status code %s', status)
                 # noinspection PyProtectedMember
                 os._exit(status)
