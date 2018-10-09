@@ -105,6 +105,7 @@ def export_credit_history(
         group_by=None,
         sort=None
 ):
+    sort = sort or [{'column': 'transferred_at', 'order': 'DESC'}]
     method_config = config['api_export_credit_history']
     column_names = (column_names or
                     config['api_export_credit_history_column_names'])
@@ -226,7 +227,7 @@ def export_credit_history(
          ('user_subscr_id', 'user_subscr_id'))
     )
     extra_select_config_when_grouping = dict(
-        transfer_amount='SUM(transfer_amount) AS amount'
+        transfer_amount='SUM(transfer_amount) AS transfer_amount'
     )
     group_by_config = dict(
         transferred_at=dict(
@@ -270,6 +271,7 @@ def export_credit_history(
         select_clause = ','.join(select_config.values())
 
     order_by_clause = build_order_by_clause(sort)
+    # noinspection SqlResolve
     query = '''
     SELECT {select_clause}
     FROM (
