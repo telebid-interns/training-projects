@@ -90,8 +90,12 @@ router.get('/', async (ctx, next) => {
     return next();
   }
 
+  const msg = ctx.session.msg;
+  delete ctx.session.msg
+
   await ctx.render('admin', {
-    permissions: ctx.session.permissions
+    permissions: ctx.session.permissions,
+    msg
   });
 });
 
@@ -100,8 +104,8 @@ router.get(paths.users, async (ctx, next) => {
   trace(`GET '/${paths.backOfficeMountPoint}/${paths.backOfficeUsers}'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_users) {
-    await ctx.redirect(paths.backOfficeMountPoint);
-    return next();
+    await denyAccess(ctx, next);
+    return next()
   }
 
   if (ctx.query.search == null) {
@@ -174,8 +178,7 @@ router.get(paths.creditBalance, async (ctx, next) => {
   trace(`GET '/${paths.backOfficeMountPoint}/${paths.creditBalance}'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_credit_balance) {
-    await ctx.redirect(paths.backOfficeMountPoint);
-    return next();
+    await denyAccess(ctx);
   }
 
   if (ctx.query.search == null) {
@@ -247,8 +250,8 @@ router.get(paths.cities, async (ctx, next) => {
   trace(`GET '/${paths.backOfficeMountPoint}/${paths.cities}'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_cities) {
-    await ctx.redirect(paths.backOfficeMountPoint);
-    return next();
+    await denyAccess(ctx, next);
+    return next()
   }
 
   if (ctx.query.search == null) {
@@ -313,8 +316,8 @@ router.get(paths.requests, async (ctx, next) => {
   trace(`GET '/${paths.backOfficeMountPoint}/${paths.requests}'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_requests) {
-    await ctx.redirect(paths.backOfficeMountPoint);
-    return next();
+    await denyAccess(ctx, next);
+    return next()
   }
 
   const term = ctx.query.term == null ? '' : ctx.query.term;
@@ -363,8 +366,8 @@ router.get(paths.add, async (ctx, next) => {
   trace(`GET '/${paths.backOfficeMountPoint}/${paths.add}'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_add_credits) {
-    await ctx.redirect(paths.backOfficeMountPoint);
-    return next();
+    await denyAccess(ctx, next);
+    return next()
   }
 
   if (ctx.query.search == null) {
@@ -404,8 +407,8 @@ router.get(paths.backOfficeCreateUser, async (ctx, next) => {
   trace(`GET '/${paths.backOfficeMountPoint}/${paths.backOfficeCreateUser}'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_edit_backoffice_users) {
-    await ctx.redirect(paths.backOfficeMountPoint);
-    return next();
+    await denyAccess(ctx, next);
+    return next()
   }
 
   const roles = await db.sql(`SELECT * FROM roles ORDER BY id`);
@@ -495,8 +498,8 @@ router.get(paths.roles, async (ctx, next) => {
   trace(`GET '/${paths.backOfficeMountPoint}/${paths.roles}'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_roles) {
-    await ctx.redirect(paths.backOfficeMountPoint);
-    return next();
+    await denyAccess(ctx, next);
+    return next()
   }
 
   const roles = await db.sql(`SELECT * FROM roles ORDER BY id`);
@@ -532,8 +535,8 @@ router.get(paths.backOfficeUsers, async (ctx, next) => {
   trace(`GET '/${paths.backOfficeMountPoint}/${paths.backOfficeUsers}'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_edit_backoffice_users) {
-    await ctx.redirect(paths.backOfficeMountPoint);
-    return next();
+    await denyAccess(ctx, next);
+    return next()
   }
 
   const username = ctx.query.username == null ? '' : ctx.query.username;
@@ -655,8 +658,8 @@ router.get(paths.creditTransfers, async (ctx, next) => {
   trace(`GET '/${paths.backOfficeMountPoint}/${paths.creditTransfers}'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_transfers) {
-    await ctx.redirect(paths.backOfficeMountPoint);
-    return next();
+    await denyAccess(ctx, next);
+    return next()
   }
 
   const username = ctx.query.username == null ? '' : ctx.query.username;
@@ -994,8 +997,8 @@ router.post('/xlsx/ctransfers', async (ctx, next) => {
   assert(isObject(ctx.session.permissions), 'No permissions in post /xlsx/users', 2178);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_transfers) {
-    await ctx.redirect(paths.backOfficeMountPoint);
-    return next();
+    await denyAccess(ctx, next);
+    return next()
   }
 
   assert(isObject(ctx.request.body), 'Post /xlsx/users has no body', 2179);
@@ -1254,8 +1257,8 @@ router.get(paths.approveTransfers, async (ctx, next) => {
   trace(`GET '/${paths.backOfficeMountPoint}/${paths.approveTransfers}'`);
 
   if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_credits_for_approval) {
-    await ctx.redirect(paths.backOfficeMountPoint);
-    return next();
+    await denyAccess(ctx, next);
+    return next()
   }
 
   const username = ctx.query.username == null ? '' : ctx.query.username;
@@ -1298,6 +1301,11 @@ router.get(paths.backOfficeLogout, async (ctx, next) => {
   ctx.session = null;
   await ctx.redirect(paths.backOfficeMountPoint);
 });
+
+async function denyAccess (ctx, next) {
+  ctx.session.msg = `You don't have permission to go there`
+  await ctx.redirect(paths.backOfficeMountPoint);
+}
 
 app.use(router.routes());
 

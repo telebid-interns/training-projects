@@ -108,3 +108,7 @@ Expecting 'CLOSE_RAW_BLOCK', 'CLOSE', 'CLOSE_UNESCAPED', 'OPEN_SEXPR', 'CLOSE_SE
 2018-10-09T11:33:28.265Z:  TypeError: bundle.transfers is not iterable
 2018-10-09T11:36:37.094Z:  ReferenceError: transfers is not defined
 2018-10-09T11:37:21.848Z:  ReferenceError: transfers is not defined
+2018-10-09T13:57:32.446Z:  Error: next() called multiple times
+2018-10-09T13:58:32.334Z:  Error: next() called multiple times
+2018-10-09T13:59:34.041Z:  Error: next() called multiple times
+2018-10-09T13:59:57.737Z:  Error: next() called multiple times
