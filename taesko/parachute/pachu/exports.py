@@ -74,6 +74,19 @@ def insert_table(*, sheet, columns, records, table_name, offset):
     return offset
 
 
+def build_order_by_clause(sort):
+    parts = []
+
+    for part_schema in sort:
+        column = part_schema['column']
+        sort = part_schema['order']
+        assert '"' not in column or '\\' not in column
+
+        parts.append('{} {}'.format(column, sort))
+
+    return ', '.join(parts)
+
+
 def export_credit_history(
         cursor, *,
         column_names=None,
@@ -256,6 +269,7 @@ def export_credit_history(
         group_by_clause = ''
         select_clause = ','.join(select_config.values())
 
+    order_by_clause = build_order_by_clause(sort)
     query = '''
     SELECT {select_clause}
     FROM (
@@ -320,11 +334,12 @@ def export_credit_history(
     JOIN subscription_plans
         ON taxes.subscription_plan_id=subscription_plans.id
     {group_by_clause}
-    ORDER BY 1 DESC
+    ORDER BY {order_by_clause}
     '''.format(
         **filters,
         group_by_clause=group_by_clause,
         select_clause=select_clause,
+        order_by_clause=order_by_clause
     )
     try:
         cursor.execute(query, query_params)
