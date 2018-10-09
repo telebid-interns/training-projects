@@ -75,7 +75,8 @@ def user_error_handler(error):
     api_codes = {
         'API_ECH_INVALID_CREDENTIALS': 2100,
         'API_ECH_EXCEEDED_TRANSFERRED_DELTA': 2105,
-        'API_ECH_QUERY_TIMEOUT': 2106
+        'API_ECH_QUERY_TIMEOUT': 2106,
+        'API_ECH_RATE_LIMITED': 2110,
     }
 
     extra_payload = {}
@@ -87,7 +88,7 @@ def user_error_handler(error):
         jsonrpc='2.0',
         id=0,
         error=dict(
-            code=api_codes[error.code],
+            code=api_codes.get(error.code, 2000),
             message=error.msg,
             data=extra_payload
         )

@@ -14,6 +14,7 @@ from pachu.config import config
 from pachu.err import UserError, assertUser
 
 stdout_logger = logging.getLogger('stdout')
+stderr_logger = logging.getLogger('stderr')
 DEFAULT_TRANSFERRED_DELTA = datetime.timedelta(weeks=4)
 ALLOWED_TRANSFERRED_DELTA = datetime.timedelta(weeks=52)
 
@@ -88,7 +89,8 @@ def export_credit_history(
         status=None,
         transfer_amount=None,
         transfer_amount_operator=None,
-        group_by=None
+        group_by=None,
+        sort=None
 ):
     method_config = config['api_export_credit_history']
     column_names = (column_names or
@@ -137,6 +139,21 @@ def export_credit_history(
         raise UserError(code='API_ECH_INVALID_CREDENTIALS',
                         msg='User entered invalid api key.',
                         user_msg='Invalid api key.')
+
+    try:
+        cursor.execute(
+            """
+            INSERT INTO api_usage (user_id, api_method)
+            VALUES (%s, %s)
+            """,
+            [user_id, 'export_credit_history']
+        )
+    except psycopg2.IntegrityError as e:
+        stderr_logger.info('User with id %s requested an export too often.')
+        raise UserError(msg='Exports are allowed once every 1 minute.',
+                        code='API_ECH_RATE_LIMITED',
+                        user_msg='You are requesting an export too soon after '
+                                 'the previous one.') from e
 
     query_params = dict(
         user_id=user_id,
