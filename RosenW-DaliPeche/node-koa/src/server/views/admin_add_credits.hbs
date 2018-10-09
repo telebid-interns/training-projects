@@ -70,5 +70,9 @@
     });
     const data = await response.json();
     document.getElementById('navbar-msg').innerHTML = data.msg;
+    if (data.err) {
+      document.getElementById('navbar-msg').className += ' text-danger';
+      document.getElementById('navbar-msg').innerHTML = data.err;
+    }
   }
 </script>

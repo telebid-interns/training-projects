@@ -32,8 +32,6 @@
           <label for="username" class="col-lg-12">Repeat Password:</label>
           <div class="col-lg-12">
             <input type="password" id='repeat-password' name='repeat-password' placeholder="Repeat Password" class="form-control">
-            <p class="text-success">{{msg}}</p>
-            <p class="text-danger">{{error}}</p>
             <p id="pass-err" hidden="true" class="text-danger">Passwords don't match</p>
           </div>
         </div>
@@ -46,6 +44,11 @@
 </html>
 
 <script type="text/javascript">
+  document.getElementById('navbar-msg').innerHTML = '{{msg}}';
+  if ('{{error}}') {
+    document.getElementById('navbar-msg').className += ' text-danger';
+    document.getElementById('navbar-msg').innerHTML = '{{error}}';
+  }
   document.getElementById('menu-create-user').setAttribute('class', 'selected');
 
   const MINIMUM_PASS_LENGTH = 3;
