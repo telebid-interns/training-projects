@@ -3,6 +3,7 @@
     <link rel="stylesheet" type="text/css" href="./../bootstrap.css">
     <link rel="stylesheet" type="text/css" href="./../sidebar.css">
     <link rel="stylesheet" type="text/css" href="./../navbar.css">
+    <link rel="stylesheet" type="text/css" href="./../loading.css">
     <script type="text/javascript" src="./../utils.js"></script>
   </head>
    <body>
@@ -28,6 +29,7 @@
         </div>
       </form>
     </ul>
+    <div id="loading-animation" hidden="hidden"></div>
     {{#if search}}
       {{#if show}}
         <h3 class="col-lg-10 text-center">Credit Balance</h3>
@@ -68,5 +70,10 @@
 </html>
 
 <script type="text/javascript">
+  document.getElementById('search-btn').addEventListener('click', (event) => {
+    document.getElementById('loading-animation').removeAttribute('hidden')
+    document.getElementById('table-container').setAttribute('hidden', 'hidden')
+    document.getElementById('report-text').setAttribute('hidden', 'hidden')
+  });
   document.getElementById('menu-credits').setAttribute('class', 'selected');
 </script>

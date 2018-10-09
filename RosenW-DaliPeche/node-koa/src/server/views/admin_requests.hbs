@@ -3,6 +3,7 @@
     <link rel="stylesheet" type="text/css" href="./../bootstrap.css">
     <link rel="stylesheet" type="text/css" href="./../sidebar.css">
     <link rel="stylesheet" type="text/css" href="./../navbar.css">
+    <link rel="stylesheet" type="text/css" href="./../loading.css">
     <script type="text/javascript" src="./../utils.js"></script>
   </head>
    <body>
@@ -29,9 +30,10 @@
         </div>
       </form>
     </ul>
+    <div id="loading-animation" hidden="hidden"></div>
     {{#if search}}
       {{#if show}}
-        <h3 class="col-lg-10 text-center">Report</h3>
+        <h3 id="report-text" class="col-lg-10 text-center">Report</h3>
         <div id="table-container" class="col-lg-10 pre-scrollable" style="max-height: 33em; height: 33em">
           <table id="request-table" class="table table-hover table-bordered">
             <tr>
@@ -58,5 +60,10 @@
 </html>
 
 <script type="text/javascript">
+  document.getElementById('search-btn').addEventListener('click', (event) => {
+    document.getElementById('loading-animation').removeAttribute('hidden')
+    document.getElementById('table-container').setAttribute('hidden', 'hidden')
+    document.getElementById('report-text').setAttribute('hidden', 'hidden')
+  });
   document.getElementById('menu-requests').setAttribute('class', 'selected');
 </script>
