@@ -140,7 +140,7 @@ class Server:
                     # happens multiple times
                     client_socket_handler(client_socket, address,
                                           quick_reply_with=response)
-                except BaseException:
+                except Exception:
                     error_log.exception('Unhandled exception occurred while '
                                         'responding to client from the main'
                                         'process. Catching and continuing'

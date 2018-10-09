@@ -1,7 +1,8 @@
 import collections
 import errno
 import signal
-import time
+import enum
+import functools
 
 import ws.http.parser
 import ws.http.structs
@@ -10,6 +11,18 @@ import ws.responses
 import ws.serve
 import ws.sockets
 from ws.logs import error_log, access_log
+from ws.config import config
+
+bad_requests_threshold = config.getint('bad_requests_rate_limit_threshold')
+
+
+HTTPExchange = collections.namedtuple('HTTPExchange', ['request', 'response'])
+
+
+class ExitCodes(enum.Enum):
+    success = 0
+    execution_ended_abruptly = 1
+    too_many_client_errors = 40
 
 
 class Worker:
@@ -24,15 +37,15 @@ class Worker:
     Persistent connections are handled, but require self.parse_request() to be
     repeatedly called.
     """
+    max_exchange_history = bad_requests_threshold * 2
 
     # noinspection PyUnusedLocal
     def __init__(self, iterable_socket, address):
         assert isinstance(iterable_socket, ws.sockets.ClientSocket)
         self.sock = iterable_socket
-        self.request = None
-        self.response = None
         self.responding = False
-        self.request_queue = collections.deque()
+        self.status_code_on_abort = None
+        self.exchanges = collections.deque(maxlen=self.max_exchange_history)
 
         signal.signal(signal.SIGTERM, self.handle_termination)
 
@@ -57,26 +70,42 @@ class Worker:
         return (not server_closed_connection(self.response) and
                 ws.http.utils.request_is_persistent(self.request))
 
+    @property
+    def request(self):
+        return self.exchanges[-1] if len(self.exchanges) > 0 else None
+
+    @request.setter
+    def request(self, http_request):
+        self.exchanges[-1] = HTTPExchange(http_request,
+                                          self.exchanges[-1].response)
+
+    @property
+    def response(self):
+        return self.exchanges[1] if len(self.exchanges) > 0 else None
+
+    @response.setter
+    def response(self, http_response):
+        self.exchanges[-1] = HTTPExchange(self.exchanges[-1].request,
+                                          http_response)
+
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if not exc_val:
             error_log.info('Cleaning up worker after successful execution.')
-            self.sock.shutdown(ws.sockets.SHUT_RDWR)
-            self.sock.close()
+            self.sock.close(with_shutdown=True, safely=True)
             return False
 
         error_log.info('Cleaning up worker after unsuccessful execution.')
         if self.responding:
-            error_log.exception(
-                'An exception occurred after worker had sent bytes over'
-                ' the socket. Client will receive an invalid HTTP response.'
+            error_log.warning(
+                'An exception occurred after worker had sent bytes over '
+                'the socket(fileno=%s). Client will receive an invalid '
+                'HTTP response.',
+                self.sock.fileno()
             )
-            error_log.info('Shutting down socket %d for both r/w',
-                           self.sock.fileno())
-            self.sock.shutdown(ws.sockets.SHUT_RDWR)
-            self.sock.close()
+            self.sock.close(with_shutdown=True, safely=False)
             return False
         else:
             pass
@@ -90,47 +119,57 @@ class Worker:
                     ws.responses.server_err_response(exc_val))
         response.headers['Connection'] = 'close'
 
+        self.status_code_on_abort = response.status_line.status_code
+
         ignored_request = isinstance(exc_val, (ws.sockets.ClientSocketError,
                                                ws.http.parser.ParserError))
 
         try:
             self.respond(response, ignored_request=ignored_request)
         except OSError as e:
-            error_log.critical('Caught OSError with errno %d', e.errno)
+            error_log.warning('During cleanup of worker tried to respond to '
+                              'client and close the connection but: '
+                              'caught OSError with errno %d.', e.errno)
+
             if e.errno == errno.ECONNRESET:
                 error_log.warning('Client stopped listening prematurely.'
                                   ' (no Connection: close header was received)')
-                self.sock.close()
                 return True
             else:
                 raise
-
-        error_log.debug('Shutting down and closing client socket %d',
-                        self.sock.fileno())
-        # TODO the socket needs to be shutdown for reading as well, but
-        # only after the client has received this response ?
-        try:
-            self.sock.shutdown(ws.sockets.SHUT_WR)
-        except OSError as e:
-            if e.errno == errno.ENOTCONN:
-                error_log.warning('Got ENOTCONN when shutting down socket.')
-            else:
-                raise
-        self.sock.close()
+        finally:
+            self.sock.close(with_shutdown=True, safely=True)
 
         return True
 
-    def parse_request(self):
-        assert self.http_connection_is_open
+    def work(self, request_handler):
+        """ Continually serve an http connection.
 
-        self.request = None
-        self.response = None
-
-        self.request = ws.http.parser.parse(self.sock)
-
-        return self.request
+        :param request_handler: Per-request handler. Will be called with a
+            request object as a single argument. The return value must be a
+            response object that will be sent to the client.
+        :return: This method doesn't return until the connection is closed.
+        """
+        while self.http_connection_is_open:
+            error_log.info('HTTP Connection is open. Parsing request...')
+            # TODO client's connection might drop while recv()
+            # no need to send him a response
+            self.exchanges.append(HTTPExchange(None, None))
+            self.request = ws.http.parser.parse(self.sock)
+            self.response = request_handler(self.request)
+            self.respond(self.response)
 
     def respond(self, response, *, closing=False, ignored_request=False):
+        """
+
+        :param response: Response object to send to client.
+        :param closing: Boolean switch whether the http connection should be
+            closed after this response.
+        :param ignored_request: Boolean flag whether the request sent from the
+            client was not read through the socket. (this will imply that an
+            empty request string ("") will be sent to the access.log)
+        :return:
+        """
         assert isinstance(response, ws.http.structs.HTTPResponse)
         assert isinstance(closing, bool)
         assert isinstance(ignored_request, bool)
@@ -153,7 +192,8 @@ class Worker:
         if ignored_request:
             access_log.log(request=None, response=response)
         else:
-            access_log.log(request=self.request, response=response)
+            access_log.log(request=self.request,
+                           response=response)
 
     # noinspection PyUnusedLocal
     def handle_termination(self, signum, stack_info):
@@ -177,19 +217,32 @@ class Worker:
 
 
 def work(client_socket, address, quick_reply_with=None):
-    with Worker(client_socket, address) as worker:
-        if quick_reply_with:
-            worker.respond(quick_reply_with, closing=True,
-                           ignored_request=True)
-            return
+    assert isinstance(client_socket, ws.sockets.ClientSocket)
+    assert isinstance(address, collections.Container)
+    assert isinstance(quick_reply_with, bool)
 
-        while worker.http_connection_is_open:
-            error_log.info('HTTP Connection is open. Parsing request...')
-            # TODO client's connection might drop while recv()
-            # no need to send him a response
-            request = worker.parse_request()
-            response = handle_request(request)
-            worker.respond(response)
+    # noinspection PyBroadException
+    try:
+        with Worker(client_socket, address) as worker:
+            if quick_reply_with:
+                worker.respond(quick_reply_with, closing=True,
+                               ignored_request=True)
+                return
+
+            worker.work(request_handler=handle_request)
+    except Exception:
+        error_log.exception('Worker on socket %s and address %s finished'
+                            ' abruptly.', client_socket.fileno(), address)
+        return ExitCodes.execution_ended_abruptly
+
+    codes = (e.response.status_line.status_code
+             for e in worker.exchanges if e.response)
+    client_err_count = sum(1 for c in codes if 400 <= c < 500)
+
+    if client_err_count > bad_requests_threshold:
+        return ExitCodes.too_many_client_errors
+    else:
+        return ExitCodes.success
 
 
 def handle_request(request):

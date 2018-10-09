@@ -143,14 +143,29 @@ class ClientSocket:
 
     def shutdown(self, how):
         msgs = {
-            socket.SHUT_RD: 'Shutting down socket %d for reading/receiving.',
-            socket.SHUT_WR: 'Shutting down socket %d for writing/sending.',
-            socket.SHUT_RDWR: 'Shutting down socket %d for both r/w.'
+            SHUT_RD: 'Shutting down socket %d for reading/receiving.',
+            SHUT_WR: 'Shutting down socket %d for writing/sending.',
+            SHUT_RDWR: 'Shutting down socket %d for both r/w.'
         }
         error_log.info(msgs[how], self.sock.fileno())
 
         self.sock.shutdown(how)
 
-    def close(self):
-        error_log.info('Closing socket %d', self.sock.fileno())
-        self.sock.close()
+    def close(self, with_shutdown=False, pass_silently=False, safely=True):
+        if with_shutdown:
+            try:
+                self.shutdown(SHUT_RDWR)
+            except OSError as err:
+                if not pass_silently:
+                    raise
+
+                error_log.warning('Shutting down socket %s caused OSError '
+                                  'with ERRNO=%s and reason: %s',
+                                  self.fileno(), err.errno, err.strerror)
+            finally:
+                error_log.info('Closing socket %d', self.sock.fileno())
+                self.sock.close()
+        else:
+            error_log.info('Closing socket %d', self.sock.fileno())
+            self.sock.close()
+
