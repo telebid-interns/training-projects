@@ -29,6 +29,8 @@
             <select id="select-group-by" name="date-group-by" class="form-control">
               <option value="all">All Values</option>
               <option value="day">By Day</option>
+              <option value="month">By Month</option>
+              <option value="year">By Year</option>
             </select>
           </div>
           <label class="col-lg-12">Event:</label>
@@ -102,7 +104,11 @@
 </html>
 
 <script type="text/javascript">
-  document.getElementById('select-group-by').value = '{{dateGroupByValue}}'
+  dateGroupByValues = ['all', 'day', 'month', 'year']
+  if (dateGroupByValues.indexOf('{{dateGroupByValue}}') > -1) {
+    document.getElementById('select-group-by').value = '{{dateGroupByValue}}'
+  }
+
   document.getElementById('menu-ctransfers').setAttribute('class', 'selected');
   document.getElementById('select-event').value = '{{event}}';
 </script>

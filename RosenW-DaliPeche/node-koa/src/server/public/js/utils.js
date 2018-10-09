@@ -56,7 +56,6 @@ async function exportToExcel (event, filters, reportName) {
     worksheet : 'Worksheet',
     table : htmls
   }
-  const finish = new Date() - start;
   const link = document.createElement("a");
   link.download = `${reportName}-report-${new Date().toISOString()}.xlsx`;
 

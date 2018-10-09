@@ -86,3 +86,25 @@ Expecting 'CLOSE_RAW_BLOCK', 'CLOSE', 'CLOSE_UNESCAPED', 'OPEN_SEXPR', 'CLOSE_SE
 2018-09-27T08:47:58.079Z:  ReferenceError: c is not defined
 2018-09-27T10:55:38.827Z:  ReferenceError: substr is not defined
 2018-09-27T13:01:50.119Z:  ReferenceError: u is not defined
+2018-10-09T10:38:51.847Z:  Error: Error while querying: error: syntax error at or near "ORDER"
+2018-10-09T10:39:11.816Z:  Error: Error while querying: error: syntax error at or near "ORDER"
+2018-10-09T10:39:49.235Z:  Error: Error while querying: error: syntax error at end of input
+2018-10-09T10:40:18.799Z:  Error: Error while querying: error: syntax error at or near "GROUP"
+2018-10-09T10:41:04.770Z:  Error: Error while querying: error: syntax error at or near "GROUP"
+2018-10-09T10:43:00.388Z:  Error: Error while querying: error: syntax error at or near "GROUP"
+2018-10-09T10:45:26.788Z:  Error: Error while querying: error: syntax error at or near "ORDER"
+2018-10-09T10:46:00.740Z:  Error: Error while querying: error: syntax error at end of input
+2018-10-09T10:46:42.116Z:  Error: Error while querying: error: syntax error at end of input
+2018-10-09T10:49:01.257Z:  Error: Error while querying: error: syntax error at end of input
+2018-10-09T10:49:24.859Z:  Error: Error while querying: error: syntax error at end of input
+2018-10-09T10:52:40.681Z:  TypeError: Cannot read property 'setDate' of undefined
+2018-10-09T10:54:01.312Z:  Error: Error while querying: error: syntax error at or near "as"
+2018-10-09T11:02:13.537Z:  Error: Error while querying: error: function month(timestamp without time zone) does not exist
+2018-10-09T11:08:05.746Z:  TypeError: t.transfer_date.getDate is not a function
+2018-10-09T11:10:09.320Z:  TypeError: t.transfer_date.getDate is not a function
+2018-10-09T11:11:48.921Z:  Error: Error while querying: error: function year(timestamp without time zone) does not exist
+2018-10-09T11:27:13.654Z:  TypeError: transfers is not iterable
+2018-10-09T11:33:00.200Z:  TypeError: bundle.transfers is not iterable
+2018-10-09T11:33:28.265Z:  TypeError: bundle.transfers is not iterable
+2018-10-09T11:36:37.094Z:  ReferenceError: transfers is not defined
+2018-10-09T11:37:21.848Z:  ReferenceError: transfers is not defined

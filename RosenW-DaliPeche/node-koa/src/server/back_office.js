@@ -681,81 +681,19 @@ router.get(paths.creditTransfers, async (ctx, next) => {
     return next();
   }
 
-  dateTo.setDate(dateTo.getDate() + 1); // include chosen day
-
-  let selectValues = '';
-
-  selectValues += dateGroupByValue === 'all' ? 'ct.id, ' : '';
-  selectValues += dateGroupByValue === 'all' ? 'transfer_date, ' : 'DATE(transfer_date) AS transfer_date, ';
-  selectValues += dateGroupByValue === 'all' ? 'username, ' : '';
-  selectValues += dateGroupByValue === 'all' ? 'credits_received, ' : 'SUM(ct.credits_received) AS credits_received, ';
-  selectValues += dateGroupByValue === 'all' ? 'credits_spent, ' : 'SUM(ct.credits_spent) AS credits_spent, ';
-  selectValues += dateGroupByValue === 'all' ? 'event, ' : '';
-  selectValues = selectValues.substr(0, selectValues.length - 2); // removes trailing , from select
-
-  let groupByValues = ``;
-  groupByValues += dateGroupByValue === 'all' ? '' : 'DATE(transfer_date), ';
-
-  if (groupByValues.length > 0) {
-    groupByValues = groupByValues.substr(0, groupByValues.length - 2); // removes trailing , from group by
-    groupByValues = 'GROUP BY ' + groupByValues
-  }
-
-  const query = `
-    SELECT
-      ${selectValues}
-    FROM users AS u
-    JOIN credit_transfers as ct
-      ON ct.user_id = u.id
-    WHERE
-      UNACCENT(LOWER(username)) LIKE LOWER($1)
-      AND LOWER(event) LIKE LOWER($2)
-      AND (ct.transfer_date BETWEEN $3 AND $4)
-      AND approved = true
-    ${groupByValues}
-    ORDER BY DATE(ct.transfer_date) DESC
-  `;
-
-  const transfers = (await db.sql(
-    query,
-  `%${username}%`,
-  `%${event}%`,
-  dateFrom,
-  dateTo
-  )).map((t) => {
-    if (dateGroupByValue === 'all') {
-      t.transfer_date = t.transfer_date.toISOString().replace('T', ' ').slice(0, -5);
-    } else {
-      t.transfer_date.setDate(t.transfer_date.getDate() + 1);
-      t.transfer_date = t.transfer_date.toISOString().substr(0, 10);
-    }
-    return t;
-  });
-
-  const total = (await db.sql(`
-    SELECT
-      SUM(credits_received) AS total_received,
-      SUM(credits_spent) AS total_spent
-    FROM (${query}) as subq`,
-  `%${username}%`,
-  `%${event}%`,
-  dateFrom,
-  dateTo
-  ))[0];
-
-  dateTo.setDate(dateTo.getDate() - 1); // show original date
+  bundle = await getCreditTransfers(username, event, dateFrom, dateTo, dateGroupByValue);
 
   await ctx.render('admin_transfers', {
-    transfers,
+    transfers: bundle.transfers,
+    total: bundle.total,
     username,
     event,
     dateFrom: dateFrom.toISOString().substr(0, 10),
     dateTo: dateTo.toISOString().substr(0, 10),
-    total,
     dateGroupByValue,
     admin: ctx.session.username,
-    show: transfers.length < MAX_HTML_ROWS_WITHOUT_CONFIRMATION || ctx.query.show != null,
-    resultCount: transfers.length,
+    show: bundle.transfers.length < MAX_HTML_ROWS_WITHOUT_CONFIRMATION || ctx.query.show != null,
+    resultCount: bundle.transfers.length,
     search: ctx.query.search,
     permissions: ctx.session.permissions,
   });
@@ -1076,12 +1014,36 @@ router.post('/xlsx/ctransfers', async (ctx, next) => {
   assert(isObject(dateTo), `in 'admin/ctransfers' dateTo expected to be object. actual: ${dateTo}`, 2184);
   assert(typeof event === 'string', `in 'admin/ctransfers' event expected to be string, actual: ${event}`, 2185);
 
+  bundle = await getCreditTransfers(username, event, dateFrom, dateTo, dateGroupByValue);
+
+  let table = '<tr><th>ID</th><th>Transfer Date</th><th>User</th><th>Event</th><th>Credits Received</th><th>Credits Spent</th></tr>';
+
+  for (const t of bundle.transfers) {
+    for (let [key, value] of Object.entries(t)) {
+      if (value == null) t[key] = '';
+    }
+    table += `<tr><td>${t.id}</td><td>${t.transfer_date}</td><td>${t.username}</td><td>${t.event}</td><td>${t.credits_received}</td><td>${t.credits_spent}</td></tr>`;
+  }
+  table += `<tr><td>Total</td><td></td><td></td><td></td><td>${bundle.total.total_received}</td><td>${bundle.total.total_spent}</td></tr>`
+
+  ctx.body = { table };
+});
+
+async function getCreditTransfers (username, event, dateFrom, dateTo, dateGroupByValue) {
   dateTo.setDate(dateTo.getDate() + 1); // include chosen day
 
   let selectValues = '';
+  let dateGroupByValues = {
+    all: 'transfer_date',
+    day: 'DATE(transfer_date)',
+    month: `TO_CHAR(transfer_date, 'YYYY-MM')`,
+    year: `TO_CHAR(transfer_date, 'YYYY')`,
+  }
+
+  let dateGroupBySQL = dateGroupByValues[dateGroupByValue]
 
   selectValues += dateGroupByValue === 'all' ? 'ct.id, ' : '';
-  selectValues += dateGroupByValue === 'all' ? 'transfer_date, ' : 'DATE(transfer_date) AS transfer_date, ';
+  selectValues += `${dateGroupBySQL} AS transfer_date, `;
   selectValues += dateGroupByValue === 'all' ? 'username, ' : '';
   selectValues += dateGroupByValue === 'all' ? 'credits_received, ' : 'SUM(ct.credits_received) AS credits_received, ';
   selectValues += dateGroupByValue === 'all' ? 'credits_spent, ' : 'SUM(ct.credits_spent) AS credits_spent, ';
@@ -1089,11 +1051,10 @@ router.post('/xlsx/ctransfers', async (ctx, next) => {
   selectValues = selectValues.substr(0, selectValues.length - 2); // removes trailing , from select
 
   let groupByValues = ``;
-  groupByValues += dateGroupByValue === 'all' ? '' : 'DATE(transfer_date), ';
+  groupByValues += dateGroupByValue === 'all' ? '' : dateGroupBySQL;
 
   if (groupByValues.length > 0) {
-    groupByValues = groupByValues.substr(0, groupByValues.length - 2); // removes trailing , from group by
-    groupByValues = 'GROUP BY ' + groupByValues
+    groupByValues = `GROUP BY ${groupByValues}`
   }
 
   const query = `
@@ -1108,7 +1069,7 @@ router.post('/xlsx/ctransfers', async (ctx, next) => {
       AND (ct.transfer_date BETWEEN $3 AND $4)
       AND approved = true
     ${groupByValues}
-    ORDER BY DATE(ct.transfer_date) DESC
+    ORDER BY ${dateGroupBySQL}
   `;
 
   const transfers = (await db.sql(
@@ -1121,8 +1082,13 @@ router.post('/xlsx/ctransfers', async (ctx, next) => {
     if (dateGroupByValue === 'all') {
       t.transfer_date = t.transfer_date.toISOString().replace('T', ' ').slice(0, -5);
     } else {
-      t.transfer_date.setDate(t.transfer_date.getDate() + 1);
-      t.transfer_date = t.transfer_date.toISOString().substr(0, 10);
+      if (isObject(t.transfer_date)) {
+        t.transfer_date.setDate(t.transfer_date.getDate() + 1);
+        t.transfer_date = t.transfer_date.toISOString().substr(0, 10);
+      }
+      t.id = 'all';
+      t.username = 'all';
+      t.event = 'all';
     }
     return t;
   });
@@ -1139,18 +1105,8 @@ router.post('/xlsx/ctransfers', async (ctx, next) => {
   ))[0];
 
   dateTo.setDate(dateTo.getDate() - 1); // show original date
-
-  let table = '<tr><th>ID</th><th>Transfer Date</th><th>User</th><th>Event</th><th>Credits Received</th><th>Credits Spent</th></tr>';
-
-  for (const t of transfers) {
-    for (let [key, value] of Object.entries(t)) {
-      if (value == null) t[key] = '';
-    }
-    table += `<tr><td>${t.id}</td><td>${t.transfer_date}</td><td>${t.username}</td><td>${t.event}</td><td>${t.credits_received}</td><td>${t.credits_spent}</td></tr>`;
-  }
-
-  ctx.body = { table };
-});
+  return { transfers, total }
+}
 
 // POST roles
 router.post(paths.roles, async (ctx, next) => {
@@ -1316,7 +1272,7 @@ router.get(paths.approveTransfers, async (ctx, next) => {
     WHERE
       UNACCENT(LOWER(u.username)) LIKE LOWER($1) AND
       approved = false
-    ORDER BY ct.id DESC
+    ORDER BY ct.id
     OFFSET $2
     LIMIT $3`,
   `%${username}%`,
