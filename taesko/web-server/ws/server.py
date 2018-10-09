@@ -15,12 +15,44 @@ from ws.err import *
 from ws.logs import error_log, access_log
 
 
+class RequestRateController:
+    max_recorded_addresses = 10
+    max_recorded_connections = 10
+    required_records = 5
+    deny_on = 3
+
+    def __init__(self):
+        factory = lambda: collections.deque(
+            maxlen=self.max_recorded_connections)
+        self.clients = collections.defaultdict(factory)
+
+    def can_accept_connection(self, address):
+        if len(self.clients[address]) < self.required_records:
+            return True
+
+        client_errors = sum(code == ws.worker.ExitCodes.too_many_client_errors
+                            for code in self.clients[address])
+
+        return client_errors >= self.deny_on
+
+    def record_handled_connection(self, address, worker_exit_code):
+        if len(self.clients) <= self.max_recorded_addresses:
+            self.clients[address].append(worker_exit_code)
+        else:
+            for a in self.clients:
+                if a != address:
+                    del self.clients[a]
+                    self.clients[address].append(worker_exit_code)
+                    break
+
+
 class Server:
     class ExecutionContext(enum.Enum):
         main = 'main'
         worker = 'worker'
 
-    ActiveWorker = collections.namedtuple('ActiveWorker', ['pid', 'created_on'])
+    ActiveWorker = collections.namedtuple('ActiveWorker', ['pid', 'created_on',
+                                                           'client_address'])
 
     def __init__(self):
         assert_system(sys_has_fork_support(),
@@ -38,6 +70,7 @@ class Server:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.workers = collections.deque()
+        self.rate_controller = RequestRateController()
 
         signal.signal(signal.SIGALRM, self.terminate_hanged_workers)
         signal.alarm(self.process_timeout)
@@ -119,17 +152,23 @@ class Server:
                 # don't break the listening loop just because one accept failed
                 continue
 
-            error_log.info('Accepted connection. '
-                           'client_socket.fileno=%d and address=%s',
-                           client_socket.fileno(), address)
+            if self.rate_controller.can_accept_connection(address):
+                error_log.info('Accepted connection. '
+                               'client_socket.fileno=%d and address=%s',
+                               client_socket.fileno(), address)
+            else:
+                error_log.warning('Denied connection. '
+                                  'client_socket.fileno=%d and address=%s')
+                client_socket.close(pass_silently=True)
+                continue
 
             try:
-                forked_pid = self.fork(client_socket)
+                forked_pid = self.fork(client_socket, address)
             except SysError as err:
                 if err.code == 'FORK_PROCESS_COUNT_LIMIT_REACH':
                     error_log.warning('Process count limit has been reached '
                                       'and server cannot fork itself any more '
-                                      '503 will be the status code of all '
+                                      '503 will be the exit_code code of all '
                                       'requests until resources are freed.')
                 else:
                     error_log.exception('Forking failed.')
@@ -148,20 +187,21 @@ class Server:
                 continue
 
             if forked_pid == 0:
-                status = 0
+                exit_code = 1
                 # noinspection PyBroadException
                 try:
-                    client_socket_handler(client_socket, address)
+                    exit_code = client_socket_handler(client_socket, address)
                 except Exception:
-                    status = 1
-                    error_log.exception('Unhandled exception occurred in worker'
-                                        '. Exiting with status code %s', status)
+                    exit_code = 1
+                    error_log.exception('Got error from client_socket_handler '
+                                        'in worker.')
+                error_log.info('Exiting with exit code %s', exit_code)
                 # noinspection PyProtectedMember
-                os._exit(status)
+                os._exit(exit_code.value)
             else:
                 pass
 
-    def fork(self, client_socket):
+    def fork(self, client_socket, address):
         """ Forks the process and sets the self.execution_context field.
 
         Also closes the listening socket in the child process and
@@ -216,7 +256,8 @@ class Server:
                 error_log.exception('Failed to clean up client socket in '
                                     'parent process.')
             self.workers.append(self.ActiveWorker(pid=pid,
-                                                  created_on=time.time()))
+                                                  created_on=time.time(),
+                                                  client_address=address))
 
         return pid
 
@@ -230,7 +271,7 @@ class Server:
 
         for worker in self.workers:
             try:
-                has_finished, status = os.waitpid(worker.pid, os.WNOHANG)
+                has_finished, exit_code = os.waitpid(worker.pid, os.WNOHANG)
             except OSError as err:
                 error_log.exception('Could not reap child worker with pid %d.'
                                     'waitpid() returned ERRNO=%d and reason=%s',
@@ -241,6 +282,10 @@ class Server:
 
             if has_finished:
                 error_log.info('Worker %s has finished.', worker)
+                self.rate_controller.record_handled_connection(
+                    address=worker.client_address,
+                    worker_exit_code=exit_code
+                )
             else:
                 leftover_workers.append(worker)
 
@@ -266,6 +311,7 @@ class Server:
 
 def pre_verify_request_syntax(client_socket, address):
     """ Checks if the syntax of the incoming request from the socket is ok.
+
 
     If the syntax is malformed an adequate response is sent to the client.
 

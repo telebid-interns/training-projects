@@ -164,8 +164,16 @@ class ClientSocket:
                                   self.fileno(), err.errno, err.strerror)
             finally:
                 error_log.info('Closing socket %d', self.sock.fileno())
-                self.sock.close()
+                try:
+                    self.sock.close()
+                except OSError:
+                    if not pass_silently:
+                        raise
         else:
             error_log.info('Closing socket %d', self.sock.fileno())
-            self.sock.close()
+            try:
+                self.sock.close()
+            except OSError:
+                if not pass_silently:
+                    raise
 

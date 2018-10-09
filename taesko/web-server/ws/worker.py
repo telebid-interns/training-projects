@@ -13,7 +13,8 @@ import ws.sockets
 from ws.logs import error_log, access_log
 from ws.config import config
 
-bad_requests_threshold = config.getint('bad_requests_rate_limit_threshold')
+bad_requests_threshold = config.getint('http',
+                                       'bad_requests_rate_limit_threshold')
 
 
 HTTPExchange = collections.namedtuple('HTTPExchange', ['request', 'response'])
@@ -72,7 +73,10 @@ class Worker:
 
     @property
     def request(self):
-        return self.exchanges[-1] if len(self.exchanges) > 0 else None
+        try:
+            return self.exchanges[-1].request
+        except IndexError:
+            return None
 
     @request.setter
     def request(self, http_request):
@@ -81,7 +85,10 @@ class Worker:
 
     @property
     def response(self):
-        return self.exchanges[1] if len(self.exchanges) > 0 else None
+        try:
+            return self.exchanges[-1].response
+        except IndexError:
+            return None
 
     @response.setter
     def response(self, http_response):
@@ -219,7 +226,8 @@ class Worker:
 def work(client_socket, address, quick_reply_with=None):
     assert isinstance(client_socket, ws.sockets.ClientSocket)
     assert isinstance(address, collections.Container)
-    assert isinstance(quick_reply_with, bool)
+    assert (not quick_reply_with or
+            isinstance(quick_reply_with, ws.http.structs.HTTPResponse))
 
     # noinspection PyBroadException
     try:
