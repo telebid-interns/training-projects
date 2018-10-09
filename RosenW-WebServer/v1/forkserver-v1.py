@@ -9,15 +9,17 @@ import traceback
 from error.asserts import *
 from error.exceptions import *
 from utils.sender import *
+from utils.http_status_codes_headers import HTTPHeaders
 from utils.logger import Logger
 from ConfigParser import ConfigParser
 
 class Server:
-  HEADERS_END_STRING_LENGTH = 4
-  ERROR_LOG_PATH = './logs/error.log'
+  HEADER_END_STRING = '\r\n\r\n'
 
   def __init__(self, opts):
-    self.log = Logger({'error': self.ERROR_LOG_PATH})
+    self.opts = opts
+    self.headers = HTTPHeaders()
+    self.log = Logger({'error': opts['error_path']})
     self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) # level, optname, value
     self.sock.bind((opts['address'], opts['port']))
@@ -27,7 +29,7 @@ class Server:
     self.max_subprocess_count = opts['subprocess_count']
     self.workers = 0
     self.timeout = opts['timeout']
-    signal.signal(signal.SIGCHLD, self.kill_children) # TODO make non-controversial
+    signal.signal(signal.SIGCHLD, self.kill_children)
 
   def start(self):
     connection = None
@@ -57,7 +59,7 @@ class Server:
         except BaseException as ex:
           self.log.error(ex)
       except IOError as e:
-        if e.errno != os.errno.EINTR:
+        if e.errno != os.errno.EINTR and e.errno != os.errno.EPIPE:
           try:
             self.log.error(e)
             send(connection, self.generate_headers(500))
@@ -65,7 +67,7 @@ class Server:
             self.log.error(ex)
           self.log.error(e)
         else:
-          pass
+          self.log.warn(e)
       except (OSError, IndexError, ValueError) as e:
         try:
           self.log.error(e)
@@ -91,7 +93,7 @@ class Server:
 
     try:
       self.sock.close()
-      assert type(client_address) is tuple and len(client_address) == 2 # TODO isinstance of
+      assert isinstance(client_address, tuple) and len(client_address) == 2
       self.env = {'host': client_address[0], 'port': client_address[1]}
       connection.settimeout(self.timeout)
       request = self.recv_request(connection)
@@ -133,7 +135,7 @@ class Server:
       raise FileNotFoundError('File not found: {}'.format(path), 'FILE_NOT_FOUND')
 
   def parse_request(self, request):
-    assert type(request) is str
+    assert isinstance(request, str)
     assert len(request) > 0
 
     self.env['request_first_line'] = request.splitlines()[0].rstrip('\r\n')
@@ -150,37 +152,34 @@ class Server:
     today = datetime.date.today()
     now = str(datetime.datetime.now())
 
-    assert type(self.env['host']) is str and type(self.env['port']) is int
+    assert isinstance(self.env['host'], str) and isinstance(self.env['port'], int)
     assert self.env
 
-    # TODO self.env.get('host', '-')
     with open('./logs/access.log', "a+") as file:
       file.write('{} {} {} {} "{}" {} {}\n'.format(
-        self.env['host'] if 'host' in self.env else '-',
-        self.env['remote_logname'] if 'remote_logname' in self.env else '-',
-        self.env['remote_user'] if 'remote_user' in self.env else '-',
-        self.env['request_time'] if 'request_time' in self.env else '-',
-        self.env['request_first_line'] if 'request_first_line' in self.env else '-',
-        self.env['status_code'] if 'status_code' in self.env else '-',
+        self.env.get('host', '-'),
+        self.env.get('remote_logname', '-'),
+        self.env.get('remote_user', '-'),
+        self.env.get('request_time', '-'),
+        self.env.get('request_first_line', '-'),
+        self.env.get('status_code', '-'),
         self.env['content_length'] if 'content_length' in self.env and self.env['content_length'] > 0 else '-'
       ))
     self.log.info('request logged')
 
   def recv_request(self, connection):
-    data = connection.recv(1024)
-    while '\r\n\r\n' not in data:
-      data += connection.recv(1024)
+    data = connection.recv(self.opts['recv'])
+    while self.HEADER_END_STRING not in data:
+      data += connection.recv(self.opts['recv'])
     total_length = self.parse_headers(data)
     while len(data) != total_length:
-      data += connection.recv(1024)
+      data += connection.recv(self.opts['recv'])
     self.log.info('Request Recved')
     return data
 
   def parse_headers(self, data):
-    self.log.debug('data')
-    self.log.debug(data)
-    assertPeer(len(data) <= 1024, 'Headers too long', 'HEADERS_TOO_LONG')
-    headers_length = data.find('\r\n\r\n') + self.HEADERS_END_STRING_LENGTH
+    assertPeer(len(data) <= self.opts['max_header_length'], 'Headers too long', 'HEADERS_TOO_LONG')
+    headers_length = data.find(self.HEADER_END_STRING) + len(self.HEADER_END_STRING)
     header_dict = {}
     for header in data[:headers_length].split('\r\n'):
       if ': ' in header:
@@ -201,18 +200,12 @@ class Server:
     self.env['status_code'] = response_code
 
     header = ''
-    if response_code == 200:
-      header += 'HTTP/1.1 200 OK\r\n'
-      header += 'Content-Type: text/html\r\n'
-    elif response_code == 400:
-      header += 'HTTP/1.1 400 Bad Request\r\n'
-    elif response_code == 404:
-      header += 'HTTP/1.1 404 Not Found\r\n'
-    elif response_code == 408:
-      header += 'HTTP/1.1 408 Request Timeout\r\n'
-    elif response_code == 500:
-      header += 'HTTP/1.1 500 Internal Server Error\r\n'
+    header += self.headers.get_header(response_code)
 
+    self.log.debug(header)
+
+    if response_code == 200:
+      header += 'Content-Type: text/html\r\n'
     header += 'Date: {}\r\n'.format(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime()))
     header += 'Connection: close\r\n\r\n'
     self.response_code = response_code
@@ -241,6 +234,9 @@ if __name__ == '__main__':
   DEFAULT_ADDRESS = ''
   DEFAULT_PORT = 8888
   DEFAULT_SUBPROCESS_COUNT = 20
+  DEFAULT_RECV = 4096
+  DEFAULT_ERROR_PATH = ''
+  DEFAULT_MAX_HEADER_LENGTH = 4096
 
   config = ConfigParser()
   config.read('./etc/config.ini')
@@ -250,13 +246,19 @@ if __name__ == '__main__':
   request_queue_size = config.get('server', 'request_queue_size')
   timeout = config.get('server', 'timeout')
   subprocess_count = config.get('server', 'subprocess_count')
+  recv = config.get('server', 'recv')
+  error_path = config.get('server', 'error_path')
+  max_header_length = config.get('server', 'max_header_length')
 
   opts = {
-    'port': port if type(port) is int else DEFAULT_PORT,
+    'port': int(port) if port.isdigit() else DEFAULT_PORT,
     'address': address or DEFAULT_ADDRESS,
-    'request_queue_size': request_queue_size if type(request_queue_size) is int else DEFAULT_REQUEST_QUEUE_SIZE,
-    'timeout': timeout if type(timeout) is int else DEFAULT_TIMEOUT,
-    'subprocess_count': subprocess_count if type(subprocess_count) is int else DEFAULT_SUBPROCESS_COUNT
+    'request_queue_size': int(request_queue_size) if request_queue_size.isdigit() else DEFAULT_REQUEST_QUEUE_SIZE,
+    'timeout': int(timeout) if timeout.isdigit() else DEFAULT_TIMEOUT,
+    'subprocess_count': int(subprocess_count) if subprocess_count.isdigit() else DEFAULT_SUBPROCESS_COUNT,
+    'recv': int(recv) if recv.isdigit() else DEFAULT_RECV,
+    'max_header_length': int(max_header_length) if max_header_length.isdigit else DEFAULT_MAX_HEADER_LENGTH,
+    'error_path': error_path or DEFAULT_ERROR_PATH
   }
 
   Server(opts).start()

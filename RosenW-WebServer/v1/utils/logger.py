@@ -10,7 +10,7 @@ class Logger:
       s = self.format(level_str, s)
       if level_str in ['error', 'fatal']:
         s += traceback.format_exc()
-      if level_str in self.opts:
+      if level_str in self.opts and self.opts[level_str]:
         with open(self.opts[level_str], "a+") as file:
           file.write(s)
       else:
