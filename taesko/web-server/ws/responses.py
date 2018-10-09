@@ -1,5 +1,6 @@
 from copy import deepcopy
 
+import ws.http.parser
 from ws.config import config
 from ws.err import *
 from ws.http.structs import HTTPResponse, HTTPStatusLine, HTTPHeaders
@@ -59,6 +60,9 @@ error_responses = {
             'CS_PEER_SEND_IS_TOO_SLOW': request_timeout,
             'CS_CONNECTION_TIMED_OUT': request_timeout
         },
+        ws.http.parser.ParserError: {
+            None: bad_request
+        }
     },
     'server': {
         AssertionError: {
@@ -82,7 +86,9 @@ def get_err_response(dct, exc_val):
 
     code = getattr(exc_val, 'code', None)
 
-    return handlers.get(code, None)
+    default_handler = handlers.get(None, None)
+
+    return handlers.get(code, None) or default_handler
 
 
 def client_err_response(exc_val):
