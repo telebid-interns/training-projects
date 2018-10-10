@@ -6,14 +6,14 @@ import signal
 import os
 import datetime
 import traceback
-from error.asserts import *
-from error.exceptions import *
-from utils.sender import *
+import configparser
+from error.asserts import assert_user, assert_peer
+from error.exceptions import SubprocessLimitError, PeerError
+from utils.sender import send
 from utils.http_status_codes_headers import HTTPHeaders
 from utils.logger import Logger
-import configparser
 
-class Server:
+class Server(object):
     HEADER_END_STRING = '\r\n\r\n'
 
     def __init__(self, opts):
@@ -58,7 +58,7 @@ class Server:
                     send(connection, self.generate_headers(503))
                 except BaseException as ex:
                     self.log.error(ex)
-            except IOError as e:
+            except OSError as e:
                 if e.errno != os.errno.EINTR and e.errno != os.errno.EPIPE:
                     try:
                         self.log.error(e)
@@ -68,7 +68,7 @@ class Server:
                     self.log.error(e)
                 else:
                     self.log.warn(e)
-            except (OSError, IndexError, ValueError) as e:
+            except (IndexError, ValueError) as e:
                 try:
                     self.log.error(e)
                     send(connection, self.generate_headers(500))
@@ -148,10 +148,7 @@ class Server:
             self.env['request_version']    # HTTP/1.1
         ) = tokens
 
-    def log_request(self, request):
-        today = datetime.date.today()
-        now = str(datetime.datetime.now())
-
+    def log_request(self):
         assert isinstance(self.env['host'], str) and isinstance(self.env['port'], int)
         assert self.env
 
@@ -178,7 +175,7 @@ class Server:
         return data
 
     def parse_headers(self, data):
-        assertPeer(len(data) <= self.opts['max_header_length'], 'Headers too long', 'HEADERS_TOO_LONG')
+        assert_peer(len(data) <= self.opts['max_header_length'], 'Headers too long', 'HEADERS_TOO_LONG')
         headers_length = data.find(self.HEADER_END_STRING) + len(self.HEADER_END_STRING)
         header_dict = {}
         for header in data[:headers_length].split('\r\n'):
@@ -220,11 +217,11 @@ class Server:
     def kill_children(self, signum, frame):
         try:
             while True:
-                (pid, exit_status) = os.waitpid(-1, os.WNOHANG)
+                pid = os.waitpid(-1, os.WNOHANG)[0]
                 if pid == 0:
                     break
                 self.workers -= 1
-        except BaseException as e:
+        except (OSError, BaseException) as e:
             if e.errno != os.errno.ECHILD:
                 self.log.error(e)
 
