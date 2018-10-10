@@ -23,4 +23,23 @@ class SysError(BaseError):
 
 
 assert_peer = PeerError.assert_
-assert_system = PeerError.assert_
+assert_system = SysError.assert_
+err_handlers = {}
+
+
+def err_handler(exc_cls):
+    def decorator(func):
+        assert exc_cls not in err_handlers
+
+        err_handlers[exc_cls] = func
+        return func
+
+    return decorator
+
+
+def handle_err(exc):
+    for cls, handler in err_handlers.items():
+        if exc.__class__ == cls:
+            return handler(exc)
+
+    return None

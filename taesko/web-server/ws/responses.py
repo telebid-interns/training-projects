@@ -4,6 +4,7 @@ import ws.http.parser
 from ws.config import config
 from ws.err import *
 from ws.http.structs import HTTPResponse, HTTPStatusLine, HTTPHeaders
+from ws.logs import error_log
 
 
 def build_response(status_code, *, body=None, reason_phrase='', headers=None,
@@ -91,10 +92,12 @@ def get_err_response(dct, exc_val):
     return handlers.get(code, None) or default_handler
 
 
-def client_err_response(exc_val):
+def client_err_response_depreciated(exc_val):
+    error_log.warning('This function is depreciated see ws.err module...')
     return deepcopy(get_err_response(error_responses['client'], exc_val))
 
 
-def server_err_response(exc_val):
+def server_err_response_depreciated(exc_val):
+    error_log.warning('This function is depreciated see ws.err module...')
     return deepcopy((get_err_response(error_responses['server'], exc_val) or
                      internal_server_error))

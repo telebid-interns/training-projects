@@ -1,31 +1,23 @@
 import collections
 import errno
 import signal
-import enum
-import functools
 
 import ws.http.parser
 import ws.http.structs
 import ws.http.utils
+import ws.ratelimit
 import ws.responses
 import ws.serve
 import ws.sockets
-from ws.logs import error_log, access_log
 from ws.config import config
+from ws.err import *
+from ws.logs import error_log, access_log
 
-bad_requests_threshold = config.getint('http',
-                                       'bad_requests_rate_limit_threshold')
-
-
+CLIENT_ERRORS_THRESHOLD = config.getint('http', 'client_errors_threshold')
 HTTPExchange = collections.namedtuple('HTTPExchange', ['request', 'response'])
 
 
-class ExitCodes(enum.Enum):
-    success = 0
-    execution_ended_abruptly = 1
-    too_many_client_errors = 40
-
-
+# noinspection PyAttributeOutsideInit
 class Worker:
     """ Receives/parses requests and sends/encodes back responses.
 
@@ -38,7 +30,7 @@ class Worker:
     Persistent connections are handled, but require self.parse_request() to be
     repeatedly called.
     """
-    max_exchange_history = bad_requests_threshold * 2
+    max_exchange_history = CLIENT_ERRORS_THRESHOLD * 2
 
     # noinspection PyUnusedLocal
     def __init__(self, iterable_socket, address):
@@ -80,8 +72,11 @@ class Worker:
 
     @request.setter
     def request(self, http_request):
-        self.exchanges[-1] = HTTPExchange(http_request,
-                                          self.exchanges[-1].response)
+        try:
+            self.exchanges[-1] = HTTPExchange(http_request,
+                                              self.exchanges[-1].response)
+        except IndexError:
+            self.exchanges.append(HTTPExchange(http_request, None))
 
     @property
     def response(self):
@@ -92,19 +87,23 @@ class Worker:
 
     @response.setter
     def response(self, http_response):
-        self.exchanges[-1] = HTTPExchange(self.exchanges[-1].request,
-                                          http_response)
+        try:
+            self.exchanges[-1] = HTTPExchange(self.exchanges[-1].request,
+                                              http_response)
+        except IndexError:
+            self.exchanges.append(HTTPExchange(None, http_response))
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if not exc_val:
-            error_log.info('Cleaning up worker after successful execution.')
+            error_log.info('Execution successful. Cleaning up worker.')
             self.sock.close(with_shutdown=True, safely=True)
             return False
 
-        error_log.info('Cleaning up worker after unsuccessful execution.')
+        error_log.info('Execution failed. Cleaning up worker.')
+
         if self.responding:
             error_log.warning(
                 'An exception occurred after worker had sent bytes over '
@@ -117,13 +116,13 @@ class Worker:
         else:
             pass
 
-        # server_err_response always returns a response regardless
-        # of config, so we need to check for client_err
-        if not ws.responses.client_err_response(exc_val):
-            error_log.exception('Server error occurred. ')
+        response = handle_err(exc_val)
 
-        response = (ws.responses.client_err_response(exc_val) or
-                    ws.responses.server_err_response(exc_val))
+        if not response:
+            error_log.exception('Could not handle exception. Client will '
+                                'receive a 500 Internal Server Error.')
+            response = ws.responses.build_response(500)
+
         response.headers['Connection'] = 'close'
 
         self.status_code_on_abort = response.status_line.status_code
@@ -223,6 +222,28 @@ class Worker:
         raise RuntimeError('Parent process requested termination.')
 
 
+# noinspection PyUnusedLocal
+@err_handler(AssertionError)
+def server_err_handler(exc):
+    error_log.exception('Internal server error.')
+    return ws.responses.build_response(500)
+
+
+@err_handler(ws.http.parser.ParserError)
+def handle_parse_err(exc):
+    error_log.info('Parsing error with code=%s occurred', exc.code)
+    return ws.responses.build_response(400)
+
+
+@err_handler(ws.sockets.ClientSocketError)
+def handle_client_socket_err(exc):
+    error_log.info('Client socket error with code=%s occurred', exc.code)
+    if exc.code in ('CS_PEER_SEND_IS_TOO_SLOW', 'CS_CONNECTION_TIMED_OUT'):
+        return ws.responses.build_response(408)
+    else:
+        return ws.responses.build_response(400)
+
+
 def work(client_socket, address, quick_reply_with=None):
     assert isinstance(client_socket, ws.sockets.ClientSocket)
     assert isinstance(address, collections.Container)
@@ -235,22 +256,22 @@ def work(client_socket, address, quick_reply_with=None):
             if quick_reply_with:
                 worker.respond(quick_reply_with, closing=True,
                                ignored_request=True)
-                return
+                return 0
 
             worker.work(request_handler=handle_request)
     except Exception:
         error_log.exception('Worker on socket %s and address %s finished'
                             ' abruptly.', client_socket.fileno(), address)
-        return ExitCodes.execution_ended_abruptly
+        return 1
 
     codes = (e.response.status_line.status_code
              for e in worker.exchanges if e.response)
-    client_err_count = sum(1 for c in codes if 400 <= c < 500)
+    err_count = sum(c in ws.ratelimit.CONSIDERED_CLIENT_ERRORS for c in codes)
 
-    if client_err_count > bad_requests_threshold:
-        return ExitCodes.too_many_client_errors
+    if err_count:
+        return ws.ratelimit.RATE_LIMIT_EXIT_CODE_OFFSET + err_count
     else:
-        return ExitCodes.success
+        return 0
 
 
 def handle_request(request):

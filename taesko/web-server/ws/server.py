@@ -13,37 +13,7 @@ import ws.worker
 from ws.config import config
 from ws.err import *
 from ws.logs import error_log, access_log
-
-
-class RequestRateController:
-    max_recorded_addresses = 10
-    max_recorded_connections = 10
-    required_records = 5
-    deny_on = 3
-
-    def __init__(self):
-        factory = lambda: collections.deque(
-            maxlen=self.max_recorded_connections)
-        self.clients = collections.defaultdict(factory)
-
-    def can_accept_connection(self, address):
-        if len(self.clients[address]) < self.required_records:
-            return True
-
-        client_errors = sum(code == ws.worker.ExitCodes.too_many_client_errors
-                            for code in self.clients[address])
-
-        return client_errors >= self.deny_on
-
-    def record_handled_connection(self, address, worker_exit_code):
-        if len(self.clients) <= self.max_recorded_addresses:
-            self.clients[address].append(worker_exit_code)
-        else:
-            for a in self.clients:
-                if a != address:
-                    del self.clients[a]
-                    self.clients[address].append(worker_exit_code)
-                    break
+from ws.ratelimit import RequestRateController
 
 
 class Server:
@@ -62,6 +32,8 @@ class Server:
         self.host = config['settings']['host']
         self.port = config.getint('settings', 'port')
         self.process_timeout = config.getint('settings', 'process_timeout')
+        self.process_reaping_period = config.getint('settings',
+                                                    'process_reaping_period')
         self.concurrency = config.getint('settings', 'max_concurrent_requests')
         self.process_count_limit = config.getint('settings',
                                                  'process_count_limit')
@@ -73,7 +45,7 @@ class Server:
         self.rate_controller = RequestRateController()
 
         signal.signal(signal.SIGALRM, self.terminate_hanged_workers)
-        signal.alarm(self.process_timeout)
+        signal.alarm(self.process_reaping_period)
 
     def __enter__(self):
         error_log.debug('Binding server on %s:%s', self.host, self.port)
@@ -152,13 +124,14 @@ class Server:
                 # don't break the listening loop just because one accept failed
                 continue
 
-            if self.rate_controller.can_accept_connection(address):
+            if self.rate_controller.is_banned(address[0]):
                 error_log.info('Accepted connection. '
                                'client_socket.fileno=%d and address=%s',
                                client_socket.fileno(), address)
             else:
                 error_log.warning('Denied connection. '
-                                  'client_socket.fileno=%d and address=%s')
+                                  'client_socket.fileno=%d and address=%s',
+                                  client_socket.fileno(), address)
                 client_socket.close(pass_silently=True)
                 continue
 
@@ -187,17 +160,20 @@ class Server:
                 continue
 
             if forked_pid == 0:
-                exit_code = 1
+                exit_code = None
+
                 # noinspection PyBroadException
                 try:
                     exit_code = client_socket_handler(client_socket, address)
                 except Exception:
-                    exit_code = 1
                     error_log.exception('Got error from client_socket_handler '
                                         'in worker.')
+                if not exit_code:
+                    exit_code = 2
+
                 error_log.info('Exiting with exit code %s', exit_code)
                 # noinspection PyProtectedMember
-                os._exit(exit_code.value)
+                os._exit(exit_code)
             else:
                 pass
 
@@ -283,7 +259,7 @@ class Server:
             if has_finished:
                 error_log.info('Worker %s has finished.', worker)
                 self.rate_controller.record_handled_connection(
-                    address=worker.client_address,
+                    ip_address=worker.client_address[0],
                     worker_exit_code=exit_code
                 )
             else:
@@ -305,8 +281,8 @@ class Server:
                                         'hanged worker with pid=%d', worker.pid)
 
         error_log.debug('Rescheduling SIGALRM signal to after %s seconds',
-                        self.process_timeout)
-        signal.alarm(self.process_timeout)
+                        self.process_reaping_period)
+        signal.alarm(self.process_reaping_period)
 
 
 def pre_verify_request_syntax(client_socket, address):
