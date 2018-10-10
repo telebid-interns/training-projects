@@ -61,6 +61,14 @@
 </html>
 
 <script type="text/javascript">
+  if ('{{err}}') {
+    document.getElementById('navbar-msg').className += ' text-danger';
+    document.getElementById('navbar-msg').innerHTML = '{{err.msg}}';
+    if ('{{err.code}}' === '1') {
+      document.getElementById('term').setAttribute('style', 'border-color: red');
+    }
+  }
+
   document.getElementById('search-btn').addEventListener('click', (event) => {
     document.getElementById('loading-animation').removeAttribute('hidden')
     document.getElementById('search-btn').setAttribute('disabled', 'disabled');

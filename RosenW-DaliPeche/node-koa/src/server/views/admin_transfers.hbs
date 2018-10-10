@@ -109,9 +109,13 @@
 <script type="text/javascript">
   if ('{{err}}') {
     document.getElementById('navbar-msg').className += ' text-danger';
-    document.getElementById('navbar-msg').innerHTML = '{{err}}';
-    document.getElementById('dateFrom').setAttribute('style', 'border-color: red');
-    document.getElementById('dateTo').setAttribute('style', 'border-color: red');
+    document.getElementById('navbar-msg').innerHTML = '{{err.msg}}';
+    if ('{{err.code}}' === '1') {
+      document.getElementById('dateFrom').setAttribute('style', 'border-color: red');
+      document.getElementById('dateTo').setAttribute('style', 'border-color: red');
+    } else if ('{{err.code}}' === '2') {
+      document.getElementById('username').setAttribute('style', 'border-color: red');
+    }
   }
 
   const dateGroupByValues = ['all', 'day', 'month', 'year'];

@@ -23,7 +23,8 @@ const {
   MINIMUM_PASSWORD_LENGTH,
   SALT_ROUNDS,
   SALT_LENGTH,
-  MAX_HTML_ROWS_WITHOUT_CONFIRMATION
+  MAX_HTML_ROWS_WITHOUT_CONFIRMATION,
+  MAXIMUM_TIME_SEARCH_INTERVAL
 } = require('./../utils/consts.js');
 const paths = require('./../etc/config.js');
 
@@ -136,13 +137,13 @@ router.get(paths.users, async (ctx, next) => {
   assert(typeof creditsFrom === 'number', `in 'admin/user' creditsFrom expected to be number, actual: ${typeof creditsFrom}`, 125);
   assert(typeof creditsTo === 'number', `in 'admin/user' creditsTo expected to be number, actual: ${typeof creditsTo}`, 126);
 
-  if (dateTo - dateFrom > 31536000000) {
+  if (dateTo - dateFrom > MAXIMUM_TIME_SEARCH_INTERVAL || !username) {
     await ctx.render('admin_users', {
       maxRequests: MAX_REQUESTS_PER_HOUR,
       users: [],
       permissions: ctx.session.permissions,
       admin: ctx.session.username,
-      err: 'Maximum time interval allowed is 1 year'
+      err: dateTo - dateFrom > MAXIMUM_TIME_SEARCH_INTERVAL ? { code: 1, msg: 'Maximum time interval allowed is 1 year' } : { code: 2, msg: 'Username field must be filled' }
     });
     return next();
   }
@@ -183,8 +184,17 @@ router.get(paths.creditBalance, async (ctx, next) => {
     });
     return next();
   }
-
   const username = ctx.query.username == null ? '' : ctx.query.username;
+
+  if (!username) {
+    await ctx.render('admin_credits', {
+      users: [],
+      admin: ctx.session.username,
+      permissions: ctx.session.permissions,
+      err: { code: 1, msg:'Username field must be filled' }
+    });
+    return next();
+  }
 
   const bundle = await getCreditBalance(username);
 
@@ -235,12 +245,12 @@ router.get(paths.cities, async (ctx, next) => {
   assert(typeof name === 'string', `in 'admin/cities' name expected to be string, actual: ${name}`, 141);
   assert(typeof country === 'string', `in 'admin/cities' country expected to be string, actual: ${country}`, 142);
 
-  if (dateTo - dateFrom > 31536000000) {
+  if (dateTo - dateFrom > MAXIMUM_TIME_SEARCH_INTERVAL || !name) {
     await ctx.render('admin_cities', {
       cities: [],
       admin: ctx.session.username,
       permissions: ctx.session.permissions,
-      err: 'Maximum time interval allowed is 1 year'
+      err: dateTo - dateFrom > MAXIMUM_TIME_SEARCH_INTERVAL ? { code: 1, msg:'Maximum time interval allowed is 1 year' } : { code: 2, msg:'City name field must be filled' }
     });
     return next();
   }
@@ -278,6 +288,16 @@ router.get(paths.requests, async (ctx, next) => {
       term,
       admin: ctx.session.username,
       permissions: ctx.session.permissions,
+    });
+    return next();
+  }
+
+  if (!term) {
+    await ctx.render('admin_requests', {
+      requests: [],
+      admin: ctx.session.username,
+      permissions: ctx.session.permissions,
+      err: { code: 1, msg:'IATA Code / City field must be filled' }
     });
     return next();
   }
@@ -622,13 +642,12 @@ router.get(paths.creditTransfers, async (ctx, next) => {
     return next();
   }
 
-
-  if (dateTo - dateFrom > 31536000000) {
+  if (dateTo - dateFrom > MAXIMUM_TIME_SEARCH_INTERVAL || !username) {
     await ctx.render('admin_transfers', {
       transfers: [],
       admin: ctx.session.username,
       permissions: ctx.session.permissions,
-      err: 'Maximum time interval allowed is 1 year'
+      err: dateTo - dateFrom > MAXIMUM_TIME_SEARCH_INTERVAL ? { code: 1, msg:'Maximum time interval allowed is 1 year' } : { code: 2, msg:'Username field must be filled' }
     });
     return next();
   }

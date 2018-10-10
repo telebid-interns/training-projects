@@ -120,3 +120,4 @@ Expecting 'CLOSE_RAW_BLOCK', 'CLOSE', 'CLOSE_UNESCAPED', 'OPEN_SEXPR', 'CLOSE_SE
 2018-10-10T10:55:01.674Z:  TypeError: Cannot read property 'length' of undefined
 2018-10-10T11:30:19.747Z:  ReferenceError: users is not defined
 2018-10-10T11:32:16.789Z:  TypeError: bundle.users is not iterable
+2018-10-10T12:33:24.883Z:  ReferenceError: dateTo is not defined
