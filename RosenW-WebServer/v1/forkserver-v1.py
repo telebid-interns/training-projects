@@ -58,7 +58,7 @@ class Server:
           send(connection, self.generate_headers(503))
         except BaseException as ex:
           self.log.error(ex)
-      except IOError as e:
+      except (IOError, OSError) as e:
         if e.errno != os.errno.EINTR and e.errno != os.errno.EPIPE:
           try:
             self.log.error(e)
@@ -68,7 +68,7 @@ class Server:
           self.log.error(e)
         else:
           self.log.warn(e)
-      except (OSError, IndexError, ValueError) as e:
+      except (IndexError, ValueError) as e:
         try:
           self.log.error(e)
           send(connection, self.generate_headers(500))
@@ -116,6 +116,11 @@ class Server:
     except socket.timeout as e:
       self.log.warn(e)
       send(connection, self.generate_headers(408))
+    except IOError as e:
+      if e.errno != os.errno.EPIPE:
+        self.log.error(e)
+      else:
+        self.log.warn(e)
     except BaseException as e:
       self.log.error(e)
       send(connection, self.generate_headers(500))

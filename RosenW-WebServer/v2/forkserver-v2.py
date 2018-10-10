@@ -55,7 +55,7 @@ class Server(object):
             except SubprocessLimitError as e:
                 try:
                     self.log.warn(e)
-                    send(connection, self.generate_headers(503))
+                    send(connection, self.generate_headers(500))
                 except BaseException as ex:
                     self.log.error(ex)
             except OSError as e:
@@ -116,13 +116,18 @@ class Server(object):
         except socket.timeout as e:
             self.log.warn(e)
             send(connection, self.generate_headers(408))
+        except IOError as e:
+            if e.errno != os.errno.EPIPE:
+                self.log.error(e)
+            else:
+                self.log.warn(e)
         except BaseException as e:
             self.log.error(e)
             send(connection, self.generate_headers(500))
         finally:
             connection.close()
             if request:
-                self.log_request(request)
+                self.log_request()
         self.log.info('Request Handled')
 
     def get_requested_file(self, path):
