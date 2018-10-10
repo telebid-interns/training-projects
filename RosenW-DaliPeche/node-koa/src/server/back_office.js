@@ -132,6 +132,17 @@ router.get(paths.users, async (ctx, next) => {
   assert(typeof creditsFrom === 'number', `in 'admin/user' creditsFrom expected to be number, actual: ${typeof creditsFrom}`, 125);
   assert(typeof creditsTo === 'number', `in 'admin/user' creditsTo expected to be number, actual: ${typeof creditsTo}`, 126);
 
+  if (dateTo - dateFrom > 31536000000) {
+    await ctx.render('admin_users', {
+      maxRequests: MAX_REQUESTS_PER_HOUR,
+      users: [],
+      permissions: ctx.session.permissions,
+      admin: ctx.session.username,
+      err: 'Maximum time interval allowed is 1 year'
+    });
+    return next();
+  }
+
   dateTo.setDate(dateTo.getDate() + 1); // include chosen day
 
   const users = (await db.sql(`
@@ -273,6 +284,16 @@ router.get(paths.cities, async (ctx, next) => {
   assert(isObject(dateTo), `in 'admin/cities' dateTo expected to be object. actual: ${dateTo}`, 1443);
   assert(typeof name === 'string', `in 'admin/cities' name expected to be string, actual: ${name}`, 141);
   assert(typeof country === 'string', `in 'admin/cities' country expected to be string, actual: ${country}`, 142);
+
+  if (dateTo - dateFrom > 31536000000) {
+    await ctx.render('admin_cities', {
+      cities: [],
+      admin: ctx.session.username,
+      permissions: ctx.session.permissions,
+      err: 'Maximum time interval allowed is 1 year'
+    });
+    return next();
+  }
 
   dateTo.setDate(dateTo.getDate() + 1); // include chosen day
 
@@ -680,6 +701,17 @@ router.get(paths.creditTransfers, async (ctx, next) => {
       admin: ctx.session.username,
       permissions: ctx.session.permissions,
       search: ctx.query.search
+    });
+    return next();
+  }
+
+
+  if (dateTo - dateFrom > 31536000000) {
+    await ctx.render('admin_transfers', {
+      transfers: [],
+      admin: ctx.session.username,
+      permissions: ctx.session.permissions,
+      err: 'Maximum time interval allowed is 1 year'
     });
     return next();
   }

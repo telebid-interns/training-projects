@@ -95,6 +95,15 @@
 </html>
 
 <script type="text/javascript">
+  if ('{{err}}') {
+    document.getElementById('navbar-msg').className += ' text-danger';
+    document.getElementById('navbar-msg').innerHTML = '{{err}}';
+    document.getElementById('dateFrom').setAttribute('style', 'border-color: red');
+    document.getElementById('dateTo').setAttribute('style', 'border-color: red');
+  }
+
+  document.getElementById('menu-users').setAttribute('class', 'selected');
+
   document.getElementById('search-btn').addEventListener('click', (event) => {
     document.getElementById('loading-animation').removeAttribute('hidden')
     document.getElementById('search-btn').setAttribute('disabled', 'disabled');
@@ -102,5 +111,4 @@
     document.getElementById('table-container').setAttribute('hidden', 'hidden')
     document.getElementById('report-text').setAttribute('hidden', 'hidden')
   });
-  document.getElementById('menu-users').setAttribute('class', 'selected');
 </script>

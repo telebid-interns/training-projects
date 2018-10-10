@@ -107,13 +107,12 @@
 </html>
 
 <script type="text/javascript">
-  document.getElementById('search-btn').addEventListener('click', (event) => {
-    document.getElementById('loading-animation').removeAttribute('hidden');
-    document.getElementById('search-btn').setAttribute('disabled', 'disabled');
-    document.getElementById('form').submit();
-    document.getElementById('table-container').setAttribute('hidden', 'hidden');
-    document.getElementById('report-text').setAttribute('hidden', 'hidden');
-  });
+  if ('{{err}}') {
+    document.getElementById('navbar-msg').className += ' text-danger';
+    document.getElementById('navbar-msg').innerHTML = '{{err}}';
+    document.getElementById('dateFrom').setAttribute('style', 'border-color: red');
+    document.getElementById('dateTo').setAttribute('style', 'border-color: red');
+  }
 
   const dateGroupByValues = ['all', 'day', 'month', 'year'];
   if (dateGroupByValues.indexOf('{{dateGroupByValue}}') > -1) {
@@ -122,4 +121,13 @@
 
   document.getElementById('menu-ctransfers').setAttribute('class', 'selected');
   document.getElementById('select-event').value = '{{event}}';
+
+  document.getElementById('search-btn').addEventListener('click', (event) => {
+    document.getElementById('loading-animation').removeAttribute('hidden');
+    document.getElementById('search-btn').setAttribute('disabled', 'disabled');
+    document.getElementById('form').submit();
+    document.getElementById('table-container').setAttribute('hidden', 'hidden');
+    document.getElementById('report-text').setAttribute('hidden', 'hidden');
+  });
+
 </script>
