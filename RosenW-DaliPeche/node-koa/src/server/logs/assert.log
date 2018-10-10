@@ -112,3 +112,11 @@ Expecting 'CLOSE_RAW_BLOCK', 'CLOSE', 'CLOSE_UNESCAPED', 'OPEN_SEXPR', 'CLOSE_SE
 2018-10-09T13:58:32.334Z:  Error: next() called multiple times
 2018-10-09T13:59:34.041Z:  Error: next() called multiple times
 2018-10-09T13:59:57.737Z:  Error: next() called multiple times
+2018-10-10T08:59:20.647Z:  Error: in 'admin/user' dateFrom expected to be object. actual: number
+2018-10-10T08:59:52.687Z:  Error: in 'admin/user' dateFrom expected to be object. actual: number
+2018-10-10T09:00:15.570Z:  Error: in 'admin/user' dateFrom expected to be object. actual: number
+2018-10-10T09:00:39.443Z:  TypeError: (intermediate value).setFullYear(...).toISOString is not a function
+2018-10-10T09:01:09.179Z:  Error: in 'admin/user' dateFrom expected to be object. actual: number
+2018-10-10T10:55:01.674Z:  TypeError: Cannot read property 'length' of undefined
+2018-10-10T11:30:19.747Z:  ReferenceError: users is not defined
+2018-10-10T11:32:16.789Z:  TypeError: bundle.users is not iterable

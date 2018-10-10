@@ -118,12 +118,16 @@ router.get(paths.users, async (ctx, next) => {
     return next();
   }
 
+  let currentYear = new Date();
+  let previousYear = new Date();
+  previousYear.setFullYear(previousYear.getFullYear() - 1);
+
   const username = ctx.query.username == null ? '' : ctx.query.username;
   const email = ctx.query.email == null ? '' : ctx.query.email;
   const creditsFrom = ctx.query['credits-from'] == null ? 0 : Number(ctx.query['credits-from']);
   const creditsTo = ctx.query['credits-to'] == null || Number(ctx.query['credits-to']) === 0 ? MAXIMUM_CREDITS_ALLOWED : Number(ctx.query['credits-to']);
-  const dateFrom = ctx.query['date-from'] == null || isNaN(new Date(ctx.query['date-from'])) ? new Date('1970-01-01') : new Date(ctx.query['date-from']);
-  const dateTo = ctx.query['date-to'] == null || isNaN(new Date(ctx.query['date-to'])) ? new Date() : new Date(ctx.query['date-to']);
+  const dateFrom = ctx.query['date-from'] == null || isNaN(new Date(ctx.query['date-from'])) ? previousYear : new Date(ctx.query['date-from']);
+  const dateTo = ctx.query['date-to'] == null || isNaN(new Date(ctx.query['date-to'])) ? currentYear : new Date(ctx.query['date-to']);
 
   assert(typeof username === 'string', `in 'admin/user' username expected to be string, actual: ${typeof username}`, 121);
   assert(isObject(dateFrom), `in 'admin/user' dateFrom expected to be object. actual: ${typeof dateFrom}`, 122);
@@ -143,29 +147,7 @@ router.get(paths.users, async (ctx, next) => {
     return next();
   }
 
-  dateTo.setDate(dateTo.getDate() + 1); // include chosen day
-
-  const users = (await db.sql(`
-    SELECT *
-    FROM users
-    WHERE
-      UNACCENT(LOWER(username)) LIKE LOWER($1)
-      AND LOWER(email) LIKE LOWER($2)
-      AND (date_registered BETWEEN $3 AND $4)
-      AND (credits BETWEEN $5 AND $6)
-    ORDER BY id`,
-  `%${username}%`,
-  `%${email}%`,
-  dateFrom,
-  dateTo,
-  creditsFrom,
-  creditsTo
-  )).map((u) => {
-    u.date_registered = u.date_registered.toISOString().replace('T', ' ').slice(0, -5);
-    return u;
-  });
-
-  dateTo.setDate(dateTo.getDate() - 1); // show original date
+  const users = await getUsers(username, email, creditsFrom, creditsTo, dateFrom, dateTo);
 
   await ctx.render('admin_users', {
     maxRequests: MAX_REQUESTS_PER_HOUR,
@@ -203,55 +185,19 @@ router.get(paths.creditBalance, async (ctx, next) => {
   }
 
   const username = ctx.query.username == null ? '' : ctx.query.username;
-  const users = await db.sql(`
-    SELECT
-      u.id,
-      u.username,
-      SUM(ct.credits_received) AS credits_purchased,
-      SUM(ct.credits_spent) AS credits_spent,
-      u.credits AS credits_remaining
-    FROM users AS u
-    JOIN credit_transfers AS ct
-    ON ct.user_id = u.id
-    WHERE UNACCENT(LOWER(u.username)) LIKE LOWER($1)
-    GROUP BY (u.id, u.username, u.credits)
-    ORDER BY u.id
-  `,
-  `%${username}%`
-  );
 
-  const total = (await db.sql(`
-    SELECT
-      SUM(credits_purchased) AS total_credits_purchased,
-      SUM(credits_spent) AS total_credits_spent,
-      SUM(credits_remaining) AS total_credits_remaining
-    FROM (
-      SELECT
-        u.id,
-        u.username,
-        SUM(ct.credits_received) AS credits_purchased,
-        SUM(ct.credits_spent) AS credits_spent,
-        u.credits AS credits_remaining
-      FROM users AS u
-      JOIN credit_transfers AS ct
-      ON ct.user_id = u.id
-      WHERE UNACCENT(LOWER(u.username)) LIKE LOWER($1)
-      GROUP BY (u.id, u.username, u.credits)
-      ORDER BY u.id) AS total_by_user;
-    `,
-  `%${username}%`,
-  ))[0];
+  const bundle = await getCreditBalance(username);
 
   await ctx.render('admin_credits', {
-    users,
-    total_credits_purchased: total.total_credits_purchased,
-    total_credits_spent: total.total_credits_spent,
-    total_credits_remaining: total.total_credits_remaining,
+    users: bundle.users,
+    total_credits_purchased: bundle.total.total_credits_purchased,
+    total_credits_spent: bundle.total.total_credits_spent,
+    total_credits_remaining: bundle.total.total_credits_remaining,
     username,
     admin: ctx.session.username,
     search: ctx.query.search,
-    show: users.length < MAX_HTML_ROWS_WITHOUT_CONFIRMATION || ctx.query.show != null,
-    resultCount: users.length,
+    show: bundle.users.length < MAX_HTML_ROWS_WITHOUT_CONFIRMATION || ctx.query.show != null,
+    resultCount: bundle.users.length,
     permissions: ctx.session.permissions,
   });
 });
@@ -275,10 +221,14 @@ router.get(paths.cities, async (ctx, next) => {
     return next();
   }
 
+  let currentYear = new Date();
+  let previousYear = new Date();
+  previousYear.setFullYear(previousYear.getFullYear() - 1);
+
   const name = ctx.query.name == null ? '' : ctx.query.name;
   const country = ctx.query['country'] == null ? '' : ctx.query['country'];
-  const dateFrom = ctx.query['date-from'] == null || isNaN(new Date(ctx.query['date-from'])) ? new Date('1970-01-01') : new Date(ctx.query['date-from']);
-  const dateTo = ctx.query['date-to'] == null || isNaN(new Date(ctx.query['date-to'])) ? new Date() : new Date(ctx.query['date-to']);
+  const dateFrom = ctx.query['date-from'] == null || isNaN(new Date(ctx.query['date-from'])) ? previousYear : new Date(ctx.query['date-from']);
+  const dateTo = ctx.query['date-to'] == null || isNaN(new Date(ctx.query['date-to'])) ? currentYear : new Date(ctx.query['date-to']);
 
   assert(isObject(dateFrom), `in 'admin/cities' dateFrom expected to be object. actual: ${dateFrom}`, 1442);
   assert(isObject(dateTo), `in 'admin/cities' dateTo expected to be object. actual: ${dateTo}`, 1443);
@@ -295,28 +245,7 @@ router.get(paths.cities, async (ctx, next) => {
     return next();
   }
 
-  dateTo.setDate(dateTo.getDate() + 1); // include chosen day
-
-  const cities = (await db.sql(`
-    SELECT c.*, ctr.name as country
-    FROM cities as c
-    JOIN countries as ctr
-      ON c.country_code = ctr.country_code
-    WHERE
-      UNACCENT(LOWER(c.name)) LIKE LOWER($1)
-      AND LOWER(ctr.name) LIKE LOWER($2)
-      AND (c.observed_at BETWEEN $3 AND $4)
-    ORDER BY id`,
-  `%${name}%`,
-  `%${country}%`,
-  dateFrom,
-  dateTo
-  )).map((c) => {
-    if (c.observed_at != null) c.observed_at = c.observed_at.toISOString().replace('T', ' ').slice(0, -5);
-    return c;
-  }).sort((c1, c2) => c1.id - c2.id);
-
-  dateTo.setDate(dateTo.getDate() - 1); // show original date
+  const cities = await getCities(name, country, dateFrom, dateTo);
 
   await ctx.render('admin_cities', {
     cities,
@@ -343,7 +272,7 @@ router.get(paths.requests, async (ctx, next) => {
 
   const term = ctx.query.term == null ? '' : ctx.query.term;
 
-  if (ctx.query.search == null) { // TODO replace all !== "true" with this
+  if (ctx.query.search == null) {
     await ctx.render('admin_requests', {
       requests: [],
       term,
@@ -353,23 +282,7 @@ router.get(paths.requests, async (ctx, next) => {
     return next();
   }
 
-  const requests = (await db.sql(`
-    SELECT * FROM requests
-    WHERE
-    LOWER(iata_code) LIKE LOWER($1)
-    OR UNACCENT(LOWER(city)) LIKE LOWER($1)
-    ORDER BY id`,
-  `%${term}%`,
-  )).sort((c1, c2) => c2.call_count - c1.call_count)
-    .map((r) => {
-      const request = r.city ? r.city : r.iata_code;
-      const type = r.city ? 'City' : 'Airport IATA Code';
-      return {
-        request,
-        type,
-        call_count: r.call_count
-      }
-  });
+  const requests = await getRequests(term);
 
   await ctx.render('admin_requests', {
     requests,
@@ -683,10 +596,14 @@ router.get(paths.creditTransfers, async (ctx, next) => {
     return next()
   }
 
+  let currentYear = new Date();
+  let previousYear = new Date();
+  previousYear.setFullYear(previousYear.getFullYear() - 1);
+
   const username = ctx.query.username == null ? '' : ctx.query.username;
   const dateGroupByValue = ctx.query['date-group-by'] == null ? '' : ctx.query['date-group-by'];
-  const dateFrom = ctx.query['date-from'] == null || isNaN(new Date(ctx.query['date-from'])) ? new Date('1970-01-01') : new Date(ctx.query['date-from']);
-  const dateTo = ctx.query['date-to'] == null || isNaN(new Date(ctx.query['date-to'])) ? new Date() : new Date(ctx.query['date-to']);
+  const dateFrom = ctx.query['date-from'] == null || isNaN(new Date(ctx.query['date-from'])) ? previousYear : new Date(ctx.query['date-from']);
+  const dateTo = ctx.query['date-to'] == null || isNaN(new Date(ctx.query['date-to'])) ? currentYear : new Date(ctx.query['date-to']);
   const event = ctx.query.event == null ? '' : ctx.query.event;
 
   assert(typeof username === 'string', `in 'admin/ctransfers' username expected to be string, actual: ${typeof username}`, 131);
@@ -818,24 +735,7 @@ router.post('/xlsx/requests', async (ctx, next) => {
 
   const term = filters.term;
 
-  const requests = (await db.sql(`
-    SELECT *
-    FROM requests
-    WHERE
-      LOWER(iata_code) LIKE LOWER($1)
-      OR UNACCENT(LOWER(city)) LIKE LOWER($1)
-    ORDER BY id`,
-  `%${term}%`,
-  )).sort((c1, c2) => c2.call_count - c1.call_count)
-    .map((r) => {
-      const request = r.city ? r.city : r.iata_code;
-      const type = r.city ? 'City' : 'Airport IATA Code';
-      return {
-        request,
-        type,
-        call_count: r.call_count
-      }
-  });
+  const requests = await getRequests(term);
 
   let table = '<tr><th>Request</th><th>Type</th><th>Call Count</th></tr>';
 
@@ -861,6 +761,146 @@ router.post('/xlsx/credits', async (ctx, next) => {
 
   const username = filters.username;
 
+  const bundle = await getCreditBalance(username);
+
+  let table = '<tr><th>ID</th><th>User</th><th>Credits Purchased</th><th>Credits Spent</th><th>Credits Remaining</th></tr>';
+
+  for (const u of bundle.users) {
+    for (let [key, value] of Object.entries(u)) {
+      if (value == null) u[key] = '';
+    }
+    table += `<tr><td>${u.id}</td><td>${u.username}</td><td>${u.credits_purchased}</td><td>${u.credits_spent}</td><td>${u.credits_remaining}</td></tr>`
+  }
+
+  table += `<tr><td>Total</td><td></td><td>${bundle.total.total_credits_purchased}</td><td>$${bundle.total.total_credits_spent}</td><td>${bundle.total.total_credits_remaining}</td></tr>`
+
+  ctx.body = { table };
+});
+
+// POST xlsx cities
+router.post('/xlsx/cities', async (ctx, next) => {
+  const filters = ctx.request.body.filters
+
+  assert(isObject(ctx.session), 'No session in post /xlsx/cities', 1977);
+  assert(isObject(ctx.session.permissions), 'No permissions in post /xlsx/cities', 1978);
+  assert(isObject(ctx.request.body), 'Post /xlsx/cities has no body', 1979);
+  assert(isObject(filters), 'Post /xlsx/cities has no filters', 1980);
+
+  let currentYear = new Date();
+  let previousYear = new Date();
+  previousYear.setFullYear(previousYear.getFullYear() - 1);
+
+  const name = filters.city == null ? '' : filters.city;
+  const country = filters.country == null ? '' : filters.country;
+  const dateFrom = filters.dateFrom == null || isNaN(new Date(filters.dateFrom)) ? previousYear : new Date(filters.dateFrom);
+  const dateTo = filters.dateTo == null || isNaN(new Date(filters.dateTo)) ? currentYear : new Date(filters.dateTo);
+
+  assert(isObject(dateFrom), `in 'xlsx/cities' dateFrom expected to be object. actual: ${typeof dateFrom}`, 1981);
+  assert(isObject(dateTo), `in 'xlsx/cities' dateTo expected to be object. actual: ${typeof dateTo}`, 1982);
+  assert(typeof name === 'string', `in 'xlsx/cities' name expected to be string, actual: ${typeof name}`, 1983);
+  assert(typeof country === 'string', `in 'xlsx/cities' country expected to be string, actual: ${typeof country}`, 1984);
+
+  const cities = await getCities(name, country, dateFrom, dateTo);
+
+  let table = '<tr><th>ID</th><th>Name</th><th>Country</th><th>Longitude</th><th>Latitude</th><th>Observed at</th></tr>';
+
+  for (const c of cities) {
+    for (let [key, value] of Object.entries(c)) {
+      if (value == null) c[key] = '';
+    }
+    table += `<tr><td>${c.id}</td><td>${c.name}</td><td>${c.country}</td><td>${c.lng}</td><td>${c.lat}</td><td>${c.observed_at}</td></tr>`
+  }
+
+  ctx.body = { table };
+});
+
+// POST xlsx users
+router.post('/xlsx/users', async (ctx, next) => {
+  assert(isObject(ctx.session), 'No session in post /xlsx/users', 2077);
+  assert(isObject(ctx.session.permissions), 'No permissions in post /xlsx/users', 2078);
+  assert(isObject(ctx.request.body), 'Post /xlsx/users has no body', 2079);
+  assert(isObject(ctx.request.body.filters), 'Post /xlsx/users has no filters', 2080);
+
+  const filters = ctx.request.body.filters;
+
+  let currentYear = new Date();
+  let previousYear = new Date();
+  previousYear.setFullYear(previousYear.getFullYear() - 1);
+
+  const username = filters.username == null ? '' : filters.username;
+  const dateFrom = filters.dateFrom == null || isNaN(new Date(filters.dateFrom)) ? previousYear : new Date(filters.dateFrom);
+  const dateTo = filters.dateTo == null || isNaN(new Date(filters.dateTo)) ? currentYear : new Date(filters.dateTo);
+  const email = filters.email == null ? '' : filters.email;
+  const creditsFrom = filters.creditsFrom == null ? 0 : Number(filters.creditsFrom);
+  const creditsTo = filters.creditsTo == null || Number(filters.creditsTo) === 0 ? MAXIMUM_CREDITS_ALLOWED : Number(filters.creditsTo);
+
+  assert(typeof username === 'string', `in 'xlsx/user' username expected to be string, actual: ${typeof username}`, 2081);
+  assert(isObject(dateFrom), `in 'xlsx/users' dateFrom expected to be object. actual: ${typeof dateFrom}`, 2082);
+  assert(isObject(dateTo), `in 'xlsx/users' dateTo expected to be object. actual: ${typeof dateTo}`, 2083);
+  assert(typeof email === 'string', `in 'xlsx/user' email expected to be string, actual: ${typeof email}`, 2084);
+  assert(typeof creditsFrom === 'number', `in 'xlsx/user' creditsFrom expected to be number, actual: ${typeof creditsFrom}`, 2085);
+  assert(typeof creditsTo === 'number', `in 'xlsx/user' creditsTo expected to be number, actual: ${typeof creditsTo}`, 2086);
+
+  const users = await getUsers(username, email, creditsFrom, creditsTo, dateFrom, dateTo);
+
+  let table = '<tr><th>ID</th><th>Date Registered</th><th>User</th><th>Email</th><th>Successful Requests</th><th>Failed Requests</th><th>Credits</th></tr>';
+
+  for (const u of users) {
+    for (let [key, value] of Object.entries(u)) {
+      if (value == null) u[key] = '';
+    }
+    table += `<tr><td>${u.id}</td><td>${u.date_registered}</td><td>${u.username}</td><td>${u.email}</td><td>${u.successful_requests}</td><td>${u.failed_requests}</td><td>${u.credits}</td></tr>`
+  }
+
+  ctx.body = { table };
+});
+
+// POST xlsx ctransfers
+router.post('/xlsx/ctransfers', async (ctx, next) => {
+  assert(isObject(ctx.session), 'No session in post /xlsx/users', 2177);
+  assert(isObject(ctx.session.permissions), 'No permissions in post /xlsx/users', 2178);
+
+  if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_transfers) {
+    await denyAccess(ctx, next);
+    return next()
+  }
+
+  assert(isObject(ctx.request.body), 'Post /xlsx/users has no body', 2179);
+  assert(isObject(ctx.request.body.filters), 'Post /xlsx/users has no filters', 2180);
+  const filters = ctx.request.body.filters;
+
+  let currentYear = new Date();
+  let previousYear = new Date();
+  previousYear.setFullYear(previousYear.getFullYear() - 1);
+
+  const username = filters.username == null ? '' : filters.username;
+  const dateGroupByValue = filters.dateGroupByValue == null ? '' : filters.dateGroupByValue;
+  const dateFrom = filters.dateFrom == null || isNaN(new Date(filters.dateFrom)) ? previousYear : new Date(filters.dateFrom);
+  const dateTo = filters.dateTo == null || isNaN(new Date(filters.dateTo)) ? currentYear : new Date(filters.dateTo);
+  const event = filters.event == null ? '' : filters.event;
+
+  assert(typeof username === 'string', `in 'admin/ctransfers' username expected to be string, actual: ${typeof username}`, 2181);
+  assert(typeof dateGroupByValue === 'string', `in 'admin/ctransfers' dateGroupByValue expected to be string, actual: ${typeof dateGroupByValue}`, 2182);
+  assert(isObject(dateFrom), `in 'admin/ctransfers' dateFrom expected to be object. actual: ${dateFrom}`, 2183);
+  assert(isObject(dateTo), `in 'admin/ctransfers' dateTo expected to be object. actual: ${dateTo}`, 2184);
+  assert(typeof event === 'string', `in 'admin/ctransfers' event expected to be string, actual: ${event}`, 2185);
+
+  bundle = await getCreditTransfers(username, event, dateFrom, dateTo, dateGroupByValue);
+
+  let table = '<tr><th>ID</th><th>Transfer Date</th><th>User</th><th>Event</th><th>Credits Received</th><th>Credits Spent</th></tr>';
+
+  for (const t of bundle.transfers) {
+    for (let [key, value] of Object.entries(t)) {
+      if (value == null) t[key] = '';
+    }
+    table += `<tr><td>${t.id}</td><td>${t.transfer_date}</td><td>${t.username}</td><td>${t.event}</td><td>${t.credits_received}</td><td>${t.credits_spent}</td></tr>`;
+  }
+  table += `<tr><td>Total</td><td></td><td></td><td></td><td>${bundle.total.total_received}</td><td>${bundle.total.total_spent}</td></tr>`
+
+  ctx.body = { table };
+});
+
+async function getCreditBalance (username) {
   const users = await db.sql(`
     SELECT
       u.id,
@@ -900,38 +940,11 @@ router.post('/xlsx/credits', async (ctx, next) => {
   `%${username}%`,
   ))[0];
 
-  let table = '<tr><th>ID</th><th>User</th><th>Credits Purchased</th><th>Credits Spent</th><th>Credits Remaining</th></tr>';
+  return { users, total }
+}
 
-  for (const u of users) {
-    for (let [key, value] of Object.entries(u)) {
-      if (value == null) u[key] = '';
-    }
-    table += `<tr><td>${u.id}</td><td>${u.username}</td><td>${u.credits_purchased}</td><td>${u.credits_spent}</td><td>${u.credits_remaining}</td></tr>`
-  }
-
-  table += `<tr><td>Total</td><td></td><td>${total.total_credits_purchased}</td><td>$${total.total_credits_spent}</td><td>${total.total_credits_remaining}</td></tr>`
-
-  ctx.body = { table };
-});
-
-// POST xlsx cities
-router.post('/xlsx/cities', async (ctx, next) => {
-  const filters = ctx.request.body.filters
-
-  assert(isObject(ctx.session), 'No session in post /xlsx/cities', 1977);
-  assert(isObject(ctx.session.permissions), 'No permissions in post /xlsx/cities', 1978);
-  assert(isObject(ctx.request.body), 'Post /xlsx/cities has no body', 1979);
-  assert(isObject(filters), 'Post /xlsx/cities has no filters', 1980);
-
-  const name = filters.city == null ? '' : filters.city;
-  const country = filters.country == null ? '' : filters.country;
-  const dateFrom = filters.dateFrom == null || isNaN(new Date(filters.dateFrom)) ? new Date('1970-01-01') : new Date(filters.dateFrom);
-  const dateTo = filters.dateTo == null || isNaN(new Date(filters.dateTo)) ? new Date() : new Date(filters.dateTo);
-
-  assert(isObject(dateFrom), `in 'xlsx/cities' dateFrom expected to be object. actual: ${typeof dateFrom}`, 1981);
-  assert(isObject(dateTo), `in 'xlsx/cities' dateTo expected to be object. actual: ${typeof dateTo}`, 1982);
-  assert(typeof name === 'string', `in 'xlsx/cities' name expected to be string, actual: ${typeof name}`, 1983);
-  assert(typeof country === 'string', `in 'xlsx/cities' country expected to be string, actual: ${typeof country}`, 1984);
+async function getCities (name, country, dateFrom, dateTo) {
+  dateTo.setDate(dateTo.getDate() + 1); // include chosen day
 
   const cities = (await db.sql(`
     SELECT c.*, ctr.name as country
@@ -952,41 +965,33 @@ router.post('/xlsx/cities', async (ctx, next) => {
     return c;
   }).sort((c1, c2) => c1.id - c2.id);
 
-  let table = '<tr><th>ID</th><th>Name</th><th>Country</th><th>Longitude</th><th>Latitude</th><th>Observed at</th></tr>';
+  dateTo.setDate(dateTo.getDate() - 1); // show original date
 
-  for (const c of cities) {
-    for (let [key, value] of Object.entries(c)) {
-      if (value == null) c[key] = '';
-    }
-    table += `<tr><td>${c.id}</td><td>${c.name}</td><td>${c.country}</td><td>${c.lng}</td><td>${c.lat}</td><td>${c.observed_at}</td></tr>`
-  }
+  return cities;
+}
 
-  ctx.body = { table };
-});
+async function getRequests (term) {
+  const requests = (await db.sql(`
+    SELECT * FROM requests
+    WHERE
+    LOWER(iata_code) LIKE LOWER($1)
+    OR UNACCENT(LOWER(city)) LIKE LOWER($1)
+    ORDER BY id`,
+  `%${term}%`,
+  )).sort((c1, c2) => c2.call_count - c1.call_count)
+    .map((r) => {
+      const request = r.city ? r.city : r.iata_code;
+      const type = r.city ? 'City' : 'Airport IATA Code';
+      return {
+        request,
+        type,
+        call_count: r.call_count
+      }
+  });
+  return requests;
+}
 
-// POST xlsx users
-router.post('/xlsx/users', async (ctx, next) => {
-  assert(isObject(ctx.session), 'No session in post /xlsx/users', 2077);
-  assert(isObject(ctx.session.permissions), 'No permissions in post /xlsx/users', 2078);
-  assert(isObject(ctx.request.body), 'Post /xlsx/users has no body', 2079);
-  assert(isObject(ctx.request.body.filters), 'Post /xlsx/users has no filters', 2080);
-
-  const filters = ctx.request.body.filters;
-
-  const username = filters.username == null ? '' : filters.username;
-  const dateFrom = filters.dateFrom == null || isNaN(new Date(filters.dateFrom)) ? new Date('1970-01-01') : new Date(filters.dateFrom);
-  const dateTo = filters.dateTo == null || isNaN(new Date(filters.dateTo)) ? new Date() : new Date(filters.dateTo);
-  const email = filters.email == null ? '' : filters.email;
-  const creditsFrom = filters.creditsFrom == null ? 0 : Number(filters.creditsFrom);
-  const creditsTo = filters.creditsTo == null || Number(filters.creditsTo) === 0 ? MAXIMUM_CREDITS_ALLOWED : Number(filters.creditsTo);
-
-  assert(typeof username === 'string', `in 'xlsx/user' username expected to be string, actual: ${typeof username}`, 2081);
-  assert(isObject(dateFrom), `in 'xlsx/users' dateFrom expected to be object. actual: ${typeof dateFrom}`, 2082);
-  assert(isObject(dateTo), `in 'xlsx/users' dateTo expected to be object. actual: ${typeof dateTo}`, 2083);
-  assert(typeof email === 'string', `in 'xlsx/user' email expected to be string, actual: ${typeof email}`, 2084);
-  assert(typeof creditsFrom === 'number', `in 'xlsx/user' creditsFrom expected to be number, actual: ${typeof creditsFrom}`, 2085);
-  assert(typeof creditsTo === 'number', `in 'xlsx/user' creditsTo expected to be number, actual: ${typeof creditsTo}`, 2086);
-
+async function getUsers (username, email, creditsFrom, creditsTo, dateFrom, dateTo) {
   dateTo.setDate(dateTo.getDate() + 1); // include chosen day
 
   const users = (await db.sql(`
@@ -1011,58 +1016,8 @@ router.post('/xlsx/users', async (ctx, next) => {
 
   dateTo.setDate(dateTo.getDate() - 1); // show original date
 
-  let table = '<tr><th>ID</th><th>Date Registered</th><th>User</th><th>Email</th><th>Successful Requests</th><th>Failed Requests</th><th>Credits</th></tr>';
-
-  for (const u of users) {
-    for (let [key, value] of Object.entries(u)) {
-      if (value == null) u[key] = '';
-    }
-    table += `<tr><td>${u.id}</td><td>${u.date_registered}</td><td>${u.username}</td><td>${u.email}</td><td>${u.successful_requests}</td><td>${u.failed_requests}</td><td>${u.credits}</td></tr>`
-  }
-
-  ctx.body = { table };
-});
-
-// POST xlsx ctransfers
-router.post('/xlsx/ctransfers', async (ctx, next) => {
-  assert(isObject(ctx.session), 'No session in post /xlsx/users', 2177);
-  assert(isObject(ctx.session.permissions), 'No permissions in post /xlsx/users', 2178);
-
-  if (!isObject(ctx.session.permissions) || !ctx.session.permissions.can_see_transfers) {
-    await denyAccess(ctx, next);
-    return next()
-  }
-
-  assert(isObject(ctx.request.body), 'Post /xlsx/users has no body', 2179);
-  assert(isObject(ctx.request.body.filters), 'Post /xlsx/users has no filters', 2180);
-  const filters = ctx.request.body.filters;
-
-  const username = filters.username == null ? '' : filters.username;
-  const dateGroupByValue = filters.dateGroupByValue == null ? '' : filters.dateGroupByValue;
-  const dateFrom = filters.dateFrom == null || isNaN(new Date(filters.dateFrom)) ? new Date('1970-01-01') : new Date(filters.dateFrom);
-  const dateTo = filters.dateTo == null || isNaN(new Date(filters.dateTo)) ? new Date() : new Date(filters.dateTo);
-  const event = filters.event == null ? '' : filters.event;
-
-  assert(typeof username === 'string', `in 'admin/ctransfers' username expected to be string, actual: ${typeof username}`, 2181);
-  assert(typeof dateGroupByValue === 'string', `in 'admin/ctransfers' dateGroupByValue expected to be string, actual: ${typeof dateGroupByValue}`, 2182);
-  assert(isObject(dateFrom), `in 'admin/ctransfers' dateFrom expected to be object. actual: ${dateFrom}`, 2183);
-  assert(isObject(dateTo), `in 'admin/ctransfers' dateTo expected to be object. actual: ${dateTo}`, 2184);
-  assert(typeof event === 'string', `in 'admin/ctransfers' event expected to be string, actual: ${event}`, 2185);
-
-  bundle = await getCreditTransfers(username, event, dateFrom, dateTo, dateGroupByValue);
-
-  let table = '<tr><th>ID</th><th>Transfer Date</th><th>User</th><th>Event</th><th>Credits Received</th><th>Credits Spent</th></tr>';
-
-  for (const t of bundle.transfers) {
-    for (let [key, value] of Object.entries(t)) {
-      if (value == null) t[key] = '';
-    }
-    table += `<tr><td>${t.id}</td><td>${t.transfer_date}</td><td>${t.username}</td><td>${t.event}</td><td>${t.credits_received}</td><td>${t.credits_spent}</td></tr>`;
-  }
-  table += `<tr><td>Total</td><td></td><td></td><td></td><td>${bundle.total.total_received}</td><td>${bundle.total.total_spent}</td></tr>`
-
-  ctx.body = { table };
-});
+  return users;
+}
 
 async function getCreditTransfers (username, event, dateFrom, dateTo, dateGroupByValue) {
   dateTo.setDate(dateTo.getDate() + 1); // include chosen day
