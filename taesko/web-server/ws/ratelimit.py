@@ -54,7 +54,7 @@ class RequestRateController:
                             "Cannot determine if he should be banned.",
                             ip_address,
                             len(self.connection_records[ip_address]))
-            return True
+            return False
 
         records = self.connection_records[ip_address]
         client_errors = sum(cr.err_count for cr in records)
@@ -77,6 +77,10 @@ class RequestRateController:
             recorded_on=time.time(),
             err_count=err_count
         )
+
+        if err_count:
+            error_log.info('Error count of address %s increased by %s',
+                           ip_address, err_count)
 
         if len(self.connection_records) <= self.max_recorded_addresses:
             self.connection_records[ip_address].append(cr)

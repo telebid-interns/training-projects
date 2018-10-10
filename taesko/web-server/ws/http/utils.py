@@ -4,7 +4,9 @@ from ws.config import config
 from ws.http.structs import HTTPStatusLine, HTTPHeaders, HTTPResponse
 
 
-class HTTPStatusCodes(enum.Enum):
+class HTTPStatusCode(enum.Enum):
+    ok = 200
+
     bad_request = 400
     forbidden = 403
     not_found = 404
@@ -20,7 +22,7 @@ class HTTPStatusCodes(enum.Enum):
 
 def build_response(status_code, *, body=None, reason_phrase='', headers=None,
                    version='HTTP/1.1'):
-    status_code = HTTPStatusCodes(status_code)
+    status_code = HTTPStatusCode(status_code)
 
     status_line = HTTPStatusLine(
         http_version=version,
@@ -32,7 +34,7 @@ def build_response(status_code, *, body=None, reason_phrase='', headers=None,
     if body:
         assert 'Content-Encoding' in headers
 
-    if status_code == HTTPStatusCodes.service_unavailable:
+    if status_code == HTTPStatusCode.service_unavailable:
         headers['Retry-After'] = config.getint('settings',
                                                'process_timeout') * 2
 
@@ -50,3 +52,14 @@ def request_is_persistent(request):
     elif request.request_line.http_version == 'HTTP/1.1':
         return ('Connection' not in request.headers or
                 b'close' not in request.headers['Connection'])
+
+
+def response_is_persistent(response):
+    if response.status_line.http_version == 'HTTP/1.0':
+        conn = response.headers.get('Connection', b'')
+        return 'Keep-Alive' in conn
+    elif response.status_line.http_version == 'HTTP/1.1':
+        return ('Connection' not in response.headers or
+                'close' not in response.headers['Connection'])
+    else:
+        assert False

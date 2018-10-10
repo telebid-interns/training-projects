@@ -54,11 +54,10 @@ class SpyIterator:
             return value
 
 
-def parse(iterable, lazy=False):
-    assert isinstance(iterable, collections.Iterable)
+def parse(message_iter, lazy=False):
+    assert isinstance(message_iter, SpyIterator)
     assert isinstance(lazy, bool)
 
-    message_iter = SpyIterator(iterable)
     request_line = parse_request_line(message_iter)
     headers = parse_headers(message_iter)
     error_log.debug('headers is %r with type %r', headers, type(headers))

@@ -11,10 +11,12 @@ class AccessLogger:
         # request might be None if the server ignored the request and replied
         # instantly with 4xx or 5xx code
         req_line = request.request_line if request else ''
+        request_headers = getattr(request, 'headers', {})
 
         self.logger.critical('ACCESSED', extra=dict(
             request_line=req_line,
-            headers=response.headers,
+            request_headers=request_headers,
+            response_headers=response.headers,
             status_code=response.status_line.status_code,
             body=response.body
         ))

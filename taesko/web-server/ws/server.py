@@ -7,6 +7,7 @@ import socket
 import time
 
 import ws.http.parser
+import ws.http.utils
 import ws.responses
 import ws.sockets
 import ws.worker
@@ -125,15 +126,15 @@ class Server:
                 continue
 
             if self.rate_controller.is_banned(address[0]):
-                error_log.info('Accepted connection. '
-                               'client_socket.fileno=%d and address=%s',
-                               client_socket.fileno(), address)
-            else:
                 error_log.warning('Denied connection. '
                                   'client_socket.fileno=%d and address=%s',
                                   client_socket.fileno(), address)
                 client_socket.close(pass_silently=True)
                 continue
+
+            error_log.info('Accepted connection. '
+                           'client_socket.fileno=%d and address=%s',
+                           client_socket.fileno(), address)
 
             try:
                 forked_pid = self.fork(client_socket, address)
@@ -168,7 +169,7 @@ class Server:
                 except Exception:
                     error_log.exception('Got error from client_socket_handler '
                                         'in worker.')
-                if not exit_code:
+                if exit_code is None:
                     exit_code = 2
 
                 error_log.info('Exiting with exit code %s', exit_code)
@@ -247,7 +248,8 @@ class Server:
 
         for worker in self.workers:
             try:
-                has_finished, exit_code = os.waitpid(worker.pid, os.WNOHANG)
+                has_finished, exit_indicator = os.waitpid(worker.pid,
+                                                          os.WNOHANG)
             except OSError as err:
                 error_log.exception('Could not reap child worker with pid %d.'
                                     'waitpid() returned ERRNO=%d and reason=%s',
@@ -257,11 +259,17 @@ class Server:
                 continue
 
             if has_finished:
-                error_log.info('Worker %s has finished.', worker)
-                self.rate_controller.record_handled_connection(
-                    ip_address=worker.client_address[0],
-                    worker_exit_code=exit_code
-                )
+                if not os.WIFEXITED(exit_indicator):
+                    error_log.warning('Worker %s has finished without calling '
+                                      'exit(). Server cannot properly decide '
+                                      'on rate limiting for the client '
+                                      'serviced by worker.')
+                else:
+                    error_log.info('Worker %s has finished', worker)
+                    self.rate_controller.record_handled_connection(
+                        ip_address=worker.client_address[0],
+                        worker_exit_code=os.WEXITSTATUS(exit_indicator)
+                    )
             else:
                 leftover_workers.append(worker)
 

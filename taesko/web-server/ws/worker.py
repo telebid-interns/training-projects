@@ -42,27 +42,6 @@ class Worker:
         signal.signal(signal.SIGTERM, self.handle_termination)
 
     @property
-    def http_connection_is_open(self):
-        def server_closed_connection(response):
-            if not response:
-                return False
-            elif 'Connection' not in response.headers:
-                return False
-            else:
-                pass
-
-            c = response.headers['Connection']
-            hop_by_hop_headers = (h.strip() for h in c.split(','))
-
-            return b'close' in hop_by_hop_headers
-
-        if not self.request or not self.response:
-            return True
-
-        return (not server_closed_connection(self.response) and
-                ws.http.utils.request_is_persistent(self.request))
-
-    @property
     def request(self):
         try:
             return self.exchanges[-1].request
@@ -110,7 +89,8 @@ class Worker:
                 'HTTP response.',
                 self.sock.fileno()
             )
-            self.sock.close(with_shutdown=True, safely=False)
+            self.sock.close(with_shutdown=True, safely=False,
+                            pass_silently=True)
             return False
         else:
             pass
@@ -143,11 +123,11 @@ class Worker:
             else:
                 raise
         finally:
-            self.sock.close(with_shutdown=True, safely=True)
+            self.sock.close(with_shutdown=True, safely=True, pass_silently=True)
 
         return True
 
-    def work(self, request_handler):
+    def process_connection(self, request_handler):
         """ Continually serve an http connection.
 
         :param request_handler: Per-request handler. Will be called with a
@@ -155,14 +135,29 @@ class Worker:
             response object that will be sent to the client.
         :return: This method doesn't return until the connection is closed.
         """
-        while self.http_connection_is_open:
+        while True:
             error_log.info('HTTP Connection is open. Parsing request...')
             # TODO client's connection might drop while recv()
             # no need to send him a response
             self.exchanges.append(HTTPExchange(None, None))
-            self.request = ws.http.parser.parse(self.sock)
-            self.response = request_handler(self.request)
-            self.respond(self.response)
+
+            request_iterator = ws.http.parser.SpyIterator(self.sock)
+
+            try:
+                self.request = ws.http.parser.parse(request_iterator)
+            except ws.sockets.ClientSocketError:
+                if request_iterator.iterated_count == 0:
+                    error_log.info("Client shutdown the socket without sending "
+                                   "a Connection: close header.")
+                    break
+
+                raise
+
+            self.respond(request_handler(self.request))
+
+            if not (ws.http.utils.request_is_persistent(self.request) and
+                    ws.http.utils.response_is_persistent(self.response)):
+                break
 
     def respond(self, response, *, closing=False, ignored_request=False):
         """
@@ -178,16 +173,17 @@ class Worker:
         assert isinstance(response, ws.http.structs.HTTPResponse)
         assert isinstance(closing, bool)
         assert isinstance(ignored_request, bool)
-        assert self.http_connection_is_open
 
         # TODO there needs to be a way to send Close connection through here.
         # instead of timing out and getting terminated.
         if closing:
             response.headers['Connection'] = 'close'
         elif not ignored_request:
-            c_headers = str(self.request.headers.get('Connection', b''),
-                            encoding='ascii')
-            response.headers['Connection'] = c_headers
+            conn = str(self.request.headers.get('Connection', b''),
+                       encoding='ascii')
+
+            if conn:
+                response.headers['Connection'] = conn
 
         self.responding = True
         self.response = response
@@ -257,10 +253,10 @@ def work(client_socket, address, quick_reply_with=None):
                                ignored_request=True)
                 return 0
 
-            worker.work(request_handler=handle_request)
+            worker.process_connection(request_handler=handle_request)
     except Exception:
-        error_log.exception('Worker on socket %s and address %s finished'
-                            ' abruptly.', client_socket.fileno(), address)
+        error_log.exception('Worker of address %s finished abruptly.',
+                            address)
         return 1
 
     codes = (e.response.status_line.status_code
