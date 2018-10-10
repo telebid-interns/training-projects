@@ -3,13 +3,14 @@
     <link rel="stylesheet" type="text/css" href="./../bootstrap.css">
     <link rel="stylesheet" type="text/css" href="./../sidebar.css">
     <link rel="stylesheet" type="text/css" href="./../navbar.css">
+    <link rel="stylesheet" type="text/css" href="./../loading.css">
   </head>
   <body>
     {{> navBar }}
     {{> adminMenu }}
     <ul class="list-group-item col-lg-10">
     <h2 class="col-lg-12 col-md-12 col-sm-12 col-xs-12 text-center">Give Credits</h2>
-      <form class="inline">
+      <form id="form" class="inline">
         <input type="text" name="search" hidden="hidden" value="1">
         <div style="height: 23em"> <!-- testing -->
           <br>
@@ -25,10 +26,11 @@
         </div>
       </form>
     </ul>
-    <h2 class="col-lg-10 text-center"></h2>
+    <div id="loading-animation" hidden="hidden"></div>
     <div id="table-container" class="col-lg-10 pre-scrollable" style="max-height: 33em; height: 33em">
       {{#if search}}
         {{#if show}}
+          <h1 class="col-lg-12 text-center"></h1>
           <table id="users-table" class="table table-hover table-bordered">
             <tr>
               <th>User</th>
@@ -44,15 +46,24 @@
             {{/each}}
           </table>
         {{else}}
+          <h1 class="col-lg-12 text-center"></h1>
           <div class="text-center">
             <p>Too Many Results ({{resultCount}}) please check your filters. <a href="/admin/add?username={{username}}&search=1&show=1"> display anyway </a></p>
           </div>
         {{/if}}
       {{/if}}
+    </div>
   </body>
 </html>
 
 <script type="text/javascript">
+  document.getElementById('search-btn').addEventListener('click', (event) => {
+    document.getElementById('loading-animation').removeAttribute('hidden');
+    document.getElementById('search-btn').setAttribute('disabled', 'disabled');
+    document.getElementById('form').submit();
+    document.getElementById('table-container').setAttribute('hidden', 'hidden');
+  });
+
   document.getElementById('menu-give-credits').setAttribute('class', 'selected');
 
   async function addCredits (username) {

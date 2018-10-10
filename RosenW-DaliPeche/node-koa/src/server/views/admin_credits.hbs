@@ -11,7 +11,7 @@
     {{> adminMenu }}
     <ul class="list-group-item col-lg-10">
     <h2 class="col-lg-12 col-md-12 col-sm-12 col-xs-12 text-center">Credit Balance</h2>
-      <form class="inline">
+      <form id="form" class="inline">
         <input type="text" name="search" hidden="hidden" value="1">
         <div style="height: 20.8em">
           <label class="col-lg-12">Username:</label>
@@ -61,6 +61,7 @@
           </table>
         </div>
       {{else}}
+        <h1 class="col-lg-10 text-center"></h1>
         <div class="text-center">
           <p>Too Many Results ({{resultCount}}) please check your filters. <a href="/admin/credits?username={{username}}&search=1&show=1"> display anyway </a></p>
         </div>
@@ -72,6 +73,8 @@
 <script type="text/javascript">
   document.getElementById('search-btn').addEventListener('click', (event) => {
     document.getElementById('loading-animation').removeAttribute('hidden')
+    document.getElementById('search-btn').setAttribute('disabled', 'disabled');
+    document.getElementById('form').submit();
     document.getElementById('table-container').setAttribute('hidden', 'hidden')
     document.getElementById('report-text').setAttribute('hidden', 'hidden')
   });

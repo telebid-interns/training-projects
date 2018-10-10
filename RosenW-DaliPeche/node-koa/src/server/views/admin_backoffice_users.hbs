@@ -3,6 +3,7 @@
     <link rel="stylesheet" type="text/css" href="./../bootstrap.css">
     <link rel="stylesheet" type="text/css" href="./../sidebar.css">
     <link rel="stylesheet" type="text/css" href="./../navbar.css">
+    <link rel="stylesheet" type="text/css" href="./../loading.css">
     <link rel="stylesheet" type="text/css" href="./../multiselect.css">
 
     <script src="./../jquery.min.js"></script>
@@ -13,7 +14,7 @@
     {{> adminMenu }}
     <ul class="list-group-item col-lg-10">
       <h2 class="col-lg-12 col-md-12 col-sm-12 col-xs-12 text-center">Backoffice Users</h2>
-      <form class="inline">
+      <form id="form" class="inline">
         <div style="height: 20.8em">
           <label class="col-lg-12">Username:</label>
           <div class="col-lg-12">
@@ -27,7 +28,7 @@
         </div>
       </form>
     </ul>
-
+    <div id="loading-animation" hidden="hidden"></div>
     <h2 class="col-lg-10 text-center"></h2>
     <div id="table-container" class="col-lg-10 pre-scrollable" style="max-height: 33em; height: 33em">
       <table id="users-table" class="table table-hover table-bordered">
@@ -67,6 +68,13 @@
 </html>
 
 <script type="text/javascript">
+  document.getElementById('search-btn').addEventListener('click', (event) => {
+    document.getElementById('loading-animation').removeAttribute('hidden');
+    document.getElementById('search-btn').setAttribute('disabled', 'disabled');
+    document.getElementById('form').submit();
+    document.getElementById('table-container').setAttribute('hidden', 'hidden');
+  });
+
   document.getElementById('navbar-msg').innerHTML = '{{msg}}';
   document.getElementById('menu-backoffice-users').setAttribute('class', 'selected');
 
