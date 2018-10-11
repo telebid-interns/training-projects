@@ -1,7 +1,7 @@
 L = [1, 2, 4, 8, 16, 32, 64]
 X = 5
 
-stage = 3
+stage = 7
 
 if stage == 1:
     found = False
@@ -39,4 +39,40 @@ elif stage == 3:
         print(X, 'not found')
 
 elif stage == 4:
-    ...
+    if 2 ** X in L:
+        print('at index', L.index(2 ** X))
+    else:
+        print(X, 'not found')
+
+elif stage == 5:
+    L = []
+
+    for i in range(7):
+        L.append(2 ** i)
+
+    if 2 ** X in L:
+        print('at index', L.index(2 ** X))
+    else:
+        print(X, 'not found')
+
+elif stage == 6:
+    L = list(map(lambda x: 2 ** x, range(7)))
+
+    power_of_two = 2 ** X
+
+    if power_of_two in L:
+        print('at index', L.index(power_of_two))
+    else:
+        print(X, 'not found')
+
+elif stage == 7:
+    L = [2 ** x for x in range(7)]
+
+    power_of_two = 2 ** X
+
+    if power_of_two in L:
+        print('at index', L.index(power_of_two))
+    else:
+        print(X, 'not found')
+
+
