@@ -24,6 +24,7 @@ class Server(object):
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) # level, optname, value
         self.sock.bind((opts['address'], opts['port']))
         self.sock.listen(opts['request_queue_size'])
+        self.log.info('Server PID: {}'.format(os.getpid()))
         self.log.info('Server started on port {}'.format(opts['port']))
         self.env = {}
         self.max_subprocess_count = opts['subprocess_count']
@@ -262,5 +263,6 @@ if __name__ == '__main__':
         'max_header_length': int(max_header_length) if max_header_length.isdigit else DEFAULT_MAX_HEADER_LENGTH,
         'error_path': error_path or DEFAULT_ERROR_PATH
     }
+
 
     Server(opts).start()
