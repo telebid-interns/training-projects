@@ -8,6 +8,7 @@ import ws.http.utils
 import ws.ratelimit
 import ws.serve
 import ws.sockets
+import ws.cgi
 from ws.config import config
 from ws.err import *
 from ws.logs import error_log, access_log
@@ -31,10 +32,10 @@ class Worker:
     """
     max_exchange_history = CLIENT_ERRORS_THRESHOLD * 2
 
-    # noinspection PyUnusedLocal
     def __init__(self, iterable_socket, address):
         assert isinstance(iterable_socket, ws.sockets.ClientSocket)
         self.sock = iterable_socket
+        self.address = address
         self.responding = False
         self.status_code_on_abort = None
         self.exchanges = collections.deque(maxlen=self.max_exchange_history)
@@ -153,7 +154,7 @@ class Worker:
 
                 raise
 
-            self.respond(request_handler(self.request))
+            self.respond(request_handler(self.request, self.address))
 
             if not (ws.http.utils.request_is_persistent(self.request) and
                     ws.http.utils.response_is_persistent(self.response)):
@@ -269,10 +270,13 @@ def work(client_socket, address, quick_reply_with=None):
         return 0
 
 
-def handle_request(request):
+def handle_request(request, address):
     route = request.request_line.request_target.path
 
-    if request.request_line.method == 'GET':
+    if ws.cgi.can_handle_request(request):
+        error_log.info('Request will be handled through a CGI script.')
+        return ws.cgi.execute_script(request, address)
+    elif request.request_line.method == 'GET':
         return ws.serve.get_file(route)
     elif request.request_line.method == 'POST':
         encoding = request.headers.get('Content-Encoding', 'utf-8')

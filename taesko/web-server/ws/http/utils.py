@@ -1,4 +1,5 @@
 import enum
+import string
 
 from ws.config import config
 from ws.http.structs import HTTPStatusLine, HTTPHeaders, HTTPResponse
@@ -63,3 +64,29 @@ def response_is_persistent(response):
                 'close' not in response.headers['Connection'])
     else:
         assert False
+
+
+def decode_uri_component(component):
+    decoded = []
+    index = -1
+
+    while index + 1 < len(component):
+        index += 1
+        c = component[index]
+
+        if c != '%':
+            decoded.append(c)
+            continue
+
+        hex_ = component[index: index+2]
+        if hex_[-1] not in string.hexdigits:
+            hex_ = hex_[:-1]
+
+        if not hex_ or not all(h in string.hexdigits for h in hex_):
+            raise ValueError('Invalid percent encoded character at position {}'
+                             .format(index))
+
+        decoded.append(chr(int(hex_, base=16)))
+        index += len(hex_)
+
+    return ''.join(decoded)
