@@ -3211,3 +3211,5 @@
 127.0.0.1 - - Wed, 10 Oct 2018 18:46:10 "GET /hello.html HTTP/1.0" 200 -
 127.0.0.1 - - Wed, 10 Oct 2018 18:46:10 "GET /hello.html HTTP/1.0" 200 -
 127.0.0.1 - - Wed, 10 Oct 2018 18:46:10 "GET /hello.html HTTP/1.0" 200 -
+127.0.0.1 - - Fri, 12 Oct 2018 13:45:38 "GET /hello.html HTTP/1.1" 200 -
+127.0.0.1 - - Fri, 12 Oct 2018 14:15:20 "GET /hello.html HTTP/1.1" 200 -

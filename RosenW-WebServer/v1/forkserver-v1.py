@@ -59,7 +59,7 @@ class Server:
         except BaseException as ex:
           self.log.error(ex)
       except (IOError, OSError) as e:
-        if e.errno != os.errno.EINTR and e.errno != os.errno.EPIPE:
+        if e.errno != os.errno.EINTR and e.errno != os.errno.EPIPE: # TODO simplify
           try:
             self.log.error(e)
             send(connection, self.generate_headers(500))
@@ -135,7 +135,7 @@ class Server:
       path = self.resolve_path(path)
       self.log.info(os.path.abspath('./static/{}'.format(path)))
       with open('./static{}'.format(path), "r") as file:
-        return file.read()
+        return file.read() # TODO segment reading
     except IOError:
       raise FileNotFoundError('File not found: {}'.format(path), 'FILE_NOT_FOUND')
 
@@ -217,7 +217,7 @@ class Server:
     return header
 
   def resolve_path(self, path):
-    path = path.replace('../', '')
+    path = path.replace('../', '') # TODO ../ is ok
     if os.path.islink(path):
       return ''
     return path

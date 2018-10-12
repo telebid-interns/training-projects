@@ -6,6 +6,7 @@ class Logger(object):
         self.opts = opts
 
     def log(self, level_str, s):
+        assert level_str in ['trace', 'debug', 'info', 'warn', 'error', 'fatal']
         try:
             s = self.format(level_str, s)
             if level_str in ['error', 'fatal']:
@@ -16,28 +17,7 @@ class Logger(object):
             else:
                 print(s.strip('\n'))
         except:
-            try:
-                traceback.print_exc()
-            except:
-                pass
-
-    def trace(self, s):
-        self.log('trace', s)
-
-    def debug(self, s):
-        self.log('debug', s)
-
-    def info(self, s):
-        self.log('info', s)
-
-    def warn(self, s):
-        self.log('warn', s)
-
-    def error(self, s):
-        self.log('error', s)
-
-    def fatal(self, s):
-        self.log('fatal', s)
+            traceback.print_exc()
 
     def format(self, level_str, s):
         return '[{}] - {} - {}\n'.format(level_str.capitalize(), str(datetime.datetime.now()), s)

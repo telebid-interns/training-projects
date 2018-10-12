@@ -1,2 +1,10 @@
+import traceback
+
 def send(socket, data):
-    socket.sendall(data.encode('UTF-8'))
+    try:
+        socket.sendall(data.encode('UTF-8'))
+    except BaseException as ex:
+        try:
+            traceback.print_exc()
+        except:
+            pass

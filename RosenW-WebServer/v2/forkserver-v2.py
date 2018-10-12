@@ -8,10 +8,10 @@ import datetime
 import traceback
 import configparser
 from error.asserts import assert_user, assert_peer
-from error.exceptions import SubprocessLimitError, PeerError
+from error.exceptions import SubprocessLimitException, PeerError
 from utils.sender import send
 from utils.http_status_codes_headers import HTTPHeaders
-from utils.logger import Logger
+from utils.logwrapper import Logger
 
 class Server(object):
     HEADER_END_STRING = '\r\n\r\n'
@@ -19,13 +19,13 @@ class Server(object):
     def __init__(self, opts):
         self.opts = opts
         self.headers = HTTPHeaders()
-        self.log = Logger({'error': opts['error_path']})
+        self.logger = Logger({'error': opts['error_path']})
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) # level, optname, value
         self.sock.bind((opts['address'], opts['port']))
         self.sock.listen(opts['request_queue_size'])
-        self.log.info('Server PID: {}'.format(os.getpid()))
-        self.log.info('Server started on port {}'.format(opts['port']))
+        self.logger.log('info', 'Server PID: {}'.format(os.getpid()))
+        self.logger.log('info', 'Server started on port {}'.format(opts['port']))
         self.env = {}
         self.max_subprocess_count = opts['subprocess_count']
         self.workers = 0
@@ -39,53 +39,36 @@ class Server(object):
         while True:
             try:
                 connection, client_address = self.sock.accept()
-                self.log.debug(self.workers)
+                self.logger.log('debug', self.workers)
                 if self.workers >= self.max_subprocess_count:
-                    raise SubprocessLimitError('Accepted Connection, but workers where over the allowed limit')
-                self.log.info('accepted connection: {}'.format(client_address))
+                    raise SubprocessLimitException('Accepted Connection, but workers where over the allowed limit')
+                self.logger.log('info', 'accepted connection: {}'.format(client_address))
 
                 self.workers += 1
                 pid = os.fork()
                 if pid == 0:
-                    try:
-                        self.handle_request(connection, client_address)
-                    except BaseException as e:
-                        self.log.error(e)
-                    finally:
-                        break
-            except SubprocessLimitError as e:
-                try:
-                    self.log.warn(e)
+                    self.handle_request(connection, client_address)
+            except SubprocessLimitException as e:
+                send(connection, self.generate_headers(503))
+                self.logger.log('warn', e)
+            except (OSError, IndexError, ValueError) as e:
+                if connection:
                     send(connection, self.generate_headers(500))
-                except BaseException as ex:
-                    self.log.error(ex)
-            except OSError as e:
                 if e.errno != os.errno.EINTR and e.errno != os.errno.EPIPE:
-                    try:
-                        self.log.error(e)
-                        send(connection, self.generate_headers(500))
-                    except BaseException as ex:
-                        self.log.error(ex)
-                    self.log.error(e)
-                else:
-                    self.log.warn(e)
-            except (IndexError, ValueError) as e:
-                try:
-                    self.log.error(e)
-                    send(connection, self.generate_headers(500))
-                except BaseException as ex:
-                    self.log.error(ex)
-                self.log.error(e)
+                    self.logger.log('error', e)
             except KeyboardInterrupt as e:
-                self.log.info('Stopping Server...')
+                self.logger.log('info', 'Stopping Server...')
                 break
             except BaseException as e:
-                self.log.error(e)
+                self.logger.log('error', e)
                 break
             finally:
                 if connection and pid != 0:
-                    self.log.debug('Server closing sending socket')
-                    connection.close()
+                    try:
+                        self.logger.log('debug', 'Server closing sending socket')
+                        connection.close()
+                    except OSError as e:
+                        self.logger.log('error', e)
 
         sys.exit()
 
@@ -109,13 +92,10 @@ class Server(object):
         except KeyboardInterrupt as e:
             pass
         except PeerError as e:
-            self.log.warn(e)
             send(connection, self.generate_headers(400))
         except FileNotFoundError as e:
-            self.log.warn(e)
             send(connection, self.generate_headers(404))
         except socket.timeout as e:
-            self.log.warn(e)
             send(connection, self.generate_headers(408))
         except IOError as e:
             if e.errno != os.errno.EPIPE:
@@ -127,16 +107,14 @@ class Server(object):
             send(connection, self.generate_headers(500))
         finally:
             connection.close()
-            if request:
-                self.log_request()
-        self.log.info('Request Handled')
+            sys.exit()
 
     def get_requested_file(self, path):
         try:
             path = self.resolve_path(path)
             self.log.info(os.path.abspath('./static/{}'.format(path)))
             with open('./static{}'.format(path), "r") as file:
-                return file.read()
+                return file.read() # TODO segment reading
         except IOError:
             raise FileNotFoundError('File not found: {}'.format(path), 'FILE_NOT_FOUND')
 
@@ -153,22 +131,6 @@ class Server(object):
             self.env['whole_path'],        # /hello.html
             self.env['request_version']    # HTTP/1.1
         ) = tokens
-
-    def log_request(self):
-        assert isinstance(self.env['host'], str) and isinstance(self.env['port'], int)
-        assert self.env
-
-        with open('./logs/access.log', "a+") as file:
-            file.write('{} {} {} {} "{}" {} {}\n'.format(
-                self.env.get('host', '-'),
-                self.env.get('remote_logname', '-'),
-                self.env.get('remote_user', '-'),
-                self.env.get('request_time', '-'),
-                self.env.get('request_first_line', '-'),
-                self.env.get('status_code', '-'),
-                self.env['content_length'] if 'content_length' in self.env and self.env['content_length'] > 0 else '-'
-            ))
-        self.log.info('request logged')
 
     def recv_request(self, connection):
         data = connection.recv(self.opts['recv']).decode('UTF-8')
@@ -215,9 +177,9 @@ class Server(object):
         return header
 
     def resolve_path(self, path):
-        path = path.replace('../', '')
+        path = path.replace('../', '') # TODO ../ is allowed
         if os.path.islink(path):
-            return ''
+            return '' # TODO raise error
         return path
 
     def kill_children(self, signum, frame):
@@ -231,8 +193,25 @@ class Server(object):
             if e.errno != os.errno.ECHILD:
                 self.log.error(e)
 
+    def log_request(self, env):
+        assert isinstance(env['host'], str) and isinstance(env['port'], int)
+        assert env
+
+        with open('./logs/access.log', "a+") as file:
+            file.write('{} {} {} {} "{}" {} {}\n'.format(
+                env.get('host', '-'),
+                env.get('remote_logname', '-'),
+                env.get('remote_user', '-'),
+                env.get('request_time', '-'),
+                env.get('request_first_line', '-'),
+                env.get('status_code', '-'),
+                env['content_length'] if 'content_length' in env and env['content_length'] > 0 else '-'
+            ))
+
+        self.log.info('request logged')
+
 if __name__ == '__main__':
-    DEFAULT_REQUEST_QUEUE_SIZE = 5
+    DEFAULT_REQUEST_QUEUE_SIZE = 5 # TODO remove default
     DEFAULT_TIMEOUT = 5
     DEFAULT_ADDRESS = ''
     DEFAULT_PORT = 8888
