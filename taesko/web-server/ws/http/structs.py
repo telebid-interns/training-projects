@@ -1,6 +1,8 @@
 import collections
 
+import ws.utils
 from ws.err import *
+from ws.logs import error_log
 
 HTTPRequest = collections.namedtuple('HTTPRequest', ['request_line',
                                                      'headers',
@@ -58,7 +60,27 @@ class URI(collections.namedtuple('URI', ['protocol', 'host', 'port',
 class HTTPResponse(collections.namedtuple('HTTPResponse', ['status_line',
                                                            'headers',
                                                            'body'])):
-    def send(self, sock):
+    def __iter__(self):
+        yield from bytes(self.status_line)
+        yield from b'\r\n'
+        yield from bytes(self.headers)
+        yield from b'\r\n\r\n'
+        yield from self.body
+
+    def iter_chunks(self, chunk_size=4096):
+        buf = bytearray()
+        for b in self:
+            buf.append(b)
+
+            if len(buf) == chunk_size:
+                yield buf
+                buf = bytearray()
+
+        if len(buf) != 0:
+            yield buf
+
+    @ws.utils.depreciated
+    def send_depreciated(self, sock):
         msg = bytes(self)
         total_sent = 0
 
@@ -70,7 +92,11 @@ class HTTPResponse(collections.namedtuple('HTTPResponse', ['status_line',
                         code='RESPONSE_SEND_BROKEN_SOCKET')
             total_sent += sent
 
+    @ws.utils.depreciated
     def __bytes__(self):
+        error_log.warning('Calling depreciated method __bytes__ '
+                          'of HTTPResponse')
+
         if self.body:
             body = '{self.body}'.format(self=self)
             encoded_body = body.encode(self.headers['Content-Encoding'])

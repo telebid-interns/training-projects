@@ -4,6 +4,7 @@ import logging
 import re
 
 import ws.http.structs
+import ws.utils
 from ws.config import config
 from ws.err import *
 
@@ -68,11 +69,11 @@ def parse(message_iter, lazy=False):
         raise ParserError(code='BAD_CONTENT_LENGTH') from e
 
     if lazy:
-        body = parse_body(message_iter, cl)
-        error_log.debug('Received body. %s', body)
-    else:
-        body = parse_body_lazily(message_iter, cl)
         error_log.debug('Deferring parsing of body to later.')
+        body = (next(message_iter) for _ in range(cl))
+    else:
+        error_log.warning('DEPRECIATED Parsing body non-lazily')
+        body = parse_body(message_iter, cl)
 
     return ws.http.structs.HTTPRequest(
         request_line=request_line,
@@ -255,6 +256,7 @@ def parse_body(iterator, content_len):
     return bytes(parts)
 
 
+@ws.utils.depreciated
 def parse_body_lazily(iterator, content_len):
     assert isinstance(iterator, SpyIterator)
     assert isinstance(content_len, int)

@@ -2,13 +2,13 @@ import collections
 import errno
 import signal
 
+import ws.cgi
 import ws.http.parser
 import ws.http.structs
 import ws.http.utils
 import ws.ratelimit
 import ws.serve
 import ws.sockets
-import ws.cgi
 from ws.config import config
 from ws.err import *
 from ws.logs import error_log, access_log
@@ -188,7 +188,10 @@ class Worker:
 
         self.responding = True
         self.response = response
-        self.sock.send_all(bytes(response))
+
+        for chunk in response.iter_chunks():
+            self.sock.send_all(chunk)
+
         self.responding = False
 
         if ignored_request:
@@ -210,7 +213,9 @@ class Worker:
 
         response = ws.http.utils.build_response(503)
         response.headers['Connection'] = 'close'
-        self.sock.send_all(bytes(response))
+
+        for chunk in response.iter_chunks():
+            self.sock.send_all(chunk)
 
         # TODO what kind of error is this ?
         # raise PeerError(msg='Parent process requested termination.',
@@ -278,12 +283,12 @@ def handle_request(request, address):
         return ws.cgi.execute_script(request, address)
     elif request.request_line.method == 'GET':
         return ws.serve.get_file(route)
-    elif request.request_line.method == 'POST':
-        encoding = request.headers.get('Content-Encoding', 'utf-8')
-        body = request.body
-        return ws.serve.upload_file(route=route, body_stream=body,
-                                    encoding=encoding)
-    elif request.request_line.method == 'DELETE':
-        return ws.serve.delete_file(route)
+    # elif request.request_line.method == 'POST':
+    #     encoding = request.headers.get('Content-Encoding', 'utf-8')
+    #     body = request.body
+    #     return ws.serve.upload_file(route=route, body_stream=body,
+    #                                 encoding=encoding)
+    # elif request.request_line.method == 'DELETE':
+    #     return ws.serve.delete_file(route)
     else:
         return ws.http.utils.build_response(405)

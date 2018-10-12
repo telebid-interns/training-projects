@@ -123,7 +123,7 @@ class ClientSocket:
             ClientSocketError(code='CS_PEER_NOT_RECEIVING') - the socket has
                 been shutdown for sending from the peer.
         """
-        assert isinstance(bytes_response, bytes)
+        assert isinstance(bytes_response, (bytes, bytearray))
 
         total_sent = 0
 

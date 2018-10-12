@@ -21,6 +21,24 @@ assert_system(os.path.isdir(STATIC_DIR),
 
 
 def get_file(route):
+    def content_iterator(fp):
+        def make_iterator():
+            buf_size = 4096
+            with open(fp, mode='rb') as f:
+                chunk = f.read(buf_size)
+                # temporarily stop gen for exceptions to blow up before
+                # content gets yielded
+                yield
+
+                while chunk:
+                    yield from chunk
+                    chunk = f.read(buf_size)
+
+        it = make_iterator()
+        # startup the generator to have exceptions blow here.
+        next(it)
+        return it
+
     resolved = resolve_route(route,
                              route_prefix=STATIC_ROUTE, dir_prefix=STATIC_DIR)
 
@@ -28,22 +46,17 @@ def get_file(route):
         return ws.responses.not_found
 
     try:
-        # TODO don't open with an encoding.
-        with open(resolved, mode='r', encoding='utf-8') as f:
-            content = f.read()  # TODO don't read entire file
+        return HTTPResponse(
+            status_line=HTTPStatusLine(http_version='HTTP/1.1',
+                                       status_code=200,
+                                       reason_phrase=''),
+            headers=HTTPHeaders({
+                'Content-Length': os.path.getsize(resolved)
+            }),
+            body=content_iterator(resolved)
+        )
     except (FileNotFoundError, IsADirectoryError):
         return ws.responses.not_found
-
-    return HTTPResponse(
-        status_line=HTTPStatusLine(http_version='HTTP/1.1',
-                                   status_code=200,
-                                   reason_phrase=''),
-        headers=HTTPHeaders({
-            'Content-Length': len(content),
-            'Content-Encoding': 'ascii'
-        }),
-        body=content
-    )
 
 
 def resolve_route(route, route_prefix, dir_prefix):
