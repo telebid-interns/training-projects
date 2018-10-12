@@ -110,6 +110,7 @@ class Server:
                                          errno.EINVAL, errno.ENOTSOCK,
                                          errno.EOPNOTSUPP)
 
+                # TODO use err.strerr
                 if err.errno == errno.EPERM:
                     error_log.info('Denied client connection, because firewall '
                                    'blocked the accept() call.')
@@ -192,6 +193,7 @@ class Server:
         assert self.execution_context == self.ExecutionContext.main
         assert isinstance(client_socket, ws.sockets.ClientSocket)
 
+        # TODO this is a user error
         if len(self.workers) >= self.process_count_limit:
             raise SysError(msg='Cannot fork because process limit has been '
                                'reached.',
@@ -205,6 +207,8 @@ class Server:
 
             # TODO are these SysErrors ? or should the OSError be reraised
             # instead of transformed ?
+
+            # these are OSError's
             if err.errno in (errno.ENOMEM, errno.EAGAIN):
                 error_log.warning('Not enough resources to serve the '
                                   'client connection. Server will continue '

@@ -1,11 +1,11 @@
-import os
 import collections
+import os
 import subprocess
 
 import ws.http.utils
 from ws.config import config
-from ws.logs import error_log
 from ws.err import *
+from ws.logs import error_log
 
 CGI_SCRIPTS_DIR = config['cgi']['scripts_dir']
 assert_system(os.path.isdir(CGI_SCRIPTS_DIR),
@@ -172,6 +172,7 @@ def execute_script(request, address):
     script_env = {**compute_http_headers_env(request)}
 
     if not isinstance(request.body, bytes):
+        # TODO redirect socket of client into script's stdin
         body = b''.join(request.body)
     else:
         body = request.body
@@ -186,7 +187,8 @@ def execute_script(request, address):
     # TODO script_env['REMOTE_HOST'] =
     script_env['REQUEST_METHOD'] = request.request_line.method
     script_env['SCRIPT_NAME'] = cgi_script.route
-    script_env['SERVER_NAME'] = config['settings']['host']
+    script_env['SERVER_NAME'] = config['settings'][
+        'host']  # TODO take this from client socket
     script_env['SERVER_PORT'] = config['settings']['port']
     script_env['SERVER_PROTOCOL'] = 'HTTP/1.1'
     script_env['SERVER_SOFTWARE'] = 'web-server-v0.3.0rc'
@@ -217,6 +219,7 @@ def execute_script(request, address):
 
     print(outs, err)
 
+    # TODO send scripts stdin out of here. Buffered
     return ws.http.utils.build_response(404)
 
 

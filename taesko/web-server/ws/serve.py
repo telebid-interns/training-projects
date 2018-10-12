@@ -28,8 +28,9 @@ def get_file(route):
         return ws.responses.not_found
 
     try:
+        # TODO don't open with an encoding.
         with open(resolved, mode='r', encoding='utf-8') as f:
-            content = f.read()
+            content = f.read()  # TODO don't read entire file
     except (FileNotFoundError, IsADirectoryError):
         return ws.responses.not_found
 
