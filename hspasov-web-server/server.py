@@ -2,6 +2,7 @@ import socket
 import traceback
 
 RECV_BUFFER = 4096
+ROOT_DIR = '/home/hristo/Documents/training-projects/hspasov-web-server/content'
 
 class BaseError(Exception):
     def __init__(self, msg):
@@ -135,6 +136,14 @@ def parse_req_msg(msg):
     return result
 
 
+def build_res_msg(body):
+    assert_app(type(body) == str)
+
+    result = 'HTTP/1.1 200 OK\r\n\r\n' + body
+
+    return result
+
+
 def start():
     socket_descr = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
@@ -157,16 +166,12 @@ def start():
 
         print(request_data)
 
-        response = ('HTTP/1.0 200 OK\r\n\r\n' +
-        '<html><head><title>Welcome!</title></head>' +
-        '<body><h1>Follow the link...</h1>' +
-        'All the server needs to do is ' +
-        'to deliver the text to the socket. ' +
-        'It delivers the HTML code for a link, ' +
-        'and the web browser converts it. <br><br><br><br>' +
-        '<font size="7"><center> <a href="http://python.about.com/index.html">Click me!</a> </center></font>' +
-        '<br><br>The wording of your request was:' +
-        '</body></html>')
+        response = None
+
+        with open(ROOT_DIR + request_data['start_line']['req_target'], 'r') as content_file:
+            content = content_file.read()
+            print(content)
+            response = build_res_msg(content)
 
         conn.sendall(response.encode())
         conn.close()
