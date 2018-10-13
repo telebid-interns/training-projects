@@ -1,5 +1,7 @@
 import socket
 import traceback
+from multiprocessing import Process, current_process
+
 
 RECV_BUFFER = 4096
 ROOT_DIR = '/home/hristo/Documents/training-projects/hspasov-web-server/content'
@@ -14,6 +16,11 @@ class BaseError(Exception):
 class AppError(BaseError):
     def __init__(self):
         super().__init__('')
+
+
+class PeerError(BaseError):
+    def __init__(self, msg):
+        super().__init__(msg)
 
 
 class UserError(BaseError):
@@ -144,19 +151,8 @@ def build_res_msg(body):
     return result
 
 
-def start():
-    socket_descr = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-    socket_descr.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-    socket_descr.bind((host, port))
-
-    socket_descr.listen(1)
-
-    while True:
-        conn, addr = socket_descr.accept()
-        print('Connected with {0}:{1}'.format(addr[0], addr[1]))
-
+def handle_request(conn):
+    try:
         total_data = conn.recv(RECV_BUFFER)
 
         print('received:')
@@ -175,6 +171,26 @@ def start():
 
         conn.sendall(response.encode())
         conn.close()
+    except Exception as e:
+        print('Exception')
+        print(e)
+
+
+def start():
+    socket_descr = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    socket_descr.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+    socket_descr.bind((host, port))
+
+    socket_descr.listen(1)
+
+    while True:
+        conn, addr = socket_descr.accept()
+        print('Connected with {0}:{1}'.format(addr[0], addr[1]))
+
+        process = Process(target=handle_request, args=(conn,))
+        process.start()
 
     socket_descr.close()
 
