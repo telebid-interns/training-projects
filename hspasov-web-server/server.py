@@ -12,7 +12,7 @@ class BaseError(Exception):
 
 class AppError(BaseError):
     def __init__(self):
-        super().__init__()
+        super().__init__('')
 
 
 class UserError(BaseError):
@@ -55,14 +55,6 @@ def log(msg):
 host = ''
 port = 8080
 
-socket_descr = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-socket_descr.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-socket_descr.bind((host, port))
-
-socket_descr.listen(1)
-
 def parse_req_line(req_line):
     assert_app(type(req_line) == str)
 
@@ -74,10 +66,6 @@ def parse_req_line(req_line):
     req_target = req_line_tokens[1]
     http_version = req_line_tokens[2]
 
-    print(method)
-    print(req_target)
-    print(http_version)
-
     result = {
         'method': method,
         'req_target': req_target,
@@ -87,15 +75,13 @@ def parse_req_line(req_line):
     return result
 
 
-def parse_headers(headers_str):
-    assert_app(type(headers_str) == str)
-
-    header_fields = headers_str.split('\r\n')
+def parse_headers(header_fields):
+    assert_app(type(header_fields) == list)
 
     headers = {}
 
     for header_field in header_fields:
-        header_field_split = header_fields.split(':', 1)
+        header_field_split = header_field.split(':', 1)
 
         assert_peer(len(header_field_split[0]) == len(header_field_split[0].strip()), 'Invalid request')
 
@@ -115,7 +101,7 @@ def parse_http_msg(msg):
     assert_peer(len(msg_parts) == 2, 'Invalid request')
 
     start_line_and_headers = msg_parts[0].split('\r\n')
-    start_line = start_line_and_headers[:1]
+    start_line = start_line_and_headers[0]
     headers = parse_headers(start_line_and_headers[1:])
 
     assert_app(type(headers) == dict)
@@ -134,7 +120,7 @@ def parse_http_msg(msg):
 def parse_req_msg(msg):
     assert_app(type(msg) == str)
 
-    parsed_http_msg = parse_http_msg(str)
+    parsed_http_msg = parse_http_msg(msg)
 
     assert_app(type(parsed_http_msg) == dict)
     assert_app('start_line' in parsed_http_msg)
@@ -150,28 +136,26 @@ def parse_req_msg(msg):
 
 
 def start():
+    socket_descr = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    socket_descr.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+    socket_descr.bind((host, port))
+
+    socket_descr.listen(1)
+
     while True:
         conn, addr = socket_descr.accept()
         print('Connected with {0}:{1}'.format(addr[0], addr[1]))
 
-        total_data = ''
-
-        while True:
-            data = conn.recv(RECV_BUFFER)
-
-            print(type(data))
-            #assert_app(type(data) == str)
-
-            if not data:
-                print(data)
-                print('not data')
-                print(type(data))
-                break
-
-            total_data += data.decode()
+        total_data = conn.recv(RECV_BUFFER)
 
         print('received:')
-        print(total_data)
+        print(total_data.decode())
+
+        request_data = parse_req_msg(total_data.decode())
+
+        print(request_data)
 
         response = ('HTTP/1.0 200 OK\r\n\r\n' +
         '<html><head><title>Welcome!</title></head>' +
