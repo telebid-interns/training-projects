@@ -1,10 +1,14 @@
 import socket
 import traceback
-from multiprocessing import Process, current_process
+from multiprocessing import Process  # , current_process
 
 
 RECV_BUFFER = 4096
-ROOT_DIR = '/home/hristo/Documents/training-projects/hspasov-web-server/content'
+# ROOT_DIR = ('/home/hristo/Documents/training-projects' +
+#            '/hspasov-web-server/content')
+ROOT_DIR = ('/media/hspasov/Files/TelebidPro/training-projects' +
+            '/hspasov-web-server/content')
+
 
 class BaseError(Exception):
     def __init__(self, msg):
@@ -60,8 +64,10 @@ def handle_error(error):
 def log(msg):
     print(msg)
 
+
 host = ''
 port = 8080
+
 
 def parse_req_line(req_line):
     assert_app(type(req_line) == str)
@@ -91,7 +97,10 @@ def parse_headers(header_fields):
     for header_field in header_fields:
         header_field_split = header_field.split(':', 1)
 
-        assert_peer(len(header_field_split[0]) == len(header_field_split[0].strip()), 'Invalid request')
+        assert_peer(
+            len(header_field_split[0]) == len(header_field_split[0].strip()),
+            'Invalid request'
+        )
 
         field_name = header_field_split[0]
         field_value = header_field_split[1].strip()
@@ -164,7 +173,9 @@ def handle_request(conn):
 
         response = None
 
-        with open(ROOT_DIR + request_data['start_line']['req_target'], 'r') as content_file:
+        file_path = ROOT_DIR + request_data['start_line']['req_target']
+
+        with open(file_path, 'r') as content_file:
             content = content_file.read()
             print(content)
             response = build_res_msg(content)
