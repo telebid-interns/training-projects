@@ -145,6 +145,12 @@ class ClientSocket:
 
         self.sock.shutdown(how)
 
+    def getsockname(self):
+        return self.sock.getsockname()
+
+    def getpeername(self):
+        return self.sock.getpeername()
+
     def close(self, with_shutdown=False, pass_silently=False, safely=True):
         if with_shutdown:
             try:

@@ -13,21 +13,10 @@ assert_system(os.path.isdir(CGI_SCRIPTS_DIR),
               code='CGI_CONFIG_NOT_DIR')
 
 
-class CGIError(BaseError):
-    pass
-
-
-class CGIClientError(CGIError, PeerError):
-    pass
-
-
-class CGIScriptError(CGIError):
-    pass
-
-
 class CGIScript(collections.namedtuple('CGIScript', ['name',
                                                      'route',
-                                                     'pass_full_path_info'])):
+                                                     'pass_full_path_info',
+                                                     'timeout'])):
     @classmethod
     def from_config(cls, script_name):
         section_name = 'cgi_{}'.format(script_name)
@@ -43,7 +32,8 @@ class CGIScript(collections.namedtuple('CGIScript', ['name',
         cgi_script = cls(
             name=script_name,
             route=normalized_route(section['route']),
-            pass_full_path_info=section.getboolean('pass_full_path_info')
+            pass_full_path_info=section.getboolean('pass_full_path_info'),
+            timeout=section.getint('timeout')
         )
 
         if not os.path.exists(cgi_script.script_path):
@@ -162,20 +152,14 @@ def can_handle_request(request):
     return bool(find_cgi_script(request.request_line.request_target))
 
 
-def execute_script(request, address):
+def execute_script(request, client_socket):
     assert can_handle_request(request)
 
     uri = request.request_line.request_target
     cgi_script = find_cgi_script(uri)
 
     error_log.info('Executing CGI script %s', cgi_script.name)
-    script_env = {**compute_http_headers_env(request)}
-
-    if not isinstance(request.body, bytes):
-        # TODO redirect socket of client into script's stdin
-        body = b''.join(request.body)
-    else:
-        body = request.body
+    script_env = compute_http_headers_env(request)
 
     script_env['GATEWAY_INTERFACE'] = 'CGI/1.1'
     script_env['PATH_INFO'] = compute_path_info(cgi_script, uri)
@@ -183,35 +167,40 @@ def execute_script(request, address):
         script_env['PATH_INFO']
     )
     script_env['QUERY_STRING'] = compute_query_string(uri)
-    script_env['REMOTE_ADDR'] = address[0]
+    script_env['REMOTE_ADDR'] = client_socket.getpeername()[0]
     # TODO script_env['REMOTE_HOST'] =
     script_env['REQUEST_METHOD'] = request.request_line.method
     script_env['SCRIPT_NAME'] = cgi_script.route
-    script_env['SERVER_NAME'] = config['settings'][
-        'host']  # TODO take this from client socket
-    script_env['SERVER_PORT'] = config['settings']['port']
+    script_env['SERVER_NAME'] = client_socket.getsockname()[0]
+    script_env['SERVER_PORT'] = str(client_socket.getsockname()[1])
     script_env['SERVER_PROTOCOL'] = 'HTTP/1.1'
     script_env['SERVER_SOFTWARE'] = 'web-server-v0.3.0rc'
-    if body:
-        script_env['Content-Length'] = request.headers['Content-Length']
-        script_env['Content-Encoding'] = request.headers['Content-']
+    if request.body:
+        cl = request.headers.get('Content-Length', 0)
+        script_env['Content-Length'] = str(cl)
+
+        if 'Content-Encoding' in request.headers:
+            script_env['Content-Encoding'] = request.headers['Content-Encoding']
+
+    error_log.debug('CGIScript environment will be: %s', script_env)
+
 
     try:
         proc = subprocess.Popen(
-            args=(os.path.abspath(cgi_script.script_path), ),
+            args=os.path.abspath(cgi_script.script_path),
             env=script_env,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
     except (OSError, ValueError):
-        error_log.exception('Failed to open subprocess for cgi script {}.'
+        error_log.exception('Failed to open subprocess for cgi script {}'
                             .format(cgi_script.name))
         return ws.http.utils.build_response(500)
 
     try:
-        outs, err = proc.communicate(body,
-                                     timeout=config.getint(cgi_script.timeout))
+        outs, err = proc.communicate(request.body,
+                                     timeout=cgi_script.timeout)
     except subprocess.TimeoutExpired:
         error_log.exception('CGI script {} timed out.'.format(cgi_script.name))
         proc.kill()
@@ -224,12 +213,11 @@ def execute_script(request, address):
 
 
 def normalized_route(route):
-    if not route.startswith('/'):
+    if not route.endswith('/'):
         return route + '/'
     else:
         return route
 
 
 CGI_SCRIPTS = cgi_config()
-
 

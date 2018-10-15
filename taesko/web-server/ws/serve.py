@@ -3,6 +3,7 @@ import errno
 import logging
 import os
 
+import ws.http.utils
 import ws.responses
 from ws.config import config
 from ws.err import *
@@ -43,7 +44,7 @@ def get_file(route):
                              route_prefix=STATIC_ROUTE, dir_prefix=STATIC_DIR)
 
     if not resolved:
-        return ws.responses.not_found
+        return ws.http.utils.build_response(404)
 
     try:
         return HTTPResponse(
@@ -56,7 +57,7 @@ def get_file(route):
             body=content_iterator(resolved)
         )
     except (FileNotFoundError, IsADirectoryError):
-        return ws.responses.not_found
+        return ws.http.utils.build_response(404)
 
 
 def resolve_route(route, route_prefix, dir_prefix):

@@ -21,7 +21,7 @@ class HTTPStatusCode(enum.Enum):
     service_unavailable = 503
 
 
-def build_response(status_code, *, body=None, reason_phrase='', headers=None,
+def build_response(status_code, *, body=b'', reason_phrase='', headers=None,
                    version='HTTP/1.1'):
     status_code = HTTPStatusCode(status_code)
 
@@ -33,7 +33,9 @@ def build_response(status_code, *, body=None, reason_phrase='', headers=None,
     headers = HTTPHeaders(headers or {})
 
     if body:
-        assert 'Content-Encoding' in headers
+        assert 'Content-Length' in headers
+    else:
+        headers['Content-Length'] = 0
 
     if status_code == HTTPStatusCode.service_unavailable:
         headers['Retry-After'] = config.getint('settings',

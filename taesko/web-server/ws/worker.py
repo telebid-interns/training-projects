@@ -152,7 +152,7 @@ class Worker:
 
                 raise
 
-            self.respond(request_handler(self.request, self.address))
+            self.respond(request_handler(self.request, self.sock))
 
             if not (ws.http.utils.request_is_persistent(self.request) and
                     ws.http.utils.response_is_persistent(self.response)):
@@ -271,13 +271,14 @@ def work(client_socket, address, quick_reply_with=None):
         return 0
 
 
-def handle_request(request, address):
+def handle_request(request, client_socket):
     route = request.request_line.request_target.path
 
     if ws.cgi.can_handle_request(request):
         error_log.info('Request will be handled through a CGI script.')
-        return ws.cgi.execute_script(request, address)
+        return ws.cgi.execute_script(request, client_socket)
     elif request.request_line.method == 'GET':
+        error_log.info('Request did not route to any CGI script.')
         return ws.serve.get_file(route)
     # elif request.request_line.method == 'POST':
     #     encoding = request.headers.get('Content-Encoding', 'utf-8')
