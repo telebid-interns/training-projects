@@ -96,7 +96,7 @@ class Worker:
         else:
             pass
 
-        response = handle_err(exc_val)
+        response = handle_exc(exc_val)
 
         if not response:
             error_log.exception('Could not handle exception. Client will '
@@ -224,19 +224,19 @@ class Worker:
 
 
 # noinspection PyUnusedLocal
-@err_handler(AssertionError)
+@exc_handler(AssertionError)
 def server_err_handler(exc):
     error_log.exception('Internal server error.')
     return ws.http.utils.build_response(500)
 
 
-@err_handler(ws.http.parser.ParserError)
+@exc_handler(ws.http.parser.ParserError)
 def handle_parse_err(exc):
     error_log.info('Parsing error with code=%s occurred', exc.code)
     return ws.http.utils.build_response(400)
 
 
-@err_handler(ws.sockets.ClientSocketError)
+@exc_handler(ws.sockets.ClientSocketError)
 def handle_client_socket_err(exc):
     error_log.info('Client socket error with code=%s occurred', exc.code)
     if exc.code in ('CS_PEER_SEND_IS_TOO_SLOW', 'CS_CONNECTION_TIMED_OUT'):
