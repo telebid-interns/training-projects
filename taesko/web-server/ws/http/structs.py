@@ -79,7 +79,7 @@ class HTTPResponse(collections.namedtuple('HTTPResponse', ['status_line',
         if len(buf) != 0:
             yield buf
 
-    @ws.utils.depreciated
+    @ws.utils.depreciated(error_log)
     def send_depreciated(self, sock):
         msg = bytes(self)
         total_sent = 0
@@ -94,7 +94,7 @@ class HTTPResponse(collections.namedtuple('HTTPResponse', ['status_line',
 
             total_sent += sent
 
-    @ws.utils.depreciated
+    @ws.utils.depreciated(error_log)
     def __bytes__(self):
         error_log.warning('Calling depreciated method __bytes__ '
                           'of HTTPResponse')

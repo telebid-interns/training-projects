@@ -258,7 +258,7 @@ def parse_body(iterator, content_len):
     return bytes(parts)
 
 
-@ws.utils.depreciated
+@ws.utils.depreciated(error_log)
 def parse_body_lazily(iterator, content_len):
     assert isinstance(iterator, SpyIterator)
     assert isinstance(content_len, int)

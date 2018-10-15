@@ -246,7 +246,7 @@ class Server:
             )
 
     # noinspection PyUnusedLocal
-    @ws.utils.depreciated
+    @ws.utils.depreciated(error_log)
     def terminate_hanged_workers_depreciated(self, signum, stack_frame):
         assert signum == signal.SIGALRM
 
