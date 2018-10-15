@@ -96,7 +96,11 @@ class Server:
         self.sock.listen(self.concurrency)
 
         while True:
-            self.reap_one_child_safely()
+            # TODO this leaves some orphaned children if no requests are coming.
+            # this can probably be mitigated through non-blocking sockets
+            for _ in range(len(self.workers)):
+                self.reap_one_child_safely()
+
             try:
                 client_socket, address = self.sock.accept()
                 client_socket = ws.sockets.ClientSocket(
