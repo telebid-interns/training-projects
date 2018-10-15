@@ -1,9 +1,17 @@
 import logging
+import logging.config
+
+from ws.config import config
+
+logging.basicConfig(level=logging.INFO)
+logging.config.fileConfig(config['logging']['config_file'])
+logging.raiseExceptions = False
+
 
 error_log = logging.getLogger('error')
 
 
-class AccessLogger:
+class _AccessLogger:
     def __init__(self, name):
         self.logger = logging.getLogger(name)
 
@@ -22,4 +30,4 @@ class AccessLogger:
         ))
 
 
-access_log = AccessLogger('access')
+access_log = _AccessLogger('access')
