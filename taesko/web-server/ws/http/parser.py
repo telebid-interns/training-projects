@@ -55,7 +55,7 @@ class SpyIterator:
             return value
 
 
-def parse(message_iter, lazy=False):
+def parse(message_iter, lazy=True):
     assert isinstance(message_iter, SpyIterator)
     assert isinstance(lazy, bool)
 
