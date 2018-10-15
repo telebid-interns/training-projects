@@ -152,16 +152,32 @@ class Worker:
 
                 raise
 
-            self.respond(request_handler(self.request, self.sock))
+            handler_result = request_handler(self.request, self.sock)
+            if isinstance(handler_result, ws.http.structs.HTTPResponse):
+                self.respond(handler_result)
+            else:
+                self.send_raw_response(handler_result)
+                # TODO sending back raw response can't be recorded in the
+                # access.log
 
             if not (ws.http.utils.request_is_persistent(self.request) and
                     ws.http.utils.response_is_persistent(self.response)):
                 break
 
+    def send_raw_response(self, bytes_iterable):
+        assert isinstance(bytes_iterable, collections.Iterable)
+
+        self.responding = True
+
+        for chunk in bytes_iterable:
+            self.sock.send_all(chunk)
+
+        self.responding = False
+
     def respond(self, response, *, closing=False, ignored_request=False):
         """
 
-        :param response: Response object to send to client.
+        :param response: Response object to send to client
         :param closing: Boolean switch whether the http connection should be
             closed after this response.
         :param ignored_request: Boolean flag whether the request sent from the
@@ -182,13 +198,8 @@ class Worker:
             if conn:
                 response.headers['Connection'] = conn
 
-        self.responding = True
         self.response = response
-
-        for chunk in response.iter_chunks():
-            self.sock.send_all(chunk)
-
-        self.responding = False
+        self.send_raw_response(self.response.iter_chunks())
 
         if ignored_request:
             access_log.log(request=None, response=response)

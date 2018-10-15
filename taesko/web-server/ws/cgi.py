@@ -1,6 +1,9 @@
 import collections
 import os
 import subprocess
+import select
+import time
+import io
 
 import ws.http.utils
 from ws.config import config
@@ -11,6 +14,10 @@ CGI_SCRIPTS_DIR = config['cgi']['scripts_dir']
 assert_system(os.path.isdir(CGI_SCRIPTS_DIR),
               msg='In configuration: cgi.scripts_dir is not a directory.',
               code='CGI_CONFIG_NOT_DIR')
+
+
+class CGIException(ServerException):
+    pass
 
 
 class CGIScript(collections.namedtuple('CGIScript', ['name',
@@ -152,13 +159,12 @@ def can_handle_request(request):
     return bool(find_cgi_script(request.request_line.request_target))
 
 
-def execute_script(request, client_socket):
+def prepare_cgi_script_env(request, client_socket):
     assert can_handle_request(request)
 
     uri = request.request_line.request_target
     cgi_script = find_cgi_script(uri)
 
-    error_log.info('Executing CGI script %s', cgi_script.name)
     script_env = compute_http_headers_env(request)
 
     script_env['GATEWAY_INTERFACE'] = 'CGI/1.1'
@@ -175,6 +181,7 @@ def execute_script(request, client_socket):
     script_env['SERVER_PORT'] = str(client_socket.getsockname()[1])
     script_env['SERVER_PROTOCOL'] = 'HTTP/1.1'
     script_env['SERVER_SOFTWARE'] = 'web-server-v0.3.0rc'
+
     if request.body:
         cl = request.headers.get('Content-Length', 0)
         script_env['Content-Length'] = str(cl)
@@ -182,34 +189,71 @@ def execute_script(request, client_socket):
         if 'Content-Encoding' in request.headers:
             script_env['Content-Encoding'] = request.headers['Content-Encoding']
 
-    error_log.debug('CGIScript environment will be: %s', script_env)
+    return script_env
 
+
+def execute_script(request, client_socket):
+    assert can_handle_request(request)
+
+    uri = request.request_line.request_target
+    cgi_script = find_cgi_script(uri)
+    error_log.info('Executing CGI script %s', cgi_script.name)
+    script_env = prepare_cgi_script_env(request, client_socket)
+    error_log.debug('CGIScript environment will be: %s', script_env)
 
     try:
         proc = subprocess.Popen(
             args=os.path.abspath(cgi_script.script_path),
             env=script_env,
             stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            stdout=subprocess.PIPE
         )
     except (OSError, ValueError):
         error_log.exception('Failed to open subprocess for cgi script {}'
                             .format(cgi_script.name))
         return ws.http.utils.build_response(500)
 
-    try:
-        outs, err = proc.communicate(request.body,
-                                     timeout=cgi_script.timeout)
-    except subprocess.TimeoutExpired:
-        error_log.exception('CGI script {} timed out.'.format(cgi_script.name))
-        proc.kill()
-        return ws.http.utils.build_response(503)
+    return stdout_chunk_iterator(request.body,
+                                 timeout=cgi_script.timeout,
+                                 stdin=proc.stdin.fileno(),
+                                 stdout=proc.stdout.fileno())
 
-    print(outs, err)
 
-    # TODO send scripts stdin out of here. Buffered
-    return ws.http.utils.build_response(404)
+def stdout_chunk_iterator(byte_iterator, *, timeout, stdin, stdout,
+                          in_chunk=4096, out_chunk=4096):
+    assert isinstance(timeout, int)
+    assert isinstance(stdin, int)
+    assert isinstance(stdout, int)
+    assert isinstance(byte_iterator, collections.Iterable)
+
+    byte_iterator = iter(byte_iterator)
+    has_more_input = False
+    current_chunk = None
+    currently_written = 0
+    start = time.time()
+    while time.time() - timeout < start:
+        rlist, wlist, xlist = [stdout], [], []
+        if has_more_input:
+            wlist.append(stdin)
+        else:
+            os.close(stdin)
+
+        # because current process serves only one request at once
+        # there is no need to have a timeout on this select
+        # if it blocks forever a process manager is going to kill it.
+        rlist, wlist, xlist = select.select(rlist, wlist, xlist)
+        if stdout in rlist:
+            out = os.read(stdout, out_chunk)
+            if not out:
+                break
+            yield out
+        if stdin in wlist:
+            if not current_chunk:
+                current_chunk = b''.join(b for c, b in byte_iterator
+                                         if c < in_chunk)
+                currently_written = 0
+            wrote = os.write(stdin, current_chunk[currently_written:])
+            currently_written += wrote
 
 
 def normalized_route(route):
@@ -220,4 +264,3 @@ def normalized_route(route):
 
 
 CGI_SCRIPTS = cgi_config()
-
