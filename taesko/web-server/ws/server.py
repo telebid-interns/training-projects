@@ -36,7 +36,7 @@ class Server:
         self.process_timeout = config.getint('settings', 'process_timeout')
         self.process_reaping_period = config.getint('settings',
                                                     'process_reaping_period')
-        self.concurrency = config.getint('settings', 'max_concurrent_requests')
+        self.tcp_backlog_size = config.getint('settings', 'tcp_backlog_size')
         self.process_count_limit = config.getint('settings',
                                                  'process_count_limit')
         self.execution_context = self.ExecutionContext.main
@@ -93,7 +93,7 @@ class Server:
         assert isinstance(client_socket_handler, collections.Callable)
 
         error_log.info('Listening...')
-        self.sock.listen(self.concurrency)
+        self.sock.listen(self.tcp_backlog_size)
 
         while True:
             # TODO this leaves some orphaned children if no requests are coming.
@@ -157,8 +157,6 @@ class Server:
                 # noinspection PyBroadException
                 try:
                     response = ws.responses.service_unavailable
-                    # TODO reject invalid requests from the same client if it
-                    # happens multiple times
                     client_socket_handler(client_socket, address,
                                           quick_reply_with=response)
                 except Exception:
