@@ -2,24 +2,18 @@ import collections
 import itertools
 import socket
 import time
-# noinspection PyUnresolvedReferences
 from socket import SHUT_WR, SHUT_RD, SHUT_RDWR
 
 from ws.err import *
 from ws.logs import error_log
 
 
-class ClientSocketError(PeerError):
+class ClientSocketException(ServerException):
     default_msg = 'Client socket caused an error.'
     default_code = 'CS_ERROR'
 
     def __init__(self, msg=default_code, code=default_code):
         super().__init__(msg=msg, code=code)
-
-    @classmethod
-    def assert_(cls, condition, *, msg=default_msg, code=default_code,
-                from_=None):
-        super().assert_(condition, msg=msg, code=code)
 
 
 class ClientSocket:
@@ -33,8 +27,8 @@ class ClientSocket:
             called and the socket times out.
         ClientSocketError(code='CS_PEER_NOT_SENDING' - when __next__ is called
             and the client sends 0 bytes through the socket indication he is done.
-        ClientSocketError(code='CS_CONNECTION_TIMED_OUT') - when __next__ is but
-            the connection_timeout has been exceeded.
+        ClientSocketError(code='CS_CONNECTION_TIMED_OUT') - when __next__ is
+            called but the connection_timeout has been exceeded.
         StopIteration() - if __next__ is called after the socket was broken
     """
     buffer_size = 2048
@@ -66,20 +60,20 @@ class ClientSocket:
             raise StopIteration()
 
         if self.connected_on + self.connection_timeout < time.time():
-            raise ClientSocketError(code='CS_CONNECTION_TIMED_OUT')
+            raise ClientSocketException(code='CS_CONNECTION_TIMED_OUT')
 
         try:
             chunk = self.sock.recv(self.__class__.buffer_size)
         except socket.timeout as e:
             error_log.warning('Socket timed out while receiving request.')
-            raise ClientSocketError(code='CS_PEER_SEND_IS_TOO_SLOW') from e
+            raise ClientSocketException(code='CS_PEER_SEND_IS_TOO_SLOW') from e
 
         error_log.debug('Read chunk %s', chunk)
 
         if chunk == b'':
             error_log.info('Socket %d broke', self.sock.fileno())
             self.socket_broke = True
-            raise ClientSocketError(code='CS_PEER_NOT_SENDING')
+            raise ClientSocketException(code='CS_PEER_NOT_SENDING')
 
         self.chunks.append(chunk)
         self.current_chunk = iter(chunk)
@@ -106,7 +100,7 @@ class ClientSocket:
 
         for count, byte in enumerate(self):
             if count == recv_max_bytes:
-                raise ClientSocketError(code='CS_PEER_SENDING_TOO_MUCH')
+                raise ClientSocketException(code='CS_PEER_SENDING_TOO_MUCH')
 
             yield byte
 
@@ -131,7 +125,7 @@ class ClientSocket:
             sent = self.sock.send(bytes_response[total_sent:])
 
             if sent == 0:
-                raise ClientSocketError(code='CS_PEER_NOT_RECEIVING')
+                raise ClientSocketException(code='CS_PEER_NOT_RECEIVING')
 
             total_sent += sent
 

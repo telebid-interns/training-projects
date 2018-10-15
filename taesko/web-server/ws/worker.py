@@ -107,7 +107,7 @@ class Worker:
 
         self.status_code_on_abort = response.status_line.status_code
 
-        ignored_request = isinstance(exc_val, (ws.sockets.ClientSocketError,
+        ignored_request = isinstance(exc_val, (ws.sockets.ClientSocketException,
                                                ws.http.parser.ParserError))
 
         try:
@@ -146,7 +146,7 @@ class Worker:
 
             try:
                 self.request = ws.http.parser.parse(request_iterator)
-            except ws.sockets.ClientSocketError:
+            except ws.sockets.ClientSocketException:
                 if request_iterator.iterated_count == 0:
                     error_log.info("Client shutdown the socket without sending "
                                    "a Connection: close header.")
@@ -236,7 +236,7 @@ def handle_parse_err(exc):
     return ws.http.utils.build_response(400)
 
 
-@exc_handler(ws.sockets.ClientSocketError)
+@exc_handler(ws.sockets.ClientSocketException)
 def handle_client_socket_err(exc):
     error_log.info('Client socket error with code=%s occurred', exc.code)
     if exc.code in ('CS_PEER_SEND_IS_TOO_SLOW', 'CS_CONNECTION_TIMED_OUT'):

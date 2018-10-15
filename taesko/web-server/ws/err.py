@@ -22,6 +22,14 @@ class SysError(BaseError):
     pass
 
 
+class ServerException(Exception):
+    def __init__(self, msg, code):
+        super().__init__(msg)
+
+        self.msg = msg
+        self.code = code
+
+
 assert_peer = PeerError.assert_
 assert_system = SysError.assert_
 exc_handlers = {}

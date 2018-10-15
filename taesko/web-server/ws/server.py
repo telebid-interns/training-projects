@@ -318,11 +318,11 @@ def pre_verify_request_syntax(client_socket, address):
         try:
             client_socket.send_all(bytes(ws.responses.bad_request))
             access_log.log(request=None, response=ws.responses.bad_request)
-        except ws.sockets.ClientSocketError:
+        except ws.sockets.ClientSocketException:
             error_log.warning('Client socket %s did not receive response.')
 
         return False
-    except ws.sockets.ClientSocketError as err:
+    except ws.sockets.ClientSocketException as err:
         error_log.warning('During pre-parsing: client socket %s caused an '
                           'error with code %s ',
                           client_socket.fileno(), err.code)
