@@ -86,10 +86,12 @@ class HTTPResponse(collections.namedtuple('HTTPResponse', ['status_line',
 
         while total_sent < len(msg):
             sent = sock.send(msg[total_sent:])
-            assert_peer(sent != 0,
-                        msg='Peer broke socket connection while server '
-                            'was sending.',
-                        code='RESPONSE_SEND_BROKEN_SOCKET')
+
+            if sent == 0:
+                raise PeerError(msg='Peer broke socket connection while server '
+                                    'was sending.',
+                                code='RESPONSE_SEND_BROKEN_SOCKET')
+
             total_sent += sent
 
     @ws.utils.depreciated
