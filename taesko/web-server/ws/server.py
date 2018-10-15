@@ -1,6 +1,7 @@
 import collections
 import enum
 import errno
+import functools
 import os
 import signal
 import socket
@@ -46,10 +47,6 @@ class Server:
         self.workers = {}
         self.rate_controller = RequestRateController()
 
-        # TODO this behaviour is depreciated, use a separate process manager.
-        # signal.signal(signal.SIGALRM, self.terminate_hanged_workers)
-        # signal.alarm(self.process_reaping_period)
-
     def __enter__(self):
         error_log.debug('Binding server on %s:%s', self.host, self.port)
         self.sock.bind((self.host, self.port))
@@ -92,6 +89,21 @@ class Server:
     def listen(self, client_socket_handler):
         assert isinstance(client_socket_handler, collections.Callable)
 
+        def handler_decorator(handler):
+            @functools.wraps(handler)
+            def wrapped(*args, **kwargs):
+                # noinspection PyBroadException
+                try:
+                    return handler(*args, **kwargs)
+                except Exception:
+                    error_log.exception('Client socket handler failed.')
+
+                return None
+
+            return wrapped
+
+        client_socket_handler = handler_decorator(client_socket_handler)
+
         error_log.info('Listening...')
         self.sock.listen(self.tcp_backlog_size)
 
@@ -103,35 +115,22 @@ class Server:
 
             try:
                 client_socket, address = self.sock.accept()
-                client_socket = ws.sockets.ClientSocket(
-                    client_socket,
-                    socket_timeout=config.getint('http', 'request_timeout'),
-                    connection_timeout=config.getint('http',
-                                                     'connection_timeout')
-                )
             except OSError as err:
-                error_log.warning('accept() raised ERRNO=%s', err.errno)
+                error_log.warning('accept() raised ERRNO=%s with MSG=%s',
+                                  err.errno, err.strerror)
 
                 # TODO perhaps reopen failed listening sockets.
                 assert err.errno not in (errno.EBADF, errno.EFAULT,
                                          errno.EINVAL, errno.ENOTSOCK,
                                          errno.EOPNOTSUPP)
-
-                # TODO use err.strerr
-                if err.errno == errno.EPERM:
-                    error_log.info('Denied client connection, because firewall '
-                                   'blocked the accept() call.')
-                elif err.errno in (errno.EPROTO, errno.ECONNABORTED):
-                    error_log.info('Protocol or connection error from client.')
-                elif err.errno in (errno.EMFILE, errno.ENFILE,
-                                   errno.ENOBUFS, errno.ENOMEM):
-                    error_log.error('Socket memory or file descriptors run '
-                                    'out. Server will continue listening. '
-                                    'But connections will be refused until '
-                                    'resources are free.')
-
                 # don't break the listening loop just because one accept failed
                 continue
+
+            client_socket = ws.sockets.ClientSocket(
+                client_socket,
+                socket_timeout=config.getint('http', 'request_timeout'),
+                connection_timeout=config.getint('http', 'connection_timeout')
+            )
 
             if self.rate_controller.is_banned(address[0]):
                 error_log.warning('Denied connection. '
@@ -144,37 +143,21 @@ class Server:
                            'client_socket.fileno=%d and address=%s',
                            client_socket.fileno(), address)
 
+            # noinspection PyBroadException
             try:
                 forked_pid = self.fork(client_socket, address)
-            except SysError as err:
-                if err.code == 'FORK_PROCESS_COUNT_LIMIT_REACH':
-                    error_log.warning('Process count limit has been reached '
-                                      'and server cannot fork itself any more '
-                                      '503 will be the exit_code code of all '
-                                      'requests until resources are freed.')
-                else:
-                    error_log.exception('Forking failed.')
-                # noinspection PyBroadException
-                try:
-                    response = ws.responses.service_unavailable
-                    client_socket_handler(client_socket, address,
-                                          quick_reply_with=response)
-                except Exception:
-                    error_log.exception('Unhandled exception occurred while '
-                                        'responding to client from the main'
-                                        'process. Catching and continuing'
-                                        'to listen.')
+            except (SysError, UserError):
+                response = ws.responses.service_unavailable
+                client_socket_handler(client_socket, address,
+                                      quick_reply_with=response)
+                continue
+            except Exception:
+                error_log.exception('Forking failed for an unknown reason.')
                 continue
 
             if forked_pid == 0:
-                exit_code = None
+                exit_code = client_socket_handler(client_socket, address)
 
-                # noinspection PyBroadException
-                try:
-                    exit_code = client_socket_handler(client_socket, address)
-                except Exception:
-                    error_log.exception('Got error from client_socket_handler '
-                                        'in worker.')
                 if exit_code is None:
                     exit_code = 2
 
@@ -198,49 +181,29 @@ class Server:
         assert self.execution_context == self.ExecutionContext.main
         assert isinstance(client_socket, ws.sockets.ClientSocket)
 
-        # TODO this is a user error
         if len(self.workers) >= self.process_count_limit:
-            raise SysError(msg='Cannot fork because process limit has been '
-                               'reached.',
-                           code='FORK_PROCESS_COUNT_LIMIT_REACHED')
+            error_log.warning('Process limit reached. Incoming requests will '
+                              'receive a 503.')
+            raise UserError(msg='Cannot fork because process limit has been '
+                                'reached.',
+                            code='FORK_PROCESS_COUNT_LIMIT_REACHED')
 
         try:
             pid = os.fork()
         except OSError as err:
             error_log.warning('fork() raised ERRNO=%d. Reason: %s',
                               err.errno, err.strerror)
-
-            # TODO are these SysErrors ? or should the OSError be reraised
-            # instead of transformed ?
-
-            # these are OSError's
-            if err.errno in (errno.ENOMEM, errno.EAGAIN):
-                error_log.warning('Not enough resources to serve the '
-                                  'client connection. Server will continue '
-                                  'listening but connections will receive '
-                                  '503 until resources are free.')
-                raise SysError(msg='Not enough resources to serve client '
-                                   'request through fork.',
-                               code='FORK_NOT_ENOUGH_RESOURCES') from err
-
-            raise SysError(msg='Unhandled ERRNO={0.d} raised from fork().'
-                               'Exception reason: {1}'.format(err.errno,
-                                                              err.strerror),
-                           code='FORK_UNKNOWN_ERROR') from err
+            raise SysError(msg='Fork sys call failed with ERRNO={}'
+                           .format(err.errno),
+                           code='FORK_FAILED')
 
         if pid == 0:
             self.execution_context = self.ExecutionContext.worker
-            error_log.debug('Closing listening socket in child.')
             self.sock.close()
         else:
             error_log.info('Spawned child process with pid %d', pid)
-            error_log.debug('Closing client socket in parent process')
-
-            try:
-                client_socket.close()
-            except OSError:
-                error_log.exception('Failed to clean up client socket in '
-                                    'parent process.')
+            client_socket.close(pass_silently=True, safely=False,
+                                with_shutdown=False)
             self.workers[pid] = self.ActiveWorker(pid=pid,
                                                   created_on=time.time(),
                                                   client_address=address)
