@@ -59,8 +59,12 @@ def parse(message_iter, lazy=True):
     assert isinstance(message_iter, SpyIterator)
     assert isinstance(lazy, bool)
 
-    request_line = parse_request_line(message_iter)
-    headers = parse_headers(message_iter)
+    try:
+        request_line = parse_request_line(message_iter)
+        headers = parse_headers(message_iter)
+    except UnicodeDecodeError as err:
+        raise ParserError(code='BAD_ENCODING') from err
+
     error_log.debug('headers is %r with type %r', headers, type(headers))
 
     try:
@@ -153,8 +157,7 @@ def parse_request_target(iterable):
         if len(parts_) == 1:
             return parts_[0], None
         else:
-            # TODO is '?' allowed more than once ?
-            return parts_[0], parts_[1:]
+            return parts_[0], '?'.join(parts_[1:])
 
     if string[0] == '/':
         # origin form
@@ -230,7 +233,6 @@ def parse_headers(message_iterable):
         if sep_index == -1:
             raise ParserError(code='PARSER_BAD_HEADER')
 
-        # TODO research if this never fails ?
         field = line[:sep_index].decode('ascii')
         value = line[sep_index + 1:]
         headers[field] = value
