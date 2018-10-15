@@ -10,6 +10,7 @@ import ws.http.parser
 import ws.http.utils
 import ws.responses
 import ws.sockets
+import ws.utils
 import ws.worker
 from ws.config import config
 from ws.err import *
@@ -42,11 +43,12 @@ class Server:
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.workers = collections.deque()
+        self.workers = {}
         self.rate_controller = RequestRateController()
 
-        signal.signal(signal.SIGALRM, self.terminate_hanged_workers)
-        signal.alarm(self.process_reaping_period)
+        # TODO this behaviour is depreciated, use a separate process manager.
+        # signal.signal(signal.SIGALRM, self.terminate_hanged_workers)
+        # signal.alarm(self.process_reaping_period)
 
     def __enter__(self):
         error_log.debug('Binding server on %s:%s', self.host, self.port)
@@ -71,9 +73,9 @@ class Server:
             error_log.info('%d child process found. Waiting completion',
                            len(self.workers))
 
-            active_workers = collections.deque()
+            active_workers = {}
 
-            for worker in self.workers:
+            for worker in self.workers.values():
                 has_finished, exit_code = os.waitpid(worker.pid, os.WNOHANG)
 
                 if not has_finished:
@@ -81,7 +83,7 @@ class Server:
                     os.kill(signal.SIGTERM, worker.pid)
                 else:
                     error_log.info('Reaped worker %d.', worker.pid)
-                    active_workers.append(worker)
+                    active_workers[worker.pid] = worker
 
             self.workers = active_workers
 
@@ -94,6 +96,7 @@ class Server:
         self.sock.listen(self.concurrency)
 
         while True:
+            self.reap_one_child_safely()
             try:
                 client_socket, address = self.sock.accept()
                 client_socket = ws.sockets.ClientSocket(
@@ -236,14 +239,50 @@ class Server:
             except OSError:
                 error_log.exception('Failed to clean up client socket in '
                                     'parent process.')
-            self.workers.append(self.ActiveWorker(pid=pid,
+            self.workers[pid] = self.ActiveWorker(pid=pid,
                                                   created_on=time.time(),
-                                                  client_address=address))
+                                                  client_address=address)
 
         return pid
 
+    def reap_one_child_safely(self):
+        """ Reap a single zombie child without blocking or raising exceptions.
+
+        This method is NOT thread-safe.
+        """
+        try:
+            pid, exit_indicator, resource_usage = os.wait3(os.WNOHANG)
+        except OSError as err:
+            error_log.warning('During reaping of zombie child: wait() sys call '
+                              'failed with ERRNO=%s and MSG=%s',
+                              err.errno, err.strerror)
+            return
+
+        if not pid:
+            return
+        elif pid not in self.workers:
+            error_log.warning('Reaped zombie child with pid %s but the pid '
+                              'was not recorded as a worker.')
+            return
+
+        worker = self.workers[pid]
+        del self.workers[pid]
+
+        if not os.WIFEXITED(exit_indicator):
+            error_log.warning('Worker %s has finished without calling '
+                              'exit(). Server cannot properly decide '
+                              'on rate limiting for the client '
+                              'serviced by worker.')
+        else:
+            error_log.info('Worker %s has finished', worker)
+            self.rate_controller.record_handled_connection(
+                ip_address=worker.client_address[0],
+                worker_exit_code=os.WEXITSTATUS(exit_indicator)
+            )
+
     # noinspection PyUnusedLocal
-    def terminate_hanged_workers(self, signum, stack_frame):
+    @ws.utils.depreciated
+    def terminate_hanged_workers_depreciated(self, signum, stack_frame):
         assert signum == signal.SIGALRM
 
         error_log.debug('Caught SIGALRM signal to join and terminate workers')
