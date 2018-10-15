@@ -94,7 +94,7 @@ if (require.main === module) {
 router.get('/', async (ctx, next) => {
   trace(`GET ${paths.frontOfficeMountPoint}`);
 
-  await ctx.redirect(`${paths.home}`);
+  await ctx.render('home');
 });
 
 // GET logout
@@ -102,7 +102,7 @@ router.get(paths.logout, async (ctx, next) => {
   trace(`GET '${paths.frontOfficeMountPoint}/${paths.logout}'`);
 
   ctx.session = null; // docs: "To destroy a session simply set it to null"
-  await ctx.redirect(`${paths.frontOfficeMountPoint}/${paths.login}`);
+  await ctx.redirect(`${paths.login}`);
 });
 
 // GET home

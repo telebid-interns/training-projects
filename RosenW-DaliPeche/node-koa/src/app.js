@@ -17,6 +17,7 @@ const app = new Koa();
 
 app.use(serve(`${__dirname}/server/public/css`));
 app.use(serve(`${__dirname}/server/public/js`));
+app.use(serve(`${__dirname}/server/public/doc`));
 app.use(serve(`${__dirname}/server/public/png`));
 
 app.use(views(`${__dirname}/server/views`, {

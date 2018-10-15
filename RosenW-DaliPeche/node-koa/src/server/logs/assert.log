@@ -121,3 +121,6 @@ Expecting 'CLOSE_RAW_BLOCK', 'CLOSE', 'CLOSE_UNESCAPED', 'OPEN_SEXPR', 'CLOSE_SE
 2018-10-10T11:30:19.747Z:  ReferenceError: users is not defined
 2018-10-10T11:32:16.789Z:  TypeError: bundle.users is not iterable
 2018-10-10T12:33:24.883Z:  ReferenceError: dateTo is not defined
+2018-10-12T07:53:44.086Z:  error: password authentication failed for user "dalipecheclient"
+2018-10-15T15:26:37.990Z:  Error: ENOENT: no such file or directory, stat '/home/rosen/Desktop/repo/RosenW-DaliPeche/node-koa/src/server/views/licenses.hbs'
+2018-10-15T15:27:19.918Z:  Error: ENOENT: no such file or directory, stat '/home/rosen/Desktop/repo/RosenW-DaliPeche/node-koa/src/server/views/licenses.hbs'
