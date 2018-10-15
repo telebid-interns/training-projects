@@ -138,8 +138,6 @@ class Worker:
         """
         while True:
             error_log.info('HTTP Connection is open. Parsing request...')
-            # TODO client's connection might drop while recv()
-            # no need to send him a response
             self.exchanges.append(HTTPExchange(None, None))
 
             request_iterator = ws.http.parser.SpyIterator(self.sock)
@@ -175,8 +173,6 @@ class Worker:
         assert isinstance(closing, bool)
         assert isinstance(ignored_request, bool)
 
-        # TODO there needs to be a way to send Close connection through here.
-        # instead of timing out and getting terminated.
         if closing:
             response.headers['Connection'] = 'close'
         elif not ignored_request:
