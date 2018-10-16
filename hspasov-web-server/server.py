@@ -4,10 +4,10 @@ from multiprocessing import Process  # , current_process
 
 
 RECV_BUFFER = 4096
-# ROOT_DIR = ('/home/hristo/Documents/training-projects' +
-#            '/hspasov-web-server/content')
-ROOT_DIR = ('/media/hspasov/Files/TelebidPro/training-projects' +
+ROOT_DIR = ('/home/hristo/Documents/training-projects' +
             '/hspasov-web-server/content')
+# ROOT_DIR = ('/media/hspasov/Files/TelebidPro/training-projects' +
+#            '/hspasov-web-server/content')
 
 
 class BaseError(Exception):
@@ -153,9 +153,9 @@ def parse_req_msg(msg):
 
 
 def build_res_msg(body):
-    assert_app(type(body) == str)
+    assert_app(type(body) == bytes)
 
-    result = 'HTTP/1.1 200 OK\r\n\r\n' + body
+    result = 'HTTP/1.1 200 OK\r\n\r\n'.encode() + body
 
     return result
 
@@ -164,23 +164,22 @@ def handle_request(conn):
     try:
         total_data = conn.recv(RECV_BUFFER)
 
-        print('received:')
-        print(total_data.decode())
+        total_data_decoded = total_data.decode()
 
-        request_data = parse_req_msg(total_data.decode())
+        request_data = parse_req_msg(total_data_decoded)
 
+        print('Request data:')
         print(request_data)
 
         response = None
 
         file_path = ROOT_DIR + request_data['start_line']['req_target']
 
-        with open(file_path, 'r') as content_file:
+        with open(file_path, 'rb') as content_file:
             content = content_file.read()
-            print(content)
             response = build_res_msg(content)
 
-        conn.sendall(response.encode())
+        conn.sendall(response)
         conn.close()
     except Exception as e:
         print('Exception')
