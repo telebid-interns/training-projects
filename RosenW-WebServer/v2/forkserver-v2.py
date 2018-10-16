@@ -114,15 +114,19 @@ class Server(object):
             sys.exit()
 
     def send_requested_file(self, connection, path):
-        path = self.resolve_path(path) # TODO path join
-        self.safeLog('info', os.path.abspath('./static/{}'.format(path)))
-        with open('./static{}'.format(path), "r") as file: # TODO check encoding, read binary
-            send(connection, self.generate_headers(200))
-            while True:
-                content = file.read(1024)
-                if not content:
-                  break
-                send(connection, content)
+        static_path = os.path.abspath('./static')
+        path = os.path.abspath('./static' + path)
+
+        if os.path.islink(path) or static_path not in path:
+            raise FileNotFoundError()
+        else:
+            with open(path, "r") as file: # TODO check encoding, read binary
+                send(connection, self.generate_headers(200))
+                while True:
+                    content = file.read(1024)
+                    if not content:
+                      break
+                    send(connection, content)
 
     def parse_request(self, request):
         assert isinstance(request, str)
@@ -185,16 +189,10 @@ class Server(object):
 
         if response_code == 200:
             header += 'Content-Type: text/html\r\n'
-        header += 'Date: {}\r\n'.format(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime())) # format specified by rfc
+        header += 'Date: {}\r\n'.format(time.strftime("%a, %d %b %Y %H:%M:%S", time.localtime()))
         header += 'Connection: close\r\n\r\n'
         self.response_code = response_code
         return header
-
-    def resolve_path(self, path):
-        path = path.replace('../', '') # TODO ../ is allowed
-        if os.path.islink(path):
-            return '' # TODO raise error
-        return path
 
     def kill_children(self, signum, frame):
         try:
