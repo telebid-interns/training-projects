@@ -10,6 +10,12 @@ ROOT_DIR = ('/home/hristo/Documents/training-projects' +
 #            '/hspasov-web-server/content')
 
 
+response_reason_phrases = {
+    200: 'OK',
+    404: 'Not Found',
+}
+
+
 class BaseError(Exception):
     def __init__(self, msg):
         super().__init__(msg)
@@ -152,10 +158,15 @@ def parse_req_msg(msg):
     return result
 
 
-def build_res_msg(body):
+def build_res_msg(status_code, body=b''):
+    assert_app(type(status_code) == int)
     assert_app(type(body) == bytes)
+    assert_app(status_code in response_reason_phrases)
 
-    result = 'HTTP/1.1 200 OK\r\n\r\n'.encode() + body
+    result = 'HTTP/1.1 {0} {1}\r\n\r\n'.format(
+        status_code,
+        response_reason_phrases[status_code]
+    ).encode() + body
 
     return result
 
@@ -177,13 +188,20 @@ def handle_request(conn):
 
         with open(file_path, 'rb') as content_file:
             content = content_file.read()
-            response = build_res_msg(content)
+            response = build_res_msg(200, content)
 
         conn.sendall(response)
-        conn.close()
+    except FileNotFoundError as e:
+        print('file not found')
+        print(e)
+        response = build_res_msg(404)
+
+        conn.sendall(response)
     except Exception as e:
         print('Exception')
         print(e)
+    finally:
+        conn.close()
 
 
 def start():
