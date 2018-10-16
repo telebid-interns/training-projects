@@ -20,7 +20,6 @@ class BaseError(Exception):
     def __init__(self, msg):
         super().__init__(msg)
         self.msg = msg
-        handle_error(self.msg)
 
 
 class AppError(BaseError):
@@ -60,11 +59,6 @@ def assert_user(condition, msg):
 
     if not condition:
         raise UserError(msg)
-
-
-def handle_error(error):
-    log(error)
-    log(traceback.print_stack())
 
 
 def log(msg):
@@ -207,9 +201,10 @@ def handle_request(conn):
 def start():
     socket_descr = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    socket_descr.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-    socket_descr.bind((host, port))
+    try:
+        socket_descr.bind((host, port))
+    except OSError as e:
+        print(e)
 
     socket_descr.listen(1)
 
@@ -223,4 +218,8 @@ def start():
     socket_descr.close()
 
 
-start()
+try:
+    start()
+except AppError as error:
+    log(error)
+    log(traceback.print_stack())
