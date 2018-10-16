@@ -9,12 +9,12 @@ import traceback
 import configparser
 from error.asserts import assert_user, assert_peer
 from error.exceptions import SubprocessLimitException, PeerError
-from utils.sender import send
+from utils.sender import sendall
 from utils.http_status_codes_headers import HTTPHeaders
 from utils.logger import Logger
 
 class Server(object):
-    HEADER_END_STRING = '\r\n\r\n' # TODO make binary
+    HEADER_END_STRING = '\r\n\r\n'
 
     def __init__(self, opts):
         self.opts = opts
@@ -50,12 +50,12 @@ class Server(object):
                 if pid == 0:
                     self.handle_request(connection, client_address)
             except SubprocessLimitException as e:
-                send(connection, self.generate_headers(503))
+                sendall(connection, self.generate_headers(503))
                 self.safeLog('warn', e)
                 self.log_request()
             except (OSError, IndexError, ValueError) as e:
                 if connection:
-                    send(connection, self.generate_headers(500))
+                    sendall(connection, self.generate_headers(500))
                     self.log_request()
                 if e.errno != os.errno.EINTR and e.errno != os.errno.EPIPE:
                     self.safeLog('error', e)
@@ -85,8 +85,8 @@ class Server(object):
             self.env['port'] = client_address[1]
             self.env['request_time'] = datetime.datetime.now().isoformat()
             connection.settimeout(self.timeout)
-            request = self.recv_request(connection)
-            self.parse_request(request)
+            (headers, content) = self.recv_request(connection)
+            self.parse_request(headers)
 
             if self.env['request_method'] == 'GET':
                 self.send_requested_file(connection, self.env['whole_path'])
@@ -94,20 +94,20 @@ class Server(object):
         except (KeyboardInterrupt, RuntimeError) as e:
             pass
         except PeerError as e:
-            send(connection, self.generate_headers(400))
+            sendall(connection, self.generate_headers(400))
         except (FileNotFoundError, IsADirectoryError) as e:
-            send(connection, self.generate_headers(404))
+            sendall(connection, self.generate_headers(404))
         except socket.timeout as e:
-            send(connection, self.generate_headers(408))
+            sendall(connection, self.generate_headers(408))
         except IOError as e:
             if e.errno == os.errno.EPIPE:
                 self.safeLog('warn', e)
             else:
                 self.safeLog('error', e)
-                send(connection, self.generate_headers(500))
+                sendall(connection, self.generate_headers(500))
         except BaseException as e:
             self.safeLog('error', e)
-            send(connection, self.generate_headers(500))
+            sendall(connection, self.generate_headers(500))
         finally:
             connection.close()
             self.log_request()
@@ -120,13 +120,13 @@ class Server(object):
         if os.path.islink(path) or static_path not in path:
             raise FileNotFoundError()
         else:
-            with open(path, "r") as file: # TODO check encoding, read binary
-                send(connection, self.generate_headers(200))
+            with open(path, "rb") as file:
+                sendall(connection, self.generate_headers(200))
                 while True:
                     content = file.read(1024)
                     if not content:
                       break
-                    send(connection, content)
+                    sendall(connection, content)
 
     def parse_request(self, request):
         assert isinstance(request, str)
@@ -143,24 +143,31 @@ class Server(object):
         ) = tokens
 
     def recv_request(self, connection):
-        data = connection.recv(self.opts['recv']).decode('UTF-8') # todo ascii for headers | google
+        data = connection.recv(self.opts['recv'])
         if not data:
             raise RuntimeError("socket connection broken")
-        while self.HEADER_END_STRING not in data: # TODO use bytes
-            chunk = connection.recv(self.opts['recv']).decode('UTF-8')
+        while self.HEADER_END_STRING.encode() not in data:
+            chunk = connection.recv(self.opts['recv'])
             if not chunk:
                 raise RuntimeError("socket connection broken")
             data += chunk
         total_length = self.parse_headers(data)
+
         while len(data) != total_length:
-            chunk = connection.recv(self.opts['recv']).decode('UTF-8')
+            chunk = connection.recv(self.opts['recv'])
             if not chunk:
                 raise RuntimeError("socket connection broken")
             data += chunk
+
+        #split by b'\r\n\r\n' [0] are headers [1:] is body, joining with b'\r\n\r\n'
+        headers = data.split(str.encode(self.HEADER_END_STRING))[0].decode() + self.HEADER_END_STRING
+        content = str.encode(self.HEADER_END_STRING).join(data.split(str.encode(self.HEADER_END_STRING))[1:])
+
         self.safeLog('info', 'Request Recved')
-        return data
+        return (headers, content)
 
     def parse_headers(self, data):
+        data = data.decode('UTF-8')
         assert_peer(len(data) <= self.opts['max_header_length'], 'Headers too long', 'HEADERS_TOO_LONG')
         headers_length = data.find(self.HEADER_END_STRING) + len(self.HEADER_END_STRING)
         header_dict = {}

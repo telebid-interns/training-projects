@@ -1,8 +1,10 @@
 import traceback
 
-def send(socket, data): # TODO rename sendall
+def sendall(socket, data):
     try: 
-        socket.sendall(data.encode('UTF-8')) # TODO make data bytes
+        if isinstance(data, str):
+            data = data.encode()
+        socket.sendall(data)
     except BaseException as ex:
         try:
             traceback.print_exc()
