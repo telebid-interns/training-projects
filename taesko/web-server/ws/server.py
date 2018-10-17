@@ -126,11 +126,14 @@ class Server:
         error_log.info('Listening...')
         self.sock.listen(self.tcp_backlog_size)
 
+        accepted_connections = 0
+
         while True:
             # TODO this leaves some orphaned children if no requests are coming.
             # this can probably be mitigated through non-blocking sockets
-            for _ in range(len(self.workers)):
-                self.reap_one_child_safely()
+            if accepted_connections % 30 == 0:
+                for _ in range(len(self.workers)):
+                    self.reap_one_child_safely()
 
             try:
                 client_socket, address = self.sock.accept()
@@ -145,89 +148,65 @@ class Server:
                 # don't break the listening loop just because one accept failed
                 continue
 
+            accepted_connections += 1
             client_socket = ws.sockets.ClientSocket(
                 client_socket,
                 socket_timeout=self.quick_response_socket_timeout,
                 connection_timeout=self.quick_response_connection_timeout
             )
 
-            if self.rate_controller.is_banned(address[0]):
-                error_log.warning('Denied connection. '
-                                  'client_socket.fileno=%d and address=%s',
-                                  client_socket.fileno(), address)
-                client_socket.close(pass_silently=True)
-                continue
+            # this function is used to assist in profiling the entire loop
+            # through cProfiler
+            self.fork_and_handle(client_socket, address, client_socket_handler)
 
-            error_log.info('Accepted connection. '
-                           'client_socket.fileno=%d and address=%s',
-                           client_socket.fileno(), address)
+    def fork_and_handle(self, client_socket, address, client_socket_handler):
+        if self.rate_controller.is_banned(address[0]):
+            error_log.warning('Denied connection. '
+                              'client_socket.fileno=%d and address=%s',
+                              client_socket.fileno(), address)
+            client_socket.close(pass_silently=True)
+            return
 
-            # noinspection PyBroadException
-            try:
-                forked_pid = self.fork(client_socket, address)
-            except (SysError, UserError):
-                response = ws.responses.service_unavailable
-                client_socket_handler(client_socket, address,
-                                      quick_reply_with=response)
-                continue
-            except Exception:
-                error_log.exception('Forking failed for an unknown reason.')
-                continue
-
-            if forked_pid == 0:
-                exit_code = client_socket_handler(client_socket, address)
-
-                if exit_code is None:
-                    exit_code = 2
-
-                error_log.info('Exiting with exit code %s', exit_code)
-                # noinspection PyProtectedMember
-                os._exit(exit_code)
-            else:
-                pass
-
-    def fork(self, client_socket, address):
-        """ Forks the process and sets the self.execution_context field.
-
-        Also closes the listening socket in the child process and
-        the client socket in the parent process.
-
-        Raises the following exceptions:
-            SysError with codes FORK_NOT_ENOUGH_RESOURCES or FORK_UNKNOWN_ERROR
-                if this exception is raised the process isn't forked and
-                no sockets are closed.
-        """
-        assert self.execution_context == self.ExecutionContext.main
-        assert isinstance(client_socket, ws.sockets.ClientSocket)
+        error_log.debug('Accepted connection. '
+                        'client_socket.fileno=%d and address=%s',
+                        client_socket.fileno(), address)
 
         if len(self.workers) >= self.process_count_limit:
-            error_log.warning('Process limit reached. Incoming requests will '
-                              'receive a 503.')
-            raise UserError(msg='Cannot fork because process limit has been '
-                                'reached.',
-                            code='FORK_PROCESS_COUNT_LIMIT_REACHED')
+            error_log.warning('Process limit reached.'
+                              ' Incoming requests will receive a 503.')
+            response = ws.responses.service_unavailable
+            client_socket_handler(client_socket, address,
+                                  quick_reply_with=response)
+            return
 
         try:
             pid = os.fork()
         except OSError as err:
             error_log.warning('fork() raised ERRNO=%d. Reason: %s',
                               err.errno, err.strerror)
-            raise SysError(msg='Fork sys call failed with ERRNO={}'
-                           .format(err.errno),
-                           code='FORK_FAILED')
+            response = ws.responses.service_unavailable
+            client_socket_handler(client_socket, address,
+                                  quick_reply_with=response)
+            return
 
         if pid == 0:
             self.execution_context = self.ExecutionContext.worker
             self.sock.close()
+            exit_code = client_socket_handler(client_socket, address)
+
+            if exit_code is None:
+                exit_code = 2
+
+            error_log.debug('Exiting with exit code %s', exit_code)
+            # noinspection PyProtectedMember
+            os._exit(exit_code)
         else:
-            error_log.info('Spawned child process with pid %d', pid)
+            error_log.debug('Spawned child process with pid %d', pid)
             client_socket.close(pass_silently=True, safely=False,
                                 with_shutdown=False)
             self.workers[pid] = self.ActiveWorker(pid=pid,
                                                   created_on=time.time(),
                                                   client_address=address)
-
-        return pid
 
     def reap_one_child_safely(self):
         """ Reap a single zombie child without blocking or raising exceptions.
@@ -258,7 +237,7 @@ class Server:
                               'on rate limiting for the client '
                               'serviced by worker.')
         else:
-            error_log.info('Worker %s has finished', worker)
+            error_log.debug('Worker %s has finished', worker)
             self.rate_controller.record_handled_connection(
                 ip_address=worker.client_address[0],
                 worker_exit_code=os.WEXITSTATUS(exit_indicator)
