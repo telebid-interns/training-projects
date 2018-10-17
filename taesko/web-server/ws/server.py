@@ -24,6 +24,14 @@ from ws.ratelimit import RequestRateController
 SERVER_PROFILER = cProfile.Profile()
 
 
+def default_signal_handler(signum, stack_info):
+    raise ServerException(msg='Received signum={}. Process will exit.',
+                          code='UNCAUGHT_SIGNAL')
+
+
+signal.signal(signal.SIGTERM, default_signal_handler)
+
+
 class Server:
     class ExecutionContext(enum.Enum):
         main = 'main'
@@ -392,9 +400,5 @@ def main():
             s = io.StringIO()
             ps = pstats.Stats(SERVER_PROFILER, stream=s)
             ps = ps.sort_stats('cumulative')
-            print('PROFILING')
-            print('-' * 80)
             ps.print_stats()
-            print('PRINTING STREAM')
-            print(s.getvalue())
-            print('-' * 80)
+            error_log.warning('PROFILING\n %s', s.getvalue())
