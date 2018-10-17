@@ -45,6 +45,12 @@ class Server:
         self.tcp_backlog_size = config.getint('settings', 'tcp_backlog_size')
         self.process_count_limit = config.getint('settings',
                                                  'process_count_limit')
+        self.quick_response_socket_timeout = config.getint(
+            'http', 'request_timeout'
+        )
+        self.quick_response_connection_timeout = config.getint(
+            'http', 'connection_timeout'
+        )
         self.execution_context = self.ExecutionContext.main
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -133,8 +139,8 @@ class Server:
 
             client_socket = ws.sockets.ClientSocket(
                 client_socket,
-                socket_timeout=config.getint('http', 'request_timeout'),
-                connection_timeout=config.getint('http', 'connection_timeout')
+                socket_timeout=self.quick_response_socket_timeout,
+                connection_timeout=self.quick_response_connection_timeout
             )
 
             if self.rate_controller.is_banned(address[0]):
@@ -384,16 +390,11 @@ def main():
         if profiling:
             SERVER_PROFILER.disable()
             s = io.StringIO()
-            ps = pstats.Stats(SERVER_PROFILER, stream=s).sort_stats(
-                'cumulative')
+            ps = pstats.Stats(SERVER_PROFILER, stream=s)
+            ps = ps.sort_stats('cumulative')
             print('PROFILING')
             print('-' * 80)
             ps.print_stats()
             print('PRINTING STREAM')
             print(s.getvalue())
             print('-' * 80)
-
-
-
-if __name__ == '__main__':
-    main()
