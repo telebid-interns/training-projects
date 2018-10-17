@@ -2,11 +2,24 @@ import datetime
 import traceback
 
 class Logger(object):
-    def __init__(self, opts):
+    def __init__(self, log_level, opts):
+        self.log_level = log_level
         self.opts = opts
+        self.levels = { 
+            'trace': 0,
+            'debug': 1,
+            'info': 2,
+            'warn': 3,
+            'error': 4,
+            'fatal': 5,
+        }
 
     def log(self, level_str, s):
-        assert level_str in ['trace', 'debug', 'info', 'warn', 'error', 'fatal']
+        assert level_str in self.levels
+
+        if self.levels[self.log_level] > self.levels[level_str]:
+            return
+
         try:
             s = self.format(level_str, s)
             if level_str in ['error', 'fatal']:

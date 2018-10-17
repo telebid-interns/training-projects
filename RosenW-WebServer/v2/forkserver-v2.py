@@ -20,7 +20,7 @@ class Server(object):
     def __init__(self, opts):
         self.opts = opts
         self.headers = HTTPHeaders()
-        self.logger = Logger({'error': opts['error_path']})
+        self.logger = Logger(opts['log_level'], { 'error': opts['error_path'] })
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) # level, optname, value
         self.sock.bind((opts['address'], opts['port']))
@@ -44,7 +44,7 @@ class Server(object):
                 self.safeLog('debug', self.workers)
                 if self.workers >= self.max_subprocess_count:
                     raise SubprocessLimitException('Accepted Connection, but workers were over the allowed limit')
-                self.safeLog('info', 'accepted connection: {}'.format(client_address))
+                self.safeLog('debug', 'accepted connection: {}'.format(client_address))
 
                 self.workers += 1
                 pid = os.fork()
@@ -58,7 +58,7 @@ class Server(object):
                 self.safeLog('info', 'Stopping Server...')
                 raise
             except SystemExit as e:
-                self.safeLog('info', 'Child exiting')
+                self.safeLog('debug', 'Child exiting')
                 raise
             except BaseException as e:
                 if connection:
@@ -171,7 +171,7 @@ class Server(object):
         headers = data.split(str.encode(self.HEADER_END_STRING))[0].decode() + self.HEADER_END_STRING
         content = str.encode(self.HEADER_END_STRING).join(data.split(str.encode(self.HEADER_END_STRING))[1:])
 
-        self.safeLog('info', 'Request Recved')
+        self.safeLog('debug', 'Request Recved')
         return (headers, content)
 
     def parse_headers(self, data):
@@ -235,7 +235,7 @@ class Server(object):
                 self.env.get('cpu', '-')
             ))
 
-        self.safeLog('info', 'request logged')
+        self.safeLog('debug', 'request logged')
 
     def safeLog(self, level_str, s):
         try:
@@ -264,6 +264,7 @@ if __name__ == '__main__':
     recv = config.getint('server', 'recv')
     error_path = config.get('server', 'error_path')
     max_header_length = config.getint('server', 'max_header_length')
+    log_level = config.get('server', 'log_level')
 
     opts = {
         'port': port,
@@ -273,7 +274,8 @@ if __name__ == '__main__':
         'subprocess_count': subprocess_count,
         'recv': recv,
         'max_header_length': max_header_length,
-        'error_path': error_path
+        'error_path': error_path,
+        'log_level': log_level
     }
 
     Server(opts).start()
