@@ -7,6 +7,7 @@ import os
 import datetime
 import traceback
 import configparser
+import resource
 from error.asserts import assert_user, assert_peer
 from error.exceptions import SubprocessLimitException, PeerError
 from utils.sender import sendall
@@ -53,12 +54,6 @@ class Server(object):
                 sendall(connection, self.generate_headers(503))
                 self.safeLog('warn', e)
                 self.log_request()
-            except (OSError, IndexError, ValueError) as e:
-                if connection:
-                    sendall(connection, self.generate_headers(500))
-                    self.log_request()
-                if e.errno != os.errno.EINTR and e.errno != os.errno.EPIPE:
-                    self.safeLog('error', e)
             except KeyboardInterrupt:
                 self.safeLog('info', 'Stopping Server...')
                 raise
@@ -66,7 +61,11 @@ class Server(object):
                 self.safeLog('info', 'Child exiting')
                 raise
             except BaseException as e:
-                self.safeLog('error', e)
+                if connection:
+                    sendall(connection, self.generate_headers(500))
+                    self.log_request()
+                if e.errno != os.errno.EINTR and e.errno != os.errno.EPIPE:
+                    self.safeLog('error', e)
             finally:
                 if connection and pid != 0:
                     try:
@@ -79,6 +78,10 @@ class Server(object):
         request = None
 
         try:
+            (
+                self.env['memory_start'],
+                self.env['cpu']
+            ) = self.get_process_info()
             self.sock.close()
             assert isinstance(client_address, tuple) and len(client_address) == 2
             self.env['host'] = client_address[0]
@@ -110,6 +113,11 @@ class Server(object):
             sendall(connection, self.generate_headers(500))
         finally:
             connection.close()
+            (
+                self.env['memory_end'],
+                self.env['cpu']
+            ) = self.get_process_info()
+            self.sock.close()
             self.log_request()
             sys.exit()
 
@@ -214,14 +222,17 @@ class Server(object):
 
     def log_request(self):
         with open('./logs/access.log', "a+") as file:
-            file.write('{} {} {} {} "{}" {} {}\n'.format(
+            file.write('{} {} {} {} "{}" {} {} {} {} {}\n'.format(
                 self.env.get('host', '-'),
                 self.env.get('remote_logname', '-'),
                 self.env.get('remote_user', '-'),
                 self.env.get('request_time', '-'),
                 self.env.get('request_first_line', '-'),
                 self.env.get('status_code', '-'),
-                self.env['content_length'] if 'content_length' in self.env and self.env['content_length'] > 0 else '-'
+                self.env['content_length'] if 'content_length' in self.env and self.env['content_length'] > 0 else '-',
+                self.env.get('memory_start', '-'),
+                self.env.get('memory_end', '-'),
+                self.env.get('cpu', '-')
             ))
 
         self.safeLog('info', 'request logged')
@@ -234,6 +245,12 @@ class Server(object):
                 traceback.print_exc()
             except:
                 pass
+
+    def get_process_info(self):
+        content = None;
+        memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024 # converting from Kb to b
+        cpu_usage = sum(resource.getrusage(resource.RUSAGE_SELF)[0:2])
+        return (memory, cpu_usage)
 
 if __name__ == '__main__':
     config = configparser.ConfigParser()
