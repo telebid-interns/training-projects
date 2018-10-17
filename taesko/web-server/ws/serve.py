@@ -11,7 +11,12 @@ from ws.http.structs import HTTPResponse, HTTPStatusLine, HTTPHeaders
 
 error_log = logging.getLogger('error')
 STATIC_ROUTE = config['routes']['static']
-STATIC_DIR = os.path.abspath(config['resources']['static_dir'])
+STATIC_DIR = os.path.realpath(os.path.abspath(
+    config['resources']['static_dir']
+))
+
+error_log.info('Configured static route is %s. Directory is %s',
+               STATIC_ROUTE, STATIC_DIR)
 
 assert_system(STATIC_ROUTE.endswith('/'),
               msg="routes.static must end with a '/'",
@@ -62,6 +67,8 @@ def get_file(route):
 
 def resolve_route(route, route_prefix, dir_prefix):
     if not route.startswith(route_prefix):
+        error_log.debug('Route %s does not start with prefix %s',
+                        route, route_prefix)
         return None
 
     rel_path = route[len(route_prefix):]
@@ -70,6 +77,8 @@ def resolve_route(route, route_prefix, dir_prefix):
 
     # if a symlink get's created after this if statement an exploit is possible
     if not resolved.startswith(dir_prefix):
+        error_log.debug('Resolved route %s is not inside dir %s',
+                        resolved, dir_prefix)
         return None
 
     return resolved
