@@ -9,5 +9,6 @@ setup(
         ]
 
     },
-    packages=find_packages(exclude=('conf.d', ), install_requires=['openpyxl'])
+    packages=find_packages(exclude=('conf.d',)),
+    tests_require=['openpyxl']
 )
