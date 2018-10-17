@@ -1,8 +1,11 @@
+import cProfile
 import collections
 import enum
 import errno
 import functools
+import io
 import os
+import pstats
 import signal
 import socket
 import time
@@ -17,6 +20,8 @@ from ws.config import config
 from ws.err import *
 from ws.logs import error_log, access_log
 from ws.ratelimit import RequestRateController
+
+SERVER_PROFILER = cProfile.Profile()
 
 
 class Server:
@@ -368,8 +373,26 @@ def sys_has_fork_support():
 def main():
     # Main process should never exit from the server.listen() loop unless
     # an exception occurs.
-    with Server() as server:
-        server.listen(ws.worker.work)
+    profiling = config.getboolean('settings', 'profile')
+    if profiling:
+        SERVER_PROFILER.enable()
+
+    try:
+        with Server() as server:
+            server.listen(ws.worker.work)
+    finally:
+        if profiling:
+            SERVER_PROFILER.disable()
+            s = io.StringIO()
+            ps = pstats.Stats(SERVER_PROFILER, stream=s).sort_stats(
+                'cumulative')
+            print('PROFILING')
+            print('-' * 80)
+            ps.print_stats()
+            print('PRINTING STREAM')
+            print(s.getvalue())
+            print('-' * 80)
+
 
 
 if __name__ == '__main__':
