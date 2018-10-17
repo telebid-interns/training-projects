@@ -64,8 +64,8 @@ class RequestRateController:
     def record_handled_connection(self, ip_address, worker_exit_code):
         assert isinstance(worker_exit_code, int), worker_exit_code
 
-        error_log.info('Recording handled connection of %s. Worker exited '
-                       'with code %s', ip_address, worker_exit_code)
+        error_log.debug('Recording handled connection of %s. Worker exited '
+                        'with code %s', ip_address, worker_exit_code)
 
         if worker_exit_code >= RATE_LIMIT_EXIT_CODE_OFFSET:
             err_count = RATE_LIMIT_EXIT_CODE_OFFSET - worker_exit_code
@@ -79,8 +79,8 @@ class RequestRateController:
         )
 
         if err_count:
-            error_log.info('Error count of address %s increased by %s',
-                           ip_address, err_count)
+            error_log.debug('Error count of address %s increased by %s',
+                            ip_address, err_count)
 
         if len(self.connection_records) <= self.max_recorded_addresses:
             self.connection_records[ip_address].append(cr)
