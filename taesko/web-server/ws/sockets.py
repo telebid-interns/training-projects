@@ -141,7 +141,7 @@ class ClientSocket:
             SHUT_WR: 'Shutting down socket %d for writing/sending.',
             SHUT_RDWR: 'Shutting down socket %d for both r/w.'
         }
-        error_log.info(msgs[how], self.sock.fileno())
+        error_log.debug(msgs[how], self.sock.fileno())
 
         self.sock.shutdown(how)
 
@@ -163,17 +163,16 @@ class ClientSocket:
                                   'with ERRNO=%s and reason: %s',
                                   self.fileno(), err.errno, err.strerror)
             finally:
-                error_log.info('Closing socket %d', self.sock.fileno())
+                error_log.debug('Closing socket %d', self.sock.fileno())
                 try:
                     self.sock.close()
                 except OSError:
                     if not pass_silently:
                         raise
         else:
-            error_log.info('Closing socket %d', self.sock.fileno())
+            error_log.debug('Closing socket %d', self.sock.fileno())
             try:
                 self.sock.close()
             except OSError:
                 if not pass_silently:
                     raise
-
