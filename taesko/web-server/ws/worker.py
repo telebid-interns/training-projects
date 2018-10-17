@@ -1,5 +1,6 @@
 import collections
 import errno
+import resource
 import signal
 
 import ws.cgi
@@ -158,7 +159,7 @@ class Worker:
             else:
                 self.send_raw_response(handler_result)
                 # TODO sending back raw response can't be recorded in the
-                # access.log
+                # access.log nor can it close the connection.
 
             if not (ws.http.utils.request_is_persistent(self.request) and
                     ws.http.utils.response_is_persistent(self.response)):
@@ -202,10 +203,17 @@ class Worker:
         self.send_raw_response(self.response.iter_chunks())
 
         if ignored_request:
-            access_log.log(request=None, response=response)
+            req = None
         else:
-            access_log.log(request=self.request,
-                           response=response)
+            req = self.request
+
+        rusage = resource.getrusage(resource.RUSAGE_SELF)
+
+        access_log.log(request=req,
+                       response=response,
+                       ru_utime=rusage.ru_utime,
+                       ru_stime=rusage.ru_stime,
+                       ru_maxrss=rusage.ru_maxrss)
 
     # noinspection PyUnusedLocal
     def handle_termination(self, signum, stack_info):
