@@ -2,6 +2,7 @@ import collections
 import errno
 import resource
 import signal
+import time
 
 import ws.cgi
 import ws.http.parser
@@ -40,6 +41,7 @@ class Worker:
         self.responding = False
         self.status_code_on_abort = None
         self.exchanges = collections.deque(maxlen=self.max_exchange_history)
+        self.request_start = None
 
         signal.signal(signal.SIGTERM, self.handle_termination)
 
@@ -141,6 +143,7 @@ class Worker:
             error_log.info('HTTP Connection is open. Parsing request...')
             self.exchanges.append(HTTPExchange(None, None))
 
+            self.request_start = time.time()
             request_iterator = ws.http.parser.SpyIterator(self.sock)
 
             try:
@@ -202,18 +205,32 @@ class Worker:
         self.response = response
         self.send_raw_response(self.response.iter_chunks())
 
+        if self.request_start:
+            response_time = time.time() - self.request_start
+        else:
+            response_time = '-'
+
         if ignored_request:
             req = None
         else:
             req = self.request
 
-        rusage = resource.getrusage(resource.RUSAGE_SELF)
+        try:
+            rusage = resource.getrusage(resource.RUSAGE_SELF)
+            ru_utime = rusage.ru_utime
+            ru_stime = rusage.ru_stime
+            ru_maxrss = rusage.ru_maxrss
+        except OSError:
+            ru_utime = '-'
+            ru_stime = '-'
+            ru_maxrss = '-'
 
         access_log.log(request=req,
                        response=response,
-                       ru_utime=rusage.ru_utime,
-                       ru_stime=rusage.ru_stime,
-                       ru_maxrss=rusage.ru_maxrss)
+                       ru_utime=ru_utime,
+                       ru_stime=ru_stime,
+                       ru_maxrss=ru_maxrss,
+                       response_time=response_time)
 
     # noinspection PyUnusedLocal
     def handle_termination(self, signum, stack_info):
