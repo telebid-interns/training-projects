@@ -133,14 +133,19 @@ class Server(object):
                 self.sock.close()
                 self.log_request()
                 os._exit(self.exit_codes.get_exit_code(self.env.get('status_code', 0)))
+            except ServerError as e:
+                if e.status_code == 'NO_MAPPING_FOR_STATUS_CODE':
+                    self.safeLog('warn', e)
+                else:
+                    self.safeLog('error', e)
             except BaseException as e:
                 self.safeLog('error', e)
                 sys.exit()
 
 
     def send_requested_file(self, connection, path):
-        static_path = os.path.abspath('./static')
-        path = os.path.abspath('./static' + path)
+        static_path = os.path.abspath('./../static')
+        path = os.path.abspath('./../static' + path)
 
         if os.path.islink(path) or static_path not in path:
             raise FileNotFoundError()
@@ -231,11 +236,11 @@ class Server(object):
         try:
             while True:
                 (pid, code) = os.waitpid(-1, os.WNOHANG)
-                http_code = self.exit_codes.get_status_code(int(code/256)) # getting low byte
-                self.update_status(http_code);
                 if pid == 0:
                     break
                 self.workers -= 1
+                http_code = self.exit_codes.get_status_code(int(code/256)) # getting low byte
+                self.update_status(http_code);
         except ServerError as e:
             self.safeLog('debug', e)
         except OSError as e:
@@ -246,7 +251,7 @@ class Server(object):
 
     def log_request(self):
         try:
-            with open('./logs/access.log', "a+") as file:
+            with open('./../logs/access.log', "a+") as file:
                 file.write('{} {} {} {} "{}" {} {} {} {} {}\n'.format(
                     self.env.get('host', '-'),
                     self.env.get('remote_logname', '-'),
@@ -296,7 +301,7 @@ class Server(object):
 
 if __name__ == '__main__':
     config = configparser.ConfigParser()
-    config.read('./etc/config.ini')
+    config.read('./../etc/config.ini')
 
     port = config.getint('server', 'port')
     address = config.get('server', 'address')
@@ -323,17 +328,3 @@ if __name__ == '__main__':
     }
 
     Server(opts).start()
-
-    # pr = cProfile.Profile()
-    # pr.enable()
-     
-    # try:
-    #     Server(opts).start()
-    # except KeyboardInterrupt as e:
-    #     pass
-    # except BaseException as e:
-    #     raise
-
-    # pr.disable()
-     
-    # pr.print_stats(sort='time')
