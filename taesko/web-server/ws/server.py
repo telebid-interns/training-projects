@@ -214,7 +214,7 @@ class Server:
         This method is NOT thread-safe.
         """
         try:
-            pid, exit_indicator, resource_usage = os.wait3(os.WNOHANG)
+            pid, exit_indicator = os.waitpid(-1, os.WNOHANG)
         except OSError as err:
             error_log.warning('During reaping of zombie child: wait() sys call '
                               'failed with ERRNO=%s and MSG=%s',
