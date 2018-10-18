@@ -9,6 +9,7 @@ import traceback
 import configparser
 import resource
 import cProfile
+import subprocess
 from error.asserts import assert_user, assert_peer
 from error.exceptions import SubprocessLimitException, PeerError, ServerError
 from utils.sender import sendall
@@ -104,7 +105,7 @@ class Server(object):
                 if self.env['whole_path'] == self.opts['status_path']:
                     self.send_status(connection)
                     return
-                self.send_requested_file(connection, self.env['whole_path'])
+                self.handle_requested_path(connection, self.env['whole_path'])
 
         except (KeyboardInterrupt, RuntimeError) as e:
             pass
@@ -143,20 +144,40 @@ class Server(object):
                 sys.exit()
 
 
-    def send_requested_file(self, connection, path):
+    def handle_requested_path(self, connection, path):
         static_path = os.path.abspath('./../static')
-        path = os.path.abspath('./../static' + path)
+        cgi_path = os.path.abspath('./../cgi-bin')
 
-        if os.path.islink(path) or static_path not in path:
-            raise FileNotFoundError()
-        else:
-            with open(path, "rb") as file:
+        whole_static_path = os.path.abspath('./../static' + path)
+        whole_cgi_path = os.path.abspath('./../cgi-bin' + path)
+
+        try:
+            if os.path.islink(whole_static_path):
+                raise FileNotFoundError()
+            elif static_path in whole_static_path:
+                with open(whole_static_path, "rb") as file:
+                    sendall(connection, self.generate_headers(200))
+                    while True:
+                        content = file.read(1024)
+                        if not content:
+                          break
+                        sendall(connection, content)
+            else:
+                raise FileNotFoundError()
+        except FileNotFoundError:
+            if os.path.islink(whole_cgi_path):
+                raise FileNotFoundError()
+            elif cgi_path in whole_cgi_path and whole_cgi_path[len(whole_cgi_path)-3:] == '.py':
+                proc = subprocess.Popen(['python', whole_cgi_path], stdout=subprocess.PIPE)
                 sendall(connection, self.generate_headers(200))
                 while True:
-                    content = file.read(1024)
-                    if not content:
-                      break
-                    sendall(connection, content)
+                    line = proc.stdout.readline()
+                    if line:
+                        sendall(connection, line)
+                    else:
+                        break
+            else:
+                raise FileNotFoundError()
 
     def parse_request(self, request):
         assert isinstance(request, str)
