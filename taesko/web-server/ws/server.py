@@ -133,7 +133,8 @@ class Server:
             # this can probably be mitigated through non-blocking sockets
             if accepted_connections % 30 == 0:
                 for _ in range(len(self.workers)):
-                    self.reap_one_child_safely()
+                    if not self.reap_one_child_safely():
+                        break
 
             try:
                 client_socket, address = self.sock.accept()
@@ -219,14 +220,14 @@ class Server:
             error_log.warning('During reaping of zombie child: wait() sys call '
                               'failed with ERRNO=%s and MSG=%s',
                               err.errno, err.strerror)
-            return
+            return False
 
         if not pid:
-            return
+            return False
         elif pid not in self.workers:
             error_log.warning('Reaped zombie child with pid %s but the pid '
                               'was not recorded as a worker.')
-            return
+            return True
 
         worker = self.workers[pid]
         del self.workers[pid]
@@ -242,6 +243,8 @@ class Server:
                 ip_address=worker.client_address[0],
                 worker_exit_code=os.WEXITSTATUS(exit_indicator)
             )
+
+        return True
 
     # noinspection PyUnusedLocal
     @ws.utils.depreciated(error_log)
