@@ -42,6 +42,7 @@ class Worker:
         self.status_code_on_abort = None
         self.exchanges = collections.deque(maxlen=self.max_exchange_history)
         self.request_start = None
+        self.parse_time = None
 
         signal.signal(signal.SIGTERM, self.handle_termination)
 
@@ -155,6 +156,7 @@ class Worker:
                     break
 
                 raise
+            self.parse_time = time.time() - self.request_start
 
             handler_result = request_handler(self.request, self.sock)
             if isinstance(handler_result, ws.http.structs.HTTPResponse):
@@ -210,6 +212,7 @@ class Worker:
         else:
             response_time = '-'
 
+
         if ignored_request:
             req = None
         else:
@@ -230,7 +233,8 @@ class Worker:
                        ru_utime=ru_utime,
                        ru_stime=ru_stime,
                        ru_maxrss=ru_maxrss,
-                       response_time=response_time)
+                       response_time=response_time,
+                       parse_time=self.parse_time or '-')
 
     # noinspection PyUnusedLocal
     def handle_termination(self, signum, stack_info):
