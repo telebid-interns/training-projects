@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import io
 
 
 UNITS = {
@@ -8,26 +9,12 @@ UNITS = {
     'MB': 1024 * 1024,
     'GB': 1024 * 1024 * 1024
 }
-WRITE_CHUNK_SIZE = 4096 * 4096
+WRITE_CHUNK_SIZE = 4096
 
 
 def generate_file(size):
     for _ in range(size):
         yield 'a'
-
-
-def iter_chunks(iterable, size):
-    it = iter(iterable)
-    while True:
-        chunk = []
-        try:
-            for _ in range(size):
-                chunk.append(next(it))
-        except StopIteration:
-            if chunk:
-                yield chunk
-            break
-        yield chunk
 
 
 def main():
@@ -41,18 +28,23 @@ def main():
     args = parser.parse_args()
 
     size = args.size * UNITS[args.unit]
-    chunks = iter_chunks(generate_file(size), WRITE_CHUNK_SIZE)
-    line = 'Test file of size around {} {}'.format(size, args.unit)
+    line = 'Test file of size around {} {}'.format(args.size, args.unit)
 
     if args.path:
+        file_gen = generate_file(size)
         with open(args.path, mode='w') as f:
             f.write(line)
-            for chunk in chunks:
-                ''.join(chunk)
+            for c in file_gen:
+                f.write(c)
     else:
-        print(line)
-        for chunk in chunks:
-            print(''.join(chunk), end='')
+        buf = io.StringIO()
+        for c in generate_file(size):
+            buf.write(c)
+
+        chunk = buf.read(WRITE_CHUNK_SIZE)
+        while chunk:
+            print(chunk)
+            chunk = buf.read(WRITE_CHUNK_SIZE)
 
 
 if __name__ == '__main__':
