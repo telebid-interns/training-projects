@@ -8,6 +8,7 @@ import os
 import pstats
 import signal
 import socket
+import subprocess
 import time
 
 import ws.http.parser
@@ -369,6 +370,8 @@ def sys_has_fork_support():
 def main():
     # Main process should never exit from the server.listen() loop unless
     # an exception occurs.
+    fd_limit = subprocess.check_output(['ulimit', '-n'], shell=True)
+    error_log.info('ulimit -n is "%s"', fd_limit.decode('ascii'))
     profiling = config.getboolean('settings', 'profile')
     if profiling:
         SERVER_PROFILER.enable()
