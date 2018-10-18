@@ -2,12 +2,11 @@
 import argparse
 import collections
 import enum
+import os
 import re
 import subprocess
-import os
-import json
-
 import sys
+import time
 
 import openpyxl
 import openpyxl.utils
@@ -32,7 +31,15 @@ COLUMN_ORDER = (
     'Time per request',
     'Transfer rate'
 )
+SERVICE_NAME = 'web-server'
+WEB_SERVER_DIR = '/opt/web-server/'
 
+TestResult = collections.namedtuple('TestResult', ['commit',
+                                                   'cpu_time',
+                                                   'mem_usage',
+                                                   'worker_time',
+                                                   'ab_fields',
+                                                   'ab_raw'])
 ABResult = collections.namedtuple('ABResult', ['commit', 'fields', 'raw'])
 ABField = collections.namedtuple('ABField', ['field_text', 'value_text',
                                              'name', 'value', 'value_suffix'])
@@ -162,14 +169,28 @@ def parse_ab_out(out, type_=ABOutTypes.default):
 
 def run_test(ab_args):
     ab_args = tuple(str(a) for a in ab_args)
+    print('Restarting {} service'.format(SERVICE_NAME))
+    subprocess.check_output(['systemctl', 'restart', SERVICE_NAME])
+    # sleep some time for the server to restart successfully or AB will break
+    time.sleep(2)
+
     print('Running AB with arguments: `{}`'
           .format(' '.join(ab_args)))
     out = subprocess.check_output(ab_args).decode('utf-8')
     fields = parse_ab_out(out)
+
     git_out = subprocess.check_output(['git', 'log', '--oneline'],
                                       universal_newlines=True)
     commit = git_out.splitlines()[0]
-    return ABResult(commit=commit, fields=fields, raw=out)
+
+    rusage_path = os.path.join(WEB_SERVER_DIR, 'bin/rusage.sh')
+    access_log_path = os.path.join(WEB_SERVER_DIR, 'data/logs/access.log')
+    rusage_out = subprocess.check_output([rusage_path, access_log_path])
+    cpu_time, mem_usage, worker_time = rusage_out.decode('ascii').split(' ')
+
+    return TestResult(commit=commit, ab_fields=fields, ab_raw=out,
+                      cpu_time=cpu_time, mem_usage=mem_usage,
+                      worker_time=worker_time)
 
 
 def run_tests(host, port, *, request_numbers, concurrences, static_route,
@@ -193,7 +214,7 @@ def run_tests(host, port, *, request_numbers, concurrences, static_route,
             benchmarks_dir, test_name + '.raw'
         )
         with open(raw_file_name, mode='w') as f:
-            f.write(ab_result.raw)
+            f.write(ab_result.ab_raw)
 
         # json_file_name = os.path.join(benchmarks_dir, test_name + '.json')
         # with open(json_file_name, mode='w') as f:
@@ -205,14 +226,14 @@ def run_tests(host, port, *, request_numbers, concurrences, static_route,
         benchmarks_dir,
         "GET_{}.xlsx".format(static_route).replace('/', percent_encode('/'))
     )
-    dump_ab_result_to_xlsx(
+    dump_test_results_to_xlsx(
         results,
         xlsx_file_name
     )
 
 
-def dump_ab_result_to_xlsx(ab_results, file_path):
-    assert len(set(ar.fields[0] for ar in ab_results)) == 1
+def dump_test_results_to_xlsx(test_results, file_path):
+    assert len(set(ar.ab_fields[0] for ar in test_results)) == 1
 
     wb = openpyxl.Workbook()
     sheet = wb.active
@@ -222,13 +243,19 @@ def dump_ab_result_to_xlsx(ab_results, file_path):
     table = []
     column_names = None
 
-    for ab_result in ab_results:
-        fields = ab_result.fields
+    for test_result in test_results:
+        extra = (test_result.cpu_time, test_result.mem_usage,
+                 test_result.worker_time)
+        extra = list(map(str, extra))
+        fields = test_result.ab_fields
+
         if not column_names:
 
             column_names = ['{}\n({})'.format(field.field_text, field.value_suffix)
                             for field in fields]
-        table_row = [field.value for field in fields]
+            column_names.extend(['cpu_time', 'mem_usage', 'worker_time'])
+
+        table_row = [field.value for field in fields] + extra
         table.append(table_row)
 
     te.insert_table(table=table,
