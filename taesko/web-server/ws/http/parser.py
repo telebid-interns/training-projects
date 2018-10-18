@@ -23,6 +23,10 @@ class ParserError(PeerError):
         super().assert_(condition, msg=msg, code=code, from_=from_)
 
 
+class HTTPParser:
+    pass
+
+
 class SpyIterator:
     def __init__(self, iterable):
         self.it = iter(iterable)
