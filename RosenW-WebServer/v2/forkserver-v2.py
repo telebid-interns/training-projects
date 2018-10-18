@@ -8,10 +8,12 @@ import datetime
 import traceback
 import configparser
 import resource
+import cProfile
 from error.asserts import assert_user, assert_peer
-from error.exceptions import SubprocessLimitException, PeerError
+from error.exceptions import SubprocessLimitException, PeerError, ServerError
 from utils.sender import sendall
 from utils.http_status_codes_headers import HTTPHeaders
+from utils.exit_codes import ExitCodes
 from utils.logger import Logger
 
 class Server(object):
@@ -20,6 +22,7 @@ class Server(object):
     def __init__(self, opts):
         self.opts = opts
         self.headers = HTTPHeaders()
+        self.exit_codes = ExitCodes()
         self.logger = Logger(opts['log_level'], { 'error': opts['error_path'] })
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) # level, optname, value
@@ -29,6 +32,8 @@ class Server(object):
         self.max_subprocess_count = opts['subprocess_count']
         self.workers = 0
         self.timeout = opts['timeout']
+        self.accepted_connections = 0
+        self.response_code_count = {}
         signal.signal(signal.SIGCHLD, self.kill_children)
 
     def start(self):
@@ -41,6 +46,8 @@ class Server(object):
 
             try:
                 connection, client_address = self.sock.accept()
+                self.safeLog('trace', self.response_code_count)
+                self.accepted_connections += 1
                 self.safeLog('debug', self.workers)
                 if self.workers >= self.max_subprocess_count:
                     raise SubprocessLimitException('Accepted Connection, but workers were over the allowed limit')
@@ -50,22 +57,24 @@ class Server(object):
                 pid = os.fork()
                 if pid == 0:
                     self.handle_request(connection, client_address)
+                    break
             except SubprocessLimitException as e:
                 sendall(connection, self.generate_headers(503))
                 self.safeLog('warn', e)
                 self.log_request()
+            except OSError as e:
+                if e.errno not in [os.errno.EINTR, os.errno.EPIPE]:
+                    self.safeLog('error', e)
             except KeyboardInterrupt:
                 self.safeLog('info', 'Stopping Server...')
                 raise
             except SystemExit as e:
-                self.safeLog('debug', 'Child exiting')
                 raise
             except BaseException as e:
                 if connection:
                     sendall(connection, self.generate_headers(500))
                     self.log_request()
-                if e.errno != os.errno.EINTR and e.errno != os.errno.EPIPE:
-                    self.safeLog('error', e)
+                self.safeLog('error', e)
             finally:
                 if connection and pid != 0:
                     try:
@@ -92,6 +101,9 @@ class Server(object):
             self.parse_request(headers)
 
             if self.env['request_method'] == 'GET':
+                if self.env['whole_path'] == self.opts['status_path']:
+                    self.send_status(connection)
+                    return
                 self.send_requested_file(connection, self.env['whole_path'])
 
         except (KeyboardInterrupt, RuntimeError) as e:
@@ -112,14 +124,19 @@ class Server(object):
             self.safeLog('error', e)
             sendall(connection, self.generate_headers(500))
         finally:
-            connection.close()
-            (
-                self.env['memory_end'],
-                self.env['cpu']
-            ) = self.get_process_info()
-            self.sock.close()
-            self.log_request()
-            sys.exit()
+            try:
+                connection.close()
+                (
+                    self.env['memory_end'],
+                    self.env['cpu']
+                ) = self.get_process_info()
+                self.sock.close()
+                self.log_request()
+                os._exit(self.exit_codes.get_exit_code(self.env.get('status_code', 0)))
+            except BaseException as e:
+                self.safeLog('error', e)
+                sys.exit()
+
 
     def send_requested_file(self, connection, path):
         static_path = os.path.abspath('./static')
@@ -196,6 +213,7 @@ class Server(object):
 
     def generate_headers(self, response_code):
         self.env['status_code'] = response_code
+        self.update_status(response_code);
 
         header = ''
         header += self.headers.get_header(response_code)
@@ -212,30 +230,44 @@ class Server(object):
     def kill_children(self, signum, frame):
         try:
             while True:
-                pid = os.waitpid(-1, os.WNOHANG)[0]
+                (pid, code) = os.waitpid(-1, os.WNOHANG)
+                http_code = self.exit_codes.get_status_code(int(code/256)) # getting low byte
+                self.update_status(http_code);
                 if pid == 0:
                     break
                 self.workers -= 1
-        except (OSError, BaseException) as e:
+        except ServerError as e:
+            self.safeLog('debug', e)
+        except OSError as e:
             if e.errno != os.errno.ECHILD:
                 self.safeLog('error', e)
+        except BaseException as e:
+            self.safeLog('error', e)
 
     def log_request(self):
-        with open('./logs/access.log', "a+") as file:
-            file.write('{} {} {} {} "{}" {} {} {} {} {}\n'.format(
-                self.env.get('host', '-'),
-                self.env.get('remote_logname', '-'),
-                self.env.get('remote_user', '-'),
-                self.env.get('request_time', '-'),
-                self.env.get('request_first_line', '-'),
-                self.env.get('status_code', '-'),
-                self.env['content_length'] if 'content_length' in self.env and self.env['content_length'] > 0 else '-',
-                self.env.get('memory_start', '-'),
-                self.env.get('memory_end', '-'),
-                self.env.get('cpu', '-')
-            ))
+        try:
+            with open('./logs/access.log', "a+") as file:
+                file.write('{} {} {} {} "{}" {} {} {} {} {}\n'.format(
+                    self.env.get('host', '-'),
+                    self.env.get('remote_logname', '-'),
+                    self.env.get('remote_user', '-'),
+                    self.env.get('request_time', '-'),
+                    self.env.get('request_first_line', '-'),
+                    self.env.get('status_code', '-'),
+                    self.env['content_length'] if 'content_length' in self.env and self.env['content_length'] > 0 else '-',
+                    self.env.get('memory_start', '-'),
+                    self.env.get('memory_end', '-'),
+                    self.env.get('cpu', '-')
+                ))
+                self.safeLog('debug', 'request logged')
+        except Exception as e:
+            self.safeLog('error', e)
 
-        self.safeLog('debug', 'request logged')
+    def update_status(self, http_code):
+        if http_code not in self.response_code_count:
+            self.response_code_count[http_code] = 1
+        else:
+            self.response_code_count[http_code] += 1
 
     def safeLog(self, level_str, s):
         try:
@@ -252,6 +284,16 @@ class Server(object):
         cpu_usage = sum(resource.getrusage(resource.RUSAGE_SELF)[0:2])
         return (memory, cpu_usage)
 
+    def send_status(self, connection):
+        sendall(connection, self.generate_headers(200))
+        status = ''
+        status += '<p>Accepted connections: {}</p>'.format(self.accepted_connections)
+        status += '<p>Responses (http code - count):</p>'
+        for k, v in self.response_code_count.items():
+            status += '<p>{} - {}</p>'.format(k, v)
+
+        sendall(connection, status)
+
 if __name__ == '__main__':
     config = configparser.ConfigParser()
     config.read('./etc/config.ini')
@@ -265,6 +307,7 @@ if __name__ == '__main__':
     error_path = config.get('server', 'error_path')
     max_header_length = config.getint('server', 'max_header_length')
     log_level = config.get('server', 'log_level')
+    status_path = config.get('server', 'status_path')
 
     opts = {
         'port': port,
@@ -275,7 +318,22 @@ if __name__ == '__main__':
         'recv': recv,
         'max_header_length': max_header_length,
         'error_path': error_path,
-        'log_level': log_level
+        'log_level': log_level,
+        'status_path': status_path
     }
 
     Server(opts).start()
+
+    # pr = cProfile.Profile()
+    # pr.enable()
+     
+    # try:
+    #     Server(opts).start()
+    # except KeyboardInterrupt as e:
+    #     pass
+    # except BaseException as e:
+    #     raise
+
+    # pr.disable()
+     
+    # pr.print_stats(sort='time')
