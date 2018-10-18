@@ -1,4 +1,5 @@
 import collections
+import io
 
 import ws.utils
 from ws.err import *
@@ -60,24 +61,20 @@ class URI(collections.namedtuple('URI', ['protocol', 'host', 'port',
 class HTTPResponse(collections.namedtuple('HTTPResponse', ['status_line',
                                                            'headers',
                                                            'body'])):
-    def __iter__(self):
-        yield from bytes(self.status_line)
-        yield from b'\r\n'
-        yield from bytes(self.headers)
-        yield from b'\r\n\r\n'
-        yield from self.body
-
     def iter_chunks(self, chunk_size=4096):
-        buf = bytearray()
-        for b in self:
-            buf.append(b)
+        http_fields = io.BytesIO()
+        http_fields.write(bytes(self.status_line))
+        http_fields.write(b'\r\n')
+        http_fields.write(bytes(self.headers))
+        http_fields.write(b'\r\n\r\n')
 
-            if len(buf) == chunk_size:
-                yield buf
-                buf = bytearray()
+        http_fields.seek(0)
+        chunk = http_fields.read(chunk_size)
+        while chunk:
+            yield chunk
+            chunk = http_fields.read(chunk_size)
 
-        if len(buf) != 0:
-            yield buf
+        yield from self.body
 
     @ws.utils.depreciated(error_log)
     def send_depreciated(self, sock):

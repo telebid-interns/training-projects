@@ -37,7 +37,7 @@ def get_file(route):
                 yield
 
                 while chunk:
-                    yield from chunk
+                    yield chunk
                     chunk = f.read(buf_size)
 
         it = make_iterator()
