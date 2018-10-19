@@ -1,18 +1,23 @@
+import os
+import sys
 import socket
 import traceback
-from multiprocessing import Process  # , current_process
 
+print(os.getpid())
 
-RECV_BUFFER = 4096
-ROOT_DIR = ('/home/hristo/Documents/training-projects' +
-            '/hspasov-web-server/content')
-# ROOT_DIR = ('/media/hspasov/Files/TelebidPro/training-projects' +
-#            '/hspasov-web-server/content')
+# TODO make config
+RECV_BUFFER = 1024
+REQ_MSG_LIMIT = 8192
+BACKLOG = 1
+ROOT_DIR = (b'/home/hristo/Documents/training-projects' +
+            b'/hspasov-web-server/content')
+# ROOT_DIR = (b'/media/hspasov/Files/TelebidPro/training-projects' +
+#            b'/hspasov-web-server/content')
 
 
 response_reason_phrases = {
-    200: 'OK',
-    404: 'Not Found',
+    b'200': b'OK',
+    b'404': b'Not Found',
 }
 
 
@@ -65,14 +70,10 @@ def log(msg):
     print(msg)
 
 
-host = ''
-port = 8080
-
-
 def parse_req_line(req_line):
-    assert_app(type(req_line) == str)
+    assert_app(type(req_line) == bytes)
 
-    req_line_tokens = req_line.split(' ')
+    req_line_tokens = req_line.split(b' ')
 
     assert_peer(len(req_line_tokens) == 3, 'Invalid request')
 
@@ -95,7 +96,7 @@ def parse_headers(header_fields):
     headers = {}
 
     for header_field in header_fields:
-        header_field_split = header_field.split(':', 1)
+        header_field_split = header_field.split(b':', 1)
 
         assert_peer(
             len(header_field_split[0]) == len(header_field_split[0].strip()),
@@ -110,23 +111,25 @@ def parse_headers(header_fields):
     return headers
 
 
-def parse_http_msg(msg):
-    assert_app(type(msg) == str)
+def parse_req_msg(msg):
+    assert_app(type(msg) == bytes)
 
-    msg_parts = msg.split('\r\n\r\n')
+    msg_parts = msg.split(b'\r\n\r\n')
 
     assert_peer(len(msg_parts) == 2, 'Invalid request')
-
-    start_line_and_headers = msg_parts[0].split('\r\n')
-    start_line = start_line_and_headers[0]
-    headers = parse_headers(start_line_and_headers[1:])
+# TODO request line, not status line
+    request_line_and_headers = msg_parts[0].split(b'\r\n')
+    request_line = request_line_and_headers[0]
+    headers = parse_headers(request_line_and_headers[1:])
 
     assert_app(type(headers) == dict)
 
     body = msg_parts[1]
 
+    parsed_req_line = parse_req_line(request_line)
+
     result = {
-        'start_line': start_line,
+        'request_line': parsed_req_line,
         'headers': headers,
         'body': body,
     }
@@ -134,92 +137,89 @@ def parse_http_msg(msg):
     return result
 
 
-def parse_req_msg(msg):
-    assert_app(type(msg) == str)
-
-    parsed_http_msg = parse_http_msg(msg)
-
-    assert_app(type(parsed_http_msg) == dict)
-    assert_app('start_line' in parsed_http_msg)
-
-    parsed_req_line = parse_req_line(parsed_http_msg['start_line'])
-
-    result = {
-        **parsed_http_msg,
-        'start_line': parsed_req_line,
-    }
-
-    return result
-
-
 def build_res_msg(status_code, body=b''):
-    assert_app(type(status_code) == int)
+    assert_app(type(status_code) == bytes)
     assert_app(type(body) == bytes)
     assert_app(status_code in response_reason_phrases)
 
-    result = 'HTTP/1.1 {0} {1}\r\n\r\n'.format(
-        status_code,
-        response_reason_phrases[status_code]
-    ).encode() + body
+    result = (b'HTTP/1.1 ' + status_code + b' ' +
+              response_reason_phrases[status_code] + b'\r\n\r\n' + body)
 
     return result
 
 
 def handle_request(conn):
+    msg_received = b''
+
     try:
-        total_data = conn.recv(RECV_BUFFER)
+        while len(msg_received) <= REQ_MSG_LIMIT:
+            msg_received += conn.recv(RECV_BUFFER)
 
-        total_data_decoded = total_data.decode()
+            if msg_received.find(b'\r\n\r\n') != -1:
+                break
+        else:
+            # TODO msg too long
+            pass
 
-        request_data = parse_req_msg(total_data_decoded)
+        request_data = parse_req_msg(msg_received)
 
         print('Request data:')
         print(request_data)
 
         response = None
 
-        file_path = ROOT_DIR + request_data['start_line']['req_target']
+        file_path = ROOT_DIR + request_data['request_line']['req_target']
 
         with open(file_path, 'rb') as content_file:
             content = content_file.read()
-            response = build_res_msg(200, content)
+            response = build_res_msg(b'200', content)
 
         conn.sendall(response)
     except FileNotFoundError as e:
         print('file not found')
         print(e)
-        response = build_res_msg(404)
+        response = build_res_msg(b'404')
 
         conn.sendall(response)
-    except Exception as e:
-        print('Exception')
-        print(e)
     finally:
         conn.close()
 
 
 def start():
-    socket_descr = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    socket_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    socket_obj.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
     try:
-        socket_descr.bind((host, port))
+        socket_obj.bind((host, port))
     except OSError as e:
+        socket_obj.close()
         print(e)
 
-    socket_descr.listen(1)
+    socket_obj.listen(BACKLOG)
 
-    while True:
-        conn, addr = socket_descr.accept()
-        print('Connected with {0}:{1}'.format(addr[0], addr[1]))
+    try:
+        while True:
+            conn, addr = socket_obj.accept()
+            print('Connected with {0}:{1}'.format(addr[0], addr[1]))
 
-        process = Process(target=handle_request, args=(conn,))
-        process.start()
+            pid = os.fork()  # may throw OSError
 
-    socket_descr.close()
+            if pid == 0:  # child process
+                socket_obj.close()
+                handle_request(conn)
+                sys.exit()  # TODO os.exit() or os._exit()
+            else:  # parent process
+                conn.close()
+    except KeyboardInterrupt as e:
+        print('keyboard interrupt caught')
+        socket_obj.close()
+    finally:
+        socket_obj.close()
 
 
-try:
-    start()
-except AppError as error:
-    log(error)
-    log(traceback.print_stack())
+if __name__ == '__main__':
+    try:
+        start()
+    except AppError as error:
+        log(error)
+        log(traceback.print_stack())
