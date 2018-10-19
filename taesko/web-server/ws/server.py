@@ -1,5 +1,6 @@
 import cProfile
 import collections
+import contextlib
 import enum
 import errno
 import functools
@@ -19,10 +20,11 @@ import ws.utils
 import ws.worker
 from ws.config import config
 from ws.err import *
-from ws.logs import error_log, access_log
+from ws.logs import error_log, access_log, profile_log
 from ws.ratelimit import RequestRateController
 
-SERVER_PROFILER = cProfile.Profile()
+SERVER_PROFILING_ON = config.getboolean('profiling', 'on_server')
+WORKER_PROFILING_ON = config.getboolean('profiling', 'on_workers')
 
 sigchld_count = 0
 
@@ -76,7 +78,7 @@ class Server:
         self.rate_controller = RequestRateController()
 
     def __enter__(self):
-        error_log.debug('Binding server on %s:%s', self.host, self.port)
+        error_log.info('Binding server on %s:%s', self.host, self.port)
         self.sock.bind((self.host, self.port))
 
         return self
@@ -159,6 +161,8 @@ class Server:
                 continue
 
             accepted_connections += 1
+            error_log.warning('Accepted connections are %s',
+                              accepted_connections)
             client_socket = ws.sockets.ClientSocket(
                 client_socket,
                 socket_timeout=self.quick_response_socket_timeout,
@@ -200,18 +204,19 @@ class Server:
             return
 
         if pid == 0:
-            self.execution_context = self.ExecutionContext.worker
-            # close all shared file descriptors.
-            self.sock.close()
-            os.close(0)  # stdin
-            os.close(1)  # stdout
-            os.close(2)  # stderr
-            exit_code = client_socket_handler(client_socket, address)
+            with profile(WORKER_PROFILING_ON):
+                self.execution_context = self.ExecutionContext.worker
+                # close all shared file descriptors.
+                self.sock.close()
+                os.close(0)  # stdin
+                os.close(1)  # stdout
+                os.close(2)  # stderr
+                exit_code = client_socket_handler(client_socket, address)
 
-            if exit_code is None:
-                exit_code = 2
+                if exit_code is None:
+                    exit_code = 2
 
-            error_log.debug('Exiting with exit code %s', exit_code)
+                error_log.debug('Exiting with exit code %s', exit_code)
             # noinspection PyProtectedMember
             os._exit(exit_code)
         else:
@@ -379,24 +384,34 @@ def sys_has_fork_support():
     return True
 
 
+@contextlib.contextmanager
+def profile(enabled=True):
+    if not enabled:
+        yield
+        return
+
+    profiler = cProfile.Profile()
+    profiler.enable()
+    profile_log.profile('Enabled.')
+    try:
+        yield
+    finally:
+        profile_log.profile('Disabled.')
+        profiler.disable()
+        s = io.StringIO()
+        profile_log.profile('Disabled.2')
+        ps = pstats.Stats(profiler, stream=s)
+        ps = ps.sort_stats('cumulative')
+        profile_log.profile('Disabled.3')
+        ps.print_stats()
+        profile_log.profile('cProfiler results:\n %s', s.getvalue())
+
+
 def main():
     # Main process should never exit from the server.listen() loop unless
     # an exception occurs.
     fd_limit = subprocess.check_output(['ulimit', '-n'], shell=True)
     error_log.info('ulimit -n is "%s"', fd_limit.decode('ascii'))
-    profiling = config.getboolean('settings', 'profile')
-    if profiling:
-        SERVER_PROFILER.enable()
-
-    try:
+    with profile(SERVER_PROFILING_ON):
         with Server() as server:
             server.listen(ws.worker.work)
-    finally:
-        if profiling:
-            SERVER_PROFILER.disable()
-            s = io.StringIO()
-            ps = pstats.Stats(SERVER_PROFILER, stream=s)
-            ps = ps.sort_stats('cumulative')
-            ps.print_stats()
-            error_log.warning('PROFILING\n %s', s.getvalue())
-            error_log.warning('Caught SIGCHLD %s times', sigchld_count)

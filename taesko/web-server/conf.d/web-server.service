@@ -7,6 +7,7 @@ ExecStart = /home/antonio/.local/share/virtualenvs/web-server/bin/pyws
 Restart = always
 RestartSec = 5
 Environment = WS_CONFIG_FILE=/opt/web-server/conf.d/config.ini
+LimitNOFILE = 40000
 
 [Install]
 WantedBy = multi-user.target
