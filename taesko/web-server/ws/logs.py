@@ -1,6 +1,6 @@
-import configparser
 import logging
 import logging.config
+import os
 import sys
 
 from ws.config import config
@@ -12,6 +12,9 @@ else:
 
 DEBUG2_LEVEL_NUM = 7
 DEBUG3_LEVEL_NUM = 3
+
+logging.basicConfig(level=logging.INFO)
+logging.raiseExceptions = True
 
 
 def add_log_level(
@@ -35,90 +38,15 @@ def add_log_level(
         setattr(logging.Logger, method_name, log_custom_level)
 
 
-logging.PROFILE = PROFILE_LEVEL_NUM
 add_log_level(level=PROFILE_LEVEL_NUM, level_name='PROFILE', add_method=False)
 add_log_level(level=DEBUG2_LEVEL_NUM, level_name='DEBUG2')
 add_log_level(level=DEBUG3_LEVEL_NUM, level_name='DEBUG3')
-
-logging.basicConfig(level=logging.INFO)
-# logging.config.fileConfig(config['logging']['config_file'])
-logging.raiseExceptions = True
-logging_config = configparser.ConfigParser(interpolation=None)
-logging_config.read(config['logging']['config_file'])
-
-
-class HandlerBuilder:
-    builder_cfg = {
-        'StreamHandler': {
-            '_build_method': 'build_stream_handler',
-            'stream': {
-                'stdout': sys.stdout,
-                'stderr': sys.stderr
-            }
-        },
-        'FileHandler': {
-            '_build_method': 'build_file_handler'
-        }
-    }
-
-    def __init__(self, cfg_section):
-        self.cfg_section = cfg_section
-
-    @property
-    def formatter(self):
-        return self.cfg_section['formatter']
-
-    @property
-    def handler_build_cfg(self):
-        return self.builder_cfg[self.cfg_section['class']]
-
-    def build_handler(self):
-        return getattr(self, self.handler_build_cfg['_build_method'])()
-
-    def build_stream_handler(self):
-        assert self.cfg_section['class'] == 'StreamHandler'
-        stream_name = self.cfg_section['stream']
-        stream = self.handler_build_cfg['stream'][stream_name]
-        handler = logging.StreamHandler(stream)
-        handler.setLevel(self.cfg_section['level'])
-        return handler
-
-    def build_file_handler(self):
-        assert self.cfg_section['class'] == 'FileHandler'
-        filename = self.cfg_section['filename']
-        mode = self.cfg_section.get('mode', 'w')
-        handler = logging.FileHandler(filename=filename, mode=mode)
-        handler.setLevel(self.cfg_section['level'])
-        return handler
-
-
-def build_formatter(formatter_cfg):
-    return logging.Formatter(fmt=formatter_cfg['format'])
-
-
-def re_open_logger_handlers(logger):
-    for handler in logger.handlers:
-        handler.close()
-
-    cfg_section = logging_config['logger_{}'.format(logger.name)]
-    handler_names = cfg_section['handlers'].split(',')
-
-    for hn in handler_names:
-        hn = hn.strip()
-        handler_cfg = logging_config['handler_{}'.format(hn)]
-
-        builder = HandlerBuilder(handler_cfg)
-        formatter_name = 'formatter_{}'.format(builder.formatter)
-        formatter = build_formatter(logging_config[formatter_name])
-        handler = builder.build_handler()
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-
 
 
 class _AccessLogger:
     def __init__(self, name):
         self.logger = logging.getLogger(name)
+        self.logger.propagate = False
 
     def log(self, *, request, response, **kwargs):
         # request might be None if the server ignored the request and replied
@@ -139,20 +67,92 @@ class _AccessLogger:
 class _ProfileLog:
     def __init__(self, name):
         self.logger = logging.getLogger(name)
+        self.logger.propagate = False
 
     def profile(self, *args, **kwargs):
         self.logger.log(PROFILE_LEVEL_NUM, *args, **kwargs)
 
 
-access_log = _AccessLogger('access')
+def setup_log_file(file_path, truncate=True, store_old=True, max_count=5):
+    def find_free_path(fp, max_c, count=1):
+        if count == max_c:
+            return fp
+        elif not os.path.exists(fp):
+            return fp
+        elif not os.path.exists(fp + str(count)):
+            return fp + str(count)
+        else:
+            return find_free_path(fp, max_c, count=count + 1)
+
+    if store_old and os.path.exists(file_path):
+        logging.info('Storing old file %s.', file_path)
+        os.rename(file_path, find_free_path(file_path, max_count))
+
+    if truncate:
+        with open(file_path, mode='w') as f:
+            pass
+
+    return file_path
+
+
+def generic_file_handler(cfg_section):
+    return logging.FileHandler(
+        setup_log_file(
+            file_path=cfg_section['file_name'],
+            truncate=cfg_section.getboolean('truncate'),
+            store_old=cfg_section.getboolean('store_old')
+        ),
+        mode='a',
+        delay=True
+    )
+
+
 error_log = logging.getLogger('error')
+error_log.propagate = False
+error_log_stream_formatter = logging.Formatter(
+    config.get('error_log', 'stream_format', raw=True)
+)
+error_log_stream_handler = logging.StreamHandler(sys.stderr)
+error_log_stream_handler.setFormatter(error_log_stream_formatter)
+error_log_file_formatter = logging.Formatter(
+    config.get('error_log', 'file_format', raw=True)
+)
+error_log_file_handler = generic_file_handler(config['error_log'])
+error_log_file_handler.setFormatter(error_log_file_formatter)
+
+access_log = _AccessLogger('access')
+access_log_formatter = logging.Formatter(
+    config.get('access_log', 'format', raw=True)
+)
+access_log_stream_handler = logging.StreamHandler(sys.stdout)
+access_log_stream_handler.setFormatter(access_log_formatter)
+access_log_file_handler = generic_file_handler(config['access_log'])
+access_log_file_handler.setFormatter(access_log_formatter)
+
 profile_log = _ProfileLog('profile')
+profile_log_formatter = logging.Formatter(
+    '%(asctime)s %(message)s'
+)
+profile_log_stream_handler = logging.StreamHandler()
+profile_log_stream_handler.setFormatter(profile_log_formatter)
+profile_log_file_handler = generic_file_handler(config['profile_log'])
+profile_log_file_handler.setFormatter(profile_log_formatter)
 
 
-def re_open_all_handlers():
-    re_open_logger_handlers(access_log.logger)
-    re_open_logger_handlers(error_log)
-    re_open_logger_handlers(profile_log.logger)
+def setup_server_handlers():
+    error_log.addHandler(error_log_stream_handler)
+    access_log.logger.addHandler(access_log_stream_handler)
+    profile_log.logger.addHandler(profile_log_stream_handler)
 
 
-re_open_all_handlers()
+def setup_worker_handlers():
+    for handler in error_log.handlers[:]:
+        handler.close()
+        error_log.removeHandler(handler)
+
+    error_log.addHandler(error_log_file_handler)
+    access_log.logger.addHandler(access_log_file_handler)
+    profile_log.logger.addHandler(profile_log_file_handler)
+
+
+setup_server_handlers()

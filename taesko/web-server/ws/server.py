@@ -206,7 +206,7 @@ class Server:
 
         if pid == 0:
             with profile(WORKER_PROFILING_ON):
-                ws.logs.re_open_all_handlers()
+                ws.logs.setup_worker_handlers()
                 self.execution_context = self.ExecutionContext.worker
                 # close all shared file descriptors.
                 self.sock.close()
@@ -394,7 +394,6 @@ def profile(enabled=True):
 
     profiler = cProfile.Profile()
     profiler.enable()
-    profile_log.profile('Enabled.')
     try:
         yield
     finally:
