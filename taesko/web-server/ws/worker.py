@@ -141,7 +141,7 @@ class Worker:
         :return: This method doesn't return until the connection is closed.
         """
         while True:
-            error_log.info('HTTP Connection is open. Parsing request...')
+            error_log.debug('HTTP Connection is open. Parsing request...')
             self.exchanges.append(HTTPExchange(None, None))
 
             self.request_start = time.time()
@@ -268,13 +268,13 @@ def server_err_handler(exc):
 
 @exc_handler(ws.http.parser.ParserError)
 def handle_parse_err(exc):
-    error_log.info('Parsing error with code=%s occurred', exc.code)
+    error_log.warning('Parsing error with code=%s occurred', exc.code)
     return ws.http.utils.build_response(400)
 
 
 @exc_handler(ws.sockets.ClientSocketException)
 def handle_client_socket_err(exc):
-    error_log.info('Client socket error with code=%s occurred', exc.code)
+    error_log.warning('Client socket error with code=%s occurred', exc.code)
     if exc.code in ('CS_PEER_SEND_IS_TOO_SLOW', 'CS_CONNECTION_TIMED_OUT'):
         return ws.http.utils.build_response(408)
     else:
@@ -315,10 +315,10 @@ def handle_request(request, client_socket):
     route = request.request_line.request_target.path
 
     if ws.cgi.can_handle_request(request):
-        error_log.info('Request will be handled through a CGI script.')
+        error_log.debug2('Request will be handled through a CGI script.')
         return ws.cgi.execute_script(request, client_socket)
     elif request.request_line.method == 'GET':
-        error_log.info('Request did not route to any CGI script.')
+        error_log.debug2('Request did not route to any CGI script.')
         return ws.serve.get_file(route)
     # elif request.request_line.method == 'POST':
     #     encoding = request.headers.get('Content-Encoding', 'utf-8')

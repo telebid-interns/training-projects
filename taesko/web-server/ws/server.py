@@ -161,8 +161,8 @@ class Server:
                 continue
 
             accepted_connections += 1
-            error_log.warning('Accepted connections are %s',
-                              accepted_connections)
+            error_log.debug('Accepted connections are %s',
+                            accepted_connections)
             client_socket = ws.sockets.ClientSocket(
                 client_socket,
                 socket_timeout=self.quick_response_socket_timeout,
