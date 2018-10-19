@@ -57,6 +57,7 @@ class Server(object):
                 self.workers += 1
                 pid = os.fork()
                 if pid == 0:
+                    self.close_inherited_fds()
                     self.handle_request(connection, client_address)
                     break
             except SubprocessLimitException as e:
@@ -92,9 +93,8 @@ class Server(object):
                 self.env['memory_start'],
                 self.env['cpu']
             ) = self.get_process_info()
-            self.sock.close()
             assert isinstance(client_address, tuple) and len(client_address) == 2
-            self.env['host'] = client_address[0]
+            self.env['client_ip'] = client_address[0]
             self.env['port'] = client_address[1]
             self.env['request_time'] = datetime.datetime.now().isoformat()
             connection.settimeout(self.timeout)
@@ -102,10 +102,12 @@ class Server(object):
             self.parse_request(headers)
 
             if self.env['request_method'] == 'GET':
-                if self.env['whole_path'] == self.opts['status_path']:
+                if self.env['path'] == self.opts['status_path']:
                     self.send_status(connection)
                     return
-                self.handle_requested_path(connection, self.env['whole_path'])
+                self.handle_requested_path(connection, self.env['path'])
+            # elif self.env['request_method'] == 'POST':
+
 
         except (KeyboardInterrupt, RuntimeError) as e:
             pass
@@ -131,7 +133,6 @@ class Server(object):
                     self.env['memory_end'],
                     self.env['cpu']
                 ) = self.get_process_info()
-                self.sock.close()
                 self.log_request()
                 os._exit(self.exit_codes.get_exit_code(self.env.get('status_code', 0)))
             except ServerError as e:
@@ -151,6 +152,8 @@ class Server(object):
         whole_static_path = os.path.abspath('./../static' + path)
         whole_cgi_path = os.path.abspath('./../cgi-bin' + path)
 
+        self.env['script_abs_path'] = whole_cgi_path
+
         try:
             if os.path.islink(whole_static_path):
                 raise FileNotFoundError()
@@ -167,8 +170,10 @@ class Server(object):
         except FileNotFoundError:
             if os.path.islink(whole_cgi_path):
                 raise FileNotFoundError()
-            elif cgi_path in whole_cgi_path and whole_cgi_path[len(whole_cgi_path)-3:] == '.py':
-                proc = subprocess.Popen(['python', whole_cgi_path], stdout=subprocess.PIPE)
+            elif cgi_path in whole_cgi_path and whole_cgi_path[len(whole_cgi_path)-4:] == '.cgi' and os.path.exists(whole_cgi_path):
+                self.env['script_filename'] = whole_cgi_path.split('/')[-1]
+                proc_env = self.generate_envariables()
+                proc = subprocess.Popen(whole_cgi_path, stdout=subprocess.PIPE, env=proc_env)
                 sendall(connection, self.generate_headers(200))
                 while True:
                     line = proc.stdout.readline()
@@ -192,6 +197,13 @@ class Server(object):
             self.env['whole_path'],        # /hello.html
             self.env['request_version']    # HTTP/1.1
         ) = tokens
+
+
+        if '?' in self.env['whole_path']:
+            (self.env['path'], self.env['query_string']) = self.env['whole_path'].split('?')
+        else:
+            self.env['path'] = self.env['whole_path']
+            self.env['query_string'] = ''
 
     def recv_request(self, connection):
         data = connection.recv(self.opts['recv'])
@@ -274,7 +286,7 @@ class Server(object):
         try:
             with open('./../logs/access.log', "a+") as file:
                 file.write('{} {} {} {} "{}" {} {} {} {} {}\n'.format(
-                    self.env.get('host', '-'),
+                    self.env.get('client_ip', '-'),
                     self.env.get('remote_logname', '-'),
                     self.env.get('remote_user', '-'),
                     self.env.get('request_time', '-'),
@@ -320,6 +332,40 @@ class Server(object):
 
         sendall(connection, status)
 
+    def close_inherited_fds(self):
+        try:
+            self.sock.close()
+            # closing stdin, stdout and stderr streams
+            os.close(0) 
+            # os.close(1)
+            os.close(2)
+        except Exception as e:
+            self.safeLog('error', e)
+
+    def generate_envariables(self):
+        return {
+            'DOCUMENT_ROOT': os.path.abspath('./../static'),
+            'HTTP_COOKIE': self.env.get('cookie', ''),
+            'HTTP_HOST': self.env.get('headers', '').get('Host', '') + self.env.get('path', ''),
+            'HTTP_REFERER': self.env.get('http_referer', ''),
+            'HTTP_USER_AGENT': self.env.get('headers', '').get('User-Agent', ''),
+            'HTTPS': 'off',
+            'PATH': os.path.abspath('./'),
+            'QUERY_STRING': self.env.get('query_string', ''),
+            'REMOTE_ADDR': self.env.get('client_ip', ''),
+            'REMOTE_HOST': self.env.get('host', ''),
+            'REMOTE_PORT': str(self.env.get('port', '')),
+            'REMOTE_USER': self.env.get('remote_user', ''),
+            'REQUEST_METHOD': self.env.get('request_method', ''),
+            'REQUEST_URI': self.env.get('path', ''),
+            'SCRIPT_FILENAME': self.env.get('script_abs_path', ''),
+            'SCRIPT_NAME': self.env.get('script_filename', ''),
+            'SERVER_ADMIN': self.opts.get('admin_email', ''),
+            'SERVER_NAME': self.opts.get('address', ''),
+            'SERVER_PORT': str(self.opts.get('port', '')),
+            'SERVER_SOFTWARE': "Python Super Web Server"
+        }
+
 if __name__ == '__main__':
     config = configparser.ConfigParser()
     config.read('./../etc/config.ini')
@@ -334,6 +380,7 @@ if __name__ == '__main__':
     max_header_length = config.getint('server', 'max_header_length')
     log_level = config.get('server', 'log_level')
     status_path = config.get('server', 'status_path')
+    admin_email = config.get('server', 'admin_email')
 
     opts = {
         'port': port,
@@ -345,7 +392,8 @@ if __name__ == '__main__':
         'max_header_length': max_header_length,
         'error_path': error_path,
         'log_level': log_level,
-        'status_path': status_path
+        'status_path': status_path,
+        'admin_email': admin_email
     }
 
     Server(opts).start()
