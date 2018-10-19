@@ -24,6 +24,13 @@ from ws.ratelimit import RequestRateController
 
 SERVER_PROFILER = cProfile.Profile()
 
+sigchld_count = 0
+
+
+def sigchld_test_handler(signum, stack_info):
+    global sigchld_count
+    sigchld_count += 1
+
 
 def default_signal_handler(signum, stack_info):
     raise ServerException(msg='Received signum={}. Process will exit.',
@@ -31,6 +38,7 @@ def default_signal_handler(signum, stack_info):
 
 
 signal.signal(signal.SIGTERM, default_signal_handler)
+signal.signal(signal.SIGCHLD, sigchld_test_handler)
 
 
 class Server:
@@ -387,3 +395,4 @@ def main():
             ps = ps.sort_stats('cumulative')
             ps.print_stats()
             error_log.warning('PROFILING\n %s', s.getvalue())
+            error_log.warning('Caught SIGCHLD %s times', sigchld_count)

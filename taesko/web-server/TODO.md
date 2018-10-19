@@ -5,3 +5,5 @@
 Async logs
 Disable logs
 Profile workers
+GET /status page
+Find out why SIGCHLD doesn't get called.
