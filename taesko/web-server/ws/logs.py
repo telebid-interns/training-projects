@@ -1,6 +1,6 @@
+import configparser
 import logging
 import logging.config
-import configparser
 import sys
 
 from ws.config import config
@@ -43,16 +43,21 @@ add_log_level(level=DEBUG3_LEVEL_NUM, level_name='DEBUG3')
 logging.basicConfig(level=logging.INFO)
 # logging.config.fileConfig(config['logging']['config_file'])
 logging.raiseExceptions = True
-logging_config = configparser.ConfigParser(config['logging']['config_file'])
+logging_config = configparser.ConfigParser(interpolation=None)
+logging_config.read(config['logging']['config_file'])
 
 
 class HandlerBuilder:
-    configs = {
+    builder_cfg = {
         'StreamHandler': {
-            'args': {
+            '_build_method': 'build_stream_handler',
+            'stream': {
                 'stdout': sys.stdout,
                 'stderr': sys.stderr
             }
+        },
+        'FileHandler': {
+            '_build_method': 'build_file_handler'
         }
     }
 
@@ -63,11 +68,17 @@ class HandlerBuilder:
     def formatter(self):
         return self.cfg_section['formatter']
 
+    @property
+    def handler_build_cfg(self):
+        return self.builder_cfg[self.cfg_section['class']]
+
     def build_handler(self):
+        return getattr(self, self.handler_build_cfg['_build_method'])()
 
     def build_stream_handler(self):
         assert self.cfg_section['class'] == 'StreamHandler'
-        stream = self.configs[self.cfg_section['class']['args']]
+        stream_name = self.cfg_section['stream']
+        stream = self.handler_build_cfg['stream'][stream_name]
         handler = logging.StreamHandler(stream)
         handler.setLevel(self.cfg_section['level'])
         return handler
@@ -78,26 +89,31 @@ class HandlerBuilder:
         mode = self.cfg_section.get('mode', 'w')
         handler = logging.FileHandler(filename=filename, mode=mode)
         handler.setLevel(self.cfg_section['level'])
+        return handler
 
 
-class BaseLogger:
-    def __init__(self, name):
-        self.name = name
-        self.logger = logging.getLogger(name)
+def build_formatter(formatter_cfg):
+    return logging.Formatter(fmt=formatter_cfg['format'])
 
-    def re_open_file_handlers(self):
-        for handler in self.logger.handlers:
-            handler.close()
 
-        cfg_section = logging_config['logger_{}'.format(self.name)]
-        handler_names = cfg_section['handlers'].split(',')
+def re_open_logger_handlers(logger):
+    for handler in logger.handlers:
+        handler.close()
 
-        for hn in handler_names:
-            hn = hn.strip()
-            handler_cfg = logging_config['handler_{}'.format(hn)]
+    cfg_section = logging_config['logger_{}'.format(logger.name)]
+    handler_names = cfg_section['handlers'].split(',')
 
-            handler = logging.
-            format_ = handler_cfg['format']
+    for hn in handler_names:
+        hn = hn.strip()
+        handler_cfg = logging_config['handler_{}'.format(hn)]
+
+        builder = HandlerBuilder(handler_cfg)
+        formatter_name = 'formatter_{}'.format(builder.formatter)
+        formatter = build_formatter(logging_config[formatter_name])
+        handler = builder.build_handler()
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
 
 
 class _AccessLogger:
@@ -124,18 +140,6 @@ class _ProfileLog:
     def __init__(self, name):
         self.logger = logging.getLogger(name)
 
-    @staticmethod
-    def open_handlers():
-        pass
-
-    def re_open_file_handlers(self):
-        for handler in self.logger.handlers:
-            handler.close()
-            self.logger.removeHandler(handler)
-
-        for handler in self.open_handlers():
-            self.logger.addHandler(handler)
-
     def profile(self, *args, **kwargs):
         self.logger.log(PROFILE_LEVEL_NUM, *args, **kwargs)
 
@@ -144,4 +148,11 @@ access_log = _AccessLogger('access')
 error_log = logging.getLogger('error')
 profile_log = _ProfileLog('profile')
 
-logging.disable(logging.CRITICAL)
+
+def re_open_all_handlers():
+    re_open_logger_handlers(access_log.logger)
+    re_open_logger_handlers(error_log)
+    re_open_logger_handlers(profile_log.logger)
+
+
+re_open_all_handlers()

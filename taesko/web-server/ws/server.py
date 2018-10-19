@@ -14,6 +14,7 @@ import time
 
 import ws.http.parser
 import ws.http.utils
+import ws.logs
 import ws.responses
 import ws.sockets
 import ws.utils
@@ -205,6 +206,7 @@ class Server:
 
         if pid == 0:
             with profile(WORKER_PROFILING_ON):
+                ws.logs.re_open_all_handlers()
                 self.execution_context = self.ExecutionContext.worker
                 # close all shared file descriptors.
                 self.sock.close()
