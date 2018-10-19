@@ -201,7 +201,11 @@ class Server:
 
         if pid == 0:
             self.execution_context = self.ExecutionContext.worker
+            # close all shared file descriptors.
             self.sock.close()
+            os.close(0)  # stdin
+            os.close(1)  # stdout
+            os.close(2)  # stderr
             exit_code = client_socket_handler(client_socket, address)
 
             if exit_code is None:
@@ -211,12 +215,12 @@ class Server:
             # noinspection PyProtectedMember
             os._exit(exit_code)
         else:
-            error_log.debug('Spawned child process with pid %d', pid)
-            client_socket.close(pass_silently=True, safely=False,
-                                with_shutdown=False)
             self.workers[pid] = self.ActiveWorker(pid=pid,
                                                   created_on=time.time(),
                                                   client_address=address)
+            error_log.debug('Spawned child process with pid %d', pid)
+            client_socket.close(pass_silently=True, safely=False,
+                                with_shutdown=False)
 
     def reap_one_child_safely(self):
         """ Reap a single zombie child without blocking or raising exceptions.
