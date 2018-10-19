@@ -18,14 +18,6 @@ class ParserError(PeerError):
     def __init__(self, msg=default_msg, code=default_code):
         super().__init__(msg=msg, code=code)
 
-    def assert_(cls, condition, *, msg=default_msg, code=default_code,
-                from_=None):
-        super().assert_(condition, msg=msg, code=code, from_=from_)
-
-
-class HTTPParser:
-    pass
-
 
 class SpyIterator:
     def __init__(self, iterable):
