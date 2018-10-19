@@ -1,14 +1,12 @@
 import collections
 import itertools
-import logging
 import re
 
 import ws.http.structs
 import ws.utils
 from ws.config import config
 from ws.err import *
-
-error_log = logging.getLogger('error')
+from ws.logs import error_log
 
 
 class ParserError(PeerError):
@@ -61,7 +59,7 @@ def parse(message_iter, lazy=True):
     except UnicodeDecodeError as err:
         raise ParserError(code='BAD_ENCODING') from err
 
-    error_log.debug('headers is %r with type %r', headers, type(headers))
+    error_log.debug2('headers is %r with type %r', headers, type(headers))
 
     try:
         cl = int(headers.get('Content-Length', 0))
@@ -69,7 +67,7 @@ def parse(message_iter, lazy=True):
         raise ParserError(code='BAD_CONTENT_LENGTH') from e
 
     if lazy:
-        error_log.debug('Deferring parsing of body to later.')
+        error_log.debug2('Deferring parsing of body to later.')
         body = (next(message_iter) for _ in range(cl))
     else:
         error_log.warning('DEPRECIATED Parsing body non-lazily')
@@ -118,10 +116,10 @@ def parse_request_line(it, *,
     if method not in methods:
         raise ParserError(code='PARSER_UNKNOWN_METHOD')
 
-    error_log.debug('Parsed method %r', method)
+    error_log.debug2('Parsed method %r', method)
 
     uri = parse_request_target(request_target)
-    error_log.debug('Parsed uri %r', uri)
+    error_log.debug2('Parsed uri %r', uri)
 
     if not re.match(b'HTTP/(\\d\\.\\d)', http_version):
         raise ParserError(code='PARSER_BAD_HTTP_VERSION')
@@ -232,7 +230,7 @@ def parse_headers(message_iterable):
         field = line[:sep_index].decode('ascii')
         value = line[sep_index + 1:]
         headers[field] = value
-        error_log.debug('Parsed header field %s with value %r', field, value)
+        error_log.debug3('Parsed header field %s with value %r', field, value)
 
     return headers
 

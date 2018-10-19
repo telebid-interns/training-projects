@@ -1,6 +1,5 @@
 import collections
 import errno
-import logging
 import os
 
 import ws.http.utils
@@ -8,8 +7,8 @@ import ws.responses
 from ws.config import config
 from ws.err import *
 from ws.http.structs import HTTPResponse, HTTPStatusLine, HTTPHeaders
+from ws.logs import error_log
 
-error_log = logging.getLogger('error')
 STATIC_ROUTE = config['routes']['static']
 STATIC_DIR = os.path.realpath(os.path.abspath(
     config['resources']['static_dir']
