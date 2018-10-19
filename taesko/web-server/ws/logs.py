@@ -1,10 +1,12 @@
 import logging
 import logging.config
+import configparser
+import sys
 
 from ws.config import config
 
 if config.getboolean('profiling', 'logs'):
-    PROFILE_LEVEL_NUM = 45
+    PROFILE_LEVEL_NUM = 55
 else:
     PROFILE_LEVEL_NUM = 1
 
@@ -39,8 +41,63 @@ add_log_level(level=DEBUG2_LEVEL_NUM, level_name='DEBUG2')
 add_log_level(level=DEBUG3_LEVEL_NUM, level_name='DEBUG3')
 
 logging.basicConfig(level=logging.INFO)
-logging.config.fileConfig(config['logging']['config_file'])
+# logging.config.fileConfig(config['logging']['config_file'])
 logging.raiseExceptions = True
+logging_config = configparser.ConfigParser(config['logging']['config_file'])
+
+
+class HandlerBuilder:
+    configs = {
+        'StreamHandler': {
+            'args': {
+                'stdout': sys.stdout,
+                'stderr': sys.stderr
+            }
+        }
+    }
+
+    def __init__(self, cfg_section):
+        self.cfg_section = cfg_section
+
+    @property
+    def formatter(self):
+        return self.cfg_section['formatter']
+
+    def build_handler(self):
+
+    def build_stream_handler(self):
+        assert self.cfg_section['class'] == 'StreamHandler'
+        stream = self.configs[self.cfg_section['class']['args']]
+        handler = logging.StreamHandler(stream)
+        handler.setLevel(self.cfg_section['level'])
+        return handler
+
+    def build_file_handler(self):
+        assert self.cfg_section['class'] == 'FileHandler'
+        filename = self.cfg_section['filename']
+        mode = self.cfg_section.get('mode', 'w')
+        handler = logging.FileHandler(filename=filename, mode=mode)
+        handler.setLevel(self.cfg_section['level'])
+
+
+class BaseLogger:
+    def __init__(self, name):
+        self.name = name
+        self.logger = logging.getLogger(name)
+
+    def re_open_file_handlers(self):
+        for handler in self.logger.handlers:
+            handler.close()
+
+        cfg_section = logging_config['logger_{}'.format(self.name)]
+        handler_names = cfg_section['handlers'].split(',')
+
+        for hn in handler_names:
+            hn = hn.strip()
+            handler_cfg = logging_config['handler_{}'.format(hn)]
+
+            handler = logging.
+            format_ = handler_cfg['format']
 
 
 class _AccessLogger:
@@ -67,6 +124,18 @@ class _ProfileLog:
     def __init__(self, name):
         self.logger = logging.getLogger(name)
 
+    @staticmethod
+    def open_handlers():
+        pass
+
+    def re_open_file_handlers(self):
+        for handler in self.logger.handlers:
+            handler.close()
+            self.logger.removeHandler(handler)
+
+        for handler in self.open_handlers():
+            self.logger.addHandler(handler)
+
     def profile(self, *args, **kwargs):
         self.logger.log(PROFILE_LEVEL_NUM, *args, **kwargs)
 
@@ -74,3 +143,5 @@ class _ProfileLog:
 access_log = _AccessLogger('access')
 error_log = logging.getLogger('error')
 profile_log = _ProfileLog('profile')
+
+logging.disable(logging.CRITICAL)

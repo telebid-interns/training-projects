@@ -396,13 +396,10 @@ def profile(enabled=True):
     try:
         yield
     finally:
-        profile_log.profile('Disabled.')
         profiler.disable()
         s = io.StringIO()
-        profile_log.profile('Disabled.2')
         ps = pstats.Stats(profiler, stream=s)
         ps = ps.sort_stats('cumulative')
-        profile_log.profile('Disabled.3')
         ps.print_stats()
         profile_log.profile('cProfiler results:\n %s', s.getvalue())
 
