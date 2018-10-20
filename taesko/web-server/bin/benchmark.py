@@ -184,8 +184,13 @@ def run_test(ab_args):
 
     rusage_path = os.path.join(WEB_SERVER_DIR, 'bin/rusage.sh')
     access_log_path = os.path.join(WEB_SERVER_DIR, 'data/logs/access.log')
-    rusage_out = subprocess.check_output([rusage_path, access_log_path])
-    cpu_time, mem_usage, worker_time, *_ = rusage_out.decode('ascii').split(' ')
+    try:
+        rusage_out = subprocess.check_output([rusage_path, access_log_path])
+        cpu_time, mem_usage, worker_time, *_ = (rusage_out.decode('ascii')
+                                                .split(' '))
+    except (OSError, ValueError, subprocess.CalledProcessError) as e:
+        print(e)
+        cpu_time, mem_usage, worker_time = ('-', '-', '-')
 
     return TestResult(commit=commit, ab_fields=fields, ab_raw=out,
                       cpu_time=cpu_time, mem_usage=mem_usage,
