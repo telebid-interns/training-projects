@@ -76,7 +76,6 @@ class TableExporter:
                                    expand_columns=expand_columns)
             row += r
 
-
         return len(table), len(table[0])
 
     def insert_row(self, values, position=(0, 0), expand_row=True,
@@ -186,7 +185,7 @@ def run_test(ab_args):
     rusage_path = os.path.join(WEB_SERVER_DIR, 'bin/rusage.sh')
     access_log_path = os.path.join(WEB_SERVER_DIR, 'data/logs/access.log')
     rusage_out = subprocess.check_output([rusage_path, access_log_path])
-    cpu_time, mem_usage, worker_time = rusage_out.decode('ascii').split(' ')
+    cpu_time, mem_usage, worker_time, *_ = rusage_out.decode('ascii').split(' ')
 
     return TestResult(commit=commit, ab_fields=fields, ab_raw=out,
                       cpu_time=cpu_time, mem_usage=mem_usage,
@@ -250,9 +249,9 @@ def dump_test_results_to_xlsx(test_results, file_path):
         fields = test_result.ab_fields
 
         if not column_names:
-
-            column_names = ['{}\n({})'.format(field.field_text, field.value_suffix)
-                            for field in fields]
+            column_names = [
+                '{}\n({})'.format(field.field_text, field.value_suffix)
+                for field in fields]
             column_names.extend(['cpu_time', 'mem_usage', 'worker_time'])
 
         table_row = [field.value for field in fields] + extra
