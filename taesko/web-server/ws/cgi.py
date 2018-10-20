@@ -1,9 +1,8 @@
 import collections
 import os
-import subprocess
 import select
+import subprocess
 import time
-import io
 
 import ws.http.utils
 from ws.config import config
@@ -43,7 +42,9 @@ class CGIScript(collections.namedtuple('CGIScript', ['name',
             timeout=section.getint('timeout')
         )
 
+        # noinspection PyUnresolvedReferences
         if not os.path.exists(cgi_script.script_path):
+            # noinspection PyUnresolvedReferences
             msg = 'CGI executable not found at {}'.format(
                 cgi_script.script_path
             )
@@ -202,21 +203,20 @@ def execute_script(request, client_socket):
     error_log.debug('CGIScript environment will be: %s', script_env)
 
     try:
-        proc = subprocess.Popen(
+        subprocess.Popen(
             args=os.path.abspath(cgi_script.script_path),
             env=script_env,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE
+            stdin=client_socket.fileno(),
+            stdout=client_socket.fileno()
         )
     except (OSError, ValueError):
         error_log.exception('Failed to open subprocess for cgi script {}'
                             .format(cgi_script.name))
         return ws.http.utils.build_response(500)
-
-    return stdout_chunk_iterator(request.body,
-                                 timeout=cgi_script.timeout,
-                                 stdin=proc.stdin.fileno(),
-                                 stdout=proc.stdout.fileno())
+    else:
+        client_socket.close(with_shutdown=False, pass_silently=True,
+                            safely=False)
+        return None
 
 
 def stdout_chunk_iterator(byte_iterator, *, timeout, stdin, stdout,

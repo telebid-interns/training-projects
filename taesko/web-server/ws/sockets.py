@@ -44,6 +44,7 @@ class ClientSocket:
         self.socket_broke = False
         self.connection_timeout = connection_timeout
         self.connected_on = time.time()
+        self.written = False
 
         self.sock.settimeout(socket_timeout)
 
@@ -119,6 +120,7 @@ class ClientSocket:
         """
         assert isinstance(bytes_response, (bytes, bytearray))
 
+        self.written = True
         total_sent = 0
 
         while total_sent < len(bytes_response):

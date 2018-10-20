@@ -38,7 +38,6 @@ class Worker:
         assert isinstance(iterable_socket, ws.sockets.ClientSocket)
         self.sock = iterable_socket
         self.address = address
-        self.responding = False
         self.status_code_on_abort = None
         self.exchanges = collections.deque(maxlen=self.max_exchange_history)
         self.request_start = None
@@ -87,7 +86,7 @@ class Worker:
 
         error_log.info('Execution failed. Cleaning up worker.')
 
-        if self.responding:
+        if self.sock.written:
             error_log.warning(
                 'An exception occurred after worker had sent bytes over '
                 'the socket(fileno=%s). Client will receive an invalid '
@@ -143,6 +142,7 @@ class Worker:
         while True:
             error_log.debug('HTTP Connection is open. Parsing request...')
             self.exchanges.append(HTTPExchange(None, None))
+            self.sock.written = False
 
             self.request_start = time.time()
             request_iterator = ws.http.parser.SpyIterator(self.sock)
@@ -159,12 +159,7 @@ class Worker:
             self.parse_time = time.time() - self.request_start
 
             handler_result = request_handler(self.request, self.sock)
-            if isinstance(handler_result, ws.http.structs.HTTPResponse):
-                self.respond(handler_result)
-            else:
-                self.send_raw_response(handler_result)
-                # TODO sending back raw response can't be recorded in the
-                # access.log nor can it close the connection.
+            self.respond(handler_result)
 
             if not (ws.http.utils.request_is_persistent(self.request) and
                     ws.http.utils.response_is_persistent(self.response)):
@@ -173,14 +168,7 @@ class Worker:
     def send_raw_response(self, bytes_iterable):
         assert isinstance(bytes_iterable, collections.Iterable)
 
-        self.responding = True
-
-        for chunk in bytes_iterable:
-            self.sock.send_all(chunk)
-
-        self.responding = False
-
-    def respond(self, response, *, closing=False, ignored_request=False):
+    def respond(self, response=None, *, closing=False, ignored_request=False):
         """
 
         :param response: Response object to send to client
@@ -191,7 +179,8 @@ class Worker:
             empty request string ("") will be sent to the access.log)
         :return:
         """
-        assert isinstance(response, ws.http.structs.HTTPResponse)
+        if response:
+            assert isinstance(response, ws.http.structs.HTTPResponse)
         assert isinstance(closing, bool)
         assert isinstance(ignored_request, bool)
 
@@ -205,18 +194,16 @@ class Worker:
                 response.headers['Connection'] = conn
 
         self.response = response
-        self.send_raw_response(self.response.iter_chunks())
+        if self.response:
+
+            for chunk in self.response.iter_chunks():
+                self.sock.send_all(chunk)
+
 
         if self.request_start:
             response_time = time.time() - self.request_start
         else:
             response_time = '-'
-
-
-        if ignored_request:
-            req = None
-        else:
-            req = self.request
 
         try:
             rusage = resource.getrusage(resource.RUSAGE_SELF)
@@ -228,8 +215,8 @@ class Worker:
             ru_stime = '-'
             ru_maxrss = '-'
 
-        access_log.log(request=req,
-                       response=response,
+        access_log.log(request=self.request,
+                       response=self.response,
                        ru_utime=ru_utime,
                        ru_stime=ru_stime,
                        ru_maxrss=ru_maxrss,
@@ -238,20 +225,19 @@ class Worker:
 
     # noinspection PyUnusedLocal
     def handle_termination(self, signum, stack_info):
-        assert signum == signal.SIGTERM
+        if signum != signum.SIGTERM:
+            error_log.warning('SIGTERM handler received signal %s', signum)
+            return
 
         error_log.info('Parent process requested termination.'
                        ' Cleaning up as much as possible and'
                        ' and sending a service unavailable response')
 
         # No salvation if bytes have already been sent over the socket
-        assert not self.responding
-
-        response = ws.http.utils.build_response(503)
-        response.headers['Connection'] = 'close'
-
-        for chunk in response.iter_chunks():
-            self.sock.send_all(chunk)
+        if not self.sock.written:
+            response = ws.http.utils.build_response(503)
+            response.headers['Connection'] = 'close'
+            self.respond(response=response)
 
         # TODO what kind of error is this ?
         # raise PeerError(msg='Parent process requested termination.',
