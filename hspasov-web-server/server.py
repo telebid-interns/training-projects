@@ -7,18 +7,21 @@ print(os.getpid())
 # TODO make config
 RECV_BUFFER = 1024
 REQ_MSG_LIMIT = 8192
-BACKLOG = 1
+BACKLOG = 10
 HOST = 'localhost'
 PORT = 8080
-ROOT_DIR = (b'/home/hristo/Documents/training-projects' +
-            b'/hspasov-web-server/content')
-# ROOT_DIR = (b'/media/hspasov/Files/TelebidPro/training-projects' +
+# ROOT_DIR = (b'/home/hristo/Documents/training-projects' +
 #            b'/hspasov-web-server/content')
+ROOT_DIR = (b'/media/hspasov/Files/TelebidPro/training-projects' +
+            b'/hspasov-web-server/content')
 
 
 response_reason_phrases = {
     b'200': b'OK',
+    b'400': b'Bad Request',
     b'404': b'Not Found',
+    b'500': b'Internal Server Error',
+    b'503': b'Service Unavailable',
 }
 
 
@@ -111,7 +114,7 @@ def parse_req_msg(msg):
     body = msg_parts[1]
 
     result = {
-        'request_line': parsed_req_line,
+        'req_line': parsed_req_line,
         'headers': headers,
         'body': body,
     }
@@ -135,47 +138,72 @@ def handle_request(conn):
 
     try:
         while len(msg_received) <= REQ_MSG_LIMIT:
-            data = conn.recv(RECV_BUFFER) # TODO may throw OSError
+            data = conn.recv(RECV_BUFFER)
             msg_received += data
 
             if len(data) <= 0:
+                # TODO maybe this is unnecessary, but mind the sendall in
+                # the finally block
+                print('case 1')
+                response = build_res_msg(b'400')
                 return
 
             if msg_received.find(b'\r\n\r\n') != -1:
                 break
         else:
-            # TODO msg too long
-            pass
+            print('cas2 ')
+            response = build_res_msg(b'400')
+            return
 
-        request_data = parse_req_msg(msg_received) # TODO may throw PeerError
+        print('msg received:')
+        print(msg_received)
+        request_data = parse_req_msg(msg_received)  # TODO may throw PeerError
 
         print('Request data:')
         print(request_data)
 
+        print(ROOT_DIR)
+        print(request_data['req_line']['req_target'])
+        print(os.path.join(ROOT_DIR, request_data['req_line']['req_target']))
+
         file_path = os.path.realpath(
-            os.path.join(ROOT_DIR, request_data['req_line']['req_target'])
+            os.path.join(
+                ROOT_DIR,
+                *request_data['req_line']['req_target'].split(b'/')[1:])
         )
 
-        if ROOT_DIR not in file_path:
-            pass
-            # TODO no access
+        print(ROOT_DIR)
+        print(file_path)
 
-        with open(file_path, 'rb') as content_file: # TODO may throw OSError
-            content = content_file.read() # TODO may throw OSError
+        if ROOT_DIR not in file_path:
+            # TODO check if this is correct error handling
+            print('case 3')
+            response = build_res_msg(b'400')
+            return
+
+        with open(file_path, 'rb') as content_file:
+            content = content_file.read()
             response = build_res_msg(b'200', content)
 
-        conn.sendall(response) # TODO may throw OSError
-    except FileNotFoundError as e:
-        print('file not found')
-        print(e)
+    except PeerError:
+        print('case 4')
+        response = build_res_msg(b'400')
+    except FileNotFoundError:
         response = build_res_msg(b'404')
-
-        conn.sendall(response) # TODO may throw OSError
     except OSError:
-        pass
-        # TODO implement
+        response = build_res_msg(b'503')
+    except Exception as error:
+        print('error 500!')
+        print(error)
+        print(dir(error))
+        print(error.__traceback__)
+        print(error.__cause__)
+        print(type(error))
+        print(error.with_traceback())
+        response = build_res_msg(b'500')
     finally:
-        conn.shutdown()
+        conn.sendall(response)  # TODO ASK how to handle when throws OSError
+        conn.shutdown(socket.SHUT_RDWR)
 
 
 def start():
@@ -188,31 +216,32 @@ def start():
 
         while True:
             try:
-                conn, addr = socket_obj.accept()  # TODO may throw OSError
+                print(socket_obj)
+                conn, addr = socket_obj.accept()
                 print('Connected with {0}:{1}'.format(addr[0], addr[1]))
 
-                pid = os.fork()  # TODO may throw OSError
+                pid = os.fork()
 
                 if pid == 0:  # child process
                     socket_obj.close()
                     handle_request(conn)
-                    os._exit()
-                conn.close()
             except OSError:
-                # TODO implement
-                pass
-            except PeerError:
-                # TODO implement
-                pass
+                # TODO ask what to do in this case
+                continue
             except Exception as error:
                 if not isinstance(error, AppError):
-                    AppError(error)
+                    AppError(error.with_traceback())
+            finally:
+                conn.close()  # TODO ask can this fail?
+                if pid == 0:
+                    # TODO maybe status code should not always be EX_OK
+                    os._exit(os.EX_OK)
     except OSError:
-        # TODO implement
-        pass
+        # TODO check correct error handling in this case
+        return
     except Exception as error:
         if not isinstance(error, AppError):
-            AppError(error)
+            AppError(error.with_traceback())
     finally:
         socket_obj.close()
 
