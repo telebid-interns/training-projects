@@ -1,5 +1,4 @@
 import os
-import sys
 import socket
 import traceback
 
@@ -9,6 +8,8 @@ print(os.getpid())
 RECV_BUFFER = 1024
 REQ_MSG_LIMIT = 8192
 BACKLOG = 1
+HOST = 'localhost'
+PORT = 8080
 ROOT_DIR = (b'/home/hristo/Documents/training-projects' +
             b'/hspasov-web-server/content')
 # ROOT_DIR = (b'/media/hspasov/Files/TelebidPro/training-projects' +
@@ -28,8 +29,10 @@ class BaseError(Exception):
 
 
 class AppError(BaseError):
-    def __init__(self):
-        super().__init__('')
+    def __init__(self, msg=''):
+        super().__init__(msg)
+        log(msg)
+        log(traceback.print_stack())
 
 
 class PeerError(BaseError):
@@ -70,32 +73,29 @@ def log(msg):
     print(msg)
 
 
-def parse_req_line(req_line):
-    assert_app(type(req_line) == bytes)
+def parse_req_msg(msg):
+    assert_app(type(msg) == bytes)
 
-    req_line_tokens = req_line.split(b' ')
+    msg_parts = msg.split(b'\r\n\r\n')
+
+    assert_peer(len(msg_parts) == 2, 'Invalid request')
+
+    request_line_and_headers = msg_parts[0].split(b'\r\n')
+
+    request_line = request_line_and_headers[0]
+    req_line_tokens = request_line.split(b' ')
 
     assert_peer(len(req_line_tokens) == 3, 'Invalid request')
 
-    method = req_line_tokens[0]
-    req_target = req_line_tokens[1]
-    http_version = req_line_tokens[2]
-
-    result = {
-        'method': method,
-        'req_target': req_target,
-        'http_version': http_version,
+    parsed_req_line = {
+        'method': req_line_tokens[0],
+        'req_target': req_line_tokens[1],
+        'http_version': req_line_tokens[2],
     }
-
-    return result
-
-
-def parse_headers(header_fields):
-    assert_app(type(header_fields) == list)
 
     headers = {}
 
-    for header_field in header_fields:
+    for header_field in request_line_and_headers[1:]:
         header_field_split = header_field.split(b':', 1)
 
         assert_peer(
@@ -108,25 +108,7 @@ def parse_headers(header_fields):
 
         headers[field_name] = field_value
 
-    return headers
-
-
-def parse_req_msg(msg):
-    assert_app(type(msg) == bytes)
-
-    msg_parts = msg.split(b'\r\n\r\n')
-
-    assert_peer(len(msg_parts) == 2, 'Invalid request')
-# TODO request line, not status line
-    request_line_and_headers = msg_parts[0].split(b'\r\n')
-    request_line = request_line_and_headers[0]
-    headers = parse_headers(request_line_and_headers[1:])
-
-    assert_app(type(headers) == dict)
-
     body = msg_parts[1]
-
-    parsed_req_line = parse_req_line(request_line)
 
     result = {
         'request_line': parsed_req_line,
@@ -153,7 +135,11 @@ def handle_request(conn):
 
     try:
         while len(msg_received) <= REQ_MSG_LIMIT:
-            msg_received += conn.recv(RECV_BUFFER)
+            data = conn.recv(RECV_BUFFER) # TODO may throw OSError
+            msg_received += data
+
+            if len(data) <= 0:
+                return
 
             if msg_received.find(b'\r\n\r\n') != -1:
                 break
@@ -161,65 +147,75 @@ def handle_request(conn):
             # TODO msg too long
             pass
 
-        request_data = parse_req_msg(msg_received)
+        request_data = parse_req_msg(msg_received) # TODO may throw PeerError
 
         print('Request data:')
         print(request_data)
 
-        response = None
+        file_path = os.path.realpath(
+            os.path.join(ROOT_DIR, request_data['req_line']['req_target'])
+        )
 
-        file_path = ROOT_DIR + request_data['request_line']['req_target']
+        if ROOT_DIR not in file_path:
+            pass
+            # TODO no access
 
-        with open(file_path, 'rb') as content_file:
-            content = content_file.read()
+        with open(file_path, 'rb') as content_file: # TODO may throw OSError
+            content = content_file.read() # TODO may throw OSError
             response = build_res_msg(b'200', content)
 
-        conn.sendall(response)
+        conn.sendall(response) # TODO may throw OSError
     except FileNotFoundError as e:
         print('file not found')
         print(e)
         response = build_res_msg(b'404')
 
-        conn.sendall(response)
+        conn.sendall(response) # TODO may throw OSError
+    except OSError:
+        pass
+        # TODO implement
     finally:
-        conn.close()
+        conn.shutdown()
 
 
 def start():
     socket_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    socket_obj.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
     try:
-        socket_obj.bind((host, port))
-    except OSError as e:
-        socket_obj.close()
-        print(e)
+        socket_obj.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        socket_obj.bind((HOST, PORT))
+        socket_obj.listen(BACKLOG)
 
-    socket_obj.listen(BACKLOG)
-
-    try:
         while True:
-            conn, addr = socket_obj.accept()
-            print('Connected with {0}:{1}'.format(addr[0], addr[1]))
+            try:
+                conn, addr = socket_obj.accept()  # TODO may throw OSError
+                print('Connected with {0}:{1}'.format(addr[0], addr[1]))
 
-            pid = os.fork()  # may throw OSError
+                pid = os.fork()  # TODO may throw OSError
 
-            if pid == 0:  # child process
-                socket_obj.close()
-                handle_request(conn)
-                sys.exit()  # TODO os.exit() or os._exit()
-            else:  # parent process
+                if pid == 0:  # child process
+                    socket_obj.close()
+                    handle_request(conn)
+                    os._exit()
                 conn.close()
-    except KeyboardInterrupt as e:
-        print('keyboard interrupt caught')
-        socket_obj.close()
+            except OSError:
+                # TODO implement
+                pass
+            except PeerError:
+                # TODO implement
+                pass
+            except Exception as error:
+                if not isinstance(error, AppError):
+                    AppError(error)
+    except OSError:
+        # TODO implement
+        pass
+    except Exception as error:
+        if not isinstance(error, AppError):
+            AppError(error)
     finally:
         socket_obj.close()
 
 
 if __name__ == '__main__':
-    try:
-        start()
-    except AppError as error:
-        log(error)
-        log(traceback.print_stack())
+    start()
