@@ -205,6 +205,7 @@ class Server:
             return
 
         if pid == 0:
+            start = time.time()
             with profile(WORKER_PROFILING_ON):
                 ws.logs.setup_worker_handlers()
                 self.execution_context = self.ExecutionContext.worker
@@ -220,6 +221,8 @@ class Server:
 
                 error_log.debug('Exiting with exit code %s', exit_code)
             # noinspection PyProtectedMember
+            total = time.time() - start
+            profile_log.profile('custom worker_time - %s', total)
             os._exit(exit_code)
         else:
             self.workers[pid] = self.ActiveWorker(pid=pid,

@@ -59,7 +59,6 @@ class _AccessLogger:
             request_headers=request_headers,
             response_headers=response.headers,
             status_code=response.status_line.status_code,
-            body=response.body,
             **kwargs
         ))
 
