@@ -53,9 +53,9 @@ class Server:
                                                            'client_address'])
 
     def __init__(self):
-        assert_system(sys_has_fork_support(),
-                      msg="Kernel or C lib versions don't have fork() support.",
-                      code='FORK_NOT_IMPLEMENTED')
+        if not sys_has_fork_support():
+            raise SysError(code='FORK_NOT_IMPLEMENTED',
+                           msg="Kernel or C lib versions don't have fork() support.")
 
         self.host = config['settings']['host']
         self.port = config.getint('settings', 'port')
@@ -220,9 +220,9 @@ class Server:
                     exit_code = 2
 
                 error_log.debug('Exiting with exit code %s', exit_code)
-            # noinspection PyProtectedMember
             total = time.time() - start
             profile_log.profile('custom worker_time - %s', total)
+            # noinspection PyProtectedMember
             os._exit(exit_code)
         else:
             self.workers[pid] = self.ActiveWorker(pid=pid,
@@ -338,7 +338,7 @@ def pre_verify_request_syntax(client_socket, address):
     # noinspection PyBroadException
     try:
         ws.http.parser.parse(client_socket, lazy=True)
-    except ws.http.parser.ParserError as err:
+    except ws.http.parser.ParserException as err:
         error_log.warning('During pre-parsing: failed to parse request from '
                           'client socket %s. Error code=%s',
                           client_socket.fileno(), err.code)

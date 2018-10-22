@@ -111,7 +111,7 @@ class Worker:
         self.status_code_on_abort = response.status_line.status_code
 
         ignored_request = isinstance(exc_val, (ws.sockets.ClientSocketException,
-                                               ws.http.parser.ParserError))
+                                               ws.http.parser.ParserException))
 
         try:
             self.respond(response, ignored_request=ignored_request)
@@ -252,7 +252,7 @@ def server_err_handler(exc):
     return ws.http.utils.build_response(500)
 
 
-@exc_handler(ws.http.parser.ParserError)
+@exc_handler(ws.http.parser.ParserException)
 def handle_parse_err(exc):
     error_log.warning('Parsing error with code=%s occurred', exc.code)
     return ws.http.utils.build_response(400)

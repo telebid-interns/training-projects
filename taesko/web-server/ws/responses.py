@@ -64,7 +64,7 @@ error_responses = {
             'CS_PEER_SEND_IS_TOO_SLOW': request_timeout,
             'CS_CONNECTION_TIMED_OUT': request_timeout
         },
-        ws.http.parser.ParserError: {
+        ws.http.parser.ParserException: {
             None: bad_request
         }
     },

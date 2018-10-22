@@ -9,7 +9,7 @@ from ws.err import *
 from ws.logs import error_log
 
 
-class ParserError(PeerError):
+class ParserException(ServerException):
     default_msg = 'Failed to parse request due to bad syntax.'
     default_code = 'PARSER_BAD_SYNTAX'
 
@@ -57,14 +57,14 @@ def parse(message_iter, lazy=True):
         request_line = parse_request_line(message_iter)
         headers = parse_headers(message_iter)
     except UnicodeDecodeError as err:
-        raise ParserError(code='BAD_ENCODING') from err
+        raise ParserException(code='BAD_ENCODING') from err
 
     error_log.debug2('headers is %r with type %r', headers, type(headers))
 
     try:
         cl = int(headers.get('Content-Length', 0))
     except ValueError as e:
-        raise ParserError(code='BAD_CONTENT_LENGTH') from e
+        raise ParserException(code='BAD_CONTENT_LENGTH') from e
 
     if lazy:
         error_log.debug2('Deferring parsing of body to later.')
@@ -101,20 +101,20 @@ def parse_request_line(it, *,
         line = bytes(take_until((b'\r\n',), it,
                                 take_max=max_request_len))
     except RuntimeError as e:
-        raise ParserError(code='PARSER_LONG_REQUEST_LINE') from e
+        raise ParserException(code='PARSER_LONG_REQUEST_LINE') from e
 
     it.skip(2)  # advance through \r\n
 
     parts = line.split(b' ')
 
     if len(parts) < 3:
-        raise ParserError(code='PARSER_BAD_REQUEST_LINE')
+        raise ParserException(code='PARSER_BAD_REQUEST_LINE')
 
     method, request_target, http_version = parts
     method = method.decode('ascii')
 
     if method not in methods:
-        raise ParserError(code='PARSER_UNKNOWN_METHOD')
+        raise ParserException(code='PARSER_UNKNOWN_METHOD')
 
     error_log.debug2('Parsed method %r', method)
 
@@ -122,7 +122,7 @@ def parse_request_line(it, *,
     error_log.debug2('Parsed uri %r', uri)
 
     if not re.match(b'HTTP/(\\d\\.\\d)', http_version):
-        raise ParserError(code='PARSER_BAD_HTTP_VERSION')
+        raise ParserException(code='PARSER_BAD_HTTP_VERSION')
 
     http_version = http_version.decode('ascii')
 
@@ -138,7 +138,7 @@ def parse_request_target(iterable):
         matched = re.match(r'([^@:]*@)?([^@:]+)(:\d*)?', authority)
 
         if not matched:
-            raise ParserError(code='PARSER_INVALID_AUTHORITY')
+            raise ParserException(code='PARSER_INVALID_AUTHORITY')
 
         user_info_, host_, port_ = matched.groups()
         user_info_ = user_info_[:-1] if user_info_ else None
@@ -168,12 +168,12 @@ def parse_request_target(iterable):
         protocol, *rest = string.split('://')
 
         if len(rest) != 1:
-            raise ParserError(code='PARSER_BAD_ABSOLUTE_FORM_URI')
+            raise ParserException(code='PARSER_BAD_ABSOLUTE_FORM_URI')
 
         parts = rest[0].split('/')
 
         if len(parts) <= 1:
-            raise ParserError(code='PARSER_MISSING_AUTHORITY')
+            raise ParserException(code='PARSER_MISSING_AUTHORITY')
 
         user_info, host, port = parse_authority(parts[0])
 
@@ -219,13 +219,13 @@ def parse_headers(message_iterable):
             take_max=config.getint('http', 'max_headers_len')
         ))
     except RuntimeError as e:
-        raise ParserError(code='PARSER_HEADERS_TOO_LONG') from e
+        raise ParserException(code='PARSER_HEADERS_TOO_LONG') from e
 
     for line in headers_part.split(b'\r\n'):
         sep_index = line.find(b':')
 
         if sep_index == -1:
-            raise ParserError(code='PARSER_BAD_HEADER')
+            raise ParserException(code='PARSER_BAD_HEADER')
 
         field = line[:sep_index].decode('ascii')
         value = line[sep_index + 1:]
