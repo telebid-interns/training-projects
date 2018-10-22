@@ -1,9 +1,6 @@
-import collections
-import errno
 import os
 
 import ws.http.utils
-import ws.responses
 from ws.config import config
 from ws.err import *
 from ws.http.structs import HTTPResponse, HTTPStatusLine, HTTPHeaders
@@ -82,62 +79,3 @@ def resolve_route(route, route_prefix, dir_prefix):
 
     return resolved
 
-
-def upload_file(route, body_stream, encoding):
-    assert isinstance(route, (str, bytes))
-    assert isinstance(body_stream, collections.Iterable)
-
-    resolved = resolve_route(route,
-                             route_prefix=STATIC_ROUTE, dir_prefix=STATIC_DIR)
-
-    error_log.info('Uploading file to route %s (resolves to %s)',
-                   route, resolved)
-
-    if not resolved:
-        return ws.responses.forbidden
-
-    if os.path.exists(resolved):
-        return ws.responses.see_other
-
-    try:
-        with open(resolved, mode='x', encoding='utf-8') as f:
-            f.write(bytes(body_stream).decode(encoding))
-    except FileExistsError:
-        return ws.responses.see_other
-    except OSError as err:
-        if os.path.exists(resolved):
-            os.remove(resolved)
-
-        if err.errno == errno.ENAMETOOLONG:
-            return ws.responses.uri_too_long
-        elif err.errno == errno.EFBIG:
-            return ws.responses.payload_too_large
-        else:
-            raise
-
-    response = ws.responses.created
-    response.headers['Location'] = route
-
-    return response
-
-
-def delete_file(route):
-    assert isinstance(route, (str, bytes))
-
-    resolved = resolve_route(route,
-                             route_prefix=STATIC_ROUTE, dir_prefix=STATIC_DIR)
-
-    error_log.info('Deleting file from route %s (resolves to %s).',
-                   route, resolved)
-
-    if not resolved:
-        return ws.responses.forbidden
-
-    try:
-        os.remove(resolved)
-    except IsADirectoryError:
-        return ws.responses.method_not_allowed
-    except FileNotFoundError:
-        return ws.responses.not_found
-
-    return ws.responses.ok

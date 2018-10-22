@@ -15,7 +15,6 @@ import time
 import ws.http.parser
 import ws.http.utils
 import ws.logs
-import ws.responses
 import ws.sockets
 import ws.utils
 import ws.worker
@@ -189,7 +188,7 @@ class Server:
         if len(self.workers) >= self.process_count_limit:
             error_log.warning('Process limit reached.'
                               ' Incoming requests will receive a 503.')
-            response = ws.responses.service_unavailable
+            response = ws.http.utils.build_response(503)
             client_socket_handler(client_socket, address,
                                   quick_reply_with=response)
             return
@@ -199,7 +198,7 @@ class Server:
         except OSError as err:
             error_log.warning('fork() raised ERRNO=%d. Reason: %s',
                               err.errno, err.strerror)
-            response = ws.responses.service_unavailable
+            response = ws.http.utils.build_response(503)
             client_socket_handler(client_socket, address,
                                   quick_reply_with=response)
             return
@@ -335,6 +334,8 @@ def pre_verify_request_syntax(client_socket, address):
         SystemExit
         KeyboardInterrupt
     """
+    failed = True
+
     # noinspection PyBroadException
     try:
         ws.http.parser.parse(client_socket, lazy=True)
@@ -344,23 +345,27 @@ def pre_verify_request_syntax(client_socket, address):
                           client_socket.fileno(), err.code)
 
         try:
-            client_socket.send_all(bytes(ws.responses.bad_request))
-            access_log.log(request=None, response=ws.responses.bad_request)
+            response = ws.http.utils.build_response(400)
+            for chunk in response.iter_chunks():
+                client_socket.send_all(chunk)
+            access_log.log(request=None, response=response)
         except ws.sockets.ClientSocketException:
             error_log.warning('Client socket %s did not receive response.')
 
-        return False
     except ws.sockets.ClientSocketException as err:
         error_log.warning('During pre-parsing: client socket %s caused an '
                           'error with code %s ',
                           client_socket.fileno(), err.code)
-        return False
     except Exception:
         error_log.exception('During pre-parsing: parser failed on socket %s ',
                             client_socket.fileno())
-    finally:
-        # reset the client socket so later handling of the request does not have
-        # to do it manually.
+    else:
+        failed = False
+
+    if failed:
+        client_socket.close(with_shutdown=True, safely=False,
+                            pass_silently=True)
+    else:
         client_socket.reiterate()
 
     return True

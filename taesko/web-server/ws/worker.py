@@ -199,7 +199,6 @@ class Worker:
             for chunk in self.response.iter_chunks():
                 self.sock.send_all(chunk)
 
-
         if self.request_start:
             response_time = time.time() - self.request_start
         else:
@@ -306,12 +305,5 @@ def handle_request(request, client_socket):
     elif request.request_line.method == 'GET':
         error_log.debug2('Request did not route to any CGI script.')
         return ws.serve.get_file(route)
-    # elif request.request_line.method == 'POST':
-    #     encoding = request.headers.get('Content-Encoding', 'utf-8')
-    #     body = request.body
-    #     return ws.serve.upload_file(route=route, body_stream=body,
-    #                                 encoding=encoding)
-    # elif request.request_line.method == 'DELETE':
-    #     return ws.serve.delete_file(route)
     else:
         return ws.http.utils.build_response(405)
