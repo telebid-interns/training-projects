@@ -14,7 +14,8 @@ DEBUG2_LEVEL_NUM = 7
 DEBUG3_LEVEL_NUM = 3
 
 logging.basicConfig(level=logging.INFO)
-logging.raiseExceptions = True
+logging.raiseExceptions = config.getboolean('settings',
+                                            'raise_logging_exceptions')
 
 
 def add_log_level(
@@ -147,9 +148,14 @@ def setup_server_handlers():
 
 
 def setup_worker_handlers():
-    for handler in error_log.handlers[:]:
-        handler.close()
-        error_log.removeHandler(handler)
+    def remove_handlers(logger):
+        for handler in logger.handlers[:]:
+            handler.close()
+            logger.removeHandler(handler)
+
+    remove_handlers(error_log)
+    remove_handlers(access_log.logger)
+    remove_handlers(profile_log.logger)
 
     error_log.addHandler(error_log_file_handler)
     access_log.logger.addHandler(access_log_file_handler)
