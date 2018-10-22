@@ -107,6 +107,9 @@ def parse(client_socket):
     )
 
 
+HTTP_VERSION_REGEX = re.compile(b'HTTP/(\\d\\.\\d)')
+
+
 def parse_request_line(line, *, methods=ALLOWED_HTTP_METHODS):
     error_log.debug3('Parsing request line...')
     parts = line.split(b' ')
@@ -125,7 +128,7 @@ def parse_request_line(line, *, methods=ALLOWED_HTTP_METHODS):
     uri = parse_request_target(request_target)
     error_log.debug2('Parsed uri %r', uri)
 
-    if not re.match(b'HTTP/(\\d\\.\\d)', http_version):
+    if not HTTP_VERSION_REGEX.match(http_version):
         raise ParserException(code='PARSER_BAD_HTTP_VERSION')
 
     http_version = http_version.decode('ascii')
@@ -137,26 +140,6 @@ def parse_request_line(line, *, methods=ALLOWED_HTTP_METHODS):
 
 def parse_request_target(iterable):
     string = bytes(iterable).decode('ascii')
-
-    def parse_authority(authority):
-        matched = re.match(r'([^@:]*@)?([^@:]+)(:\d*)?', authority)
-
-        if not matched:
-            raise ParserException(code='PARSER_INVALID_AUTHORITY')
-
-        user_info_, host_, port_ = matched.groups()
-        user_info_ = user_info_[:-1] if user_info_ else None
-        port_ = port_[1:] if port_ else None
-
-        return user_info_, host_, port_
-
-    def parse_path(full_path):
-        parts_ = full_path.split('?')
-        if len(parts_) == 1:
-            return parts_[0], None
-        else:
-            return parts_[0], '?'.join(parts_[1:])
-
     if string[0] == '/':
         # origin form
         path, query = parse_path(string)
@@ -167,7 +150,7 @@ def parse_request_target(iterable):
             path=path,
             query=query,
         )
-    elif re.match(r'^\w+://', string):
+    elif string.startswith('http://') or string.startswith('https://'):
         # absolute-form
         protocol, *rest = string.split('://')
 
@@ -205,6 +188,30 @@ def parse_request_target(iterable):
             path=None,
             query=None
         )
+
+
+AUTHORITY_REGEX = re.compile(r'([^@:]*@)?([^@:]+)(:\d*)?')
+
+
+def parse_authority(authority):
+    matched = AUTHORITY_REGEX.match(authority)
+
+    if not matched:
+        raise ParserException(code='PARSER_INVALID_AUTHORITY')
+
+    user_info_, host_, port_ = matched.groups()
+    user_info_ = user_info_[:-1] if user_info_ else None
+    port_ = port_[1:] if port_ else None
+
+    return user_info_, host_, port_
+
+
+def parse_path(full_path):
+    parts_ = full_path.split('?')
+    if len(parts_) == 1:
+        return parts_[0], None
+    else:
+        return parts_[0], '?'.join(parts_[1:])
 
 
 def parse_headers(lines):
