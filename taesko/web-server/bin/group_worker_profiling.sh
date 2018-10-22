@@ -6,4 +6,5 @@ END {
         printf "%f %s %s\n", cumtime[ct]/count[ct], calls[ct]/count[ct], ct;
     }
 }' ${1:-./data/logs/profile.log} | sort -n | tail -n ${2:-20}
-grep 'in .* seconds' ${1:-./data/logs/profile.log} | awk '{ sum += $8; count ++ } END { print "Total time spent profiling:", sum/count; }'
+grep 'in .* seconds' ${1:-./data/logs/profile.log} | awk '{ sum += $8; count ++ } END { print "Average time spent profiling:", sum/count; }'
+grep 'custom worker_time -' ${1:-./data/logs/profile.log} | awk '{ sum += $6; count++ } END { print "Average worker time:", sum/count; }'

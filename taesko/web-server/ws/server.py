@@ -134,13 +134,6 @@ class Server:
         accepted_connections = 0
 
         while True:
-            # TODO this leaves some orphaned children if no requests are coming.
-            # this can probably be mitigated through non-blocking sockets
-            # if accepted_connections % 30 == 0:
-            #     for _ in range(len(self.workers)):
-            #         if not self.reap_one_child_safely():
-            #             break
-
             try:
                 client_socket, address = self.sock.accept()
             except OSError as err:

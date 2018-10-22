@@ -22,25 +22,20 @@ if not os.path.isdir(STATIC_DIR):
                    code='CONFIG_BAD_STATIC_DIR')
 
 
+def file_chunk_gen(fp):
+    buf_size = 4096
+    with open(fp, mode='rb') as f:
+        chunk = f.read(buf_size)
+        # temporarily stop gen for exceptions to blow up before
+        # content gets yielded
+        yield
+
+        while chunk:
+            yield chunk
+            chunk = f.read(buf_size)
+
+
 def get_file(route):
-    def content_iterator(fp):
-        def make_iterator():
-            buf_size = 4096
-            with open(fp, mode='rb') as f:
-                chunk = f.read(buf_size)
-                # temporarily stop gen for exceptions to blow up before
-                # content gets yielded
-                yield
-
-                while chunk:
-                    yield chunk
-                    chunk = f.read(buf_size)
-
-        it = make_iterator()
-        # startup the generator to have exceptions blow here.
-        next(it)
-        return it
-
     resolved = resolve_route(route,
                              route_prefix=STATIC_ROUTE, dir_prefix=STATIC_DIR)
 
@@ -48,6 +43,9 @@ def get_file(route):
         return ws.http.utils.build_response(404)
 
     try:
+        body_it = file_chunk_gen(resolved)
+        # startup the generator to have exceptions blow here.
+        next(body_it)
         return HTTPResponse(
             status_line=HTTPStatusLine(http_version='HTTP/1.1',
                                        status_code=200,
@@ -55,7 +53,7 @@ def get_file(route):
             headers=HTTPHeaders({
                 'Content-Length': os.path.getsize(resolved)
             }),
-            body=content_iterator(resolved)
+            body=body_it
         )
     except (FileNotFoundError, IsADirectoryError):
         return ws.http.utils.build_response(404)
