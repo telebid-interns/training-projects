@@ -17,12 +17,12 @@ STATIC_DIR = os.path.realpath(os.path.abspath(
 error_log.info('Configured static route is %s. Directory is %s',
                STATIC_ROUTE, STATIC_DIR)
 
-assert_system(STATIC_ROUTE.endswith('/'),
-              msg="routes.static must end with a '/'",
-              code='CONFIG_BAD_STATIC_ROUTE')
-assert_system(os.path.isdir(STATIC_DIR),
-              msg='resources.static_dir field must be a directory',
-              code='CONFIG_BAD_STATIC_DIR')
+if not STATIC_ROUTE.endswith('/'):
+    raise SysError(msg="routes.static must end with a '/'",
+                   code='CONFIG_BAD_STATIC_ROUTE')
+if not os.path.isdir(STATIC_DIR):
+    raise SysError(msg='resources.static_dir field must be a directory',
+                   code='CONFIG_BAD_STATIC_DIR')
 
 
 def get_file(route):

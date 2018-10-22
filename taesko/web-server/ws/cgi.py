@@ -10,9 +10,10 @@ from ws.err import *
 from ws.logs import error_log
 
 CGI_SCRIPTS_DIR = config['cgi']['scripts_dir']
-assert_system(os.path.isdir(CGI_SCRIPTS_DIR),
-              msg='In configuration: cgi.scripts_dir is not a directory.',
-              code='CGI_CONFIG_NOT_DIR')
+
+if not os.path.isdir(CGI_SCRIPTS_DIR):
+    raise UserError(msg='In configuration: cgi.scripts_dir is not a directory.',
+                    code='CGI_CONFIG_NOT_DIR')
 
 
 class CGIException(ServerException):

@@ -34,8 +34,7 @@ class ServerException(Exception):
         self.code = code
 
 
-assert_peer_depreciated = PeerError.assert_
-assert_system = SysError.assert_
+assert_system_depreciated = SysError.assert_
 exc_handlers = {}
 
 
