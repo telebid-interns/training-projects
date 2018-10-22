@@ -26,13 +26,6 @@ from ws.ratelimit import RequestRateController
 SERVER_PROFILING_ON = config.getboolean('profiling', 'on_server')
 WORKER_PROFILING_ON = config.getboolean('profiling', 'on_workers')
 
-sigchld_count = 0
-
-
-def sigchld_test_handler(signum, stack_info):
-    global sigchld_count
-    sigchld_count += 1
-
 
 def default_signal_handler(signum, stack_info):
     raise ServerException(msg='Received signum={}. Process will exit.',
@@ -40,7 +33,6 @@ def default_signal_handler(signum, stack_info):
 
 
 signal.signal(signal.SIGTERM, default_signal_handler)
-signal.signal(signal.SIGCHLD, sigchld_test_handler)
 
 
 class Server:
@@ -76,6 +68,8 @@ class Server:
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.workers = {}
         self.rate_controller = RequestRateController()
+        self.reaping = False
+        signal.signal(signal.SIGCHLD, self.reap_children)
 
     def __enter__(self):
         error_log.info('Binding server on %s:%s', self.host, self.port)
@@ -142,10 +136,10 @@ class Server:
         while True:
             # TODO this leaves some orphaned children if no requests are coming.
             # this can probably be mitigated through non-blocking sockets
-            if accepted_connections % 30 == 0:
-                for _ in range(len(self.workers)):
-                    if not self.reap_one_child_safely():
-                        break
+            # if accepted_connections % 30 == 0:
+            #     for _ in range(len(self.workers)):
+            #         if not self.reap_one_child_safely():
+            #             break
 
             try:
                 client_socket, address = self.sock.accept()
@@ -246,13 +240,15 @@ class Server:
 
         if not pid:
             return False
-        elif pid not in self.workers:
+
+        worker = self.workers.pop(pid, None)
+
+        if not worker:
+            # TODO this causes memory leaks if the interrupt is
+            # between fork() and adding inside self.workers()
             error_log.warning('Reaped zombie child with pid %s but the pid '
                               'was not recorded as a worker.')
             return True
-
-        worker = self.workers[pid]
-        del self.workers[pid]
 
         if not os.WIFEXITED(exit_indicator):
             error_log.warning('Worker %s has finished without calling '
@@ -267,6 +263,18 @@ class Server:
             )
 
         return True
+
+    def reap_children(self, signum, stack_frame):
+        if self.reaping:
+            return
+
+        self.reaping = True
+
+        try:
+            while self.reap_one_child_safely():
+                pass
+        finally:
+            self.reaping = False
 
     # noinspection PyUnusedLocal
     @ws.utils.depreciated(error_log)
@@ -338,7 +346,7 @@ def pre_verify_request_syntax(client_socket, address):
 
     # noinspection PyBroadException
     try:
-        ws.http.parser.parse(client_socket, lazy=True)
+        ws.http.parser.parse(client_socket)
     except ws.http.parser.ParserException as err:
         error_log.warning('During pre-parsing: failed to parse request from '
                           'client socket %s. Error code=%s',
