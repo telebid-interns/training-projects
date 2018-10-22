@@ -35,7 +35,8 @@ class Server(object):
         self.timeout = opts['timeout']
         self.accepted_connections = 0
         self.response_code_count = {}
-        signal.signal(signal.SIGCHLD, self.kill_children)
+        self.start_time = time.time()
+        signal.signal(signal.SIGCHLD, self.reap_children)
 
     def start(self):
         self.safeLog('info', 'Server PID: {}'.format(os.getpid()))
@@ -98,16 +99,18 @@ class Server(object):
             self.env['port'] = client_address[1]
             self.env['request_time'] = datetime.datetime.now().isoformat()
             connection.settimeout(self.timeout)
-            (headers, content) = self.recv_request(connection)
-            self.parse_request(headers)
+            (content_length, body_chunk) = self.recv_request(connection) # TODO adjust names
 
+            # TODO method checking in handle_request_path func
             if self.env['request_method'] == 'GET':
                 if self.env['path'] == self.opts['status_path']:
-                    self.send_status(connection)
+                    self.send_status(connection) # should this be get_status to move send 200 right next to sendstatus ?
                     return
-                self.handle_requested_path(connection, self.env['path'])
-            # elif self.env['request_method'] == 'POST':
-
+                self.handle_get(connection, self.env['path'])
+            elif self.env['request_method'] == 'POST':
+                self.handle_post(connection, self.env['path'], content_length, body_chunk)
+            else:
+                raise FileNotFoundError()  
 
         except (KeyboardInterrupt, RuntimeError) as e:
             pass
@@ -145,7 +148,7 @@ class Server(object):
                 sys.exit()
 
 
-    def handle_requested_path(self, connection, path):
+    def handle_get(self, connection, path):
         static_path = os.path.abspath('./../static')
         cgi_path = os.path.abspath('./../cgi-bin')
 
@@ -172,7 +175,7 @@ class Server(object):
                 raise FileNotFoundError()
             elif cgi_path in whole_cgi_path and whole_cgi_path[len(whole_cgi_path)-4:] == '.cgi' and os.path.exists(whole_cgi_path):
                 self.env['script_filename'] = whole_cgi_path.split('/')[-1]
-                proc_env = self.generate_envariables()
+                proc_env = self.generate_environment()
                 proc = subprocess.Popen(whole_cgi_path, stdout=subprocess.PIPE, env=proc_env)
                 sendall(connection, self.generate_headers(200))
                 while True:
@@ -184,26 +187,40 @@ class Server(object):
             else:
                 raise FileNotFoundError()
 
-    def parse_request(self, request):
-        assert isinstance(request, str)
-        assert len(request) > 0
+    def handle_post(self, connection, path, content_length, body_chunk):
+        cgi_path = os.path.abspath('./../cgi-bin')
+        whole_cgi_path = os.path.abspath('./../cgi-bin' + path)
 
-        self.env['request_first_line'] = request.splitlines()[0].rstrip('\r\n')
+        self.env['script_abs_path'] = whole_cgi_path
 
-        tokens = self.env['request_first_line'].split()
-        assert len(tokens) == 3
-        (
-            self.env['request_method'],    # GET
-            self.env['whole_path'],        # /hello.html
-            self.env['request_version']    # HTTP/1.1
-        ) = tokens
+        if os.path.islink(whole_cgi_path):
+            raise FileNotFoundError()
+        elif cgi_path in whole_cgi_path and whole_cgi_path[len(whole_cgi_path)-4:] == '.cgi' and os.path.exists(whole_cgi_path):
+            self.env['script_filename'] = whole_cgi_path.split('/')[-1]
+            proc_env = self.generate_environment()
+            proc = subprocess.Popen(whole_cgi_path, stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=proc_env)
 
+            proc.stdin.write(body_chunk)
+            bytes_sent = len(body_chunk)
 
-        if '?' in self.env['whole_path']:
-            (self.env['path'], self.env['query_string']) = self.env['whole_path'].split('?')
+            while bytes_sent < int(content_length):
+                chunk = connection.recv(self.opts['recv'])
+                if not chunk:
+                    raise RuntimeError("socket connection broken")
+                proc.stdin.write(chunk)
+                bytes_sent += len(chunk)
+
+            proc.stdin.close()
+
+            sendall(connection, self.generate_headers(200))
+            while True:
+                line = proc.stdout.readline()
+                if line:
+                    sendall(connection, line)
+                else:
+                    break
         else:
-            self.env['path'] = self.env['whole_path']
-            self.env['query_string'] = ''
+            raise FileNotFoundError()
 
     def recv_request(self, connection):
         data = connection.recv(self.opts['recv'])
@@ -214,30 +231,52 @@ class Server(object):
             if not chunk:
                 raise RuntimeError("socket connection broken")
             data += chunk
-        total_length = self.parse_headers(data)
 
-        while len(data) != total_length:
-            chunk = connection.recv(self.opts['recv'])
-            if not chunk:
-                raise RuntimeError("socket connection broken")
-            data += chunk
+        (headers, body_chunk) = data.split(str.encode(self.HEADER_END_STRING))
+        content_length = self.parse_headers(headers)
 
-        #split by b'\r\n\r\n' [0] are headers [1:] is body, joining with b'\r\n\r\n'
-        headers = data.split(str.encode(self.HEADER_END_STRING))[0].decode() + self.HEADER_END_STRING
-        content = str.encode(self.HEADER_END_STRING).join(data.split(str.encode(self.HEADER_END_STRING))[1:])
+        return (content_length, body_chunk)
 
-        self.safeLog('debug', 'Request Recved')
-        return (headers, content)
+        # while len(data) != total_length:
+        #     chunk = connection.recv(self.opts['recv'])
+        #     if not chunk:
+        #         raise RuntimeError("socket connection broken")
+        #     data += chunk
 
-    def parse_headers(self, data):
-        data = data.decode('UTF-8')
-        assert_peer(len(data) <= self.opts['max_header_length'], 'Headers too long', 'HEADERS_TOO_LONG')
-        headers_length = data.find(self.HEADER_END_STRING) + len(self.HEADER_END_STRING)
+        # #split by b'\r\n\r\n' [0] are headers [1:] is body, joining with b'\r\n\r\n'
+        # headers = data.split(str.encode(self.HEADER_END_STRING))[0].decode() + self.HEADER_END_STRING
+        # content = str.encode(self.HEADER_END_STRING).join(data.split(str.encode(self.HEADER_END_STRING))[1:])
+
+
+    def parse_headers(self, headers):
+        headers = headers.decode('UTF-8')
+        assert_peer(len(headers) <= self.opts['max_header_length'], 'Headers too long', 'HEADERS_TOO_LONG')
+
+        assert isinstance(headers, str)
+        assert len(headers) > 0
+
+        self.env['headers_first_line'] = headers.splitlines()[0].rstrip('\r\n')
+
+        tokens = self.env['headers_first_line'].split()
+        assert len(tokens) == 3
+        (
+            self.env['request_method'],    # GET
+            self.env['whole_path'],        # /hello.html
+            self.env['request_version']    # HTTP/1.1
+        ) = tokens
+
+        if '?' in self.env['whole_path']:
+            (self.env['path'], self.env['query_string']) = self.env['whole_path'].split('?')
+        else:
+            self.env['path'] = self.env['whole_path']
+            self.env['query_string'] = ''
+
+        headers_length = headers.find(self.HEADER_END_STRING) + len(self.HEADER_END_STRING)
         header_dict = {}
-        for header in data[:headers_length].split('\r\n'):
+        for header in headers.split('\r\n'):
             if ': ' in header:
                 header_tokens = header.split(': ')
-                header_dict[header_tokens[0]] = header_tokens[1]
+                header_dict[header_tokens[0]] = header_tokens[1] # TODO join
         if 'Content-Length' in header_dict:
             content_length = header_dict['Content-Length']
         else:
@@ -247,7 +286,7 @@ class Server(object):
         self.env['headers_length'] = headers_length
         self.env['content_length'] = content_length
 
-        return headers_length + content_length
+        return content_length
 
     def generate_headers(self, response_code):
         self.env['status_code'] = response_code
@@ -265,7 +304,7 @@ class Server(object):
         self.response_code = response_code
         return header
 
-    def kill_children(self, signum, frame):
+    def reap_children(self, signum, frame):
         try:
             while True:
                 (pid, code) = os.waitpid(-1, os.WNOHANG)
@@ -290,9 +329,9 @@ class Server(object):
                     self.env.get('remote_logname', '-'),
                     self.env.get('remote_user', '-'),
                     self.env.get('request_time', '-'),
-                    self.env.get('request_first_line', '-'),
+                    self.env.get('headers_first_line', '-'),
                     self.env.get('status_code', '-'),
-                    self.env['content_length'] if 'content_length' in self.env and self.env['content_length'] > 0 else '-',
+                    self.env['content_length'] if 'content_length' in self.env and int(self.env['content_length']) > 0 else '-',
                     self.env.get('memory_start', '-'),
                     self.env.get('memory_end', '-'),
                     self.env.get('cpu', '-')
@@ -324,8 +363,18 @@ class Server(object):
 
     def send_status(self, connection):
         sendall(connection, self.generate_headers(200))
+
+        seconds = int((time.time() - self.start_time))
+        minutes = int((seconds / 60) % 60)
+        hours = int(minutes / 60)
+        uptime = '{} hour(s) {} minute(s) {} second(s)'.format(hours, minutes, seconds % 60)
+
         status = ''
+        status += '<p>Server uptime: {}</p>'.format(uptime)
         status += '<p>Accepted connections: {}</p>'.format(self.accepted_connections)
+        status += '<p>Requests per second: {}</p>'.format(round(self.accepted_connections / seconds, 2))
+        # status += '<p>Total Traffic: </p>'
+
         status += '<p>Responses (http code - count):</p>'
         for k, v in self.response_code_count.items():
             status += '<p>{} - {}</p>'.format(k, v)
@@ -342,7 +391,7 @@ class Server(object):
         except Exception as e:
             self.safeLog('error', e)
 
-    def generate_envariables(self):
+    def generate_environment(self):
         return {
             'DOCUMENT_ROOT': os.path.abspath('./../static'),
             'HTTP_COOKIE': self.env.get('cookie', ''),
