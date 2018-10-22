@@ -70,10 +70,10 @@ class _ProfileLog:
         self.logger.log(PROFILE_LEVEL_NUM, *args, **kwargs)
 
 
-def setup_log_file(file_path, truncate=True, store_old=True, max_count=5):
+def setup_log_file(file_path, truncate=True, store_old=True, max_count=10):
     def find_free_path(fp, max_c, count=1):
         if count == max_c:
-            return fp
+            return fp + str(count)
         elif not os.path.exists(fp):
             return fp
         elif not os.path.exists(fp + str(count)):
