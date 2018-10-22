@@ -104,16 +104,23 @@ def generic_file_handler(cfg_section):
 
 
 error_log = logging.getLogger('error')
+error_log.setLevel(
+    config.get('error_log', 'level', fallback='DEBUG3')
+)
 error_log.propagate = False
 error_log_stream_formatter = logging.Formatter(
     config.get('error_log', 'stream_format', raw=True)
 )
 error_log_stream_handler = logging.StreamHandler(sys.stderr)
+error_log_stream_handler.setLevel(
+    config.get('error_log', 'stream_level')
+)
 error_log_stream_handler.setFormatter(error_log_stream_formatter)
 error_log_file_formatter = logging.Formatter(
     config.get('error_log', 'file_format', raw=True)
 )
 error_log_file_handler = generic_file_handler(config['error_log'])
+error_log_file_handler.setLevel(config.get('error_log', 'file_level'))
 error_log_file_handler.setFormatter(error_log_file_formatter)
 
 access_log = _AccessLogger('access')
@@ -126,9 +133,7 @@ access_log_file_handler = generic_file_handler(config['access_log'])
 access_log_file_handler.setFormatter(access_log_formatter)
 
 profile_log = _ProfileLog('profile')
-profile_log_formatter = logging.Formatter(
-    '%(asctime)s %(message)s'
-)
+profile_log_formatter = logging.Formatter('%(asctime)s %(message)s')
 profile_log_stream_handler = logging.StreamHandler()
 profile_log_stream_handler.setFormatter(profile_log_formatter)
 profile_log_file_handler = generic_file_handler(config['profile_log'])
