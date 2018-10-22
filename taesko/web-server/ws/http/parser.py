@@ -8,6 +8,18 @@ from ws.config import config
 from ws.err import *
 from ws.logs import error_log
 
+MAX_HTTP_META_LEN = config.getint('http', 'max_http_meta_len')
+ALLOWED_HTTP_METHODS = frozenset({
+    'HEAD',
+    'GET',
+    'POST',
+    'PUT',
+    'DELETE',
+    'CONNECT',
+    'OPTIONS',
+    'TRACE'
+})
+
 
 class ParserException(ServerException):
     default_msg = 'Failed to parse request due to bad syntax.'
@@ -49,13 +61,32 @@ class SpyIterator:
             return value
 
 
-def parse(message_iter, lazy=True):
-    assert isinstance(message_iter, SpyIterator)
-    assert isinstance(lazy, bool)
+def parse(client_socket):
+    error_log.debug3('Parsing request from socket %s', client_socket.fileno())
+    lines = []
+    line = bytearray()
+
+    for count, byte in enumerate(client_socket):
+        line.append(byte)
+
+        if line[-2:] == b'\r\n':
+            del line[-1]
+            del line[-1]
+
+            if line == b'':
+                break
+            else:
+                lines.append(line)
+                line = bytearray()
+        elif count > MAX_HTTP_META_LEN:
+            raise ParserException(code='PARSER_REQUEST_TOO_LONG')
+
+    error_log.debug3('Parsed lines %s', lines)
 
     try:
-        request_line = parse_request_line(message_iter)
-        headers = parse_headers(message_iter)
+        request_line = parse_request_line(lines[0])
+        error_log.debug2('Parsed request line %s', request_line)
+        headers = parse_headers(lines[1:])
     except UnicodeDecodeError as err:
         raise ParserException(code='BAD_ENCODING') from err
 
@@ -66,12 +97,8 @@ def parse(message_iter, lazy=True):
     except ValueError as e:
         raise ParserException(code='BAD_CONTENT_LENGTH') from e
 
-    if lazy:
-        error_log.debug2('Deferring parsing of body to later.')
-        body = (next(message_iter) for _ in range(cl))
-    else:
-        error_log.warning('DEPRECIATED Parsing body non-lazily')
-        body = parse_body(message_iter, cl)
+    error_log.debug2('Deferring parsing of body to later.')
+    body = (next(client_socket) for _ in range(cl))
 
     return ws.http.structs.HTTPRequest(
         request_line=request_line,
@@ -80,34 +107,11 @@ def parse(message_iter, lazy=True):
     )
 
 
-def parse_request_line(it, *,
-                       methods=frozenset({
-                           'HEAD',
-                           'GET',
-                           'POST',
-                           'PUT',
-                           'DELETE',
-                           'CONNECT',
-                           'OPTIONS',
-                           'TRACE'
-                       }),
-                       max_uri_len=config.getint('http', 'max_uri_len')):
-    max_request_len = (max_uri_len +
-                       max(map(len, methods)) +
-                       len('HTTP/1.1'))
-    assert isinstance(it, SpyIterator)
-
-    try:
-        line = bytes(take_until((b'\r\n',), it,
-                                take_max=max_request_len))
-    except RuntimeError as e:
-        raise ParserException(code='PARSER_LONG_REQUEST_LINE') from e
-
-    it.skip(2)  # advance through \r\n
-
+def parse_request_line(line, *, methods=ALLOWED_HTTP_METHODS):
+    error_log.debug3('Parsing request line...')
     parts = line.split(b' ')
 
-    if len(parts) < 3:
+    if len(parts) != 3:
         raise ParserException(code='PARSER_BAD_REQUEST_LINE')
 
     method, request_target, http_version = parts
@@ -203,71 +207,26 @@ def parse_request_target(iterable):
         )
 
 
-def parse_headers(message_iterable):
+def parse_headers(lines):
     """ Parses HTTP headers from an iterable into a dictionary.
 
     NOTE: Does not parse indented multi-line headers
     """
-    assert isinstance(message_iterable, SpyIterator)
-
     headers = {}
-
-    try:
-        headers_part = bytes(take_until(
-            (b'\r\n\r\n',),
-            message_iterable,
-            take_max=config.getint('http', 'max_headers_len')
-        ))
-    except RuntimeError as e:
-        raise ParserException(code='PARSER_HEADERS_TOO_LONG') from e
-
-    for line in headers_part.split(b'\r\n'):
-        sep_index = line.find(b':')
-
-        if sep_index == -1:
+    for line in lines:
+        field, _, value = line.partition(b':')
+        if not value:
             raise ParserException(code='PARSER_BAD_HEADER')
 
-        field = line[:sep_index].decode('ascii')
-        value = line[sep_index + 1:]
+        field = field.decode('ascii')
         headers[field] = value
         error_log.debug3('Parsed header field %s with value %r', field, value)
 
     return headers
 
 
-def parse_body(iterator, content_len):
-    assert isinstance(iterator, SpyIterator)
-    assert isinstance(content_len, int)
-
-    parts = []
-
-    # because iterator might be iteration over a wrapper around socket.recv()
-    # calling next() on it might hang indefinitely.
-    if content_len == 0:
-        return b''
-
-    for _ in range(content_len):
-        parts.append(next(iterator))
-
-    return bytes(parts)
-
-
 @ws.utils.depreciated(error_log)
-def parse_body_lazily(iterator, content_len):
-    assert isinstance(iterator, SpyIterator)
-    assert isinstance(content_len, int)
-
-    # because iterator might be iteration over a wrapper around socket.recv()
-    # calling next() on it might hang indefinitely.
-    if content_len == 0:
-        yield b''
-        return
-
-    for _ in range(content_len):
-        yield next(iterator)
-
-
-def take_until(characters, spy_iter, take_max=None):
+def take_until_depreciated(characters, spy_iter, take_max=None):
     assert isinstance(characters, collections.Iterable)
     assert isinstance(spy_iter, SpyIterator)
     assert not take_max or isinstance(take_max, int)

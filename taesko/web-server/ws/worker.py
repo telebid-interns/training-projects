@@ -143,14 +143,14 @@ class Worker:
             error_log.debug('HTTP Connection is open. Parsing request...')
             self.exchanges.append(HTTPExchange(None, None))
             self.sock.written = False
+            self.sock.received = False
 
             self.request_start = time.time()
-            request_iterator = ws.http.parser.SpyIterator(self.sock)
 
             try:
-                self.request = ws.http.parser.parse(request_iterator)
-            except ws.sockets.ClientSocketException:
-                if request_iterator.iterated_count == 0:
+                self.request = ws.http.parser.parse(self.sock)
+            except ws.sockets.ClientSocketException as err:
+                if err.code == 'CS_PEER_NOT_SENDING':
                     error_log.info("Client shutdown the socket without sending "
                                    "a Connection: close header.")
                     break
@@ -164,9 +164,6 @@ class Worker:
             if not (ws.http.utils.request_is_persistent(self.request) and
                     ws.http.utils.response_is_persistent(self.response)):
                 break
-
-    def send_raw_response(self, bytes_iterable):
-        assert isinstance(bytes_iterable, collections.Iterable)
 
     def respond(self, response=None, *, closing=False, ignored_request=False):
         """
