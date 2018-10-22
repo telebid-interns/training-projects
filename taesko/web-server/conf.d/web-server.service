@@ -8,6 +8,7 @@ Restart = always
 RestartSec = 5
 Environment = WS_CONFIG_FILE=/opt/web-server/conf.d/config.ini
 LimitNOFILE = 40000
+User = antonio
 
 [Install]
 WantedBy = multi-user.target

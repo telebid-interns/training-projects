@@ -89,7 +89,7 @@ class Server:
         if self.execution_context == self.ExecutionContext.worker:
             return False
 
-        if exc_type:
+        if exc_val and not isinstance(exc_val, KeyboardInterrupt):
             error_log.exception('Unhandled error while listening.'
                                 'Shutting down...')
 
@@ -419,5 +419,8 @@ def main():
     fd_limit = subprocess.check_output(['ulimit', '-n'], shell=True)
     error_log.info('ulimit -n is "%s"', fd_limit.decode('ascii'))
     with profile(SERVER_PROFILING_ON):
-        with Server() as server:
-            server.listen(ws.worker.work)
+        try:
+            with Server() as server:
+                server.listen(ws.worker.work)
+        except (KeyboardInterrupt, ServerException):
+            pass
