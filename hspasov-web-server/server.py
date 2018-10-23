@@ -1,19 +1,18 @@
 import os
 import socket
 import traceback
-
-print(os.getpid())
+import datetime
 
 # TODO make config
 RECV_BUFFER = 1024
 REQ_MSG_LIMIT = 8192
-BACKLOG = 10
+BACKLOG = 20000
 HOST = 'localhost'
 PORT = 8080
-# ROOT_DIR = (b'/home/hristo/Documents/training-projects' +
-#            b'/hspasov-web-server/content')
-ROOT_DIR = (b'/media/hspasov/Files/TelebidPro/training-projects' +
+ROOT_DIR = (b'/home/hristo/Documents/training-projects' +
             b'/hspasov-web-server/content')
+# ROOT_DIR = (b'/media/hspasov/Files/TelebidPro/training-projects' +
+#            b'/hspasov-web-server/content')
 
 
 response_reason_phrases = {
@@ -73,7 +72,7 @@ def assert_user(condition, msg):
 
 
 def log(msg):
-    print(msg)
+    print('{0}:({1}): {2}'.format(os.getpid(), datetime.datetime.now(), msg))
 
 
 def parse_req_msg(msg):
@@ -135,36 +134,37 @@ def build_res_msg(status_code, body=b''):
 
 def handle_request(conn):
     msg_received = b''
+    begin = datetime.datetime.now()
+
+    recv_timestamps = []
 
     try:
         while len(msg_received) <= REQ_MSG_LIMIT:
             data = conn.recv(RECV_BUFFER)
             msg_received += data
 
+            recv_timestamps.append(datetime.datetime.now())
+
             if len(data) <= 0:
                 # TODO maybe this is unnecessary, but mind the sendall in
                 # the finally block
-                print('case 1')
+                log('case 1')
                 response = build_res_msg(b'400')
                 return
 
             if msg_received.find(b'\r\n\r\n') != -1:
+                #og('Got headers. Recvs:')
+                #og(recv_timestamps)
                 break
         else:
-            print('cas2 ')
+            log('case2 ')
             response = build_res_msg(b'400')
             return
 
-        print('msg received:')
-        print(msg_received)
         request_data = parse_req_msg(msg_received)  # TODO may throw PeerError
 
-        print('Request data:')
-        print(request_data)
-
-        print(ROOT_DIR)
-        print(request_data['req_line']['req_target'])
-        print(os.path.join(ROOT_DIR, request_data['req_line']['req_target']))
+        #og('Request data:')
+        #og(request_data)
 
         file_path = os.path.realpath(
             os.path.join(
@@ -172,12 +172,9 @@ def handle_request(conn):
                 *request_data['req_line']['req_target'].split(b'/')[1:])
         )
 
-        print(ROOT_DIR)
-        print(file_path)
-
         if ROOT_DIR not in file_path:
             # TODO check if this is correct error handling
-            print('case 3')
+            log('case 3')
             response = build_res_msg(b'400')
             return
 
@@ -186,24 +183,28 @@ def handle_request(conn):
             response = build_res_msg(b'200', content)
 
     except PeerError:
-        print('case 4')
+        log('case 4')
         response = build_res_msg(b'400')
     except FileNotFoundError:
         response = build_res_msg(b'404')
     except OSError:
         response = build_res_msg(b'503')
     except Exception as error:
-        print('error 500!')
-        print(error)
-        print(dir(error))
-        print(error.__traceback__)
-        print(error.__cause__)
-        print(type(error))
-        print(error.with_traceback())
+        log('error 500!')
+        log(error)
+        log(dir(error))
+        log(error.__traceback__)
+        log(error.__cause__)
+        log(type(error))
+        log(error.with_traceback())
         response = build_res_msg(b'500')
     finally:
+        end_time = datetime.datetime.now()
+        #og('Bye bye 1! ({0})'.format(end_time - begin))
         conn.sendall(response)  # TODO ASK how to handle when throws OSError
         conn.shutdown(socket.SHUT_RDWR)
+        end_time = datetime.datetime.now()
+        #og('Bye bye 2! ({0})'.format(end_time - begin))
 
 
 def start():
@@ -216,9 +217,8 @@ def start():
 
         while True:
             try:
-                print(socket_obj)
                 conn, addr = socket_obj.accept()
-                print('Connected with {0}:{1}'.format(addr[0], addr[1]))
+                log('Connected with {0}:{1}'.format(addr[0], addr[1]))
 
                 pid = os.fork()
 
