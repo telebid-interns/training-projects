@@ -12,15 +12,21 @@ import cProfile
 import subprocess
 from error.asserts import assert_user, assert_peer
 from error.exceptions import SubprocessLimitException, PeerError, ServerError
-from utils.sender import sendall
 from utils.http_status_codes_headers import HTTPHeaders
 from utils.exit_codes import ExitCodes
 from utils.logger import Logger
 
 class Server(object):
     HEADER_END_STRING = '\r\n\r\n'
+    HEADER_SEPARATOR = ': '
 
     def __init__(self, opts):
+        try:
+            os.rename('./../logs/access.log', './../logs/old_access.log')
+            os.rename(opts['error_path'], './../logs/old_error.log')
+        except Exception as e:
+            pass
+
         self.opts = opts
         self.headers = HTTPHeaders()
         self.exit_codes = ExitCodes()
@@ -30,10 +36,11 @@ class Server(object):
         self.sock.bind((opts['address'], opts['port']))
         self.sock.listen(opts['request_queue_size'])
         self.env = {}
-        self.max_subprocess_count = opts['subprocess_count']
-        self.workers = 0
-        self.timeout = opts['timeout']
         self.accepted_connections = 0
+        self.error_count = 0
+        self.workers = 0
+        self.max_subprocess_count = opts['subprocess_count']
+        self.timeout = opts['timeout']
         self.response_code_count = {}
         self.start_time = time.time()
         signal.signal(signal.SIGCHLD, self.reap_children)
@@ -62,7 +69,7 @@ class Server(object):
                     self.handle_request(connection, client_address)
                     break
             except SubprocessLimitException as e:
-                sendall(connection, self.generate_headers(503))
+                self.sendall(connection, self.generate_headers(503))
                 self.safeLog('warn', e)
                 self.log_request()
             except OSError as e:
@@ -75,7 +82,7 @@ class Server(object):
                 raise
             except BaseException as e:
                 if connection:
-                    sendall(connection, self.generate_headers(500))
+                    self.sendall(connection, self.generate_headers(500))
                     self.log_request()
                 self.safeLog('error', e)
             finally:
@@ -98,37 +105,38 @@ class Server(object):
             self.env['client_ip'] = client_address[0]
             self.env['port'] = client_address[1]
             self.env['request_time'] = datetime.datetime.now().isoformat()
+            self.env['bytes_sent'] = 0 # TODO might not need init
+            self.env['bytes_recved'] = 0
             connection.settimeout(self.timeout)
-            (content_length, body_chunk) = self.recv_request(connection) # TODO adjust names
+            (content_length, body_chunk) = self.recv_request(connection)
 
-            # TODO method checking in handle_request_path func
             if self.env['request_method'] == 'GET':
                 if self.env['path'] == self.opts['status_path']:
-                    self.send_status(connection) # should this be get_status to move send 200 right next to sendstatus ?
+                    self.send_status(connection)
                     return
                 self.handle_get(connection, self.env['path'])
             elif self.env['request_method'] == 'POST':
                 self.handle_post(connection, self.env['path'], content_length, body_chunk)
             else:
-                raise FileNotFoundError()  
+                raise FileNotFoundError()
 
         except (KeyboardInterrupt, RuntimeError) as e:
             pass
         except PeerError as e:
-            sendall(connection, self.generate_headers(400))
+            self.sendall(connection, self.generate_headers(400))
         except (FileNotFoundError, IsADirectoryError) as e:
-            sendall(connection, self.generate_headers(404))
+            self.sendall(connection, self.generate_headers(404))
         except socket.timeout as e:
-            sendall(connection, self.generate_headers(408))
+            self.sendall(connection, self.generate_headers(408))
         except IOError as e:
             if e.errno == os.errno.EPIPE:
                 self.safeLog('warn', e)
             else:
                 self.safeLog('error', e)
-                sendall(connection, self.generate_headers(500))
+                self.sendall(connection, self.generate_headers(500))
         except BaseException as e:
             self.safeLog('error', e)
-            sendall(connection, self.generate_headers(500))
+            self.sendall(connection, self.generate_headers(500))
         finally:
             try:
                 connection.close()
@@ -162,12 +170,12 @@ class Server(object):
                 raise FileNotFoundError()
             elif static_path in whole_static_path:
                 with open(whole_static_path, "rb") as file:
-                    sendall(connection, self.generate_headers(200))
+                    self.sendall(connection, self.generate_headers(200))
                     while True:
                         content = file.read(1024)
                         if not content:
                           break
-                        sendall(connection, content)
+                        self.sendall(connection, content)
             else:
                 raise FileNotFoundError()
         except FileNotFoundError:
@@ -177,11 +185,11 @@ class Server(object):
                 self.env['script_filename'] = whole_cgi_path.split('/')[-1]
                 proc_env = self.generate_environment()
                 proc = subprocess.Popen(whole_cgi_path, stdout=subprocess.PIPE, env=proc_env)
-                sendall(connection, self.generate_headers(200))
+                self.sendall(connection, self.generate_headers(200))
                 while True:
                     line = proc.stdout.readline()
                     if line:
-                        sendall(connection, line)
+                        self.sendall(connection, line)
                     else:
                         break
             else:
@@ -204,7 +212,7 @@ class Server(object):
             bytes_sent = len(body_chunk)
 
             while bytes_sent < int(content_length):
-                chunk = connection.recv(self.opts['recv'])
+                chunk = self.recv(connection, self.opts['recv'])
                 if not chunk:
                     raise RuntimeError("socket connection broken")
                 proc.stdin.write(chunk)
@@ -212,22 +220,22 @@ class Server(object):
 
             proc.stdin.close()
 
-            sendall(connection, self.generate_headers(200))
+            self.sendall(connection, self.generate_headers(200))
             while True:
                 line = proc.stdout.readline()
                 if line:
-                    sendall(connection, line)
+                    self.sendall(connection, line)
                 else:
                     break
         else:
             raise FileNotFoundError()
 
     def recv_request(self, connection):
-        data = connection.recv(self.opts['recv'])
+        data = self.recv(connection, self.opts['recv'])
         if not data:
             raise RuntimeError("socket connection broken")
         while self.HEADER_END_STRING.encode() not in data:
-            chunk = connection.recv(self.opts['recv'])
+            chunk = self.recv(connection, self.opts['recv'])
             if not chunk:
                 raise RuntimeError("socket connection broken")
             data += chunk
@@ -236,17 +244,6 @@ class Server(object):
         content_length = self.parse_headers(headers)
 
         return (content_length, body_chunk)
-
-        # while len(data) != total_length:
-        #     chunk = connection.recv(self.opts['recv'])
-        #     if not chunk:
-        #         raise RuntimeError("socket connection broken")
-        #     data += chunk
-
-        # #split by b'\r\n\r\n' [0] are headers [1:] is body, joining with b'\r\n\r\n'
-        # headers = data.split(str.encode(self.HEADER_END_STRING))[0].decode() + self.HEADER_END_STRING
-        # content = str.encode(self.HEADER_END_STRING).join(data.split(str.encode(self.HEADER_END_STRING))[1:])
-
 
     def parse_headers(self, headers):
         headers = headers.decode('UTF-8')
@@ -274,9 +271,9 @@ class Server(object):
         headers_length = headers.find(self.HEADER_END_STRING) + len(self.HEADER_END_STRING)
         header_dict = {}
         for header in headers.split('\r\n'):
-            if ': ' in header:
-                header_tokens = header.split(': ')
-                header_dict[header_tokens[0]] = header_tokens[1] # TODO join
+            if self.HEADER_SEPARATOR in header:
+                header_tokens = header.split(self.HEADER_SEPARATOR)
+                header_dict[header_tokens[0]] = self.HEADER_SEPARATOR.join(header_tokens[1:]) # in case header value contains the separator
         if 'Content-Length' in header_dict:
             content_length = header_dict['Content-Length']
         else:
@@ -290,7 +287,6 @@ class Server(object):
 
     def generate_headers(self, response_code):
         self.env['status_code'] = response_code
-        self.update_status(response_code);
 
         header = ''
         header += self.headers.get_header(response_code)
@@ -311,8 +307,6 @@ class Server(object):
                 if pid == 0:
                     break
                 self.workers -= 1
-                http_code = self.exit_codes.get_status_code(int(code/256)) # getting low byte
-                self.update_status(http_code);
         except ServerError as e:
             self.safeLog('debug', e)
         except OSError as e:
@@ -323,8 +317,8 @@ class Server(object):
 
     def log_request(self):
         try:
-            with open('./../logs/access.log', "a+") as file:
-                file.write('{} {} {} {} "{}" {} {} {} {} {}\n'.format(
+            with open('./../logs/access.log', "a+") as file: # TODO if file too large circulate or smth
+                file.write('{} {} {} {} "{}" {} {} {} {} {} {} {}\n'.format(
                     self.env.get('client_ip', '-'),
                     self.env.get('remote_logname', '-'),
                     self.env.get('remote_user', '-'),
@@ -334,21 +328,19 @@ class Server(object):
                     self.env['content_length'] if 'content_length' in self.env and int(self.env['content_length']) > 0 else '-',
                     self.env.get('memory_start', '-'),
                     self.env.get('memory_end', '-'),
-                    self.env.get('cpu', '-')
+                    self.env.get('cpu', '-'),
+                    self.env.get('bytes_recved', '-'),
+                    self.env.get('bytes_sent', '-')
                 ))
                 self.safeLog('debug', 'request logged')
         except Exception as e:
             self.safeLog('error', e)
 
-    def update_status(self, http_code):
-        if http_code not in self.response_code_count:
-            self.response_code_count[http_code] = 1
-        else:
-            self.response_code_count[http_code] += 1
-
     def safeLog(self, level_str, s):
         try:
             self.logger.log(level_str, s)
+            if level_str in ['error', 'fatal']:
+                self.error_count += 1
         except Exception as e:
             try:
                 traceback.print_exc()
@@ -362,7 +354,24 @@ class Server(object):
         return (memory, cpu_usage)
 
     def send_status(self, connection):
-        sendall(connection, self.generate_headers(200))
+        with open('./../logs/access.log', 'a+') as file:
+            file.seek(0)
+            lines = file.readlines()
+
+            total_recved = 0
+            total_sent = 0
+            response_codes = {}
+
+            for line in lines:
+                stats = line.split('"')[2].split()
+                total_recved += int(stats[5])
+                total_sent += int(stats[6])
+                http_code = stats[0]
+
+                if http_code not in response_codes:
+                    response_codes[http_code] = 1
+                else:
+                    response_codes[http_code] += 1
 
         seconds = int((time.time() - self.start_time))
         minutes = int((seconds / 60) % 60)
@@ -371,15 +380,19 @@ class Server(object):
 
         status = ''
         status += '<p>Server uptime: {}</p>'.format(uptime)
-        status += '<p>Accepted connections: {}</p>'.format(self.accepted_connections)
-        status += '<p>Requests per second: {}</p>'.format(round(self.accepted_connections / seconds, 2))
-        # status += '<p>Total Traffic: </p>'
+        status += '<p>Accepted connections: {}</p>'.format(self.accepted_connections - 1) # -1 current req not logged yet but counted as accepted
+        status += '<p>Requests per second: {}</p>'.format(round((self.accepted_connections - 1) / seconds, 2))
+        status += '<p>Total Traffic: {}b</p>'.format(total_recved + total_sent)
+        status += '<p>Total Bytes Received: {}b</p>'.format(total_recved)
+        status += '<p>Total Bytes Sent: {}b</p>'.format(total_sent)
+        status += '<p>Errors since start: {}</p>'.format(self.error_count)
 
         status += '<p>Responses (http code - count):</p>'
-        for k, v in self.response_code_count.items():
+        for k, v in response_codes.items():
             status += '<p>{} - {}</p>'.format(k, v)
 
-        sendall(connection, status)
+        self.sendall(connection, self.generate_headers(200))
+        self.sendall(connection, status)
 
     def close_inherited_fds(self):
         try:
@@ -414,6 +427,27 @@ class Server(object):
             'SERVER_PORT': str(self.opts.get('port', '')),
             'SERVER_SOFTWARE': "Python Super Web Server"
         }
+
+    def sendall(self, socket, data):
+        try: 
+            self.env['bytes_sent'] += len(data)
+            if isinstance(data, str):
+                data = data.encode()
+            socket.sendall(data)
+        except OSError as e:
+            if e.errno != os.errno.EPIPE:
+                pass
+        except BaseException as ex:
+            try:
+                traceback.print_exc()
+            except:
+                pass
+
+    def recv(self, socket, chunk_size):
+        chunk = socket.recv(chunk_size)
+        self.env['bytes_recved'] += len(chunk)
+        return chunk
+
 
 if __name__ == '__main__':
     config = configparser.ConfigParser()
