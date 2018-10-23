@@ -154,24 +154,17 @@ class ClientSocket:
         return self.sock.getpeername()
 
     def close(self, with_shutdown=False, pass_silently=False, safely=True):
-        if with_shutdown:
-            try:
+        try:
+            if with_shutdown:
                 self.shutdown(SHUT_RDWR)
-            except OSError as err:
-                if not pass_silently:
-                    raise
+        except OSError as err:
+            if not pass_silently:
+                raise
 
-                error_log.warning('Shutting down socket %s caused OSError '
-                                  'with ERRNO=%s and reason: %s',
-                                  self.fileno(), err.errno, err.strerror)
-            finally:
-                error_log.debug('Closing socket %d', self.sock.fileno())
-                try:
-                    self.sock.close()
-                except OSError:
-                    if not pass_silently:
-                        raise
-        else:
+            error_log.warning('Shutting down socket %s caused OSError '
+                              'with ERRNO=%s and reason: %s',
+                              self.fileno(), err.errno, err.strerror)
+        finally:
             error_log.debug('Closing socket %d', self.sock.fileno())
             try:
                 self.sock.close()

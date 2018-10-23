@@ -34,6 +34,8 @@ def default_signal_handler(signum, stack_info):
 
 signal.signal(signal.SIGTERM, default_signal_handler)
 
+RESOURCE_METRICS = {}
+
 
 class Server:
     class ExecutionContext(enum.Enum):
@@ -46,7 +48,8 @@ class Server:
     def __init__(self):
         if not sys_has_fork_support():
             raise SysError(code='FORK_NOT_IMPLEMENTED',
-                           msg="Kernel or C lib versions don't have fork() support.")
+                           msg="Kernel or C lib versions don't have "
+                               "fork() support.")
 
         self.host = config['settings']['host']
         self.port = config.getint('settings', 'port')
