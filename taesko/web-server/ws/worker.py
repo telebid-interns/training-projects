@@ -16,7 +16,6 @@ from ws.err import *
 from ws.logs import error_log, access_log
 
 CLIENT_ERRORS_THRESHOLD = config.getint('http', 'client_errors_threshold')
-HTTPExchange = collections.namedtuple('HTTPExchange', ['request', 'response'])
 
 
 # noinspection PyAttributeOutsideInit
@@ -26,11 +25,6 @@ class Worker:
     Instances of this class MUST be used through a context manager to ensure
     proper clean up of resources.
 
-    The methods self.parse_request() and self.respond() MUST only be used
-    when the property self.http_connection_is_open is True.
-
-    Persistent connections are handled, but require self.parse_request() to be
-    repeatedly called.
     """
     max_exchange_history = CLIENT_ERRORS_THRESHOLD * 2
 
@@ -38,42 +32,14 @@ class Worker:
         assert isinstance(iterable_socket, ws.sockets.ClientSocket)
         self.sock = iterable_socket
         self.address = address
-        self.status_code_on_abort = None
+        self.status_code_on_abort_depreciated = None
         self.exchanges = collections.deque(maxlen=self.max_exchange_history)
-        self.request_start = None
-        self.parse_time = None
 
         signal.signal(signal.SIGTERM, self.handle_termination)
 
     @property
-    def request(self):
-        try:
-            return self.exchanges[-1].request
-        except IndexError:
-            return None
-
-    @request.setter
-    def request(self, http_request):
-        try:
-            self.exchanges[-1] = HTTPExchange(http_request,
-                                              self.exchanges[-1].response)
-        except IndexError:
-            self.exchanges.append(HTTPExchange(http_request, None))
-
-    @property
-    def response(self):
-        try:
-            return self.exchanges[-1].response
-        except IndexError:
-            return None
-
-    @response.setter
-    def response(self, http_response):
-        try:
-            self.exchanges[-1] = HTTPExchange(self.exchanges[-1].request,
-                                              http_response)
-        except IndexError:
-            self.exchanges.append(HTTPExchange(None, http_response))
+    def exchange(self):
+        return self.exchanges[-1] if self.exchanges else None
 
     def __enter__(self):
         return self
@@ -108,8 +74,6 @@ class Worker:
 
         response.headers['Connection'] = 'close'
 
-        self.status_code_on_abort = response.status_line.status_code
-
         ignored_request = isinstance(exc_val, (ws.sockets.ClientSocketException,
                                                ws.http.parser.ParserException))
 
@@ -118,7 +82,8 @@ class Worker:
         except OSError as e:
             error_log.warning('During cleanup of worker tried to respond to '
                               'client and close the connection but: '
-                              'caught OSError with errno %d.', e.errno)
+                              'caught OSError with ERRNO=%s and MSG=%s',
+                              e.errno, e.strerror)
 
             if e.errno == errno.ECONNRESET:
                 error_log.warning('Client stopped listening prematurely.'
@@ -140,29 +105,41 @@ class Worker:
         :return: This method doesn't return until the connection is closed.
         """
         while True:
-            error_log.debug('HTTP Connection is open. Parsing request...')
-            self.exchanges.append(HTTPExchange(None, None))
-            self.sock.written = False
-            self.sock.received = False
-
-            self.request_start = time.time()
-
+            error_log.debug(
+                'HTTP Connection is open. Pushing new http exchange '
+                'context and parsing request...')
+            self.exchanges.append(dict(
+                request=None,
+                response=None,
+                written=False,
+                request_start=time.time(),
+                parse_time=None,
+                response_time=None
+            ))
             try:
-                self.request = ws.http.parser.parse(self.sock)
+                self.exchange['request'] = ws.http.parser.parse(self.sock)
             except ws.sockets.ClientSocketException as err:
                 if err.code == 'CS_PEER_NOT_SENDING':
                     error_log.info("Client shutdown the socket without sending "
                                    "a Connection: close header.")
                     break
+                else:
+                    raise
 
-                raise
-            self.parse_time = time.time() - self.request_start
+            self.exchange['parse_time'] = (time.time() -
+                                           self.exchange['request_start'])
 
-            handler_result = request_handler(self.request, self.sock)
+            handler_result = request_handler(self.exchange['request'],
+                                             self.sock)
             self.respond(handler_result)
 
-            if not (ws.http.utils.request_is_persistent(self.request) and
-                    ws.http.utils.response_is_persistent(self.response)):
+            client_persists = ws.http.utils.request_is_persistent(
+                self.exchange['request']
+            )
+            server_persists = ws.http.utils.response_is_persistent(
+                self.exchange['response']
+            )
+            if not (client_persists and server_persists):
                 break
 
     def respond(self, response=None, *, closing=False, ignored_request=False):
@@ -184,40 +161,34 @@ class Worker:
         if closing:
             response.headers['Connection'] = 'close'
         elif not ignored_request:
-            conn = str(self.request.headers.get('Connection', b''),
+            conn = str(self.exchange['request'].headers.get('Connection', b''),
                        encoding='ascii')
 
             if conn:
                 response.headers['Connection'] = conn
 
-        self.response = response
-        if self.response:
+        self.exchange['response'] = response
 
-            for chunk in self.response.iter_chunks():
+        if response:
+            self.exchange['written'] = True
+            for chunk in response.iter_chunks():
                 self.sock.send_all(chunk)
 
-        if self.request_start:
-            response_time = time.time() - self.request_start
-        else:
-            response_time = '-'
+        if self.exchange['request_start']:
+            self.exchange['response_time'] = (time.time() -
+                                              self.exchange['request_start'])
 
         try:
             rusage = resource.getrusage(resource.RUSAGE_SELF)
-            ru_utime = rusage.ru_utime
-            ru_stime = rusage.ru_stime
-            ru_maxrss = rusage.ru_maxrss
-        except OSError:
-            ru_utime = '-'
-            ru_stime = '-'
-            ru_maxrss = '-'
+            self.exchange['ru_utime'] = rusage.ru_utime
+            self.exchange['ru_stime'] = rusage.ru_stime
+            self.exchange['ru_maxrss'] = rusage.ru_maxrss
+        except OSError as err:
+            error_log.warning('Cannot record resource usage because '
+                              'getrusage() failed with ERNNO=%s and MSG=%s',
+                              err.errno, err.strerror)
 
-        access_log.log(request=self.request,
-                       response=self.response,
-                       ru_utime=ru_utime,
-                       ru_stime=ru_stime,
-                       ru_maxrss=ru_maxrss,
-                       response_time=response_time,
-                       parse_time=self.parse_time or '-')
+        access_log.log(**self.exchange)
 
     # noinspection PyUnusedLocal
     def handle_termination(self, signum, stack_info):
@@ -230,7 +201,7 @@ class Worker:
                        ' and sending a service unavailable response')
 
         # No salvation if bytes have already been sent over the socket
-        if not self.sock.written:
+        if not self.exchange['written']:
             response = ws.http.utils.build_response(503)
             response.headers['Connection'] = 'close'
             self.respond(response=response)
@@ -283,8 +254,8 @@ def work(client_socket, address, quick_reply_with=None):
                             address)
         return 1
 
-    codes = (e.response.status_line.status_code
-             for e in worker.exchanges if e.response)
+    codes = (e['response'].status_line.status_code
+             for e in worker.exchanges if e['response'])
     err_count = sum(c in ws.ratelimit.CONSIDERED_CLIENT_ERRORS for c in codes)
 
     if err_count:
