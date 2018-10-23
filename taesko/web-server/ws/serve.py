@@ -1,4 +1,6 @@
+import collections
 import os
+import re
 
 import ws.http.utils
 from ws.config import config
@@ -76,4 +78,48 @@ def resolve_route(route, route_prefix, dir_prefix):
         return None
 
     return resolved
+
+
+ServerStats = collections.namedtuple(
+    'ServerStats', ['avg_worker_time', 'max_worker_time',
+                    'avg_response_time', 'max_response_time',
+                    'avg_parse_time', 'max_parse_time',
+                    'avg_ru_utime', 'max_ru_utime',
+                    'avg_ru_stime', 'max_ru_stime',
+                    'avg_ru_maxrss', 'max_ru_maxrss',
+                    'served_requests']
+)
+
+
+FORMAT_FIELD_REGEX = re.compile('%\((\w*)\)\w')
+def status():
+    worker_time, max_worker_time = 0, 0
+    response_time, max_response_time = 0, 0
+    parse_time, max_parse_time = 0, 0
+    cpu_time, max_cpu_time = 0, 0
+    ram, max_ram = 0, 0
+    raw_stats = {}
+    fields_format = {}
+    offset = 0
+    for pos, part in enumerate(config['access_log']['format'].split()):
+        match = FORMAT_FIELD_REGEX.match(part)
+        if match:
+            field = match.group(1)
+            fields_format[pos+offset] = field
+            if field == 'asctime':
+                offset += 1
+            elif field == 'request_line':
+                offset += 2
+
+    stats = {}
+    with open(config['access_log']['file_name'], mode='r') as f:
+        for line in f:
+            for pos, part in enumerate(line.split()):
+                field_name = fields_format[pos]
+                avg = 'avg_{}'.format(field_name)
+                max_ = 'max_{}'.format(field_name)
+                if (avg not in ServerStats._fields or
+                    max_ not in ServerStats._fields):
+                    continue
+                raise NotImplementedError()
 

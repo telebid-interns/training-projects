@@ -18,7 +18,6 @@ from ws.logs import error_log, access_log
 CLIENT_ERRORS_THRESHOLD = config.getint('http', 'client_errors_threshold')
 
 
-# noinspection PyAttributeOutsideInit
 class Worker:
     """ Receives/parses requests and sends/encodes back responses.
 
