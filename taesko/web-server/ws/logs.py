@@ -1,3 +1,4 @@
+import datetime
 import logging
 import logging.config
 import os
@@ -76,21 +77,11 @@ class _ProfileLog:
         self.logger.log(PROFILE_LEVEL_NUM, *args, **kwargs)
 
 
-def find_free_path(fp, max_c, count=1):
-    if count == max_c:
-        return fp + str(count)
-    elif not os.path.exists(fp):
-        return fp
-    elif not os.path.exists(fp + str(count)):
-        return fp + str(count)
-    else:
-        return find_free_path(fp, max_c, count=count + 1)
-
-
-def setup_log_file(file_path, truncate=True, store_old=True, max_count=10):
+def setup_log_file(file_path, truncate=True, store_old=True):
     if store_old and os.path.exists(file_path):
         logging.info('Storing old file %s.', file_path)
-        os.rename(file_path, find_free_path(file_path, max_count))
+        iso = datetime.datetime.now().isoformat()
+        os.rename(file_path, '{}.{}'.format(file_path, iso))
 
     if truncate:
         with open(file_path, mode='w') as f:
