@@ -265,12 +265,23 @@ def work(client_socket, address, quick_reply_with=None):
 
 def handle_request(request, client_socket):
     route = request.request_line.request_target.path
+    method = request.request_line.method
+
+    error_log.debug3('Incoming request {} {}'.format(method, route))
+    if method == 'GET':
+        if ws.serve.is_status_route(route):
+            error_log.debug('Serving status')
+            return ws.serve.status()
+        elif ws.serve.is_static_route(route):
+            error_log.debug('Serving static file')
+            return ws.serve.get_file(route)
 
     if ws.cgi.can_handle_request(request):
-        error_log.debug2('Request will be handled through a CGI script.')
+        error_log.debug('Request will be handled through a CGI script.')
         return ws.cgi.execute_script(request, client_socket)
-    elif request.request_line.method == 'GET':
-        error_log.debug2('Request did not route to any CGI script.')
-        return ws.serve.get_file(route)
+    elif method == 'GET':
+        return ws.http.utils.build_response(404)
     else:
+        error_log.debug('Client sent unsupported method %s', method)
         return ws.http.utils.build_response(405)
+

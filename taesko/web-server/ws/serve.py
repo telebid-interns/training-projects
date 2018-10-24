@@ -1,4 +1,5 @@
 import collections
+import io
 import os
 import re
 
@@ -91,35 +92,88 @@ ServerStats = collections.namedtuple(
 )
 
 
+def is_static_route(route):
+    static_route = config.get('routes', 'static', fallback=None)
+
+    if not static_route:
+        error_log.debug2('Static route is not set.')
+        return False
+
+    static_route = ws.http.utils.normalized_route(static_route)
+    route = ws.http.utils.normalized_route(route)
+    return route.startswith(static_route)
+
+
+def is_status_route(route):
+    status_route = config.get('routes', 'status', fallback=None)
+
+    if not status_route:
+        error_log.debug2('Status route is not set.')
+        return False
+
+    status_route = ws.http.utils.normalized_route(status_route)
+    route = ws.http.utils.normalized_route(route)
+    return status_route == route
+
+
 FORMAT_FIELD_REGEX = re.compile('%\((\w*)\)\w')
+
+
 def status():
-    worker_time, max_worker_time = 0, 0
-    response_time, max_response_time = 0, 0
-    parse_time, max_parse_time = 0, 0
-    cpu_time, max_cpu_time = 0, 0
-    ram, max_ram = 0, 0
-    raw_stats = {}
-    fields_format = {}
-    offset = 0
-    for pos, part in enumerate(config['access_log']['format'].split()):
-        match = FORMAT_FIELD_REGEX.match(part)
-        if match:
-            field = match.group(1)
-            fields_format[pos+offset] = field
-            if field == 'asctime':
-                offset += 1
-            elif field == 'request_line':
-                offset += 2
-
+    # for pos, part in enumerate(config['access_log']['format'].split()):
+    #     match = FORMAT_FIELD_REGEX.match(part)
+    #     if match:
+    #         field = match.group(1)
+    #         fields_format[pos + offset] = field
+    #         if field == 'asctime':
+    #             offset += 1
+    #         elif field == 'request_line':
+    #             offset += 2
     stats = {}
+    fields = {
+        7: 'ru_utime',
+        8: 'ru_stime',
+        9: 'ru_maxrss',
+        10: 'response_time',
+        11: 'parse_time'
+    }
+    line_count = -1
     with open(config['access_log']['file_name'], mode='r') as f:
-        for line in f:
+        for line_count, line in enumerate(f):
             for pos, part in enumerate(line.split()):
-                field_name = fields_format[pos]
-                avg = 'avg_{}'.format(field_name)
-                max_ = 'max_{}'.format(field_name)
-                if (avg not in ServerStats._fields or
-                    max_ not in ServerStats._fields):
+                if pos not in fields:
                     continue
-                raise NotImplementedError()
+                fn = fields[pos]
+                avg = 'avg_{}'.format(fn)
+                max_ = 'max_{}'.format(fn)
+                try:
+                    val = float(part)
+                except ValueError:
+                    continue
+                if avg not in stats:
+                    stats[avg] = {'val': 0, 'count': 0}
+                stats[avg]['val'] += val
+                stats[avg]['count'] += 1
+                stats[max_] = max(val, stats.get(max_, 0))
 
+    lines = []
+
+    for stat, entry in stats.items():
+        if stat.startswith('max_'):
+            val = entry
+        else:
+            val = entry['val'] / entry['count']
+
+        lines.append('{stat}={val}'.format(stat=stat, val=val))
+
+    lines.append('served_requests={}\n'.format(line_count + 1))
+    lines.sort(key=lambda s: s.strip('max').strip('avg'))
+    body = b'\n'.join(l.encode('ascii') for l in lines)
+    ib = io.BytesIO()
+    ib.write(body)
+    ib.seek(0)
+
+    return ws.http.utils.build_response(
+        200, body=ib, headers={'Content-Length': len(body),
+                               'Content-Type': 'text/html'}
+    )
