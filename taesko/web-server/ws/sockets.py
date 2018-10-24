@@ -137,7 +137,7 @@ class ClientSocket:
     def fileno(self):
         return self.sock.fileno()
 
-    def shutdown(self, how):
+    def shutdown(self, how, silently=False):
         msgs = {
             SHUT_RD: 'Shutting down socket %d for reading/receiving.',
             SHUT_WR: 'Shutting down socket %d for writing/sending.',
@@ -145,7 +145,13 @@ class ClientSocket:
         }
         error_log.debug2(msgs[how], self.sock.fileno())
 
-        self.sock.shutdown(how)
+        if silently:
+            try:
+                self.sock.shutdown(how)
+            except OSError:
+                pass
+        else:
+            self.sock.shutdown(how)
 
     def getsockname(self):
         return self.sock.getsockname()
@@ -153,10 +159,19 @@ class ClientSocket:
     def getpeername(self):
         return self.sock.getpeername()
 
+    def safely_close(self):
+        self.shutdown(SHUT_WR, silently=True)
+        try:
+            self.sock.recv(1)
+        except (OSError, socket.timeout):
+            pass
+        self.shutdown(SHUT_RD, silently=True)
+        self.close(pass_silently=True)
+
     def close(self, with_shutdown=False, pass_silently=False, safely=True):
         try:
             if with_shutdown:
-                self.shutdown(SHUT_RDWR)
+                self.shutdown(SHUT_RDWR, silently=pass_silently)
         except OSError as err:
             if not pass_silently:
                 raise
