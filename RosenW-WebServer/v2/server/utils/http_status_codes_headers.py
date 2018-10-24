@@ -1,4 +1,4 @@
-class HTTPHeaders(object):
+class StatusLines(object):
     def __init__(self):
         self.status_codes = {
             100: "HTTP/1.1 100 Continue\r\n",
@@ -66,5 +66,5 @@ class HTTPHeaders(object):
             599: "HTTP/1.1 599 Network Connect Timeout Error\r\n"
         }
 
-    def get_header(self, status_code):
+    def get_status_line(self, status_code):
         return self.status_codes[status_code]

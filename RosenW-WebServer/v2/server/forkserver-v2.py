@@ -13,8 +13,7 @@ import subprocess
 import psutil
 from error.asserts import assert_user, assert_peer
 from error.exceptions import SubprocessLimitException, PeerError, ServerError
-from utils.http_status_codes_headers import HTTPHeaders
-from utils.exit_codes import ExitCodes
+from utils.http_status_codes_headers import StatusLines
 from utils.logger import Logger
 
 class Server(object):
@@ -23,15 +22,14 @@ class Server(object):
 
     def __init__(self, opts):
         try:
-            os.rename('./../logs/access.log', './../logs/old_access.log')
-            os.rename(opts['error_path'], './../logs/old_error.log')
-        except Exception as e:
+            os.rename(opts['logs_path'] + '/access.log', opts['logs_path'] + '/old_access.log')
+            os.rename(opts['logs_path'] + '/error.log', opts['logs_path'] + '/old_error.log')
+        except OSError as e:
             pass
 
         self.opts = opts
-        self.headers = HTTPHeaders()
-        self.exit_codes = ExitCodes()
-        self.logger = Logger(opts['log_level'], { 'error': opts['error_path'] })
+        self.status_lines = StatusLines()
+        self.logger = Logger(opts['log_level'], { 'error': opts['logs_path'] + '/error.log' })
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) # level, optname, value
         self.sock.bind((opts['address'], opts['port']))
@@ -58,7 +56,7 @@ class Server(object):
                 self.accepted_connections += 1
                 self.safeLog('debug', 'Current workers {}'.format(self.workers))
                 if self.workers >= self.max_subprocess_count:
-                    if len(psutil.Process().children()) >= self.max_subprocess_count:
+                    if len(psutil.Process().children()) >= self.max_subprocess_count: # TODO DIY
                         raise SubprocessLimitException('Accepted Connection, but workers were over the allowed limit')
                     else:
                         self.workers = len(psutil.Process().children())
@@ -71,8 +69,7 @@ class Server(object):
                     self.handle_request(connection, client_address)
                     break
             except SubprocessLimitException as e:
-                self.sendall(connection, self.generate_headers(503))
-                self.safeLog('warn', e) # TODO remove blocking IO for 503 use stderr or ram or smthing else
+                self.sendall(connection, self.generate_headers(503)) # TODO remove blocking IO for 503 use stderr or ram or smthing else
                 self.log_request()
             except OSError as e:
                 if e.errno not in [os.errno.EINTR, os.errno.EPIPE]:
@@ -154,18 +151,18 @@ class Server(object):
 
 
     def handle_get(self, connection, path):
-        static_path = os.path.abspath('./../static')
-        cgi_path = os.path.abspath('./../cgi-bin')
+        static_path = os.path.abspath(self.opts['static_dir_path'])
+        cgi_path = os.path.abspath(self.opts['cgi_bin_dir_path'])
 
-        whole_static_path = os.path.abspath('./../static' + path)
-        whole_cgi_path = os.path.abspath('./../cgi-bin' + path)
+        whole_static_path = os.path.abspath(static_path + path)
+        whole_cgi_path = os.path.abspath(cgi_path + path)
 
         self.env['script_abs_path'] = whole_cgi_path
 
         try:
             if os.path.islink(whole_static_path):
                 raise FileNotFoundError()
-            elif static_path in whole_static_path:
+            elif whole_static_path.startswith(static_path):
                 with open(whole_static_path, "rb") as file:
                     self.sendall(connection, self.generate_headers(200))
                     while True:
@@ -178,7 +175,7 @@ class Server(object):
         except FileNotFoundError:
             if os.path.islink(whole_cgi_path):
                 raise FileNotFoundError()
-            elif cgi_path in whole_cgi_path and whole_cgi_path[len(whole_cgi_path)-4:] == '.cgi' and os.path.exists(whole_cgi_path):
+            elif whole_cgi_path.startswith(cgi_path) and whole_cgi_path[len(whole_cgi_path)-4:] == '.cgi' and os.path.exists(whole_cgi_path):
                 self.env['script_filename'] = whole_cgi_path.split('/')[-1]
                 proc_env = self.generate_environment()
                 proc = subprocess.Popen(whole_cgi_path, stdout=subprocess.PIPE, env=proc_env)
@@ -193,37 +190,40 @@ class Server(object):
                 raise FileNotFoundError()
 
     def handle_post(self, connection, path, content_length, body_chunk):
-        cgi_path = os.path.abspath('./../cgi-bin')
-        whole_cgi_path = os.path.abspath('./../cgi-bin' + path)
+        cgi_path = os.path.abspath(self.opts['cgi_bin_dir_path'])
+        whole_cgi_path = os.path.abspath(cgi_path + path)
 
         self.env['script_abs_path'] = whole_cgi_path
 
         if os.path.islink(whole_cgi_path):
             raise FileNotFoundError()
-        elif cgi_path in whole_cgi_path and whole_cgi_path[len(whole_cgi_path)-4:] == '.cgi' and os.path.exists(whole_cgi_path):
+        elif whole_cgi_path.startswith(cgi_path) and whole_cgi_path[len(whole_cgi_path)-4:] == '.cgi' and os.path.exists(whole_cgi_path):
             self.env['script_filename'] = whole_cgi_path.split('/')[-1]
             proc_env = self.generate_environment()
-            proc = subprocess.Popen(whole_cgi_path, stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=proc_env)
+            try:
+                proc = subprocess.Popen(whole_cgi_path, stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=proc_env)
+                proc.stdin.write(body_chunk)
+                bytes_sent = len(body_chunk)
 
-            proc.stdin.write(body_chunk)
-            bytes_sent = len(body_chunk)
+                while bytes_sent < int(content_length):
+                    chunk = self.recv(connection, self.opts['recv'])
+                    if not chunk:
+                        raise RuntimeError("socket connection broken")
+                    proc.stdin.write(chunk)
+                    bytes_sent += len(chunk)
 
-            while bytes_sent < int(content_length):
-                chunk = self.recv(connection, self.opts['recv'])
-                if not chunk:
-                    raise RuntimeError("socket connection broken")
-                proc.stdin.write(chunk)
-                bytes_sent += len(chunk)
-
-            proc.stdin.close()
-
-            self.sendall(connection, self.generate_headers(200))
-            while True:
-                line = proc.stdout.readline()
-                if line:
-                    self.sendall(connection, line)
-                else:
-                    break
+                self.sendall(connection, self.generate_headers(200))
+                while True:
+                    line = proc.stdout.readline()
+                    if line:
+                        self.sendall(connection, line)
+                    else:
+                        break
+            except:
+                raise
+            finally:
+                proc.stdin.close()
+                proc.stdout.close()
         else:
             raise FileNotFoundError()
 
@@ -286,7 +286,7 @@ class Server(object):
         self.env['status_code'] = response_code
 
         header = ''
-        header += self.headers.get_header(response_code)
+        header += self.status_lines.get_status_line(response_code)
 
         self.safeLog('debug', header)
 
@@ -297,7 +297,7 @@ class Server(object):
         self.response_code = response_code
         return header
 
-    def reap_children(self, signum, frame): # TODO test behaviour
+    def reap_children(self, signum, frame): # TODO try with flag
         try:
             while os.waitpid(-1, os.WNOHANG)[0] > 0:
                 self.workers -= 1
@@ -311,7 +311,7 @@ class Server(object):
 
     def log_request(self):
         try:
-            with open('./../logs/access.log', "a+") as file:
+            with open(self.opts['logs_path'] + '/access.log', 'a+') as file:
                 file.write('{} {} {} {} "{}" {} {} {} {} {} {} {}\n'.format(
                     self.env.get('client_ip', '-'),
                     self.env.get('remote_logname', '-'),
@@ -348,9 +348,9 @@ class Server(object):
         return (memory, cpu_usage)
 
     def send_status(self, connection):
-        with open('./../logs/access.log', 'a+') as file:
+        with open(self.opts['logs_path'] + '/access.log', 'a+') as file:
             file.seek(0)
-            lines = file.readlines()
+            lines = file.readlines() # TODO iterate file
 
             total_recved = 0
             total_sent = 0
@@ -397,14 +397,14 @@ class Server(object):
             self.sock.close()
             # closing stdin, stdout and stderr streams
             os.close(0) 
-            # os.close(1)
+            os.close(1)
             os.close(2)
         except Exception as e:
             self.safeLog('error', e)
 
     def generate_environment(self):
         return {
-            'DOCUMENT_ROOT': os.path.abspath('./../static'),
+            'DOCUMENT_ROOT': self.opts.get('static_dir_path', ''),
             'HTTP_COOKIE': self.env.get('cookie', ''),
             'HTTP_HOST': self.env.get('headers', '').get('Host', '') + self.env.get('path', ''),
             'HTTP_REFERER': self.env.get('http_referer', ''),
@@ -449,7 +449,7 @@ class Server(object):
 
 if __name__ == '__main__':
     config = configparser.ConfigParser()
-    config.read('./../etc/config.ini')
+    config.read('/home/rosen/Desktop/repo/RosenW-WebServer/v2/etc/config.ini')
 
     port = config.getint('server', 'port')
     address = config.get('server', 'address')
@@ -457,7 +457,9 @@ if __name__ == '__main__':
     timeout = config.getint('server', 'timeout')
     subprocess_count = config.getint('server', 'subprocess_count')
     recv = config.getint('server', 'recv')
-    error_path = config.get('server', 'error_path')
+    logs_path = config.get('server', 'logs_path')
+    static_dir_path = config.get('server', 'static_dir_path')
+    cgi_bin_dir_path = config.get('server', 'cgi_bin_dir_path')
     max_header_length = config.getint('server', 'max_header_length')
     log_level = config.get('server', 'log_level')
     status_path = config.get('server', 'status_path')
@@ -471,7 +473,9 @@ if __name__ == '__main__':
         'subprocess_count': subprocess_count,
         'recv': recv,
         'max_header_length': max_header_length,
-        'error_path': error_path,
+        'logs_path': logs_path,
+        'static_dir_path': static_dir_path,
+        'cgi_bin_dir_path': cgi_bin_dir_path,
         'log_level': log_level,
         'status_path': status_path,
         'admin_email': admin_email
