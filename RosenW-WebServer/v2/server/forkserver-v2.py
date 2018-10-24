@@ -10,6 +10,7 @@ import configparser
 import resource
 import cProfile
 import subprocess
+import psutil
 from error.asserts import assert_user, assert_peer
 from error.exceptions import SubprocessLimitException, PeerError, ServerError
 from utils.http_status_codes_headers import HTTPHeaders
@@ -55,9 +56,12 @@ class Server(object):
             try:
                 connection, client_address = self.sock.accept()
                 self.accepted_connections += 1
-                # self.safeLog('warn', self.workers)
+                self.safeLog('debug', 'Current workers {}'.format(self.workers))
                 if self.workers >= self.max_subprocess_count:
-                    raise SubprocessLimitException('Accepted Connection, but workers were over the allowed limit')
+                    if len(psutil.Process().children()) >= self.max_subprocess_count:
+                        raise SubprocessLimitException('Accepted Connection, but workers were over the allowed limit')
+                    else:
+                        self.workers = len(psutil.Process().children())
                 self.safeLog('debug', 'accepted connection: {}'.format(client_address))
 
                 self.workers += 1
@@ -293,12 +297,9 @@ class Server(object):
         self.response_code = response_code
         return header
 
-    def reap_children(self, signum, frame):
+    def reap_children(self, signum, frame): # TODO test behaviour
         try:
-            while True:
-                (pid, code) = os.waitpid(-1, os.WNOHANG)
-                if pid == 0:
-                    break
+            while os.waitpid(-1, os.WNOHANG)[0] > 0:
                 self.workers -= 1
         except ServerError as e:
             self.safeLog('debug', e)
@@ -382,6 +383,7 @@ class Server(object):
         status += '<p>Total Bytes Received: {}b</p>'.format(total_recved)
         status += '<p>Total Bytes Sent: {}b</p>'.format(total_sent)
         status += '<p>Errors since start: {}</p>'.format(self.error_count)
+        status += '<p>Current workers: {}</p>'.format(self.workers)
 
         status += '<p>Responses (http code - count):</p>'
         for k, v in response_codes.items():
