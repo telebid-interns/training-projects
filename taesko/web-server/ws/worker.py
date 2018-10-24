@@ -27,12 +27,15 @@ class Worker:
     """
     max_exchange_history = CLIENT_ERRORS_THRESHOLD * 2
 
-    def __init__(self, iterable_socket, address):
+    def __init__(self, iterable_socket, address, main_ctx):
         assert isinstance(iterable_socket, ws.sockets.ClientSocket)
+        assert isinstance(main_ctx, collections.Mapping)
+
         self.sock = iterable_socket
         self.address = address
         self.status_code_on_abort_depreciated = None
         self.exchanges = collections.deque(maxlen=self.max_exchange_history)
+        self.main_ctx = main_ctx
 
         signal.signal(signal.SIGTERM, self.handle_termination)
 
@@ -173,9 +176,13 @@ class Worker:
             for chunk in response.iter_chunks():
                 self.sock.send_all(chunk)
 
+        post_send_time = time.time()
         if self.exchange['request_start']:
-            self.exchange['response_time'] = (time.time() -
+            self.exchange['response_time'] = (post_send_time -
                                               self.exchange['request_start'])
+        if self.main_ctx:
+            self.exchange['total_time'] = (post_send_time -
+                                           self.main_ctx['worker_start'])
 
         try:
             rusage = resource.getrusage(resource.RUSAGE_SELF)
@@ -233,15 +240,18 @@ def handle_client_socket_err(exc):
         return ws.http.utils.build_response(400)
 
 
-def work(client_socket, address, quick_reply_with=None):
+def work(client_socket, address, main_ctx=None, quick_reply_with=None):
+    main_ctx = main_ctx or {}
+
     assert isinstance(client_socket, ws.sockets.ClientSocket)
     assert isinstance(address, collections.Container)
     assert (not quick_reply_with or
             isinstance(quick_reply_with, ws.http.structs.HTTPResponse))
+    assert isinstance(main_ctx, collections.Mapping)
 
     # noinspection PyBroadException
     try:
-        with Worker(client_socket, address) as worker:
+        with Worker(client_socket, address, main_ctx=main_ctx) as worker:
             if quick_reply_with:
                 worker.respond(quick_reply_with, closing=True,
                                ignored_request=True)
@@ -266,22 +276,15 @@ def work(client_socket, address, quick_reply_with=None):
 def handle_request(request, client_socket):
     route = request.request_line.request_target.path
     method = request.request_line.method
-
     error_log.debug3('Incoming request {} {}'.format(method, route))
-    if method == 'GET':
-        if ws.serve.is_status_route(route):
-            error_log.debug('Serving status')
-            return ws.serve.status()
-        elif ws.serve.is_static_route(route):
-            error_log.debug('Serving static file')
-            return ws.serve.get_file(route)
 
-    if ws.cgi.can_handle_request(request):
-        error_log.debug('Request will be handled through a CGI script.')
+    if method == 'GET' and ws.serve.is_status_route(route):
+        return ws.serve.status()
+    elif method == 'GET' and ws.serve.is_static_route(route):
+        return ws.serve.get_file(route)
+    elif ws.cgi.can_handle_request(request):
         return ws.cgi.execute_script(request, client_socket)
     elif method == 'GET':
         return ws.http.utils.build_response(404)
     else:
-        error_log.debug('Client sent unsupported method %s', method)
         return ws.http.utils.build_response(405)
-

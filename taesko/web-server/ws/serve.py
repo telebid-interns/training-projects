@@ -135,7 +135,8 @@ def status():
         8: 'ru_stime',
         9: 'ru_maxrss',
         10: 'response_time',
-        11: 'parse_time'
+        11: 'parse_time',
+        12: 'total_time'
     }
     line_count = -1
     with open(config['access_log']['file_name'], mode='r') as f:
@@ -169,6 +170,7 @@ def status():
     lines.append('served_requests={}\n'.format(line_count + 1))
     lines.sort(key=lambda s: s.strip('max').strip('avg'))
     body = b'\n'.join(l.encode('ascii') for l in lines)
+    # TODO fix these shenanigans
     ib = io.BytesIO()
     ib.write(body)
     ib.seek(0)

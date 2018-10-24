@@ -51,7 +51,8 @@ class _AccessLogger:
         self.logger.propagate = False
 
     def log(self, *, request=None, response=None, ru_utime='-', ru_stime='-',
-            ru_maxrss='-', response_time='-', parse_time='-', **kwargs):
+            ru_maxrss='-', response_time='-', parse_time='-', total_time='-',
+            **kwargs):
         # request might be None if the server ignored the request and replied
         # instantly with 4xx or 5xx code
         self.logger.critical('ACCESSED', extra=dict(
@@ -64,6 +65,7 @@ class _AccessLogger:
             ru_maxrss=ru_maxrss,
             response_time=response_time,
             parse_time=parse_time,
+            total_time=total_time,
             **kwargs
         ))
 

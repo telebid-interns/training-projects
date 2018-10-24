@@ -203,7 +203,11 @@ class Server:
                 os.close(0)  # stdin
                 os.close(1)  # stdout
                 os.close(2)  # stderr
-                exit_code = client_socket_handler(client_socket, address)
+                exit_code = client_socket_handler(
+                    client_socket,
+                    address,
+                    main_ctx=dict(worker_start=start)
+                )
 
                 if exit_code is None:
                     exit_code = 2
