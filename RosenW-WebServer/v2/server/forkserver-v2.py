@@ -41,7 +41,6 @@ class Server(object):
         self.workers = 0
         self.max_subprocess_count = opts['subprocess_count']
         self.timeout = opts['timeout']
-        self.response_code_count = {}
         self.start_time = time.time()
         signal.signal(signal.SIGCHLD, self.reap_children)
 
@@ -55,9 +54,8 @@ class Server(object):
 
             try:
                 connection, client_address = self.sock.accept()
-                self.safeLog('trace', self.response_code_count)
                 self.accepted_connections += 1
-                self.safeLog('debug', self.workers)
+                # self.safeLog('warn', self.workers)
                 if self.workers >= self.max_subprocess_count:
                     raise SubprocessLimitException('Accepted Connection, but workers were over the allowed limit')
                 self.safeLog('debug', 'accepted connection: {}'.format(client_address))
@@ -70,7 +68,7 @@ class Server(object):
                     break
             except SubprocessLimitException as e:
                 self.sendall(connection, self.generate_headers(503))
-                self.safeLog('warn', e)
+                self.safeLog('warn', e) # TODO remove blocking IO for 503 use stderr or ram or smthing else
                 self.log_request()
             except OSError as e:
                 if e.errno not in [os.errno.EINTR, os.errno.EPIPE]:
@@ -105,8 +103,6 @@ class Server(object):
             self.env['client_ip'] = client_address[0]
             self.env['port'] = client_address[1]
             self.env['request_time'] = datetime.datetime.now().isoformat()
-            self.env['bytes_sent'] = 0 # TODO might not need init
-            self.env['bytes_recved'] = 0
             connection.settimeout(self.timeout)
             (content_length, body_chunk) = self.recv_request(connection)
 
@@ -145,12 +141,9 @@ class Server(object):
                     self.env['cpu']
                 ) = self.get_process_info()
                 self.log_request()
-                os._exit(self.exit_codes.get_exit_code(self.env.get('status_code', 0)))
+                os._exit(0)
             except ServerError as e:
-                if e.status_code == 'NO_MAPPING_FOR_STATUS_CODE':
-                    self.safeLog('warn', e)
-                else:
-                    self.safeLog('error', e)
+                self.safeLog('error', e)
             except BaseException as e:
                 self.safeLog('error', e)
                 sys.exit()
@@ -317,7 +310,7 @@ class Server(object):
 
     def log_request(self):
         try:
-            with open('./../logs/access.log', "a+") as file: # TODO if file too large circulate or smth
+            with open('./../logs/access.log', "a+") as file:
                 file.write('{} {} {} {} "{}" {} {} {} {} {} {} {}\n'.format(
                     self.env.get('client_ip', '-'),
                     self.env.get('remote_logname', '-'),
@@ -364,14 +357,17 @@ class Server(object):
 
             for line in lines:
                 stats = line.split('"')[2].split()
-                total_recved += int(stats[5])
-                total_sent += int(stats[6])
-                http_code = stats[0]
+                if stats[5].isdigit():
+                    total_recved += int(stats[5])
+                if stats[6].isdigit():
+                    total_sent += int(stats[6])
+                if stats[0].isdigit():
+                    http_code = stats[0]
 
-                if http_code not in response_codes:
-                    response_codes[http_code] = 1
-                else:
-                    response_codes[http_code] += 1
+                    if http_code not in response_codes:
+                        response_codes[http_code] = 1
+                    else:
+                        response_codes[http_code] += 1
 
         seconds = int((time.time() - self.start_time))
         minutes = int((seconds / 60) % 60)
@@ -430,7 +426,7 @@ class Server(object):
 
     def sendall(self, socket, data):
         try: 
-            self.env['bytes_sent'] += len(data)
+            self.env['bytes_sent'] = int(self.env.get('bytes_sent', 0)) + len(data)
             if isinstance(data, str):
                 data = data.encode()
             socket.sendall(data)
@@ -445,7 +441,7 @@ class Server(object):
 
     def recv(self, socket, chunk_size):
         chunk = socket.recv(chunk_size)
-        self.env['bytes_recved'] += len(chunk)
+        self.env['bytes_recved'] = int(self.env.get('bytes_recved', 0)) + len(chunk)
         return chunk
 
 
