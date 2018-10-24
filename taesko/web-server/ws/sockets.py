@@ -69,7 +69,7 @@ class ClientSocket:
             error_log.warning('Socket timed out while receiving request.')
             raise ClientSocketException(code='CS_PEER_SEND_IS_TOO_SLOW') from e
 
-        error_log.debug('Read chunk %s', chunk)
+        error_log.debug3('Read chunk %s', chunk)
 
         if chunk == b'':
             error_log.info('Socket %d broke', self.sock.fileno())
@@ -143,7 +143,7 @@ class ClientSocket:
             SHUT_WR: 'Shutting down socket %d for writing/sending.',
             SHUT_RDWR: 'Shutting down socket %d for both r/w.'
         }
-        error_log.debug(msgs[how], self.sock.fileno())
+        error_log.debug2(msgs[how], self.sock.fileno())
 
         self.sock.shutdown(how)
 
@@ -165,7 +165,7 @@ class ClientSocket:
                               'with ERRNO=%s and reason: %s',
                               self.fileno(), err.errno, err.strerror)
         finally:
-            error_log.debug('Closing socket %d', self.sock.fileno())
+            error_log.debug2('Closing socket %d', self.sock.fileno())
             try:
                 self.sock.close()
             except OSError:
