@@ -7,6 +7,7 @@ import time
 import ws.http.utils
 from ws.config import config
 from ws.err import *
+from ws.http.utils import normalized_route
 from ws.logs import error_log
 
 CGI_SCRIPTS_DIR = config['cgi']['scripts_dir']
@@ -255,13 +256,6 @@ def stdout_chunk_iterator(byte_iterator, *, timeout, stdin, stdout,
                 currently_written = 0
             wrote = os.write(stdin, current_chunk[currently_written:])
             currently_written += wrote
-
-
-def normalized_route(route):
-    if not route.endswith('/'):
-        return route + '/'
-    else:
-        return route
 
 
 CGI_SCRIPTS = cgi_config()

@@ -92,3 +92,10 @@ def decode_uri_component(component):
         index += len(hex_)
 
     return ''.join(decoded)
+
+
+def normalized_route(route):
+    if not route.endswith('/'):
+        return route + '/'
+    else:
+        return route
