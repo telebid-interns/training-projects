@@ -49,7 +49,7 @@ class Worker:
     def __exit__(self, exc_type, exc_val, exc_tb):
         if not exc_val:
             error_log.info('Execution successful. Cleaning up worker.')
-            self.sock.close(with_shutdown=True, safely=True)
+            self.sock.safely_close()
             return False
 
         error_log.info('Execution failed. Cleaning up worker.')
