@@ -29,7 +29,7 @@ class Server(object):
 
         self.opts = opts
         self.status_lines = StatusLines()
-        self.logger = Logger(opts['log_level'], { 'error': opts['logs_path'] + '/error.log' })
+        self.logger = Logger(opts['log_level'], { 'error': opts['logs_path'] + '/error.log', 'trace': opts['logs_path'] + '/trace.log'})
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) # level, optname, value
         self.sock.bind((opts['address'], opts['port']))
@@ -41,6 +41,7 @@ class Server(object):
         self.max_subprocess_count = opts['subprocess_count']
         self.timeout = opts['timeout']
         self.start_time = time.time()
+        self.is_reaping_children_locked = False
         signal.signal(signal.SIGCHLD, self.reap_children)
 
     def start(self):
@@ -54,15 +55,16 @@ class Server(object):
             try:
                 connection, client_address = self.sock.accept()
                 self.accepted_connections += 1
-                self.safeLog('debug', 'Current workers {}'.format(self.workers))
+                self.safeLog('warn', 'Current workers {}'.format(self.workers))
                 if self.workers >= self.max_subprocess_count:
-                    if len(psutil.Process().children()) >= self.max_subprocess_count: # TODO DIY
-                        raise SubprocessLimitException('Accepted Connection, but workers were over the allowed limit')
-                    else:
-                        self.workers = len(psutil.Process().children())
+                    raise SubprocessLimitException('Accepted Connection, but workers were over the allowed limit')
                 self.safeLog('debug', 'accepted connection: {}'.format(client_address))
 
+                self.is_reaping_children_locked = True
                 self.workers += 1
+                self.is_reaping_children_locked = False
+
+                self.safeLog('trace', 'workers++ {}'.format(self.workers))
                 pid = os.fork()
                 if pid == 0:
                     self.close_inherited_fds()
@@ -275,10 +277,19 @@ class Server(object):
         self.response_code = response_code
         return header
 
-    def reap_children(self, signum, frame): # TODO try with flag
+    def reap_children(self, signum, frame):
+        self.safeLog('trace', 'reap children called')
+        if self.is_reaping_children_locked:
+            self.safeLog('trace', 'reap children blocked by flag')
+            return
+
+        self.is_reaping_children_locked = True
+        self.safeLog('trace', 'reap children flagged as blocked')
+
         try:
             while os.waitpid(-1, os.WNOHANG)[0] > 0:
                 self.workers -= 1
+                self.safeLog('trace', 'workers--: {}'.format(self.workers))
         except ServerError as e:
             self.safeLog('debug', e)
         except OSError as e:
@@ -286,6 +297,9 @@ class Server(object):
                 self.safeLog('error', e)
         except BaseException as e:
             self.safeLog('error', e)
+        finally:
+            self.is_reaping_children_locked = False
+            self.safeLog('trace', 'reap children unlocked')
 
     def log_request(self):
         try:
