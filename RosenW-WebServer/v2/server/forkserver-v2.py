@@ -11,6 +11,7 @@ import resource
 import cProfile
 import subprocess
 import psutil
+import ssl
 from error.asserts import assert_user, assert_peer
 from error.exceptions import SubprocessLimitException, PeerError, ServerError
 from utils.http_status_codes_headers import StatusLines
@@ -31,6 +32,11 @@ class Server(object):
         self.status_lines = StatusLines()
         self.logger = Logger(opts['log_level'], { 'error': opts['logs_path'] + '/error.log', 'trace': opts['logs_path'] + '/trace.log'})
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock = ssl.wrap_socket(
+            self.sock,
+            certfile=opts['ssl_cert'],
+            keyfile=opts['ssl_key'],
+            server_side=True)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) # level, optname, value
         self.sock.bind((opts['address'], opts['port']))
         self.sock.listen(opts['request_queue_size'])
@@ -456,6 +462,8 @@ if __name__ == '__main__':
     log_level = config.get('server', 'log_level')
     status_path = config.get('server', 'status_path')
     admin_email = config.get('server', 'admin_email')
+    ssl_cert = config.get('server', 'ssl_cert')
+    ssl_key = config.get('server', 'ssl_key')
 
     opts = {
         'port': port,
@@ -470,7 +478,9 @@ if __name__ == '__main__':
         'cgi_bin_dir_path': cgi_bin_dir_path,
         'log_level': log_level,
         'status_path': status_path,
-        'admin_email': admin_email
+        'admin_email': admin_email,
+        'ssl_cert': ssl_cert,
+        'ssl_key': ssl_key
     }
 
     Server(opts).start()
