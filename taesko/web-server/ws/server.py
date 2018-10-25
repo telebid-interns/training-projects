@@ -194,6 +194,7 @@ class Server:
             return
 
         if pid == 0:
+            signal.signal(signal.SIGCHLD, signal.SIG_IGN)
             start = time.time()
             with profile(WORKER_PROFILING_ON):
                 ws.logs.setup_worker_handlers()

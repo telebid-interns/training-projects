@@ -5,6 +5,7 @@ import subprocess
 import time
 
 import ws.http.utils
+import ws.sockets
 from ws.config import config
 from ws.err import *
 from ws.http.utils import normalized_route
@@ -204,21 +205,58 @@ def execute_script(request, client_socket):
     script_env = prepare_cgi_script_env(request, client_socket)
     error_log.debug('CGIScript environment will be: %s', script_env)
 
+    has_body = 'Content-Length' in request.headers
+
+    if has_body:
+        stdin = subprocess.PIPE
+    else:
+        stdin = client_socket.fileno()
+
     try:
-        subprocess.Popen(
+        proc = subprocess.Popen(
             args=os.path.abspath(cgi_script.script_path),
             env=script_env,
-            stdin=client_socket.fileno(),
+            stdin=stdin,
             stdout=client_socket.fileno()
         )
     except (OSError, ValueError):
         error_log.exception('Failed to open subprocess for cgi script {}'
                             .format(cgi_script.name))
         return ws.http.utils.build_response(500)
-    else:
-        client_socket.close(with_shutdown=False, pass_silently=True,
-                            safely=False)
-        return None
+
+    if not has_body:
+        client_socket.close(pass_silently=True)
+        return
+
+    error_log.debug('Request to CGI has body. Writing to stdin...')
+
+    try:
+        length = int(request.headers['Content-Length'])
+        body = (next(client_socket) for _ in range(length))
+        chunk_size = 4096
+        while True:
+            try:
+                chunk = bytes(b for i, b in enumerate(body) if i < chunk_size)
+            except ws.sockets.ClientSocketException as err:
+                error_log.warning('Encountered socket error while writing '
+                                  'body - %s', err)
+                break
+
+            if chunk:
+                error_log.debug3('Writing chunk %s', chunk)
+                proc.stdin.write(chunk)
+            else:
+                break
+    except ValueError:
+        pass
+    except Exception:
+        error_log.exception('Failed to write body to CGI script.')
+    finally:
+        client_socket.close(pass_silently=True)
+        try:
+            proc.stdin.close()
+        except OSError:
+            pass
 
 
 def stdout_chunk_iterator(byte_iterator, *, timeout, stdin, stdout,
