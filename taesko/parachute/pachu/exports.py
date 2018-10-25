@@ -319,7 +319,8 @@ def export_credit_history(
         JOIN subscriptions 
             ON subscriptions_fetches.subscription_id=subscriptions.id
         JOIN users_subscriptions 
-            ON subscriptions.id=users_subscriptions.subscription_id 
+            ON subscriptions.id=users_subscriptions.subscription_id AND
+                users_subscriptions.user_id=%(user_id)s
                 {status_filter}
                 {date_from_filter}
                 {date_to_filter}
@@ -350,7 +351,7 @@ def export_credit_history(
         raise UserError(msg='Query took too long',
                         code='API_ECH_QUERY_TIMEOUT',
                         user_msg='Export is too large. Use the filters, Luke.')
-
+    stderr_logger.info('Fetched rows from db. Beginning export to .xlsx...')
     # TODO refactor this code into a generic class that works for every query
     column_names = {column: export_name
                     for column, export_name in column_names.items()
@@ -371,6 +372,7 @@ def export_credit_history(
                                records_iterable=cursor.fetchall(),
                                filters=human_readable_filters)
 
+    stderr_logger.info('Saving export to temporary file.')
     tmp = tempfile.NamedTemporaryFile()
     wb.save(tmp.name)
     tmp.seek(0)
