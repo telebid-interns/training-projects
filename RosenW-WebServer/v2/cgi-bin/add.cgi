@@ -2,16 +2,20 @@
 import os
 
 query = os.environ['QUERY_STRING']
+
 pairs = query.split('&')
+
 a = None;
 b = None;
 c = None;
+
 for pair in pairs:
-    (k, v) = pair.split('=')
-    if k == 'a' and v.isdigit():
-        a = v
-    if k == 'b' and v.isdigit():
-        b = v
+    if '=' in pair:
+        (k, v) = pair.split('=')
+        if k == 'a' and v.isdigit():
+            a = v
+        if k == 'b' and v.isdigit():
+            b = v
 
 if a and b:
     c = int(a) + int(b)

@@ -107,15 +107,11 @@ class Server(object):
             connection.settimeout(self.timeout)
             (content_length, body_chunk) = self.recv_request(connection)
 
-            if self.env['request_method'] == 'GET':
-                if self.env['path'] == self.opts['status_path']:
-                    self.send_status(connection)
-                    return
-                self.handle_get(connection, self.env['path'])
-            elif self.env['request_method'] == 'POST':
-                self.handle_post(connection, self.env['path'], content_length, body_chunk)
-            else:
-                raise FileNotFoundError()
+            if self.env['request_method'] == 'GET' and self.env['path'] == self.opts['status_path']:
+                self.send_status(connection)
+                return
+
+            self.respond(connection, content_length, body_chunk)
 
         except (KeyboardInterrupt, RuntimeError) as e:
             pass
@@ -149,13 +145,12 @@ class Server(object):
                 self.safeLog('error', e)
                 sys.exit()
 
-
-    def handle_get(self, connection, path):
+    def respond(self, connection, content_length, body_chunk):
         static_path = os.path.abspath(self.opts['static_dir_path'])
         cgi_path = os.path.abspath(self.opts['cgi_bin_dir_path'])
 
-        whole_static_path = os.path.abspath(static_path + path)
-        whole_cgi_path = os.path.abspath(cgi_path + path)
+        whole_static_path = os.path.abspath(static_path + self.env['path'])
+        whole_cgi_path = os.path.abspath(cgi_path + self.env['path'])
 
         self.env['script_abs_path'] = whole_cgi_path
 
@@ -178,54 +173,34 @@ class Server(object):
             elif whole_cgi_path.startswith(cgi_path) and whole_cgi_path[len(whole_cgi_path)-4:] == '.cgi' and os.path.exists(whole_cgi_path):
                 self.env['script_filename'] = whole_cgi_path.split('/')[-1]
                 proc_env = self.generate_environment()
-                proc = subprocess.Popen(whole_cgi_path, stdout=subprocess.PIPE, env=proc_env)
-                self.sendall(connection, self.generate_headers(200))
-                while True:
-                    line = proc.stdout.readline()
-                    if line:
-                        self.sendall(connection, line)
-                    else:
-                        break
+                try:
+                    proc = subprocess.Popen(whole_cgi_path, stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=proc_env)
+                    proc.stdin.write(body_chunk)
+                    bytes_sent = len(body_chunk)
+
+                    while bytes_sent < int(content_length):
+                        chunk = self.recv(connection, self.opts['recv'])
+                        if not chunk:
+                            raise RuntimeError("socket connection broken")
+                        proc.stdin.write(chunk)
+                        bytes_sent += len(chunk)
+                    proc.stdin.close()
+
+                    self.sendall(connection, self.generate_headers(200))
+                    while True:
+                        line = proc.stdout.readline()
+                        if line:
+                            self.sendall(connection, line)
+                        else:
+                            break
+                    proc.stdout.close()
+                except:
+                    raise
+                finally:
+                    proc.stdin.close()
+                    proc.stdout.close()
             else:
                 raise FileNotFoundError()
-
-    def handle_post(self, connection, path, content_length, body_chunk):
-        cgi_path = os.path.abspath(self.opts['cgi_bin_dir_path'])
-        whole_cgi_path = os.path.abspath(cgi_path + path)
-
-        self.env['script_abs_path'] = whole_cgi_path
-
-        if os.path.islink(whole_cgi_path):
-            raise FileNotFoundError()
-        elif whole_cgi_path.startswith(cgi_path) and whole_cgi_path[len(whole_cgi_path)-4:] == '.cgi' and os.path.exists(whole_cgi_path):
-            self.env['script_filename'] = whole_cgi_path.split('/')[-1]
-            proc_env = self.generate_environment()
-            try:
-                proc = subprocess.Popen(whole_cgi_path, stdin=subprocess.PIPE, stdout=subprocess.PIPE, env=proc_env)
-                proc.stdin.write(body_chunk)
-                bytes_sent = len(body_chunk)
-
-                while bytes_sent < int(content_length):
-                    chunk = self.recv(connection, self.opts['recv'])
-                    if not chunk:
-                        raise RuntimeError("socket connection broken")
-                    proc.stdin.write(chunk)
-                    bytes_sent += len(chunk)
-
-                self.sendall(connection, self.generate_headers(200))
-                while True:
-                    line = proc.stdout.readline()
-                    if line:
-                        self.sendall(connection, line)
-                    else:
-                        break
-            except:
-                raise
-            finally:
-                proc.stdin.close()
-                proc.stdout.close()
-        else:
-            raise FileNotFoundError()
 
     def recv_request(self, connection):
         data = self.recv(connection, self.opts['recv'])
