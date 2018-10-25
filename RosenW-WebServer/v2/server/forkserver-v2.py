@@ -69,8 +69,7 @@ class Server(object):
                     self.handle_request(connection, client_address)
                     break
             except SubprocessLimitException as e:
-                self.sendall(connection, self.generate_headers(503)) # TODO remove blocking IO for 503 use stderr or ram or smthing else
-                self.log_request()
+                self.sendall(connection, self.generate_headers(503))
             except OSError as e:
                 if e.errno not in [os.errno.EINTR, os.errno.EPIPE]:
                     self.safeLog('error', e)
@@ -107,8 +106,9 @@ class Server(object):
             connection.settimeout(self.timeout)
             (content_length, body_chunk) = self.recv_request(connection)
 
-            if self.env['request_method'] == 'GET' and self.env['path'] == self.opts['status_path']:
-                self.send_status(connection)
+
+            if self.env['request_method'] not in ['GET', 'POST']:
+                self.sendall(connection, self.generate_headers(405))
                 return
 
             self.respond(connection, content_length, body_chunk)
@@ -155,7 +155,10 @@ class Server(object):
         self.env['script_abs_path'] = whole_cgi_path
 
         try:
-            if os.path.islink(whole_static_path):
+            if self.env['request_method'] == 'GET' and self.env['path'] == self.opts['status_path']:
+                self.send_status(connection)
+                return
+            if os.path.islink(whole_static_path) or self.env['request_method'] != 'GET':
                 raise FileNotFoundError()
             elif whole_static_path.startswith(static_path):
                 with open(whole_static_path, "rb") as file:
@@ -325,13 +328,13 @@ class Server(object):
     def send_status(self, connection):
         with open(self.opts['logs_path'] + '/access.log', 'a+') as file:
             file.seek(0)
-            lines = file.readlines() # TODO iterate file
 
             total_recved = 0
             total_sent = 0
             response_codes = {}
 
-            for line in lines:
+            for line in file:
+                line.rstrip('\n')
                 stats = line.split('"')[2].split()
                 if stats[5].isdigit():
                     total_recved += int(stats[5])
