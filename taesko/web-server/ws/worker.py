@@ -76,11 +76,8 @@ class Worker:
 
         response.headers['Connection'] = 'close'
 
-        ignored_request = isinstance(exc_val, (ws.sockets.ClientSocketException,
-                                               ws.http.parser.ParserException))
-
         try:
-            self.respond(response, ignored_request=ignored_request)
+            self.respond(response)
         except OSError as e:
             error_log.warning('During cleanup of worker tried to respond to '
                               'client and close the connection but: '
@@ -131,9 +128,9 @@ class Worker:
             self.exchange['parse_time'] = (time.time() -
                                            self.exchange['request_start'])
 
-            handler_result = request_handler(self.exchange['request'],
-                                             self.sock)
-            self.respond(handler_result)
+            handler_response = request_handler(self.exchange['request'],
+                                               self.sock)
+            self.respond(handler_response)
 
             client_persists = ws.http.utils.request_is_persistent(
                 self.exchange['request']
@@ -144,30 +141,30 @@ class Worker:
             if not (client_persists and server_persists):
                 break
 
-    def respond(self, response=None, *, closing=False, ignored_request=False):
+    def respond(self, response=None, *, closing=False):
         """
 
         :param response: Response object to send to client
         :param closing: Boolean switch whether the http connection should be
             closed after this response.
-        :param ignored_request: Boolean flag whether the request sent from the
-            client was not read through the socket. (this will imply that an
-            empty request string ("") will be sent to the access.log)
         :return:
         """
         if response:
             assert isinstance(response, ws.http.structs.HTTPResponse)
         assert isinstance(closing, bool)
-        assert isinstance(ignored_request, bool)
 
         if closing:
             response.headers['Connection'] = 'close'
-        elif not ignored_request:
-            conn = str(self.exchange['request'].headers.get('Connection', b''),
-                       encoding='ascii')
+        elif self.exchange['request'] and 'Connection' not in response.headers:
+            request_headers = self.exchange['request'].headers
 
-            if conn:
-                response.headers['Connection'] = conn
+            try:
+                conn_value = str(request_headers['Connection'],
+                                 encoding='ascii')
+            except UnicodeDecodeError:
+                response.headers['Connection'] = 'close'
+            else:
+                response.headers['Connection'] = conn_value
 
         self.exchange['response'] = response
 
@@ -191,7 +188,7 @@ class Worker:
             self.exchange['ru_maxrss'] = rusage.ru_maxrss
         except OSError as err:
             error_log.warning('Cannot record resource usage because '
-                              'getrusage() failed with ERNNO=%s and MSG=%s',
+                              'getrusage() failed with ERRNO=%s and MSG=%s',
                               err.errno, err.strerror)
 
         access_log.log(**self.exchange)
@@ -253,8 +250,7 @@ def work(client_socket, address, main_ctx=None, quick_reply_with=None):
     try:
         with Worker(client_socket, address, main_ctx=main_ctx) as worker:
             if quick_reply_with:
-                worker.respond(quick_reply_with, closing=True,
-                               ignored_request=True)
+                worker.respond(quick_reply_with, closing=True)
                 return 0
 
             worker.process_connection(request_handler=handle_request)
