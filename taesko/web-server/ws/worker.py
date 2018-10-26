@@ -142,12 +142,20 @@ class Worker:
 
             self.respond(response)
 
-            client_persists = ws.http.utils.request_is_persistent(
-                self.exchange['request']
-            )
-            server_persists = ws.http.utils.response_is_persistent(
-                self.exchange['response']
-            )
+            if self.exchange['request']:
+                client_persists = ws.http.utils.request_is_persistent(
+                    self.exchange['request']
+                )
+            else:
+                client_persists = False
+
+            if self.exchange['response']:
+                server_persists = ws.http.utils.response_is_persistent(
+                    self.exchange['response']
+                )
+            else:
+                server_persists = False
+
             if not (client_persists and server_persists):
                 break
 
@@ -159,26 +167,28 @@ class Worker:
             closed after this response.
         :return:
         """
-        if response:
-            assert isinstance(response, ws.http.structs.HTTPResponse)
         assert isinstance(closing, bool)
-
-        if closing:
-            response.headers['Connection'] = 'close'
-        elif self.exchange['request'] and 'Connection' not in response.headers:
-            request_headers = self.exchange['request'].headers
-
-            try:
-                conn_value = str(request_headers['Connection'],
-                                 encoding='ascii')
-            except UnicodeDecodeError:
-                response.headers['Connection'] = 'close'
-            else:
-                response.headers['Connection'] = conn_value
 
         self.exchange['response'] = response
 
         if response:
+            assert isinstance(response, ws.http.structs.HTTPResponse)
+
+            if closing:
+                response.headers['Connection'] = 'close'
+            elif (self.exchange['request'] and
+                  'Connection' not in response.headers and
+                  'Connection' in self.exchange['request'].headers):
+                request_headers = self.exchange['request'].headers
+
+                try:
+                    conn_value = str(request_headers['Connection'],
+                                     encoding='ascii')
+                except UnicodeDecodeError:
+                    response.headers['Connection'] = 'close'
+                else:
+                    response.headers['Connection'] = conn_value
+
             self.exchange['written'] = True
             for chunk in response.iter_chunks():
                 self.sock.send_all(chunk)
