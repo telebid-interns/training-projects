@@ -115,13 +115,19 @@ def parse_req_msg(msg):
     return result
 
 
-def add_status_line(status_code, body=b''):
+def add_res_meta(status_code, headers={}, body=b''):
     assert_app(type(status_code) == bytes)
+    assert_app(type(headers) == dict)
     assert_app(type(body) == bytes)
     assert_app(status_code in response_reason_phrases)
 
     result = (b'HTTP/1.1 ' + status_code + b' ' +
-              response_reason_phrases[status_code] + b'\r\n\r\n' + body)
+              response_reason_phrases[status_code])
+
+    for field_name, field_value in headers.items():
+        result += (b'\r\n' + field_name + b': ' + field_value)
+
+    result += (b'\r\n\r\n' + body)
 
     return result
 
@@ -142,7 +148,7 @@ def handle_request(conn):
                 # TODO maybe this is unnecessary, but mind the sendall in
                 # the finally block
                 log('case 1')
-                response = add_status_line(b'400')
+                response = add_res_meta(b'400')
                 return
 
             if msg_received.find(b'\r\n\r\n') != -1:
@@ -151,7 +157,7 @@ def handle_request(conn):
                 break
         else:
             log('case2 ')
-            response = add_status_line(b'400')
+            response = add_res_meta(b'400')
             return
 
         request_data = parse_req_msg(msg_received)  # TODO may throw PeerError
@@ -168,7 +174,7 @@ def handle_request(conn):
         if config['root_dir'] not in file_path:
             # TODO check if this is correct error handling
             log('case 3')
-            response = add_status_line(b'400')
+            response = add_res_meta(b'400')
             return
 
         with open(file_path, mode='rb') as content_file:
@@ -178,9 +184,14 @@ def handle_request(conn):
                 content = content_file.read(config['read_buffer'])
 
                 if len(content) <= 0:
-                    break;
+                    break
                 if response_packages_sent == 0:
-                    response = add_status_line(b'200', content)
+                    content_length = os.path.getsize(file_path)
+
+                    headers = {
+                        b'Content-Length': bytes(str(content_length), 'utf-8')
+                    }
+                    response = add_res_meta(b'200', headers, content)
                 else:
                     response = content
 
@@ -189,11 +200,14 @@ def handle_request(conn):
 
     except PeerError:
         log('case 4')
-        response = add_status_line(b'400')
+        response = add_res_meta(b'400')
+        conn.sendall(response)
     except FileNotFoundError:
-        response = add_status_line(b'404')
+        response = add_res_meta(b'404')
+        conn.sendall(response)
     except OSError:
-        response = add_status_line(b'503')
+        response = add_res_meta(b'503')
+        conn.sendall(response)
     except Exception as error:
         log('error 500!')
         log(error)
@@ -202,13 +216,10 @@ def handle_request(conn):
         log(error.__cause__)
         log(type(error))
         log(error.with_traceback())
-        response = add_status_line(b'500')
+        response = add_res_meta(b'500')
+        conn.sendall(response)
     finally:
-        end_time = datetime.datetime.now()
-        #og('Bye bye 1! ({0})'.format(end_time - begin))
         conn.shutdown(socket.SHUT_RDWR)
-        end_time = datetime.datetime.now()
-        #og('Bye bye 2! ({0})'.format(end_time - begin))
 
 
 def start():
@@ -264,4 +275,3 @@ if __name__ == '__main__':
         log(error)
     except json.JSONDecodeError as error:
         log('Error while parsing config file: "{0}"'.format(error))
-
