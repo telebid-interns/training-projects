@@ -1,10 +1,9 @@
-import os
-import pathlib
-import collections
-import hashlib
 import base64
 import binascii
-import time
+import collections
+import hashlib
+import os
+import pathlib
 
 import ws.http.utils as hutils
 from ws.config import config
@@ -53,9 +52,18 @@ class BasicCredentials(collections.namedtuple('_BasicCredentials',
 
 
 class BasicAuth:
+    """ Implements Basic HTTP authentication.
+
+    The check(request, address) method is used to authenticate a client sending
+    a request.
+
+    Credentials are automatically loaded on initialization. Use the
+    load_credentials() method to reload from disk.
+    """
+
     def __init__(self,
                  credentials_storage=config['settings']['authorization_file'],
-                 auth_timeout=config['settings']['auth_timeout']):
+                 auth_timeout=config.getint('settings', 'auth_timeout')):
         assert isinstance(credentials_storage,
                           (str, bytes, bytearray, pathlib.Path))
 
@@ -66,8 +74,7 @@ class BasicAuth:
 
         self.credentials_storage = credentials_storage
         self.credentials = {}
-        self.required_auth = frozenset()
-        self.authorized = {}
+        self.required_auth = tuple()
         self.auth_timeout = auth_timeout
         self.load_credentials()
 
@@ -101,12 +108,8 @@ class BasicAuth:
 
         return login, pw
 
-    @staticmethod
-    def challenges(route):
-        return 'Basic realm="{}"'.format(route)
-
     def load_credentials(self):
-        authorized = {}
+        """ Reload the credentials from the self.credentials_storage file. """
         credentials = {}
         required_auth = set()
 
@@ -118,8 +121,7 @@ class BasicAuth:
                     required_auth.add(route)
 
         self.credentials = credentials
-        self.required_auth = frozenset(required_auth)
-        self.authorized = authorized
+        self.required_auth = tuple(required_auth)
 
     def register_login(self, login, plain_pw, routes):
         with open(self.credentials_storage, mode='a', encoding='utf-8') as f:
@@ -138,35 +140,30 @@ class BasicAuth:
             f.writelines(lines)
 
     def check(self, request, address):
+        """ Authenticates a request coming from address.
+
+        Returns a two-tuple with first element a boolean whether the
+        authentication was successful. The second element is present if the
+        authentication was not successful and is a response that can be sent
+        back to the client.
+        """
         raw_route = request.request_line.request_target.path
         route = hutils.normalized_route(raw_route)
 
-        if route not in self.required_auth:
-            error_log.debug3('route %s does not require auth.', route)
+        if not any(route.startswith(r) for r in self.required_auth):
             return True, None
-        elif address in self.authorized and route in self.authorized[address]:
-            cached_time = self.authorized[address][route]
-            if time.time() - cached_time > self.auth_timeout:
-                del self.authorized[address][route]
-            else:
-                error_log.debug('Using cached authorization for '
-                                'address %s on route %s',
-                                address, route)
-                return True, None
 
         try:
             login, pw = self.parse_authorized_header(request)
         except AuthException:
             return False, hutils.build_response(
-                401, headers={'WWW-Authenticate': self.challenges(route)}
+                401, headers={'WWW-Authenticate': 'Basic'}
             )
 
         error_log.debug('Validating credentials of address %s on route %s',
                         address, route)
 
         if self.credentials[login].match_credentials(login, pw):
-            address_auths = self.authorized.setdefault(address, {})
-            address_auths[route] = time.time()
             return True, None
         else:
             return False, hutils.build_response(403)

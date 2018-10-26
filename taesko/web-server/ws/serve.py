@@ -39,6 +39,7 @@ def file_chunk_gen(fp):
 
 
 def get_file(route):
+    error_log.debug2('Serving static file.')
     resolved = resolve_route(route,
                              route_prefix=STATIC_ROUTE, dir_prefix=STATIC_DIR)
 
@@ -120,6 +121,7 @@ FORMAT_FIELD_REGEX = re.compile('%\((\w*)\)\w')
 
 
 def status():
+    error_log.debug2('Serving status page.')
     # for pos, part in enumerate(config['access_log']['format'].split()):
     #     match = FORMAT_FIELD_REGEX.match(part)
     #     if match:
