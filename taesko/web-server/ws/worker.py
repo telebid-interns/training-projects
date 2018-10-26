@@ -11,6 +11,7 @@ import ws.http.utils
 import ws.ratelimit
 import ws.serve
 import ws.sockets
+import ws.auth
 from ws.config import config
 from ws.err import *
 from ws.logs import error_log, access_log
@@ -27,7 +28,7 @@ class Worker:
     """
     max_exchange_history = CLIENT_ERRORS_THRESHOLD * 2
 
-    def __init__(self, iterable_socket, address, main_ctx):
+    def __init__(self, iterable_socket, address, main_ctx, auth_scheme):
         assert isinstance(iterable_socket, ws.sockets.ClientSocket)
         assert isinstance(main_ctx, collections.Mapping)
 
@@ -36,6 +37,7 @@ class Worker:
         self.status_code_on_abort_depreciated = None
         self.exchanges = collections.deque(maxlen=self.max_exchange_history)
         self.main_ctx = main_ctx
+        self.auth_scheme = auth_scheme
 
         signal.signal(signal.SIGTERM, self.handle_termination)
 
@@ -127,10 +129,18 @@ class Worker:
 
             self.exchange['parse_time'] = (time.time() -
                                            self.exchange['request_start'])
+            is_authorized, auth_response = self.auth_scheme.check(
+                request=self.exchange['request'], address=self.address
+            )
 
-            handler_response = request_handler(self.exchange['request'],
-                                               self.sock)
-            self.respond(handler_response)
+            if is_authorized:
+                response = request_handler(self.exchange['request'],
+                                           self.sock)
+            else:
+                assert isinstance(auth_response, ws.http.structs.HTTPResponse)
+                response = auth_response
+
+            self.respond(response)
 
             client_persists = ws.http.utils.request_is_persistent(
                 self.exchange['request']
@@ -237,7 +247,8 @@ def handle_client_socket_err(exc):
         return ws.http.utils.build_response(400)
 
 
-def work(client_socket, address, main_ctx=None, quick_reply_with=None):
+def work(client_socket, address, *, auth_scheme,
+         main_ctx=None, quick_reply_with=None):
     main_ctx = main_ctx or {}
 
     assert isinstance(client_socket, ws.sockets.ClientSocket)
@@ -248,7 +259,9 @@ def work(client_socket, address, main_ctx=None, quick_reply_with=None):
 
     # noinspection PyBroadException
     try:
-        with Worker(client_socket, address, main_ctx=main_ctx) as worker:
+        with Worker(client_socket, address,
+                    main_ctx=main_ctx,
+                    auth_scheme=auth_scheme) as worker:
             if quick_reply_with:
                 worker.respond(quick_reply_with, closing=True)
                 return 0

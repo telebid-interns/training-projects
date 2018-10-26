@@ -5,6 +5,12 @@ from ws.config import config
 from ws.http.structs import HTTPStatusLine, HTTPHeaders, HTTPResponse
 
 
+RESERVED_URI_CHARS = {'!', '*', '', "'",
+                      '(', ')', ';', ':', '@', '&', '=', '+', '$', ',',
+                      '?', '#',
+                      '[', ']'}
+
+
 class HTTPStatusCode(enum.Enum):
     ok = 200
 
@@ -23,11 +29,11 @@ class HTTPStatusCode(enum.Enum):
 
 def build_response(status_code, *, body=b'', reason_phrase='', headers=None,
                    version='HTTP/1.1'):
-    status_code = HTTPStatusCode(status_code)
+    assert isinstance(status_code, int)
 
     status_line = HTTPStatusLine(
         http_version=version,
-        status_code=status_code.value,
+        status_code=status_code,
         reason_phrase=reason_phrase
     )
     headers = HTTPHeaders(headers or {})
@@ -37,7 +43,7 @@ def build_response(status_code, *, body=b'', reason_phrase='', headers=None,
     else:
         headers['Content-Length'] = 0
 
-    if status_code == HTTPStatusCode.service_unavailable:
+    if status_code == 503:
         headers['Retry-After'] = config.getint('settings',
                                                'process_timeout') * 2
 
@@ -68,6 +74,20 @@ def response_is_persistent(response):
         assert False
 
 
+def encode_uri_component(component):
+    encoded = []
+
+    for c in component:
+        if c in RESERVED_URI_CHARS:
+            ce = hex(ord(c)).replace('0x', '%')
+        else:
+            ce = c
+
+        encoded.append(ce)
+
+    return ''.join(encoded)
+
+
 def decode_uri_component(component):
     decoded = []
     index = -1
@@ -80,7 +100,7 @@ def decode_uri_component(component):
             decoded.append(c)
             continue
 
-        hex_ = component[index: index+2]
+        hex_ = component[index: index + 2]
         if hex_[-1] not in string.hexdigits:
             hex_ = hex_[:-1]
 

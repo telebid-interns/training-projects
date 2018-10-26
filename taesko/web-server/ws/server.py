@@ -18,6 +18,7 @@ import ws.logs
 import ws.sockets
 import ws.utils
 import ws.worker
+import ws.auth
 from ws.config import config
 from ws.err import *
 from ws.logs import error_log, access_log, profile_log
@@ -66,6 +67,7 @@ class Server:
             'http', 'connection_timeout'
         )
         self.execution_context = self.ExecutionContext.main
+        self.auth_scheme = ws.auth.BasicAuth()
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -206,7 +208,8 @@ class Server:
                 exit_code = client_socket_handler(
                     client_socket,
                     address,
-                    main_ctx=dict(worker_start=start)
+                    main_ctx=dict(worker_start=start),
+                    auth_scheme=self.auth_scheme
                 )
 
                 if exit_code is None:
