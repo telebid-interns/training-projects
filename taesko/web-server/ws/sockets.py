@@ -1,6 +1,7 @@
 import collections
 import itertools
 import socket
+import array
 import time
 from socket import SHUT_WR, SHUT_RD, SHUT_RDWR
 
@@ -15,6 +16,17 @@ class ClientSocketException(ServerException):
     def __init__(self, msg=default_code, code=default_code):
         super().__init__(msg=msg, code=code)
 
+
+class FDSharingSocket:
+    def __init__(self):
+        pair = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock_1, self.sock_2 = pair
+        self.fixed_msg_len = 50
+        self.max_fds = 5
+
+    def recv_fds(self):
+        fds = array.array('i')
+        msg, ancdata, msg_flags, address = self.sock.recv
 
 class ClientSocket:
     """ Optimal byte iterator over plain sockets.

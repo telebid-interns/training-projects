@@ -118,21 +118,6 @@ class Server:
     def listen(self, client_socket_handler):
         assert isinstance(client_socket_handler, collections.Callable)
 
-        def handler_decorator(handler):
-            @functools.wraps(handler)
-            def wrapped(*args, **kwargs):
-                # noinspection PyBroadException
-                try:
-                    return handler(*args, **kwargs)
-                except Exception:
-                    error_log.exception('Client socket handler failed.')
-
-                return None
-
-            return wrapped
-
-        client_socket_handler = handler_decorator(client_socket_handler)
-
         error_log.info('Listening...')
         self.sock.listen(self.tcp_backlog_size)
 
@@ -163,7 +148,12 @@ class Server:
 
             # this function is used to assist in profiling the entire loop
             # through cProfiler
-            self.fork_and_handle(client_socket, address, client_socket_handler)
+            # noinspection PyBroadException
+            try:
+                self.fork_and_handle(client_socket, address,
+                                     client_socket_handler)
+            except Exception:
+                error_log.exception('Failed to handled socket %s from address %s')
 
     def fork_and_handle(self, client_socket, address, client_socket_handler):
         if self.rate_controller.is_banned(address[0]):
