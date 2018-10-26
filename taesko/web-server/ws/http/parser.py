@@ -225,8 +225,8 @@ def parse_headers(lines):
         if not value:
             raise ParserException(code='PARSER_BAD_HEADER')
 
-        field = field.decode('ascii')
-        headers[field] = value
+        field = field.decode('ascii').strip()
+        headers[field] = value.lstrip()
         error_log.debug3('Parsed header field %s with value %r', field, value)
 
     return headers
