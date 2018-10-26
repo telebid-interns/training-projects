@@ -4,6 +4,7 @@ import traceback
 import datetime
 
 # TODO make config
+READ_BUFFER = 4096
 RECV_BUFFER = 1024
 REQ_MSG_LIMIT = 8192
 BACKLOG = 20000
@@ -121,7 +122,7 @@ def parse_req_msg(msg):
     return result
 
 
-def build_res_msg(status_code, body=b''):
+def add_status_line(status_code, body=b''):
     assert_app(type(status_code) == bytes)
     assert_app(type(body) == bytes)
     assert_app(status_code in response_reason_phrases)
@@ -134,7 +135,6 @@ def build_res_msg(status_code, body=b''):
 
 def handle_request(conn):
     msg_received = b''
-    begin = datetime.datetime.now()
 
     recv_timestamps = []
 
@@ -149,7 +149,7 @@ def handle_request(conn):
                 # TODO maybe this is unnecessary, but mind the sendall in
                 # the finally block
                 log('case 1')
-                response = build_res_msg(b'400')
+                response = add_status_line(b'400')
                 return
 
             if msg_received.find(b'\r\n\r\n') != -1:
@@ -158,7 +158,7 @@ def handle_request(conn):
                 break
         else:
             log('case2 ')
-            response = build_res_msg(b'400')
+            response = add_status_line(b'400')
             return
 
         request_data = parse_req_msg(msg_received)  # TODO may throw PeerError
@@ -175,20 +175,32 @@ def handle_request(conn):
         if ROOT_DIR not in file_path:
             # TODO check if this is correct error handling
             log('case 3')
-            response = build_res_msg(b'400')
+            response = add_status_line(b'400')
             return
 
-        with open(file_path, 'rb') as content_file:
-            content = content_file.read()
-            response = build_res_msg(b'200', content)
+        with open(file_path, mode='rb') as content_file:
+            response_packages_sent = 0
+
+            while True:
+                content = content_file.read(READ_BUFFER)
+
+                if len(content) <= 0:
+                    break;
+                if response_packages_sent == 0:
+                    response = add_status_line(b'200', content)
+                else:
+                    response = content
+
+                response_packages_sent += 1
+                conn.sendall(response)
 
     except PeerError:
         log('case 4')
-        response = build_res_msg(b'400')
+        response = add_status_line(b'400')
     except FileNotFoundError:
-        response = build_res_msg(b'404')
+        response = add_status_line(b'404')
     except OSError:
-        response = build_res_msg(b'503')
+        response = add_status_line(b'503')
     except Exception as error:
         log('error 500!')
         log(error)
@@ -197,11 +209,10 @@ def handle_request(conn):
         log(error.__cause__)
         log(type(error))
         log(error.with_traceback())
-        response = build_res_msg(b'500')
+        response = add_status_line(b'500')
     finally:
         end_time = datetime.datetime.now()
         #og('Bye bye 1! ({0})'.format(end_time - begin))
-        conn.sendall(response)  # TODO ASK how to handle when throws OSError
         conn.shutdown(socket.SHUT_RDWR)
         end_time = datetime.datetime.now()
         #og('Bye bye 2! ({0})'.format(end_time - begin))
