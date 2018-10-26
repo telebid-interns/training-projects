@@ -32,11 +32,12 @@ class Server(object):
         self.status_lines = StatusLines()
         self.logger = Logger(opts['log_level'], { 'error': opts['logs_path'] + '/error.log', 'trace': opts['logs_path'] + '/trace.log'})
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock = ssl.wrap_socket(
-            self.sock,
-            certfile=opts['ssl_cert'],
-            keyfile=opts['ssl_key'],
-            server_side=True)
+        if opts['ssl_on'].lower() in ['true', '1', 't', 'y', 'yes', 'uh-huh', 'yup']:
+            self.sock = ssl.wrap_socket(
+                self.sock,
+                certfile=opts['ssl_cert'],
+                keyfile=opts['ssl_key'],
+                server_side=True)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) # level, optname, value
         self.sock.bind((opts['address'], opts['port']))
         self.sock.listen(opts['request_queue_size'])
@@ -61,7 +62,7 @@ class Server(object):
             try:
                 connection, client_address = self.sock.accept()
                 self.accepted_connections += 1
-                self.safeLog('warn', 'Current workers {}'.format(self.workers))
+                self.safeLog('debug', 'Current workers {}'.format(self.workers))
                 if self.workers >= self.max_subprocess_count:
                     raise SubprocessLimitException('Accepted Connection, but workers were over the allowed limit')
                 self.safeLog('debug', 'accepted connection: {}'.format(client_address))
@@ -113,7 +114,6 @@ class Server(object):
             self.env['request_time'] = datetime.datetime.now().isoformat()
             connection.settimeout(self.timeout)
             (content_length, body_chunk) = self.recv_request(connection)
-
 
             if self.env['request_method'] not in ['GET', 'POST']:
                 self.sendall(connection, self.generate_headers(405))
@@ -464,6 +464,7 @@ if __name__ == '__main__':
     admin_email = config.get('server', 'admin_email')
     ssl_cert = config.get('server', 'ssl_cert')
     ssl_key = config.get('server', 'ssl_key')
+    ssl_on = config.get('server', 'ssl_on')
 
     opts = {
         'port': port,
@@ -480,7 +481,8 @@ if __name__ == '__main__':
         'status_path': status_path,
         'admin_email': admin_email,
         'ssl_cert': ssl_cert,
-        'ssl_key': ssl_key
+        'ssl_key': ssl_key,
+        'ssl_on': ssl_on
     }
 
     Server(opts).start()
