@@ -1,0 +1,9 @@
+{
+  "read_buffer": 4096,
+  "recv_buffer": 1024,
+  "req_msg_limit": 8192,
+  "backlog": 2000,
+  "host": "localhost",
+  "port": 8080,
+  "root_dir": "/home/hristo/Documents/training-projects/hspasov-web-server/content"
+}

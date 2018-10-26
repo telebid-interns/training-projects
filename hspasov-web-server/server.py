@@ -1,17 +1,10 @@
+import errno
 import os
 import socket
 import traceback
 import datetime
+import json
 
-# TODO make config
-READ_BUFFER = 4096
-RECV_BUFFER = 1024
-REQ_MSG_LIMIT = 8192
-BACKLOG = 20000
-HOST = 'localhost'
-PORT = 8080
-ROOT_DIR = (b'/home/hristo/Documents/training-projects' +
-            b'/hspasov-web-server/content')
 # ROOT_DIR = (b'/media/hspasov/Files/TelebidPro/training-projects' +
 #            b'/hspasov-web-server/content')
 
@@ -139,8 +132,8 @@ def handle_request(conn):
     recv_timestamps = []
 
     try:
-        while len(msg_received) <= REQ_MSG_LIMIT:
-            data = conn.recv(RECV_BUFFER)
+        while len(msg_received) <= config['req_msg_limit']:
+            data = conn.recv(config['recv_buffer'])
             msg_received += data
 
             recv_timestamps.append(datetime.datetime.now())
@@ -168,11 +161,11 @@ def handle_request(conn):
 
         file_path = os.path.realpath(
             os.path.join(
-                ROOT_DIR,
+                config['root_dir'],
                 *request_data['req_line']['req_target'].split(b'/')[1:])
         )
 
-        if ROOT_DIR not in file_path:
+        if config['root_dir'] not in file_path:
             # TODO check if this is correct error handling
             log('case 3')
             response = add_status_line(b'400')
@@ -182,7 +175,7 @@ def handle_request(conn):
             response_packages_sent = 0
 
             while True:
-                content = content_file.read(READ_BUFFER)
+                content = content_file.read(config['read_buffer'])
 
                 if len(content) <= 0:
                     break;
@@ -223,8 +216,8 @@ def start():
 
     try:
         socket_obj.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        socket_obj.bind((HOST, PORT))
-        socket_obj.listen(BACKLOG)
+        socket_obj.bind((config['host'], config['port']))
+        socket_obj.listen(config['backlog'])
 
         while True:
             try:
@@ -258,4 +251,17 @@ def start():
 
 
 if __name__ == '__main__':
-    start()
+    try:
+        with open('./config.json', mode='r') as config_file:
+            config_file_content = config_file.read()
+            config = json.loads(config_file_content)
+            # root dir needs to be bytes so that file path received from http
+            # request can be directly concatenated to root dir
+            config['root_dir'] = bytes(config['root_dir'], 'utf-8')
+            print(config)
+        start()
+    except OSError as error:
+        log(error)
+    except json.JSONDecodeError as error:
+        log('Error while parsing config file: "{0}"'.format(error))
+
