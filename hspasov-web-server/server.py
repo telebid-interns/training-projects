@@ -1,3 +1,4 @@
+import errno
 import traceback
 import os
 import socket
@@ -74,7 +75,7 @@ def log(msg, lvl):
 
     if lvl <= config['log_level']:
         with open(config['log_file'], mode='a') as log_file:
-            print('{0}:({1}): {2}'.format(os.getpid(), datetime.now(), msg))
+            print('{0}  ({1})  {2}'.format(os.getpid(), datetime.now(), msg))
 
 
 def parse_req_msg(msg):
@@ -99,6 +100,7 @@ def parse_req_msg(msg):
     assert_peer(len(req_line_tokens) == 3, 'Invalid request')
 
     parsed_req_line = {
+        'raw': request_line,
         'method': req_line_tokens[0],
         'req_target': req_line_tokens[1],
         'http_version': req_line_tokens[2],
@@ -175,6 +177,12 @@ def handle_request(conn):
 
     msg_received = b''
 
+    request_meta = {
+        'req_line': '-',
+        'user_agent': '-',
+        'content_length': '-',
+    }
+
     try:
         while len(msg_received) <= config['req_msg_limit']:
             log('receiving data...', 2)
@@ -186,11 +194,7 @@ def handle_request(conn):
 
             if len(data) <= 0:
                 log('connection closed by peer', 2)
-
-                response = add_res_meta(b'400')
-                conn.sendall(response)
-
-                return
+                return request_meta
 
             if msg_received.find(b'\r\n\r\n') != -1:
                 log('reached end of request meta', 2)
@@ -201,12 +205,17 @@ def handle_request(conn):
             response = add_res_meta(b'400')
             conn.sendall(response)
 
-            return
+            return request_meta
 
         log('parsing request message...', 2)
 
         request_data = parse_req_msg(msg_received)  # TODO may throw PeerError
         log('request_data: {0}'.format(request_data), 3)
+
+        request_meta['req_line'] = request_data['req_line']['raw'].decode()
+
+        if 'User-Agent' in request_data['headers']:
+            request_meta['user_agent'] = request_data['headers']['User-Agent']
 
         log('resolving file_path...', 2)
 
@@ -224,7 +233,7 @@ def handle_request(conn):
             response = add_res_meta(b'400')
             conn.sendall(response)
 
-            return
+            return request_meta
 
         log('requested file in web server document root', 2)
 
@@ -262,24 +271,34 @@ def handle_request(conn):
 
                 conn.sendall(response)
 
+        request_meta['content_length'] = str(content_length)
+
+        return request_meta
+
     except PeerError as error:
         log('PeerError while handling request', 2)
         log(format(error), 3)
 
         response = add_res_meta(b'400')
         conn.sendall(response)
+
+        return request_meta
     except FileNotFoundError as error:
         log('FileNotFound while handling request', 2)
         log(format(error), 3)
 
         response = add_res_meta(b'404')
         conn.sendall(response)
+
+        return request_meta
     except OSError as error:
         log('OSError while handling request', 2)
         log(format(error), 3)
 
         response = add_res_meta(b'503')
         conn.sendall(response)
+
+        return request_meta
     except Exception as error:
         log('Exception while handling request', 2)
 
@@ -288,9 +307,15 @@ def handle_request(conn):
 
         response = add_res_meta(b'500')
         conn.sendall(response)
+
+        return request_meta
     finally:
         log('shutting down connection', 2)
-        conn.shutdown(socket.SHUT_RDWR)
+        try:
+            conn.shutdown(socket.SHUT_RDWR)
+        except OSError as error:
+            if error.errno != errno.ENOTCONN:
+                raise error
 
 
 def start():
@@ -329,9 +354,16 @@ def start():
                     socket_obj.close()
                     log('child process closed cloned parent socket object', 2)
 
-                    handle_request(conn)  # TODO Make handle_request return information to log and child proc status also
+                    # TODO make returned meta be object of class RequestMeta
+                    request_meta = handle_request(conn)  # TODO Make handle_request return child proc status
 
-                    log('{0}:{1} request handled'.format(addr[0], addr[1]), 1)
+                    log('{0}  {1}  {2}  {3}  {4}'.format(
+                        addr[0],
+                        addr[1],
+                        request_meta['req_line'],
+                        request_meta['user_agent'],
+                        request_meta['content_length']
+                    ), 1)
             except OSError as error:
                 log('OSError thrown in main loop', 2)
                 log(format(error), 1)
