@@ -5,5 +5,6 @@
   "backlog": 2000,
   "host": "localhost",
   "port": 8080,
-  "root_dir": "/home/hristo/Documents/training-projects/hspasov-web-server/content"
+  "root_dir": "/home/hristo/Documents/training-projects/hspasov-web-server/content",
+  "log_file": "/home/hristo/Documents/training-projects/hspasov-web-server/logs/access.log"
 }

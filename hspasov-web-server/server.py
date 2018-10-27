@@ -1,8 +1,9 @@
 import errno
+import sys
 import os
 import socket
 import traceback
-import datetime
+from datetime import datetime
 import json
 
 # ROOT_DIR = (b'/media/hspasov/Files/TelebidPro/training-projects' +
@@ -66,7 +67,9 @@ def assert_user(condition, msg):
 
 
 def log(msg):
-    print('{0}:({1}): {2}'.format(os.getpid(), datetime.datetime.now(), msg))
+    with open(config['log_file'], mode='a') as log_file:
+        print('{0}:({1}): {2}'.format(os.getpid(), datetime.now(), msg),
+              file=log_file)
 
 
 def parse_req_msg(msg):
@@ -142,7 +145,7 @@ def handle_request(conn):
             data = conn.recv(config['recv_buffer'])
             msg_received += data
 
-            recv_timestamps.append(datetime.datetime.now())
+            recv_timestamps.append(datetime.now())
 
             if len(data) <= 0:
                 # TODO maybe this is unnecessary, but mind the sendall in
@@ -240,7 +243,8 @@ def start():
                 if pid == 0:  # child process
                     socket_obj.close()
                     handle_request(conn)
-            except OSError:
+            except OSError as error:
+                log(error)
                 # TODO ask what to do in this case
                 continue
             except Exception as error:
@@ -251,7 +255,8 @@ def start():
                 if pid == 0:
                     # TODO maybe status code should not always be EX_OK
                     os._exit(os.EX_OK)
-    except OSError:
+    except OSError as error:
+        log(error)
         # TODO check correct error handling in this case
         return
     except Exception as error:
@@ -263,13 +268,15 @@ def start():
 
 if __name__ == '__main__':
     try:
+        print(os.getcwd(), file=sys.stderr)
+
         with open('./config.json', mode='r') as config_file:
             config_file_content = config_file.read()
             config = json.loads(config_file_content)
             # root dir needs to be bytes so that file path received from http
             # request can be directly concatenated to root dir
             config['root_dir'] = bytes(config['root_dir'], 'utf-8')
-            print(config)
+            log(config)
         start()
     except OSError as error:
         log(error)
