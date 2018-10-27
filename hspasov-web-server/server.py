@@ -1,14 +1,11 @@
-import errno
-import sys
+import traceback
 import os
 import socket
-import traceback
 from datetime import datetime
 import json
 
 # ROOT_DIR = (b'/media/hspasov/Files/TelebidPro/training-projects' +
 #            b'/hspasov-web-server/content')
-
 
 response_reason_phrases = {
     b'200': b'OK',
@@ -28,8 +25,7 @@ class BaseError(Exception):
 class AppError(BaseError):
     def __init__(self, msg=''):
         super().__init__(msg)
-        log(msg)
-        log(traceback.print_stack())
+        log(msg, 1)
 
 
 class PeerError(BaseError):
@@ -66,23 +62,39 @@ def assert_user(condition, msg):
         raise UserError(msg)
 
 
-def log(msg):
-    with open(config['log_file'], mode='a') as log_file:
-        print('{0}:({1}): {2}'.format(os.getpid(), datetime.now(), msg),
-              file=log_file)
+def log(msg, lvl):
+    # Log levels:
+    # 0 - no logging
+    # 1 - log basic request information
+    # 2 - log basic debug information
+    # 3 - log everything
+    assert_app(isinstance(msg, str))
+    assert_app(isinstance(lvl, int))
+    assert_app(lvl >= 1 and lvl <= 3)
+
+    if lvl <= config['log_level']:
+        with open(config['log_file'], mode='a') as log_file:
+            print('{0}:({1}): {2}'.format(os.getpid(), datetime.now(), msg))
 
 
 def parse_req_msg(msg):
+    log('function parse_req_msg called', 2)
+
     assert_app(type(msg) == bytes)
 
     msg_parts = msg.split(b'\r\n\r\n')
+    log('msg_parts: {0}'.format(msg_parts), 3)
 
     assert_peer(len(msg_parts) == 2, 'Invalid request')
 
     request_line_and_headers = msg_parts[0].split(b'\r\n')
+    log('request_line_and_headers: {0}'.format(request_line_and_headers), 3)
 
     request_line = request_line_and_headers[0]
+    log('request_line: {0}'.format(request_line), 3)
+
     req_line_tokens = request_line.split(b' ')
+    log('req_line_tokens: {0}'.format(req_line_tokens), 3)
 
     assert_peer(len(req_line_tokens) == 3, 'Invalid request')
 
@@ -91,11 +103,17 @@ def parse_req_msg(msg):
         'req_target': req_line_tokens[1],
         'http_version': req_line_tokens[2],
     }
+    log('parsed_req_line: {0}'.format(parsed_req_line), 3)
 
     headers = {}
 
+    log('headers not parsed: {0}'.format(request_line_and_headers[1:]), 3)
+
     for header_field in request_line_and_headers[1:]:
+        log('header_field: {0}'.format(header_field), 3)
+
         header_field_split = header_field.split(b':', 1)
+        log('header_field_split: {0}'.format(header_field_split), 3)
 
         assert_peer(
             len(header_field_split[0]) == len(header_field_split[0].strip()),
@@ -103,22 +121,34 @@ def parse_req_msg(msg):
         )
 
         field_name = header_field_split[0]
+        log('field_name: {0}'.format(field_name), 3)
+
         field_value = header_field_split[1].strip()
+        log('field_value: {0}'.format(field_value), 3)
 
         headers[field_name] = field_value
 
+    log('headers: {0}'.format(headers), 3)
+
     body = msg_parts[1]
+    log('body: {0}'.format(body), 3)
 
     result = {
         'req_line': parsed_req_line,
         'headers': headers,
         'body': body,
     }
+    log('parse_req_msg result: {0}'.format(result), 3)
 
     return result
 
 
 def add_res_meta(status_code, headers={}, body=b''):
+    log('function add_res_meta called', 2)
+    log('arg status code: {0}'.format(status_code), 3)
+    log('arg headers: {0}'.format(headers), 3)
+    log('arg body: {0}'.format(body), 3)
+
     assert_app(type(status_code) == bytes)
     assert_app(type(headers) == dict)
     assert_app(type(body) == bytes)
@@ -132,64 +162,90 @@ def add_res_meta(status_code, headers={}, body=b''):
 
     result += (b'\r\n\r\n' + body)
 
+    log('add_res_meta result: {0}'.format(result), 3)
+
     return result
 
 
 def handle_request(conn):
-    msg_received = b''
+    log('function handle_request called', 2)
+    log('conn: {0}'.format(conn), 3)
 
-    recv_timestamps = []
+    assert_app(isinstance(conn, socket.socket))
+
+    msg_received = b''
 
     try:
         while len(msg_received) <= config['req_msg_limit']:
+            log('receiving data...', 2)
+
             data = conn.recv(config['recv_buffer'])
+            log('data received: {0}'.format(data), 3)
+
             msg_received += data
 
-            recv_timestamps.append(datetime.now())
-
             if len(data) <= 0:
-                # TODO maybe this is unnecessary, but mind the sendall in
-                # the finally block
-                log('case 1')
+                log('connection closed by peer', 2)
+
                 response = add_res_meta(b'400')
+                conn.sendall(response)
+
                 return
 
             if msg_received.find(b'\r\n\r\n') != -1:
-                #og('Got headers. Recvs:')
-                #og(recv_timestamps)
+                log('reached end of request meta', 2)
                 break
         else:
-            log('case2 ')
+            log('request message too long', 2)
+
             response = add_res_meta(b'400')
+            conn.sendall(response)
+
             return
 
-        request_data = parse_req_msg(msg_received)  # TODO may throw PeerError
+        log('parsing request message...', 2)
 
-        #og('Request data:')
-        #og(request_data)
+        request_data = parse_req_msg(msg_received)  # TODO may throw PeerError
+        log('request_data: {0}'.format(request_data), 3)
+
+        log('resolving file_path...', 2)
 
         file_path = os.path.realpath(
             os.path.join(
                 config['root_dir'],
                 *request_data['req_line']['req_target'].split(b'/')[1:])
         )
+        log('file_path: {0}'.format(file_path), 3)
 
         if config['root_dir'] not in file_path:
             # TODO check if this is correct error handling
-            log('case 3')
+            log('requested file outside of web server document root', 2)
+
             response = add_res_meta(b'400')
+            conn.sendall(response)
+
             return
 
+        log('requested file in web server document root', 2)
+
         with open(file_path, mode='rb') as content_file:
+            log('requested file opened', 2)
+
             response_packages_sent = 0
 
             while True:
                 content = content_file.read(config['read_buffer'])
+                log('content: {0}'.format(content), 3)
 
                 if len(content) <= 0:
+                    log('end of file reached while reading', 2)
                     break
                 if response_packages_sent == 0:
+                    log(('going to send first response package.' +
+                         'adding res meta...'), 2)
+
                     content_length = os.path.getsize(file_path)
+                    log('content_length: {0}'.format(content_length), 3)
 
                     headers = {
                         b'Content-Length': bytes(str(content_length), 'utf-8')
@@ -198,87 +254,133 @@ def handle_request(conn):
                 else:
                     response = content
 
+                log('response: {0}'.format(response), 3)
+
                 response_packages_sent += 1
+                log('sending response.. response_packages_sent: {0}'.format(
+                    response_packages_sent), 2)
+
                 conn.sendall(response)
 
-    except PeerError:
-        log('case 4')
+    except PeerError as error:
+        log('PeerError while handling request', 2)
+        log(format(error), 3)
+
         response = add_res_meta(b'400')
         conn.sendall(response)
-    except FileNotFoundError:
+    except FileNotFoundError as error:
+        log('FileNotFound while handling request', 2)
+        log(format(error), 3)
+
         response = add_res_meta(b'404')
         conn.sendall(response)
-    except OSError:
+    except OSError as error:
+        log('OSError while handling request', 2)
+        log(format(error), 3)
+
         response = add_res_meta(b'503')
         conn.sendall(response)
     except Exception as error:
-        log('error 500!')
-        log(error)
-        log(dir(error))
-        log(error.__traceback__)
-        log(error.__cause__)
-        log(type(error))
-        log(error.with_traceback())
+        log('Exception while handling request', 2)
+
+        if not isinstance(error, AppError):
+            AppError(traceback.format_exc())
+
         response = add_res_meta(b'500')
         conn.sendall(response)
     finally:
+        log('shutting down connection', 2)
         conn.shutdown(socket.SHUT_RDWR)
 
 
 def start():
+    log('function start called.', 2)
+
     socket_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    log('socket object: {0}'.format(socket_obj), 3)
 
     try:
         socket_obj.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        log('socket option SO_REUSEADDR set', 2)
+
         socket_obj.bind((config['host'], config['port']))
+        log('socket bound: {0}:{1}'.format(config['host'], config['port']), 2)
+
         socket_obj.listen(config['backlog'])
+        log('listening... backlog: {0}'.format(config['backlog']), 2)
 
         while True:
+            pid = None
+            conn = None
+            child_proc_status = os.EX_OSERR
+
             try:
+                log('ready to accept connection', 2)
+
                 conn, addr = socket_obj.accept()
-                log('Connected with {0}:{1}'.format(addr[0], addr[1]))
+                log('connection accepted', 2)
+                log('connection: {0}'.format(conn), 3)
+                log('addr: {0}'.format(addr), 3)
 
                 pid = os.fork()
+                log('after fork, pid: {0}'.format(pid), 3)
 
                 if pid == 0:  # child process
                     socket_obj.close()
-                    handle_request(conn)
+                    log('child process closed cloned parent socket object', 2)
+
+                    handle_request(conn)  # TODO Make handle_request return information to log and child proc status also
+
+                    log('{0}:{1} request handled'.format(addr[0], addr[1]), 1)
             except OSError as error:
-                log(error)
-                # TODO ask what to do in this case
-                continue
+                log('OSError thrown in main loop', 2)
+                log(format(error), 1)
             except Exception as error:
+                log('Exception thrown in main loop', 2)
+
                 if not isinstance(error, AppError):
-                    AppError(error.with_traceback())
+                    AppError(traceback.format_exc())
             finally:
-                conn.close()  # TODO ask can this fail?
+                log('Finally block executing in main loop', 2)
+
+                if isinstance(conn, socket.socket):
+                    try:
+                        conn.close()
+                    except Exception as error:
+                        log('Exception thrown while closing connection', 2)
+                        log(format(error), 1)
+
                 if pid == 0:
-                    # TODO maybe status code should not always be EX_OK
-                    os._exit(os.EX_OK)
+                    os._exit(child_proc_status)
     except OSError as error:
-        log(error)
-        # TODO check correct error handling in this case
+        log('OSError thrown while initializing web server', 2)
+        log(format(error), 1)
         return
     except Exception as error:
+        log('Exception thrown while initializing web server', 2)
+
         if not isinstance(error, AppError):
-            AppError(error.with_traceback())
+            AppError(traceback.format_exc())
     finally:
-        socket_obj.close()
+        if isinstance(socket_obj, socket.socket):
+            socket_obj.close()
 
 
 if __name__ == '__main__':
     try:
-        print(os.getcwd(), file=sys.stderr)
 
         with open('./config.json', mode='r') as config_file:
             config_file_content = config_file.read()
             config = json.loads(config_file_content)
+
             # root dir needs to be bytes so that file path received from http
             # request can be directly concatenated to root dir
             config['root_dir'] = bytes(config['root_dir'], 'utf-8')
-            log(config)
+
+            log('config loaded: {0}'.format(config), 3)
+
         start()
     except OSError as error:
-        log(error)
+        log(format(error), 1)
     except json.JSONDecodeError as error:
-        log('Error while parsing config file: "{0}"'.format(error))
+        log('error while parsing config file: {0}'.format(error), 1)
