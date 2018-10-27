@@ -4,6 +4,7 @@ import resource
 import signal
 import time
 
+import ws.auth
 import ws.cgi
 import ws.http.parser
 import ws.http.structs
@@ -11,7 +12,6 @@ import ws.http.utils
 import ws.ratelimit
 import ws.serve
 import ws.sockets
-import ws.auth
 from ws.config import config
 from ws.err import *
 from ws.logs import error_log, access_log
@@ -19,7 +19,7 @@ from ws.logs import error_log, access_log
 CLIENT_ERRORS_THRESHOLD = config.getint('http', 'client_errors_threshold')
 
 
-class Worker:
+class ConnectionWorker:
     """ Receives/parses requests and sends/encodes back responses.
 
     Instances of this class MUST be used through a context manager to ensure
@@ -269,16 +269,16 @@ def work(client_socket, address, *, auth_scheme,
 
     # noinspection PyBroadException
     try:
-        with Worker(client_socket, address,
-                    main_ctx=main_ctx,
-                    auth_scheme=auth_scheme) as worker:
+        with ConnectionWorker(client_socket, address,
+                              main_ctx=main_ctx,
+                              auth_scheme=auth_scheme) as worker:
             if quick_reply_with:
                 worker.respond(quick_reply_with, closing=True)
                 return 0
 
             worker.process_connection(request_handler=handle_request)
     except Exception:
-        error_log.exception('Worker of address %s finished abruptly.',
+        error_log.exception('ConnectionWorker of address %s finished abruptly.',
                             address)
         return 1
 

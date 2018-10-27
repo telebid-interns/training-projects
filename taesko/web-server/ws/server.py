@@ -3,7 +3,6 @@ import collections
 import contextlib
 import enum
 import errno
-import functools
 import io
 import os
 import pstats
@@ -12,13 +11,13 @@ import socket
 import subprocess
 import time
 
+import ws.auth
+import ws.cworker
 import ws.http.parser
 import ws.http.utils
 import ws.logs
 import ws.sockets
 import ws.utils
-import ws.worker
-import ws.auth
 from ws.config import config
 from ws.err import *
 from ws.logs import error_log, access_log, profile_log
@@ -423,6 +422,6 @@ def main():
     with profile(SERVER_PROFILING_ON):
         try:
             with Server() as server:
-                server.listen(ws.worker.work)
+                server.listen(ws.cworker.work)
         except (KeyboardInterrupt, ServerException):
             pass
