@@ -1,7 +1,7 @@
+import array
 import collections
 import itertools
 import socket
-import array
 import time
 from socket import SHUT_WR, SHUT_RD, SHUT_RDWR
 
@@ -16,17 +16,6 @@ class ClientSocketException(ServerException):
     def __init__(self, msg=default_code, code=default_code):
         super().__init__(msg=msg, code=code)
 
-
-class FDSharingSocket:
-    def __init__(self):
-        pair = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
-        self.sock_1, self.sock_2 = pair
-        self.fixed_msg_len = 50
-        self.max_fds = 5
-
-    def recv_fds(self):
-        fds = array.array('i')
-        msg, ancdata, msg_flags, address = self.sock.recv
 
 class ClientSocket:
     """ Optimal byte iterator over plain sockets.
@@ -198,3 +187,59 @@ class ClientSocket:
             except OSError:
                 if not pass_silently:
                     raise
+
+
+class FDTransport:
+    def __init__(self):
+        pair = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sender, self.receiver = pair
+        self.fixed_msg_len = 50
+        self.max_fds = 5
+        self._mode = None
+
+    @property
+    def mode(self):
+        return self._mode
+
+    @mode.setter
+    def mode(self, val):
+        assert self._mode is None
+        assert val in ('sender', 'receiver')
+
+        if val == 'sender':
+            self.sender.close()
+        else:
+            self.receiver.close()
+
+        self._mode = val
+
+    def send_fds(self, msg, fds):
+        assert self._mode == 'sender'
+        afds = array.array('i', fds)
+        anc_data = [(socket.SOL_SOCKET, socket.SCM_RIGHTS, afds.tobytes())]
+        self.sender.sendmsg([msg], anc_data)
+
+    def recv_fds(self):
+        assert self._mode == 'receiver'
+        fds = array.array('i')
+        msg, ancdata, msg_flags, address = self.receiver.recvmsg(
+            self.fixed_msg_len, socket.CMSG_LEN(self.max_fds * fds.itemsize)
+        )
+
+        for cmsg_level, cmsg_type, cmsg_data in ancdata:
+            if (cmsg_level == socket.SOL_SOCKET and
+                    cmsg_type == socket.SCM_RIGHTS):
+                truncated = len(cmsg_data) % fds.itemsize
+                fds.frombytes(cmsg_data[:len(cmsg_data) - truncated])
+
+        return msg, fds
+
+    def discard(self):
+        try:
+            self.sender.close()
+        except OSError:
+            pass
+        try:
+            self.receiver.close()
+        except OSError:
+            pass
