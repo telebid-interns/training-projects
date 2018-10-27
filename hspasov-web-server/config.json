@@ -7,5 +7,5 @@
   "port": 8080,
   "root_dir": "/home/hristo/Documents/training-projects/hspasov-web-server/content",
   "log_file": "/home/hristo/Documents/training-projects/hspasov-web-server/logs/access.log",
-  "log_level": 2
+  "log_level": 1
 }
