@@ -10,8 +10,8 @@ import configparser
 import resource
 import cProfile
 import subprocess
-import psutil
 import ssl
+import urllib.parse
 from error.asserts import assert_user, assert_peer
 from error.exceptions import SubprocessLimitException, PeerError, ServerError
 from utils.http_status_codes_headers import StatusLines
@@ -46,7 +46,6 @@ class Server(object):
         self.error_count = 0
         self.workers = 0
         self.max_subprocess_count = opts['subprocess_count']
-        self.timeout = opts['timeout']
         self.start_time = time.time()
         self.is_reaping_children_locked = False
         signal.signal(signal.SIGCHLD, self.reap_children)
@@ -112,7 +111,7 @@ class Server(object):
             self.env['client_ip'] = client_address[0]
             self.env['port'] = client_address[1]
             self.env['request_time'] = datetime.datetime.now().isoformat()
-            connection.settimeout(self.timeout)
+            connection.settimeout(self.opts['timeout'])
             (content_length, body_chunk) = self.recv_request(connection)
 
             if self.env['request_method'] not in ['GET', 'POST']:
@@ -156,6 +155,7 @@ class Server(object):
     def respond(self, connection, content_length, body_chunk):
         static_path = os.path.abspath(self.opts['static_dir_path'])
         cgi_path = os.path.abspath(self.opts['cgi_bin_dir_path'])
+
 
         whole_static_path = os.path.abspath(static_path + self.env['path'])
         whole_cgi_path = os.path.abspath(cgi_path + self.env['path'])
@@ -251,6 +251,8 @@ class Server(object):
             self.env['path'] = self.env['whole_path']
             self.env['query_string'] = ''
 
+        self.env['path'] = urllib.parse.unquote(self.env['path'])
+
         headers_length = headers.find(self.HEADER_END_STRING) + len(self.HEADER_END_STRING)
         header_dict = {}
         for header in headers.split('\r\n'):
@@ -340,7 +342,6 @@ class Server(object):
                 pass
 
     def get_process_info(self):
-        content = None;
         memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss * 1024 # converting from Kb to b
         cpu_usage = sum(resource.getrusage(resource.RUSAGE_SELF)[0:2])
         return (memory, cpu_usage)
@@ -395,7 +396,7 @@ class Server(object):
             self.sock.close()
             # closing stdin, stdout and stderr streams
             os.close(0) 
-            os.close(1)
+            # os.close(1)
             os.close(2)
         except Exception as e:
             self.safeLog('error', e)
@@ -443,7 +444,6 @@ class Server(object):
         chunk = socket.recv(chunk_size)
         self.env['bytes_recved'] = int(self.env.get('bytes_recved', 0)) + len(chunk)
         return chunk
-
 
 if __name__ == '__main__':
     config = configparser.ConfigParser()
