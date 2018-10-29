@@ -4,6 +4,7 @@ import contextlib
 import enum
 import errno
 import io
+import json
 import os
 import pstats
 import signal
@@ -11,17 +12,13 @@ import socket
 import subprocess
 import time
 
-import ws.auth
 import ws.cworker
-import ws.http.parser
-import ws.http.utils
 import ws.logs
 import ws.sockets
-import ws.utils
+import ws.worker
 from ws.config import config
 from ws.err import *
-from ws.logs import error_log, access_log, profile_log
-from ws.ratelimit import RequestRateController
+from ws.logs import error_log, profile_log
 
 SERVER_PROFILING_ON = config.getboolean('profiling', 'on_server')
 WORKER_PROFILING_ON = config.getboolean('profiling', 'on_workers')
@@ -42,8 +39,8 @@ class Server:
         main = 'main'
         worker = 'worker'
 
-    ActiveWorker = collections.namedtuple('ActiveWorker', ['pid', 'created_on',
-                                                           'client_address'])
+    ActiveWorker = collections.namedtuple('ActiveWorker',
+                                          ['pid', 'created_on', 'fd_transport'])
 
     def __init__(self):
         if not sys_has_fork_support():
@@ -53,37 +50,30 @@ class Server:
 
         self.host = config['settings']['host']
         self.port = config.getint('settings', 'port')
-        self.process_timeout = config.getint('settings', 'process_timeout')
-        self.process_reaping_period = config.getint('settings',
-                                                    'process_reaping_period')
         self.tcp_backlog_size = config.getint('settings', 'tcp_backlog_size')
         self.process_count_limit = config.getint('settings',
                                                  'process_count_limit')
-        self.quick_response_socket_timeout = config.getint(
-            'http', 'request_timeout'
-        )
-        self.quick_response_connection_timeout = config.getint(
-            'http', 'connection_timeout'
-        )
         self.execution_context = self.ExecutionContext.main
-        self.auth_scheme = ws.auth.BasicAuth()
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.accepted_connections = 0
         self.workers = {}
-        self.rate_controller = RequestRateController()
         self.reaping = False
+        self.reaped_pids = set()
         signal.signal(signal.SIGCHLD, self.reap_children)
 
     def __enter__(self):
         error_log.info('Binding server on %s:%s', self.host, self.port)
         self.sock.bind((self.host, self.port))
+        error_log.info('Pre-forking %s workers', self.process_count_limit)
+        self.fork_workers(self.process_count_limit)
 
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         # don't cleanup workers because their sockets were already closed
-        # during the self.fork() call
+        # during the self.fork_worker() call
         if self.execution_context == self.ExecutionContext.worker:
             return False
 
@@ -92,37 +82,42 @@ class Server:
                                 'Shutting down...')
 
         error_log.info("Closing server's listening socket")
-        self.sock.close()
+        try:
+            self.sock.close()
+        except OSError:
+            error_log.exception('close() on listening socket failed.')
 
-        if self.workers:
-            error_log.info('%d child process found. Waiting completion',
-                           len(self.workers))
+        active_workers = [worker for worker in self.workers.values()
+                          if worker.pid not in self.reaped_pids]
+        signal.signal(signal.SIGCHLD, signal.SIG_IGN)
+        for worker in active_workers:
+            worker.terminate()
 
-            active_workers = {}
+        if active_workers:
+            timeout = max(worker.sigterm_timeout for worker in active_workers)
+            error_log.info('Waiting %s seconds for children to finish.',
+                           timeout)
+            time.sleep(timeout)
 
-            for worker in self.workers.values():
-                has_finished, exit_code = os.waitpid(worker.pid, os.WNOHANG)
-
-                if not has_finished:
-                    error_log.info('Terminating worker %d', worker.pid)
-                    os.kill(signal.SIGTERM, worker.pid)
-                else:
-                    error_log.info('Reaped worker %d.', worker.pid)
-                    active_workers[worker.pid] = worker
-
-            self.workers = active_workers
+        for worker in active_workers:
+            try:
+                os.kill(worker.pid, signal.SIGKILL)
+            except OSError:
+                pass
 
         return False
 
-    def listen(self, client_socket_handler):
-        assert isinstance(client_socket_handler, collections.Callable)
+    def listen(self):
+        assert all(isinstance(w, WorkerProcess)
+                   for w in self.workers.values())
+        assert len(self.workers) == self.process_count_limit
 
-        error_log.info('Listening...')
+        error_log.info('Listening with backlog %s...', self.tcp_backlog_size)
         self.sock.listen(self.tcp_backlog_size)
 
-        accepted_connections = 0
-
         while True:
+            # TODO add rate limiting on rate of clients sending connections
+            # instead of on the HTTP syntax (which will be deferred to workers)
             try:
                 client_socket, address = self.sock.accept()
             except OSError as err:
@@ -136,240 +131,163 @@ class Server:
                 # don't break the listening loop just because one accept failed
                 continue
 
-            accepted_connections += 1
-            error_log.debug('Accepted connections are %s',
-                            accepted_connections)
-            client_socket = ws.sockets.ClientSocket(
-                client_socket,
-                socket_timeout=self.quick_response_socket_timeout,
-                connection_timeout=self.quick_response_connection_timeout
-            )
+            self.accepted_connections += 1
+            passed = self.distribute_connection(client_socket=client_socket,
+                                                address=address)
+            if not passed:
+                # TODO fork and reply quickly with a 503
+                pass
 
-            # this function is used to assist in profiling the entire loop
-            # through cProfiler
-            # noinspection PyBroadException
+            # duplicate the set so SIGCHLD handler doesn't cause problems
+            to_remove = frozenset(self.reaped_pids)
+
+            for pid in to_remove:
+                old_worker = self.workers.pop(pid)
+                old_worker.close_ipc()
+                self.reaped_pids.remove(pid)
+
+            # call outside of loop to avoid a race condition where a
+            # worker_process get's forked with a pid in self.reaped_pids
+            missing = self.process_count_limit - len(self.workers)
+            if missing > 0:
+                self.fork_workers(missing)
+
+            for worker_process in self.workers.values():
+                worker_process.kill_if_hanged()
+
+    def distribute_connection(self, client_socket, address):
+        for i, worker in enumerate(self.workers_round_robin()):
+            if not worker.can_work():
+                continue
+
             try:
-                self.fork_and_handle(client_socket, address,
-                                     client_socket_handler)
-            except Exception:
-                error_log.exception('Failed to handled socket %s from address %s')
+                worker.send_connections([(client_socket, address)])
+                return True
+            except OSError as err:
+                if worker.pid in self.reaped_pids:
+                    continue
+                error_log.warning('sending file descriptors to worker %s '
+                                  'raised ERRNO=%s with MSG=%s',
+                                  worker, err.errno, err.strerror)
+                worker.terminate()
 
-    def fork_and_handle(self, client_socket, address, client_socket_handler):
-        if self.rate_controller.is_banned(address[0]):
-            error_log.warning('Denied connection. '
-                              'client_socket.fileno=%d and address=%s',
-                              client_socket.fileno(), address)
-            client_socket.close(pass_silently=True)
-            return
+        return False
 
-        error_log.debug('Accepted connection. '
-                        'client_socket.fileno=%d and address=%s',
-                        client_socket.fileno(), address)
+    def workers_round_robin(self):
+        assert len(self.workers) > 0
 
-        if len(self.workers) >= self.process_count_limit:
-            error_log.warning('Process limit reached.'
-                              ' Incoming requests will receive a 503.')
-            response = ws.http.utils.build_response(503)
-            client_socket_handler(client_socket, address,
-                                  quick_reply_with=response)
-            return
+        workers = tuple(self.workers.values())
+        round_robin_offset = self.accepted_connections % len(workers)
+        first = workers[round_robin_offset:]
+        last = tuple(reversed(workers[:round_robin_offset]))
+        return first + last
 
-        try:
+    def fork_workers(self, count=1):
+        assert isinstance(count, int)
+
+        for _ in range(count):
+            fd_transport = ws.sockets.FDTransport()
             pid = os.fork()
-        except OSError as err:
-            error_log.warning('fork() raised ERRNO=%d. Reason: %s',
-                              err.errno, err.strerror)
-            response = ws.http.utils.build_response(503)
-            client_socket_handler(client_socket, address,
-                                  quick_reply_with=response)
-            return
-
-        if pid == 0:
-            signal.signal(signal.SIGCHLD, signal.SIG_IGN)
-            start = time.time()
-            with profile(WORKER_PROFILING_ON):
-                ws.logs.setup_worker_handlers()
+            if pid:
+                error_log.debug('Forked worker with pid=%s', pid)
+                self.execution_context = self.ExecutionContext.main
+                fd_transport.mode = 'sender'
+                wp = WorkerProcess(pid=pid, fd_transport=fd_transport)
+                self.workers[wp.pid] = wp
+            else:
                 self.execution_context = self.ExecutionContext.worker
-                # close all shared file descriptors.
-                self.sock.close()
-                os.close(0)  # stdin
-                os.close(1)  # stdout
-                os.close(2)  # stderr
-                exit_code = client_socket_handler(
-                    client_socket,
-                    address,
-                    main_ctx=dict(worker_start=start),
-                    auth_scheme=self.auth_scheme
-                )
+                # noinspection PyBroadException
+                try:
+                    ws.logs.setup_worker_handlers()
+                    fd_transport.mode = 'receiver'
+                    self.sock.close()
+                    os.close(0)
+                    os.close(1)
+                    os.close(2)
+                    worker = ws.worker.Worker(fd_transport=fd_transport)
+                    exit_code = worker.work()
+                except BaseException:
+                    error_log.exception('Worker failed.')
+                    exit_code = 1
 
-                if exit_code is None:
-                    exit_code = 2
-
-                error_log.debug('Exiting with exit code %s', exit_code)
-            total = time.time() - start
-            profile_log.profile('custom worker_time - %s', total)
-            # noinspection PyProtectedMember
-            os._exit(exit_code)
-        else:
-            self.workers[pid] = self.ActiveWorker(pid=pid,
-                                                  created_on=time.time(),
-                                                  client_address=address)
-            error_log.debug('Spawned child process with pid %d', pid)
-            client_socket.close(pass_silently=True, safely=False,
-                                with_shutdown=False)
-
-    def reap_one_child_safely(self):
-        """ Reap a single zombie child without blocking or raising exceptions.
-
-        This method is NOT thread-safe.
-        """
-        try:
-            pid, exit_indicator = os.waitpid(-1, os.WNOHANG)
-        except OSError as err:
-            error_log.warning('During reaping of zombie child: wait() sys call '
-                              'failed with ERRNO=%s and MSG=%s',
-                              err.errno, err.strerror)
-            return False
-
-        if not pid:
-            return False
-
-        worker = self.workers.pop(pid, None)
-
-        if not worker:
-            # TODO this causes memory leaks if the interrupt is
-            # between fork() and adding inside self.workers()
-            error_log.warning('Reaped zombie child with pid %s but the pid '
-                              'was not recorded as a worker.')
-            return True
-
-        if not os.WIFEXITED(exit_indicator):
-            error_log.warning('Worker %s has finished without calling '
-                              'exit(). Server cannot properly decide '
-                              'on rate limiting for the client '
-                              'serviced by worker.')
-        else:
-            error_log.debug('Worker %s has finished', worker)
-            self.rate_controller.record_handled_connection(
-                ip_address=worker.client_address[0],
-                worker_exit_code=os.WEXITSTATUS(exit_indicator)
-            )
-
-        return True
+                # noinspection PyProtectedMember
+                os._exit(exit_code)
 
     def reap_children(self, signum, stack_frame):
+        error_log.debug3('reap_children() called.')
         if self.reaping:
             return
 
         self.reaping = True
 
         try:
-            while self.reap_one_child_safely():
-                pass
+            while True:
+                pid, exit_indicator = os.waitpid(-1, os.WNOHANG)
+                if pid:
+                    assert pid not in self.reaped_pids
+                    self.reaped_pids.add(pid)
+                else:
+                    break
+        except OSError as err:
+            error_log.warning('During reaping of zombie child: wait() sys call '
+                              'failed with ERRNO=%s and MSG=%s',
+                              err.errno, err.strerror)
         finally:
             self.reaping = False
 
-    # noinspection PyUnusedLocal
-    @ws.utils.depreciated(error_log)
-    def terminate_hanged_workers_depreciated(self, signum, stack_frame):
-        assert signum == signal.SIGALRM
 
-        error_log.debug('Caught SIGALRM signal to join and terminate workers')
+class WorkerProcess:
+    sigterm_timeout = config.getint('settings', 'process_sigterm_timeout')
 
-        leftover_workers = collections.deque()
+    def __init__(self, pid, fd_transport):
+        self.pid = pid
+        self.fd_transport = fd_transport
+        self.created_on = time.time()
+        self.sent_sockets = 0
+        self.sent_sigterm_on = None
+        self.terminating = False
 
-        for worker in self.workers:
-            try:
-                has_finished, exit_indicator = os.waitpid(worker.pid,
-                                                          os.WNOHANG)
-            except OSError as err:
-                error_log.exception('Could not reap child worker with pid %d.'
-                                    'waitpid() returned ERRNO=%d and reason=%s',
-                                    worker.pid, err.errno, err.strerror)
-                # don't stop the listening loop and continue reaping the rest
-                # of the workers.
-                continue
+    def send_connections(self, connections):
+        sockets, addresses = zip(*connections)
+        msg = json.dumps(addresses).encode('utf-8')
+        fds = [cs.fileno() for cs in sockets]
+        self.fd_transport.send_fds(msg=msg, fds=fds)
+        self.sent_sockets += len(sockets)
+        return True
 
-            if has_finished:
-                if not os.WIFEXITED(exit_indicator):
-                    error_log.warning('Worker %s has finished without calling '
-                                      'exit(). Server cannot properly decide '
-                                      'on rate limiting for the client '
-                                      'serviced by worker.')
-                else:
-                    error_log.info('Worker %s has finished', worker)
-                    self.rate_controller.record_handled_connection(
-                        ip_address=worker.client_address[0],
-                        worker_exit_code=os.WEXITSTATUS(exit_indicator)
-                    )
-            else:
-                leftover_workers.append(worker)
+    def can_work(self):
+        return not self.terminating
 
-        self.workers = leftover_workers
-        error_log.info('%d active workers left. Searching for hanged workers.',
-                       len(self.workers))
-
-        now = time.time()
-        for worker in self.workers:
-            if now - worker.created_on > self.process_timeout:
-                try:
-                    os.kill(worker.pid, signal.SIGTERM)
-                    error_log.info('Sent SIGTERM to hanged worker with pid=%d',
-                                   worker.pid)
-                except OSError:
-                    error_log.exception('Failed to sent SIGTERM to '
-                                        'hanged worker with pid=%d', worker.pid)
-
-        error_log.debug('Rescheduling SIGALRM signal to after %s seconds',
-                        self.process_reaping_period)
-        signal.alarm(self.process_reaping_period)
-
-
-def pre_verify_request_syntax(client_socket, address):
-    """ Checks if the syntax of the incoming request from the socket is ok.
-
-
-    If the syntax is malformed an adequate response is sent to the client.
-
-    It's possible for this function to raise:
-        SystemExit
-        KeyboardInterrupt
-    """
-    failed = True
-
-    # noinspection PyBroadException
-    try:
-        ws.http.parser.parse(client_socket)
-    except ws.http.parser.ParserException as err:
-        error_log.warning('During pre-parsing: failed to parse request from '
-                          'client socket %s. Error code=%s',
-                          client_socket.fileno(), err.code)
+    def terminate(self):
+        if self.terminating:
+            return
 
         try:
-            response = ws.http.utils.build_response(400)
-            for chunk in response.iter_chunks():
-                client_socket.send_all(chunk)
-            access_log.log(request=None, response=response)
-        except ws.sockets.ClientSocketException:
-            error_log.warning('Client socket %s did not receive response.')
+            self.sent_sigterm_on = time.time()
+            os.kill(self.pid, signal.SIGTERM)
+            self.terminating = True
+        except OSError:
+            pass
 
-    except ws.sockets.ClientSocketException as err:
-        error_log.warning('During pre-parsing: client socket %s caused an '
-                          'error with code %s ',
-                          client_socket.fileno(), err.code)
-    except Exception:
-        error_log.exception('During pre-parsing: parser failed on socket %s ',
-                            client_socket.fileno())
-    else:
-        failed = False
+    def kill_if_hanged(self, now=None):
+        if not self.terminating:
+            return False
 
-    if failed:
-        client_socket.close(with_shutdown=True, safely=False,
-                            pass_silently=True)
-    else:
-        client_socket.reiterate()
+        now = now or time.time()
+        if now - self.sent_sigterm_on > self.sigterm_timeout:
+            # don't fail if worker is already dead.
+            try:
+                os.kill(self.pid, signal.SIGKILL)
+            except OSError:
+                pass
 
-    return True
+        return True
+
+    def close_ipc(self):
+        self.fd_transport.discard()
+
+    def __repr__(self):
+        return 'WorkerProcess(pid={})'.format(self.pid)
 
 
 def sys_has_fork_support():
@@ -401,6 +319,7 @@ def profile(enabled=True):
         yield
         return
 
+    error_log.info('Starting profiling.')
     profiler = cProfile.Profile()
     profiler.enable()
     try:
@@ -422,6 +341,6 @@ def main():
     with profile(SERVER_PROFILING_ON):
         try:
             with Server() as server:
-                server.listen(ws.cworker.work)
+                server.listen()
         except (KeyboardInterrupt, ServerException):
             pass

@@ -177,6 +177,8 @@ class ClientSocket:
         self.close(pass_silently=True)
 
     def close(self, with_shutdown=False, pass_silently=False, safely=True):
+        # TODO decouple the with_shutdown and safely flags away in to
+        # safely_close() method
         try:
             if with_shutdown:
                 self.shutdown(SHUT_RDWR, silently=pass_silently)
@@ -214,9 +216,9 @@ class FDTransport:
         assert val in ('sender', 'receiver')
 
         if val == 'sender':
-            self.sender.close()
-        else:
             self.receiver.close()
+        else:
+            self.sender.close()
 
         self._mode = val
 

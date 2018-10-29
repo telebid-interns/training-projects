@@ -50,7 +50,7 @@ class ConnectionWorker:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if not exc_val:
-            error_log.info('Execution successful. Cleaning up worker.')
+            error_log.debug('Execution successful. Cleaning up worker.')
             self.sock.safely_close()
             return False
 
