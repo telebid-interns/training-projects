@@ -51,7 +51,9 @@ class ClientSocket:
 
     @classmethod
     def fromfd(cls, fd, *, socket_timeout, connection_timeout):
-        sock = socket.fromfd(fd, socket.AF_INET, socket.SOCK_STREAM)
+        sock = socket.socket(fileno=fd)
+        error_log.debug2('Created socket %s from file descriptor %s',
+                         sock.fileno(), fd)
         return cls(sock=sock,
                    socket_timeout=socket_timeout,
                    connection_timeout=connection_timeout)
@@ -193,9 +195,12 @@ class ClientSocket:
             error_log.debug2('Closing socket %d', self.sock.fileno())
             try:
                 self.sock.close()
-            except OSError:
+            except OSError as err:
                 if not pass_silently:
                     raise
+                else:
+                    error_log.debug3('Closing socket %d failed with - %s',
+                                     err.strerror)
 
 
 class FDTransport:

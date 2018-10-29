@@ -20,7 +20,7 @@ class Worker:
         self.parent_ctx = parent_ctx
         self.fd_transport = fd_transport
         self.auth_scheme = ws.auth.BasicAuth()
-        self.rate_controller = ws.ratelimit.RequestRateController()
+        self.rate_controller = ws.ratelimit.HTTPRequestRateController()
 
     def recv_new_sockets(self):
         error_log.debug3('Receiving new sockets through fd transport.')
@@ -76,16 +76,16 @@ class Worker:
         assert isinstance(address, collections.Sequence)
 
         if self.rate_controller.is_banned(address[0]):
-            client_socket.close(pass_silently=True)
+            client_socket.close()
             return
 
-        exit_code = ws.cworker.work(
+        status_codes = ws.cworker.work(
             client_socket=client_socket,
             address=address,
             auth_scheme=self.auth_scheme,
             quick_reply_with=quick_reply_with
         )
         self.rate_controller.record_handled_connection(
-            ip_address=address,
-            worker_exit_code=exit_code
+            ip_address=address[0],
+            status_codes=status_codes
         )

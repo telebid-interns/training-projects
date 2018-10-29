@@ -131,12 +131,16 @@ class Server:
                 # don't break the listening loop just because one accept failed
                 continue
 
+            error_log.debug('Accepted connection from %s on socket %s',
+                            address, client_socket.fileno())
             self.accepted_connections += 1
             passed = self.distribute_connection(client_socket=client_socket,
                                                 address=address)
             if not passed:
                 # TODO fork and reply quickly with a 503
                 pass
+            error_log.debug('Closing socket %s', client_socket.fileno())
+            client_socket.close()
 
             # duplicate the set so SIGCHLD handler doesn't cause problems
             to_remove = frozenset(self.reaped_pids)
@@ -200,6 +204,8 @@ class Server:
                 try:
                     ws.logs.setup_worker_handlers()
                     fd_transport.mode = 'receiver'
+                    for other_worker in self.workers.values():
+                        other_worker.close_ipc()
                     self.sock.close()
                     os.close(0)
                     os.close(1)

@@ -14,6 +14,7 @@ import ws.serve
 import ws.sockets
 from ws.config import config
 from ws.err import *
+from ws.http.utils import request_is_persistent, response_is_persistent
 from ws.logs import error_log, access_log
 
 CLIENT_ERRORS_THRESHOLD = config.getint('http', 'client_errors_threshold')
@@ -54,8 +55,6 @@ class ConnectionWorker:
             self.sock.safely_close()
             return False
 
-        error_log.info('Execution failed. Cleaning up worker.')
-
         if self.sock.written:
             error_log.warning(
                 'An exception occurred after worker had sent bytes over '
@@ -66,8 +65,6 @@ class ConnectionWorker:
             self.sock.close(with_shutdown=True, safely=False,
                             pass_silently=True)
             return False
-        else:
-            pass
 
         response = handle_exc(exc_val)
 
@@ -118,7 +115,7 @@ class ConnectionWorker:
                 response_time=None
             ))
             try:
-                self.exchange['request'] = ws.http.parser.parse(self.sock)
+                request = ws.http.parser.parse(self.sock)
             except ws.sockets.ClientSocketException as err:
                 if err.code == 'CS_PEER_NOT_SENDING':
                     error_log.info("Client shutdown the socket without sending "
@@ -126,35 +123,22 @@ class ConnectionWorker:
                     break
                 else:
                     raise
-
+            self.exchange['request'] = request
             self.exchange['parse_time'] = (time.time() -
                                            self.exchange['request_start'])
-            is_authorized, auth_response = self.auth_scheme.check(
-                request=self.exchange['request'], address=self.address
-            )
+            auth_check = self.auth_scheme.check(request=request,
+                                                address=self.address)
+            is_authorized, auth_response = auth_check
 
             if is_authorized:
-                response = request_handler(self.exchange['request'],
-                                           self.sock)
+                response = request_handler(request, self.sock)
             else:
-                assert isinstance(auth_response, ws.http.structs.HTTPResponse)
                 response = auth_response
 
             self.respond(response)
 
-            if self.exchange['request']:
-                client_persists = ws.http.utils.request_is_persistent(
-                    self.exchange['request']
-                )
-            else:
-                client_persists = False
-
-            if self.exchange['response']:
-                server_persists = ws.http.utils.response_is_persistent(
-                    self.exchange['response']
-                )
-            else:
-                server_persists = False
+            client_persists = request and request_is_persistent(request)
+            server_persists = response and response_is_persistent(response)
 
             if not (client_persists and server_persists):
                 break
@@ -215,10 +199,6 @@ class ConnectionWorker:
 
     # noinspection PyUnusedLocal
     def handle_termination(self, signum, stack_info):
-        if signum != signum.SIGTERM:
-            error_log.warning('SIGTERM handler received signal %s', signum)
-            return
-
         error_log.info('Parent process requested termination.'
                        ' Cleaning up as much as possible and'
                        ' and sending a service unavailable response')
@@ -268,28 +248,17 @@ def work(client_socket, address, *, auth_scheme,
     assert isinstance(main_ctx, collections.Mapping)
 
     # noinspection PyBroadException
-    try:
-        with ConnectionWorker(client_socket, address,
-                              main_ctx=main_ctx,
-                              auth_scheme=auth_scheme) as worker:
-            if quick_reply_with:
-                worker.respond(quick_reply_with, closing=True)
-                return 0
+    with ConnectionWorker(client_socket, address,
+                          main_ctx=main_ctx,
+                          auth_scheme=auth_scheme) as worker:
+        if quick_reply_with:
+            worker.respond(quick_reply_with, closing=True)
+            return tuple([quick_reply_with.status_line.status_code])
 
-            worker.process_connection(request_handler=handle_request)
-    except Exception:
-        error_log.exception('ConnectionWorker of address %s finished abruptly.',
-                            address)
-        return 1
+        worker.process_connection(request_handler=handle_request)
 
-    codes = (e['response'].status_line.status_code
-             for e in worker.exchanges if e['response'])
-    err_count = sum(c in ws.ratelimit.CONSIDERED_CLIENT_ERRORS for c in codes)
-
-    if err_count:
-        return ws.ratelimit.RATE_LIMIT_EXIT_CODE_OFFSET + err_count
-    else:
-        return 0
+    return tuple(e['response'].status_line.status_code
+                 for e in worker.exchanges if e['response'])
 
 
 def handle_request(request, client_socket):

@@ -4,7 +4,7 @@ import time
 from ws.config import config
 from ws.logs import error_log
 
-RATE_LIMIT_EXIT_CODE_OFFSET = 200
+RATE_LIMIT_EXIT_CODE_OFFSET_DEPRECIATED = 200
 CONSIDERED_CLIENT_ERRORS = (400,)
 
 ClientConnectionRecord = collections.namedtuple(
@@ -12,7 +12,7 @@ ClientConnectionRecord = collections.namedtuple(
 )
 
 
-class RequestRateController:
+class HTTPRequestRateController:
     """ Implements rate limiting on a per ip address basis.
 
     For this class to function properly handled http connections must be
@@ -36,8 +36,7 @@ class RequestRateController:
         self.bad_connection_records = {}
 
     def is_banned(self, ip_address):
-        # cleanup record older than ban_duration because they cannot be used
-        # to determine if an address should currently be banned.
+        assert isinstance(ip_address, (str, bytes))
         if ip_address not in self.bad_connection_records:
             return False
 
@@ -48,15 +47,16 @@ class RequestRateController:
         else:
             return record['err_count'] >= self.client_errors_threshold
 
-    def record_handled_connection(self, ip_address, worker_exit_code):
-        assert isinstance(worker_exit_code, int), worker_exit_code
+    def record_handled_connection(self, ip_address, status_codes):
+        assert isinstance(ip_address, (str, bytes))
+        assert all(isinstance(sc, int) for sc in status_codes)
 
-        if worker_exit_code >= RATE_LIMIT_EXIT_CODE_OFFSET:
-            err_count = worker_exit_code - RATE_LIMIT_EXIT_CODE_OFFSET
-        else:
+        err_count = sum(sc in CONSIDERED_CLIENT_ERRORS for sc in status_codes)
+
+        if not err_count:
             return
 
-        error_log.debug('Error count of address %s increased by %s',
+        error_log.debug('Error count of address %s increased by %s.',
                         ip_address, err_count)
 
         if len(self.bad_connection_records) == self.cleanup_threshold:
@@ -73,3 +73,6 @@ class RequestRateController:
             )
         else:
             self.bad_connection_records[ip_address]['err_count'] += err_count
+
+
+RequestRateControllerDepreciated = HTTPRequestRateController
