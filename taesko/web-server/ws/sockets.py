@@ -49,6 +49,13 @@ class ClientSocket:
 
         self.sock.settimeout(socket_timeout)
 
+    @classmethod
+    def fromfd(cls, fd, *, socket_timeout, connection_timeout):
+        sock = socket.fromfd(fd, socket.AF_INET, socket.SOCK_STREAM)
+        return cls(sock=sock,
+                   socket_timeout=socket_timeout,
+                   connection_timeout=connection_timeout)
+
     def __iter__(self):
         return self
 
