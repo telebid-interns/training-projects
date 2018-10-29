@@ -371,7 +371,7 @@ class Server(object):
 
         seconds = int((time.time() - self.start_time))
         minutes = int((seconds / 60) % 60)
-        hours = int(minutes / 60)
+        hours = int(seconds / 3600)
         uptime = '{} hour(s) {} minute(s) {} second(s)'.format(hours, minutes, seconds % 60)
 
         status = ''
