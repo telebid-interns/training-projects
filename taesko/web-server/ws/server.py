@@ -9,6 +9,7 @@ import os
 import pstats
 import signal
 import socket
+import ssl
 import subprocess
 import time
 
@@ -55,7 +56,7 @@ class Server:
                                                  'process_count_limit')
         self.execution_context = self.ExecutionContext.main
 
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock = ws.sockets.ServerSocket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.accepted_connections = 0
         self.workers = {}
@@ -131,16 +132,14 @@ class Server:
                 # don't break the listening loop just because one accept failed
                 continue
 
-            error_log.debug('Accepted connection from %s on socket %s',
-                            address, client_socket.fileno())
             self.accepted_connections += 1
             passed = self.distribute_connection(client_socket=client_socket,
                                                 address=address)
             if not passed:
                 # TODO fork and reply quickly with a 503
                 pass
-            error_log.debug('Closing socket %s', client_socket.fileno())
-            client_socket.close()
+
+            client_socket.close(pass_silently=True)
 
             # duplicate the set so SIGCHLD handler doesn't cause problems
             to_remove = frozenset(self.reaped_pids)
@@ -195,6 +194,7 @@ class Server:
             if pid:
                 error_log.debug('Forked worker with pid=%s', pid)
                 self.execution_context = self.ExecutionContext.main
+                ssl.RAND_add(ssl.RAND_bytes(10), 0.0)
                 fd_transport.mode = 'sender'
                 wp = WorkerProcess(pid=pid, fd_transport=fd_transport)
                 self.workers[wp.pid] = wp
@@ -220,6 +220,7 @@ class Server:
                 os._exit(exit_code)
 
     def reap_children(self, signum, stack_frame):
+        # TODO use a lock
         error_log.debug3('reap_children() called.')
         if self.reaping:
             return

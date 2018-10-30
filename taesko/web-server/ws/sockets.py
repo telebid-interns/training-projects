@@ -1,10 +1,12 @@
 import array
 import collections
+import errno
 import itertools
 import socket
 import time
 from socket import SHUT_WR, SHUT_RD, SHUT_RDWR
 
+from ws.config import config
 from ws.err import *
 from ws.logs import error_log
 
@@ -15,6 +17,68 @@ class ClientSocketException(ServerException):
 
     def __init__(self, msg=default_code, code=default_code):
         super().__init__(msg=msg, code=code)
+
+
+class Socket(socket.socket):
+    SHUTDOWN_MSGS = {
+        SHUT_RD: 'Shutting down socket %d for reading/receiving.',
+        SHUT_WR: 'Shutting down socket %d for writing/sending.',
+        SHUT_RDWR: 'Shutting down socket %d for both r/w.'
+    }
+
+    def shutdown(self, how, pass_silently=False):
+        error_log.debug2(self.SHUTDOWN_MSGS[how], super().fileno())
+
+        if pass_silently:
+            try:
+                super().shutdown(how)
+            except OSError:
+                pass
+        else:
+            super().shutdown(how)
+
+    def close(self, pass_silently=False):
+        if pass_silently:
+            try:
+                super().close()
+            except OSError:
+                pass
+        else:
+            super().close()
+
+
+class ServerSocket(Socket):
+    def accept(self):
+        """
+
+        :rtype: ws.sockets.ClientSocket
+        """
+        s, a = super().accept()
+        error_log.debug('Accepted connection from %s on socket %s',
+                        a, s.fileno())
+
+        cs = ClientSocket(s)
+        return cs, a
+
+    def safe_accept(self):
+        try:
+            client_socket, address = self.accept()
+        except OSError as err:
+            error_log.warning('accept() raised ERRNO=%s with MSG=%s',
+                              err.errno, err.strerror)
+
+            if err.errno not in (errno.EBADF, errno.EFAULT,
+                                 errno.EINVAL, errno.ENOTSOCK,
+                                 errno.EOPNOTSUPP):
+                raise
+
+            yield None
+            return
+
+        try:
+            yield client_socket, address
+        finally:
+            client_socket.close(pass_silently=True)
 
 
 class ClientSocket:
@@ -33,8 +97,13 @@ class ClientSocket:
         StopIteration() - if __next__ is called after the socket was broken
     """
     buffer_size = 2048
+    default_socket_timeout = config.getint('http', 'request_timeout')
+    default_connection_timeout = config.getint('http', 'connection_timeout')
 
-    def __init__(self, sock, *, socket_timeout, connection_timeout):
+    def __init__(self, sock, *,
+                 socket_timeout=default_socket_timeout,
+                 connection_timeout=default_connection_timeout
+                 ):
         assert isinstance(sock, socket.socket)
         assert isinstance(socket_timeout, int)
         assert isinstance(connection_timeout, int)
@@ -50,10 +119,18 @@ class ClientSocket:
         self.sock.settimeout(socket_timeout)
 
     @classmethod
-    def fromfd(cls, fd, *, socket_timeout, connection_timeout):
+    def fromfd(cls, fd, *,
+               socket_timeout=default_socket_timeout,
+               connection_timeout=default_connection_timeout,
+               ssl_ctx=None):
         sock = socket.socket(fileno=fd)
+
+        if ssl_ctx:
+            sock = ssl_ctx.wrap_socket(sock, server_side=True)
+
         error_log.debug2('Created socket %s from file descriptor %s',
                          sock.fileno(), fd)
+
         return cls(sock=sock,
                    socket_timeout=socket_timeout,
                    connection_timeout=connection_timeout)
@@ -147,7 +224,7 @@ class ClientSocket:
     def fileno(self):
         return self.sock.fileno()
 
-    def shutdown(self, how, silently=False):
+    def shutdown(self, how, pass_silently=False):
         msgs = {
             SHUT_RD: 'Shutting down socket %d for reading/receiving.',
             SHUT_WR: 'Shutting down socket %d for writing/sending.',
@@ -155,7 +232,7 @@ class ClientSocket:
         }
         error_log.debug2(msgs[how], self.sock.fileno())
 
-        if silently:
+        if pass_silently:
             try:
                 self.sock.shutdown(how)
             except OSError:
@@ -170,12 +247,12 @@ class ClientSocket:
         return self.sock.getpeername()
 
     def safely_close(self):
-        self.shutdown(SHUT_WR, silently=True)
+        self.shutdown(SHUT_WR, pass_silently=True)
         try:
             self.sock.recv(1)
         except (OSError, socket.timeout):
             pass
-        self.shutdown(SHUT_RD, silently=True)
+        self.shutdown(SHUT_RD, pass_silently=True)
         self.close(pass_silently=True)
 
     def close(self, with_shutdown=False, pass_silently=False, safely=True):
@@ -183,7 +260,7 @@ class ClientSocket:
         # safely_close() method
         try:
             if with_shutdown:
-                self.shutdown(SHUT_RDWR, silently=pass_silently)
+                self.shutdown(SHUT_RDWR, pass_silently=pass_silently)
         except OSError as err:
             if not pass_silently:
                 raise

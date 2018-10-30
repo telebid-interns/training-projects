@@ -1,4 +1,5 @@
 import collections
+import ssl
 
 import ws.auth
 import ws.cworker
@@ -21,6 +22,12 @@ class Worker:
         self.fd_transport = fd_transport
         self.auth_scheme = ws.auth.BasicAuth()
         self.rate_controller = ws.ratelimit.HTTPRequestRateController()
+        if config.getboolean('settings', 'ssl_enabled'):
+            cert_file = config['settings']['ssl_cert_file']
+            self.ssl_ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+            self.ssl_ctx.load_cert_chain(certfile=cert_file)
+        else:
+            self.ssl_ctx = None
 
     def recv_new_sockets(self):
         error_log.debug3('Receiving new sockets through fd transport.')
@@ -30,8 +37,7 @@ class Worker:
         for fd in fds:
             cs = ws.sockets.ClientSocket.fromfd(
                 fd,
-                socket_timeout=config.getint('http', 'request_timeout'),
-                connection_timeout=config.getint('http', 'connection_timeout')
+                ssl_ctx=self.ssl_ctx
             )
             self.client_sockets.append((cs, cs.getpeername()))
             error_log.debug3('Received file descriptor %s', fd)
