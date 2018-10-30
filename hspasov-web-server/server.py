@@ -1,8 +1,11 @@
 import errno
 import traceback
 import os
+import sys
 import socket
 import signal
+import urllib.parse
+import enum
 from datetime import datetime
 import json
 
@@ -13,6 +16,7 @@ response_reason_phrases = {
     b'200': b'OK',
     b'400': b'Bad Request',
     b'404': b'Not Found',
+    b'408': b'Request Timeout',
     b'500': b'Internal Server Error',
     b'503': b'Service Unavailable',
 }
@@ -38,6 +42,11 @@ class PeerError(BaseError):
 class UserError(BaseError):
     def __init__(self, msg):
         super().__init__(msg)
+
+
+class HandleRequestState(enum.Enum):
+    RECEIVING = enum.auto()
+    SENDING = enum.auto()
 
 
 def assert_app(condition):
@@ -78,7 +87,7 @@ def log(msg, lvl):
     if lvl <= config['log_level']:
         with open(config['log_file'], mode='a') as log_file:
             print('{0}  ({1})  {2}'.format(os.getpid(), datetime.now(), msg),
-                  file=log_file)
+                  file=sys.stdout)
 
 
 def parse_req_msg(msg):
@@ -86,7 +95,7 @@ def parse_req_msg(msg):
 
     assert_app(type(msg) == bytes)
 
-    msg_parts = msg.split(b'\r\n\r\n')
+    msg_parts = msg.split(b'\r\n\r\n', 1)
     log('msg_parts: {0}'.format(msg_parts), DEBUG)
 
     assert_peer(len(msg_parts) == 2, 'Invalid request')
@@ -106,7 +115,7 @@ def parse_req_msg(msg):
     parsed_req_line = {
         'raw': request_line,
         'method': req_line_tokens[0],
-        'req_target': req_line_tokens[1],
+        'req_target': urllib.parse.unquote_to_bytes(req_line_tokens[1]),
         'http_version': req_line_tokens[2],
     }
     log('parsed_req_line: {0}'.format(parsed_req_line), DEBUG)
@@ -118,7 +127,7 @@ def parse_req_msg(msg):
     for header_field in request_line_and_headers[1:]:
         log('header_field: {0}'.format(header_field), DEBUG)
 
-        header_field_split = header_field.split(b':', INFO)
+        header_field_split = header_field.split(b':', 1)
         log('header_field_split: {0}'.format(header_field_split), DEBUG)
 
         assert_peer(
@@ -149,8 +158,8 @@ def parse_req_msg(msg):
     return result
 
 
-def add_res_meta(status_code, headers={}, body=b''):
-    log('function add_res_meta called', TRACE)
+def build_res_meta(status_code, headers={}, body=b''):
+    log('function build_res_meta called', TRACE)
     log('arg status code: {0}'.format(status_code), DEBUG)
     log('arg headers: {0}'.format(headers), DEBUG)
     log('arg body: {0}'.format(body), DEBUG)
@@ -168,17 +177,19 @@ def add_res_meta(status_code, headers={}, body=b''):
 
     result += (b'\r\n\r\n' + body)
 
-    log('add_res_meta result: {0}'.format(result), DEBUG)
+    log('build_res_meta result: {0}'.format(result), DEBUG)
 
     return result
 
 
+# TODO make it a class
 def handle_request(conn):
     log('function handle_request called', TRACE)
     log('conn: {0}'.format(conn), DEBUG)
 
     assert_app(isinstance(conn, socket.socket))
 
+    handle_request_state = HandleRequestState.RECEIVING
     msg_received = b''
 
     request_meta = {
@@ -191,7 +202,18 @@ def handle_request(conn):
         while len(msg_received) <= config['req_msg_limit']:
             log('receiving data...', TRACE)
 
-            data = conn.recv(config['recv_buffer'])
+            try:
+                data = conn.recv(config['recv_buffer'])
+            except socket.timeout:
+                log('timeout while receiving from client', TRACE)
+
+                response = build_res_meta(b'408')
+
+                handle_request_state = HandleRequestState.SENDING
+                conn.sendall(response)
+
+                return request_meta
+
             log('data received: {0}'.format(data), DEBUG)
 
             msg_received += data
@@ -204,9 +226,12 @@ def handle_request(conn):
                 log('reached end of request meta', TRACE)
                 break
         else:
+            # TODO handle long messages
             log('request message too long', TRACE)
 
-            response = add_res_meta(b'400')
+            response = build_res_meta(b'400')
+
+            handle_request_state = HandleRequestState.SENDING
             conn.sendall(response)
 
             return request_meta
@@ -216,17 +241,20 @@ def handle_request(conn):
         request_data = parse_req_msg(msg_received)
         log('request_data: {0}'.format(request_data), DEBUG)
 
-        request_meta['req_line'] = request_data['req_line']['raw'].decode()
+        request_meta['req_line'] = request_data['req_line']['raw'].decode('utf-8')
 
         if 'User-Agent' in request_data['headers']:
             request_meta['user_agent'] = request_data['headers']['User-Agent']
 
         log('resolving file_path...', TRACE)
 
+        # ignoring query params
+        req_target_path = request_data['req_line']['req_target'].split(b'?')[0]
+
         file_path = os.path.realpath(
             os.path.join(
                 config['root_dir'],
-                *request_data['req_line']['req_target'].split(b'/')[1:])
+                *req_target_path.split(b'/')[1:])
         )
         log('file_path: {0}'.format(file_path), DEBUG)
 
@@ -234,7 +262,9 @@ def handle_request(conn):
             # TODO check if this is correct error handling
             log('requested file outside of web server document root', TRACE)
 
-            response = add_res_meta(b'400')
+            response = build_res_meta(b'400')
+
+            handle_request_state = HandleRequestState.SENDING
             conn.sendall(response)
 
             return request_meta
@@ -244,30 +274,29 @@ def handle_request(conn):
         with open(file_path, mode='rb') as content_file:
             log('requested file opened', TRACE)
 
-            response_packages_sent = 0
+            log('going to send first response package. adding res meta...',
+                TRACE)
+
+            content_length = os.path.getsize(file_path)
+            log('content_length: {0}'.format(content_length), DEBUG)
+
+            headers = {
+                b'Content-Length': bytes(str(content_length), 'utf-8')
+            }
+            response = build_res_meta(b'200', headers)
+
+            handle_request_state = HandleRequestState.SENDING
+            conn.sendall(response)
+
+            response_packages_sent = 1
 
             while True:
-                content = content_file.read(config['read_buffer'])
-                log('content: {0}'.format(content), DEBUG)
+                response = content_file.read(config['read_buffer'])
+                log('response: {0}'.format(response), DEBUG)
 
-                if len(content) <= 0:
+                if len(response) <= 0:
                     log('end of file reached while reading', TRACE)
                     break
-                if response_packages_sent == 0:
-                    log(('going to send first response package.' +
-                         'adding res meta...'), TRACE)
-
-                    content_length = os.path.getsize(file_path)
-                    log('content_length: {0}'.format(content_length), DEBUG)
-
-                    headers = {
-                        b'Content-Length': bytes(str(content_length), 'utf-8')
-                    }
-                    response = add_res_meta(b'200', headers, content)
-                else:
-                    response = content
-
-                log('response: {0}'.format(response), DEBUG)
 
                 response_packages_sent += 1
                 log('sending response.. response_packages_sent: {0}'.format(
@@ -283,7 +312,7 @@ def handle_request(conn):
         log('PeerError while handling request', TRACE)
         log(format(error), DEBUG)
 
-        response = add_res_meta(b'400')
+        response = build_res_meta(b'400')
         conn.sendall(response)
 
         return request_meta
@@ -291,7 +320,7 @@ def handle_request(conn):
         log('FileNotFound while handling request', TRACE)
         log(format(error), DEBUG)
 
-        response = add_res_meta(b'404')
+        response = build_res_meta(b'404')
         conn.sendall(response)
 
         return request_meta
@@ -299,7 +328,7 @@ def handle_request(conn):
         log('OSError while handling request', TRACE)
         log(format(error), DEBUG)
 
-        response = add_res_meta(b'503')
+        response = build_res_meta(b'503')
         conn.sendall(response)
 
         return request_meta
@@ -309,7 +338,7 @@ def handle_request(conn):
         if not isinstance(error, AppError):
             AppError(traceback.format_exc())
 
-        response = add_res_meta(b'500')
+        response = build_res_meta(b'500')
         conn.sendall(response)
 
         return request_meta
@@ -328,10 +357,12 @@ def start():
     socket_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     log('socket object: {0}'.format(socket_obj), DEBUG)
 
+    socket_obj.settimeout(config['socket_operation_timeout'])
+
     try:
         signal.signal(signal.SIGCHLD, signal.SIG_IGN)
 
-        socket_obj.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, INFO)
+        socket_obj.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         log('socket option SO_REUSEADDR set', TRACE)
 
         socket_obj.bind((config['host'], config['port']))
@@ -375,7 +406,6 @@ def start():
             except OSError as error:
                 log('OSError thrown in main loop', TRACE)
                 log(format(error), INFO)
-            except Exception as error:
                 log('Exception thrown in main loop', TRACE)
 
                 if not isinstance(error, AppError):
