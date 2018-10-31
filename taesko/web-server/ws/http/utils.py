@@ -101,7 +101,7 @@ def decode_uri_component(component):
             decoded.append(c)
             continue
 
-        hex_ = component[index: index + 2]
+        hex_ = component[index + 1: index + 3]
         if hex_[-1] not in string.hexdigits:
             hex_ = hex_[:-1]
 
