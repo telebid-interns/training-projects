@@ -3,6 +3,7 @@ import string
 
 from ws.config import config
 from ws.http.structs import HTTPStatusLine, HTTPHeaders, HTTPResponse
+from ws.err import *
 
 
 RESERVED_URI_CHARS = {'!', '*', '', "'",
@@ -105,8 +106,9 @@ def decode_uri_component(component):
             hex_ = hex_[:-1]
 
         if not hex_ or not all(h in string.hexdigits for h in hex_):
-            raise ValueError('Invalid percent encoded character at position {}'
-                             .format(index))
+            msg = 'Invalid percent encoded character at position {}'
+            raise PeerError(msg=msg.format(index),
+                            code='BAD_PERCENT_ENCODING')
 
         decoded.append(chr(int(hex_, base=16)))
         index += len(hex_)

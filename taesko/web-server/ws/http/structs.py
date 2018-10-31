@@ -1,9 +1,6 @@
 import collections
 import io
 
-import ws.utils
-from ws.err import *
-from ws.logs import error_log
 
 HTTPRequest = collections.namedtuple('HTTPRequest', ['request_line',
                                                      'headers',
@@ -75,42 +72,6 @@ class HTTPResponse(collections.namedtuple('HTTPResponse', ['status_line',
             chunk = http_fields.read(chunk_size)
 
         yield from self.body
-
-    @ws.utils.depreciated(error_log)
-    def send_depreciated(self, sock):
-        msg = bytes(self)
-        total_sent = 0
-
-        while total_sent < len(msg):
-            sent = sock.send(msg[total_sent:])
-
-            if sent == 0:
-                raise PeerError(msg='Peer broke socket connection while server '
-                                    'was sending.',
-                                code='RESPONSE_SEND_BROKEN_SOCKET')
-
-            total_sent += sent
-
-    @ws.utils.depreciated(error_log)
-    def __bytes__(self):
-        error_log.warning('Calling depreciated method __bytes__ '
-                          'of HTTPResponse')
-
-        if self.body:
-            body = '{self.body}'.format(self=self)
-            encoded_body = body.encode(self.headers['Content-Encoding'])
-        else:
-            encoded_body = b''
-
-        assert ('Content-Length' not in self.headers or
-                self.headers['Content-Length'] == len(encoded_body))
-
-        self.headers['Content-Length'] = len(encoded_body)
-        msg = '{self.status_line}\r\n{self.headers}\r\n\r\n'.format(self=self)
-        msg = msg.encode('ascii')
-        msg += encoded_body
-
-        return msg
 
 
 class HTTPStatusLine(

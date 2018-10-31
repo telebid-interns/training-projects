@@ -1,5 +1,3 @@
-import collections
-import itertools
 import re
 
 import ws.http.structs
@@ -231,20 +229,3 @@ def parse_headers(lines):
 
     return headers
 
-
-@ws.utils.depreciated(error_log)
-def take_until_depreciated(characters, spy_iter, take_max=None):
-    assert isinstance(characters, collections.Iterable)
-    assert isinstance(spy_iter, SpyIterator)
-    assert not take_max or isinstance(take_max, int)
-
-    for c in itertools.count():
-        if take_max and c >= take_max:
-            raise RuntimeError('Iteration reached take_max={}'.format(take_max))
-
-        reached = all(spy_iter.peek(len(s), entire_substring=True) == s
-                      for s in characters)
-        if reached:
-            break
-
-        yield next(spy_iter)

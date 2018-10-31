@@ -25,6 +25,72 @@ if not os.path.isdir(STATIC_DIR):
                    code='CONFIG_BAD_STATIC_DIR')
 
 
+class StaticFiles:
+    def __init__(self, document_root, route_prefix):
+        self.document_root = document_root
+        self.route_prefix = route_prefix
+        self.file_keys = frozenset()
+
+    def reindex_files(self):
+        file_keys = set()
+        for dir_path, dir_names, file_names in os.walk(self.document_root):
+            for fn in file_names:
+                fp = os.path.join(dir_path, fn)
+                stat = os.stat(fp)
+                file_keys.add((stat.st_ino, stat.st_dev))
+        self.file_keys = frozenset(file_keys)
+
+    def get_route(self, route):
+        resolved = self.resolve_route(route)
+
+        if not resolved:
+            return ws.http.utils.build_response(404)
+
+        try:
+            body_it = file_chunk_gen(resolved)
+            # startup the generator to have exceptions blow here.
+            next(body_it)
+            return HTTPResponse(
+                status_line=HTTPStatusLine(http_version='HTTP/1.1',
+                                           status_code=200,
+                                           reason_phrase=''),
+                headers=HTTPHeaders({
+                    'Content-Length': os.path.getsize(resolved)
+                }),
+                body=body_it
+            )
+        except (FileNotFoundError, IsADirectoryError):
+            return ws.http.utils.build_response(404)
+
+    def resolve_route(self, route):
+        route = ws.http.utils.decode_uri_component(route)
+
+        if not route.startswith(self.route_prefix):
+            error_log.debug('Route %s does not start with prefix %s',
+                            route, self.route_prefix)
+            return None
+
+        rel_path = route[len(self.route_prefix):]
+        file_path = os.path.join(self.document_root, rel_path)
+        resolved = os.path.abspath(os.path.realpath(file_path))
+
+        if not resolved.startswith(self.document_root):
+            error_log.debug('Resolved route %s is not inside document root %s',
+                            resolved, self.document_root)
+            return None
+
+        try:
+            stat = os.stat(resolved)
+            file_key = (stat.st_ino, stat.st_dev)
+        except FileNotFoundError:
+            return None
+
+        if file_key not in self.file_keys:
+            return None
+
+        return resolved
+
+
 def file_chunk_gen(fp):
     buf_size = 4096
     with open(fp, mode='rb') as f:
@@ -38,10 +104,10 @@ def file_chunk_gen(fp):
             chunk = f.read(buf_size)
 
 
-def get_file(route):
+def get_file_depreciated(route):
     error_log.debug2('Serving static file.')
-    resolved = resolve_route(route,
-                             route_prefix=STATIC_ROUTE, dir_prefix=STATIC_DIR)
+    resolved = resolve_route_depreciated(route, route_prefix=STATIC_ROUTE,
+                                         dir_prefix=STATIC_DIR)
 
     if not resolved:
         return ws.http.utils.build_response(404)
@@ -63,7 +129,7 @@ def get_file(route):
         return ws.http.utils.build_response(404)
 
 
-def resolve_route(route, route_prefix, dir_prefix):
+def resolve_route_depreciated(route, route_prefix, dir_prefix):
     if not route.startswith(route_prefix):
         error_log.debug('Route %s does not start with prefix %s',
                         route, route_prefix)
