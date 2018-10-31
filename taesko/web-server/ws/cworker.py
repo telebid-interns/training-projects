@@ -28,8 +28,13 @@ class ConnectionWorker:
     """
     max_exchange_history = CLIENT_ERRORS_THRESHOLD * 2
 
-    def __init__(self, iterable_socket, address, main_ctx, auth_scheme):
+    def __init__(self, iterable_socket, address, *, auth_scheme, static_files,
+                 main_ctx=None):
+        if not main_ctx:
+            main_ctx = {}
+
         assert isinstance(iterable_socket, ws.sockets.ClientSocket)
+        assert isinstance(address, collections.Container)
         assert isinstance(main_ctx, collections.Mapping)
 
         self.sock = iterable_socket
@@ -38,6 +43,27 @@ class ConnectionWorker:
         self.exchanges = collections.deque(maxlen=self.max_exchange_history)
         self.main_ctx = main_ctx
         self.auth_scheme = auth_scheme
+        self.static_files = static_files
+
+    @classmethod
+    def work(cls, client_socket, address, *, auth_scheme, static_files,
+             main_ctx=None, quick_reply_with=None):
+        assert (not quick_reply_with or
+                isinstance(quick_reply_with, ws.http.structs.HTTPResponse))
+
+        # noinspection PyBroadException
+        worker = cls(client_socket, address, main_ctx=main_ctx,
+                     auth_scheme=auth_scheme, static_files=static_files)
+        with worker as worker_ctx:
+            if quick_reply_with:
+                worker_ctx.push_exchange()
+                worker_ctx.respond(quick_reply_with, closing=True)
+                return tuple([quick_reply_with.status_line.status_code])
+
+            worker_ctx.process_connection()
+
+        return tuple(e['response'].status_line.status_code
+                     for e in worker_ctx.exchanges if e['response'])
 
     @property
     def exchange(self):
@@ -101,7 +127,7 @@ class ConnectionWorker:
             response_time=None
         ))
 
-    def process_connection(self, request_handler):
+    def process_connection(self):
         """ Continually serve an http connection.
 
         :param request_handler: Per-request handler. Will be called with a
@@ -130,10 +156,27 @@ class ConnectionWorker:
                                                 address=self.address)
             is_authorized, auth_response = auth_check
 
-            if is_authorized:
-                response = request_handler(request, self.sock)
-            else:
+            route = request.request_line.request_target.path
+            method = request.request_line.method
+            error_log.debug3('Incoming request {} {}'.format(method, route))
+
+            if not is_authorized:
                 response = auth_response
+            elif method == 'GET':
+                if ws.serve.is_status_route(route):
+                    response = ws.serve.status()
+                else:
+                    static_response = self.static_files.get_route(route)
+                    if static_response.status_line.status_code == 200:
+                        response = static_response
+                    elif ws.cgi.can_handle_request(request):
+                        response = ws.cgi.execute_script(request, self.sock)
+                    else:
+                        response = ws.http.utils.build_response(404)
+            elif ws.cgi.can_handle_request(request):
+                response = ws.cgi.execute_script(request, self.sock)
+            else:
+                response = ws.http.utils.build_response(405)
 
             self.respond(response)
 
@@ -222,6 +265,14 @@ def server_err_handler(exc):
     return ws.http.utils.build_response(500), True
 
 
+# noinspection PyUnusedLocal
+@exc_handler(PeerError)
+def peer_err_handler(exc):
+    error_log.warning('PeerError occurred. msg={exc.msg} code={exc.code}'
+                      .format(exc=exc))
+    return ws.http.utils.build_response(400), True
+
+
 @exc_handler(ws.http.parser.ParserException)
 def handle_parse_err(exc):
     error_log.warning('Parsing error with code=%s occurred', exc.code)
@@ -242,44 +293,3 @@ def handle_client_socket_err(exc):
 def handle_signal(exc):
     return ws.http.utils.build_response(503), False
 
-
-def work(client_socket, address, *, auth_scheme,
-         main_ctx=None, quick_reply_with=None):
-    main_ctx = main_ctx or {}
-
-    assert isinstance(client_socket, ws.sockets.ClientSocket)
-    assert isinstance(address, collections.Container)
-    assert (not quick_reply_with or
-            isinstance(quick_reply_with, ws.http.structs.HTTPResponse))
-    assert isinstance(main_ctx, collections.Mapping)
-
-    # noinspection PyBroadException
-    with ConnectionWorker(client_socket, address,
-                          main_ctx=main_ctx,
-                          auth_scheme=auth_scheme) as worker:
-        if quick_reply_with:
-            worker.push_exchange()
-            worker.respond(quick_reply_with, closing=True)
-            return tuple([quick_reply_with.status_line.status_code])
-
-        worker.process_connection(request_handler=handle_request)
-
-    return tuple(e['response'].status_line.status_code
-                 for e in worker.exchanges if e['response'])
-
-
-def handle_request(request, client_socket):
-    route = request.request_line.request_target.path
-    method = request.request_line.method
-    error_log.debug3('Incoming request {} {}'.format(method, route))
-
-    if method == 'GET' and ws.serve.is_status_route(route):
-        return ws.serve.status()
-    elif method == 'GET' and ws.serve.is_static_route(route):
-        return ws.serve.get_file(route)
-    elif ws.cgi.can_handle_request(request):
-        return ws.cgi.execute_script(request, client_socket)
-    elif method == 'GET':
-        return ws.http.utils.build_response(404)
-    else:
-        return ws.http.utils.build_response(405)

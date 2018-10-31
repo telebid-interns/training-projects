@@ -5,6 +5,7 @@ import ws.cworker
 import ws.http.utils as hutils
 import ws.ratelimit
 import ws.sockets
+import ws.serve
 import signal
 from ws.err import *
 from ws.config import config
@@ -22,6 +23,7 @@ class Worker:
         self.parent_ctx = parent_ctx
         self.fd_transport = fd_transport
         self.auth_scheme = ws.auth.BasicAuth()
+        self.static_files = ws.serve.StaticFiles()
         self.rate_controller = ws.ratelimit.HTTPRequestRateController()
         if config.getboolean('ssl', 'enabled'):
             cert_file = config['ssl']['cert_file']
@@ -117,11 +119,12 @@ class Worker:
                 error_log.info('Client on %s/%s does not use SSL/TLS',
                                socket, address)
 
-        status_codes = ws.cworker.work(
+        status_codes = ws.cworker.ConnectionWorker.work(
             client_socket=client_socket,
             address=address,
             auth_scheme=self.auth_scheme,
-            quick_reply_with=quick_reply_with
+            quick_reply_with=quick_reply_with,
+            static_files=self.static_files
         )
         self.rate_controller.record_handled_connection(
             ip_address=address[0],

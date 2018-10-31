@@ -26,12 +26,14 @@ if not os.path.isdir(STATIC_DIR):
 
 
 class StaticFiles:
-    def __init__(self, document_root, route_prefix):
+    def __init__(self, document_root=STATIC_DIR, route_prefix=STATIC_ROUTE):
         self.document_root = document_root
         self.route_prefix = route_prefix
         self.file_keys = frozenset()
+        self.reindex_files()
 
     def reindex_files(self):
+        error_log.info('Reindexing files under dir %s', self.document_root)
         file_keys = set()
         for dir_path, dir_names, file_names in os.walk(self.document_root):
             for fn in file_names:
@@ -39,6 +41,7 @@ class StaticFiles:
                 stat = os.stat(fp)
                 file_keys.add((stat.st_ino, stat.st_dev))
         self.file_keys = frozenset(file_keys)
+        error_log.debug3('Indexed file keys are: %s', self.file_keys)
 
     def get_route(self, route):
         resolved = self.resolve_route(route)
@@ -86,6 +89,8 @@ class StaticFiles:
             return None
 
         if file_key not in self.file_keys:
+            error_log.debug('File key %s of route %s is not inside indexed '
+                            'file keys.')
             return None
 
         return resolved
@@ -159,7 +164,7 @@ ServerStats = collections.namedtuple(
 )
 
 
-def is_static_route(route):
+def is_static_route_depreciated(route):
     static_route = config.get('routes', 'static', fallback=None)
 
     if not static_route:
