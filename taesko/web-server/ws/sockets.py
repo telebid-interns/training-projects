@@ -1,14 +1,21 @@
 import array
 import collections
-import errno
 import itertools
 import socket
+import ssl
 import time
+from ssl import Purpose
 from socket import SHUT_WR, SHUT_RD, SHUT_RDWR
 
 from ws.config import config
 from ws.err import *
 from ws.logs import error_log
+
+SHUTDOWN_MSGS = {
+    SHUT_RD: 'Shutting down socket %d for reading/receiving.',
+    SHUT_WR: 'Shutting down socket %d for writing/sending.',
+    SHUT_RDWR: 'Shutting down socket %d for both r/w.'
+}
 
 
 class ClientSocketException(ServerException):
@@ -20,14 +27,13 @@ class ClientSocketException(ServerException):
 
 
 class Socket(socket.socket):
-    SHUTDOWN_MSGS = {
-        SHUT_RD: 'Shutting down socket %d for reading/receiving.',
-        SHUT_WR: 'Shutting down socket %d for writing/sending.',
-        SHUT_RDWR: 'Shutting down socket %d for both r/w.'
-    }
+    def client_uses_ssl(self):
+        # taken from
+        # https://stackoverflow.com/questions/36865867/how-to-check-if-a-connection-is-ssl
+        return self.recv(1, socket.MSG_PEEK) == b'\x16'
 
     def shutdown(self, how, pass_silently=False):
-        error_log.debug2(self.SHUTDOWN_MSGS[how], super().fileno())
+        error_log.debug2(SHUTDOWN_MSGS[how], super().fileno())
 
         if pass_silently:
             try:
@@ -38,6 +44,47 @@ class Socket(socket.socket):
             super().shutdown(how)
 
     def close(self, pass_silently=False):
+        error_log.debug2('Closing socket %d', self.fileno())
+
+        if pass_silently:
+            try:
+                super().close()
+            except OSError:
+                pass
+        else:
+            super().close()
+
+    def __repr__(self):
+        return 'Socket(fileno={})'.format(self.fileno())
+
+
+class SSLSocket(ssl.SSLSocket):
+    @classmethod
+    def from_sock(cls, sock, context, server_side=False,
+                  do_handshake_on_connect=True,
+                  suppress_ragged_eofs=True,
+                  server_hostname=None):
+        # noinspection PyArgumentList
+        return cls(sock=sock, server_side=server_side,
+                   do_handshake_on_connect=do_handshake_on_connect,
+                   suppress_ragged_eofs=suppress_ragged_eofs,
+                   server_hostname=server_hostname,
+                   _context=context)
+
+    def shutdown(self, how, pass_silently=False):
+        error_log.debug2(SHUTDOWN_MSGS[how], super().fileno())
+
+        if pass_silently:
+            try:
+                super().shutdown(how)
+            except OSError:
+                pass
+        else:
+            super().shutdown(how)
+
+    def close(self, pass_silently=False):
+        error_log.debug2('Closing socket %d', self.fileno())
+
         if pass_silently:
             try:
                 super().close()
@@ -57,28 +104,12 @@ class ServerSocket(Socket):
         error_log.debug('Accepted connection from %s on socket %s',
                         a, s.fileno())
 
-        cs = ClientSocket(s)
-        return cs, a
+        return Socket(fileno=s.detach()), a
 
-    def safe_accept(self):
-        try:
-            client_socket, address = self.accept()
-        except OSError as err:
-            error_log.warning('accept() raised ERRNO=%s with MSG=%s',
-                              err.errno, err.strerror)
-
-            if err.errno not in (errno.EBADF, errno.EFAULT,
-                                 errno.EINVAL, errno.ENOTSOCK,
-                                 errno.EOPNOTSUPP):
-                raise
-
-            yield None
-            return
-
-        try:
-            yield client_socket, address
-        finally:
-            client_socket.close(pass_silently=True)
+    def dup(self):
+        # noinspection PyUnresolvedReferences
+        s = super().dup()
+        return Socket(fileno=s.detach())
 
 
 class ClientSocket:
@@ -119,10 +150,10 @@ class ClientSocket:
         self.sock.settimeout(socket_timeout)
 
     @classmethod
-    def fromfd(cls, fd, *,
-               socket_timeout=default_socket_timeout,
-               connection_timeout=default_connection_timeout,
-               ssl_ctx=None):
+    def fromfd_depreciated(cls, fd, *,
+                           socket_timeout=default_socket_timeout,
+                           connection_timeout=default_connection_timeout,
+                           ssl_ctx=None):
         sock = socket.socket(fileno=fd)
 
         if ssl_ctx:
@@ -168,7 +199,7 @@ class ClientSocket:
 
         return next(self.current_chunk)
 
-    def recv_until_after(self, bytes_token, recv_max_bytes):
+    def recv_until_after_depreciated(self, bytes_token, recv_max_bytes):
         """ Yields bytes one by one until a bytes_token is met.
 
         Parameter :bytes_token: can be of any length less than :recv_max_bytes:.
@@ -334,3 +365,7 @@ class FDTransport:
             self.receiver.close()
         except OSError:
             pass
+
+
+def create_default_ssl_context(purpose=Purpose.SERVER_AUTH, **kwargs):
+    return ssl.create_default_context(purpose, **kwargs)

@@ -34,7 +34,12 @@ class ServerException(Exception):
         self.code = code
 
 
-assert_system_depreciated = SysError.assert_
+class SignalReceived(ServerException):
+    def __init__(self, msg, code, signum):
+        super().__init__(msg=msg, code=code)
+        self.signum = signum
+
+
 exc_handlers = {}
 
 
@@ -53,4 +58,4 @@ def handle_exc(exc):
         if exc.__class__ == cls:
             return handler(exc)
 
-    return None
+    return None, False

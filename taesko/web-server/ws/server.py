@@ -26,8 +26,11 @@ WORKER_PROFILING_ON = config.getboolean('profiling', 'on_workers')
 
 
 def default_signal_handler(signum, stack_info):
-    raise ServerException(msg='Received signum={}. Process will exit.',
-                          code='UNCAUGHT_SIGNAL')
+    error_log.debug3('Received signum %s in default signal handler.', signum)
+    signame = signal.Signals(signum).name
+    raise SignalReceived(msg='Received signal {}'.format(signame),
+                         code='DEFAULT_HANDLER_CAUGHT_SIGNAL',
+                         signum=signum)
 
 
 signal.signal(signal.SIGTERM, default_signal_handler)
@@ -346,8 +349,16 @@ def main():
     fd_limit = subprocess.check_output(['ulimit', '-n'], shell=True)
     error_log.info('ulimit -n is "%s"', fd_limit.decode('ascii'))
     with profile(SERVER_PROFILING_ON):
+        # noinspection PyBroadException
         try:
             with Server() as server:
                 server.listen()
-        except (KeyboardInterrupt, ServerException):
+        except SignalReceived as err:
+            if err.signum == signal.SIGTERM:
+                pass
+            else:
+                error_log.exception('Unknown signal broke listen() loop.')
+        except KeyboardInterrupt:
             pass
+        except BaseException:
+            error_log.exception('Unhandled exception broke listen() loop.')

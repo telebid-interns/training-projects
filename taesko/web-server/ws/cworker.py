@@ -1,7 +1,6 @@
 import collections
 import errno
 import resource
-import signal
 import time
 
 import ws.auth
@@ -40,8 +39,6 @@ class ConnectionWorker:
         self.main_ctx = main_ctx
         self.auth_scheme = auth_scheme
 
-        signal.signal(signal.SIGTERM, self.handle_termination)
-
     @property
     def exchange(self):
         return self.exchanges[-1] if self.exchanges else None
@@ -66,7 +63,7 @@ class ConnectionWorker:
                             pass_silently=True)
             return False
 
-        response = handle_exc(exc_val)
+        response, suppress = handle_exc(exc_val)
 
         if not response:
             error_log.exception('Could not handle exception. Client will '
@@ -86,13 +83,23 @@ class ConnectionWorker:
             if e.errno == errno.ECONNRESET:
                 error_log.warning('Client stopped listening prematurely.'
                                   ' (no Connection: close header was received)')
-                return True
+                return suppress
             else:
                 raise
         finally:
             self.sock.close(with_shutdown=True, safely=True, pass_silently=True)
 
-        return True
+        return suppress
+
+    def push_exchange(self):
+        self.exchanges.append(dict(
+            request=None,
+            response=None,
+            written=False,
+            request_start=time.time(),
+            parse_time=None,
+            response_time=None
+        ))
 
     def process_connection(self, request_handler):
         """ Continually serve an http connection.
@@ -106,14 +113,7 @@ class ConnectionWorker:
             error_log.debug(
                 'HTTP Connection is open. Pushing new http exchange '
                 'context and parsing request...')
-            self.exchanges.append(dict(
-                request=None,
-                response=None,
-                written=False,
-                request_start=time.time(),
-                parse_time=None,
-                response_time=None
-            ))
+            self.push_exchange()
             try:
                 request = ws.http.parser.parse(self.sock)
             except ws.sockets.ClientSocketException as err:
@@ -198,7 +198,7 @@ class ConnectionWorker:
         access_log.log(**self.exchange)
 
     # noinspection PyUnusedLocal
-    def handle_termination(self, signum, stack_info):
+    def handle_termination_depreciated(self, signum, stack_info):
         error_log.info('Parent process requested termination.'
                        ' Cleaning up as much as possible and'
                        ' and sending a service unavailable response')
@@ -219,22 +219,28 @@ class ConnectionWorker:
 @exc_handler(AssertionError)
 def server_err_handler(exc):
     error_log.exception('Internal server error.')
-    return ws.http.utils.build_response(500)
+    return ws.http.utils.build_response(500), True
 
 
 @exc_handler(ws.http.parser.ParserException)
 def handle_parse_err(exc):
     error_log.warning('Parsing error with code=%s occurred', exc.code)
-    return ws.http.utils.build_response(400)
+    return ws.http.utils.build_response(400), True
 
 
 @exc_handler(ws.sockets.ClientSocketException)
 def handle_client_socket_err(exc):
     error_log.warning('Client socket error with code=%s occurred', exc.code)
     if exc.code in ('CS_PEER_SEND_IS_TOO_SLOW', 'CS_CONNECTION_TIMED_OUT'):
-        return ws.http.utils.build_response(408)
+        return ws.http.utils.build_response(408), True
     else:
-        return ws.http.utils.build_response(400)
+        return ws.http.utils.build_response(400), True
+
+
+# noinspection PyUnusedLocal
+@exc_handler(SignalReceived)
+def handle_signal(exc):
+    return ws.http.utils.build_response(503), False
 
 
 def work(client_socket, address, *, auth_scheme,
@@ -252,6 +258,7 @@ def work(client_socket, address, *, auth_scheme,
                           main_ctx=main_ctx,
                           auth_scheme=auth_scheme) as worker:
         if quick_reply_with:
+            worker.push_exchange()
             worker.respond(quick_reply_with, closing=True)
             return tuple([quick_reply_with.status_line.status_code])
 

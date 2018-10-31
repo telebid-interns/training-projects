@@ -44,8 +44,8 @@ def build_response(status_code, *, body=b'', reason_phrase='', headers=None,
         headers['Content-Length'] = 0
 
     if status_code == 503:
-        headers['Retry-After'] = config.getint('settings',
-                                               'process_timeout') * 2
+        headers['Retry-After'] = config.getint('http',
+                                               'retry_after') * 2
 
     return HTTPResponse(
         status_line=status_line,
