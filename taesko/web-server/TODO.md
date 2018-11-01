@@ -6,3 +6,4 @@
 3. HTTP basic auth
     1. verify encryption of passwords
 4. ssl
+5. Refactor all usage of strings in HTTP structs to bytes.

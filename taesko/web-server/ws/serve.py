@@ -191,7 +191,27 @@ def is_status_route(route):
 FORMAT_FIELD_REGEX = re.compile('%\((\w*)\)\w')
 
 
-def status():
+def worker_status(request_stats):
+    error_log.debug('Serving worker stats.')
+    body = []
+    for stat_name, stat_entry in request_stats.items():
+        total, count = stat_entry['total'], stat_entry['count']
+        if count:
+            line = '{}:{}'.format(stat_name, total / count).encode('ascii')
+            body.append(line)
+    body = b'\n'.join(body)
+    ib = io.BytesIO()
+    ib.write(body)
+    ib.seek(0)
+    return ws.http.utils.build_response(
+        status_code=200,
+        headers={'Content-Length': len(body),
+                 'Content-Type': 'text/html'},
+        body=ib
+    )
+
+
+def status_depreciated():
     error_log.debug2('Serving status page.')
     # for pos, part in enumerate(config['access_log']['format'].split()):
     #     match = FORMAT_FIELD_REGEX.match(part)

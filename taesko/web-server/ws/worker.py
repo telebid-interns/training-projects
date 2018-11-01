@@ -20,6 +20,8 @@ class Worker:
         assert isinstance(parent_ctx, collections.Mapping)
 
         self.connections = collections.deque()
+        self.request_stats = collections.defaultdict(lambda: {'total': 0,
+                                                              'count': 0})
         self.parent_ctx = parent_ctx
         self.fd_transport = fd_transport
         self.auth_scheme = ws.auth.BasicAuth()
@@ -116,17 +118,26 @@ class Worker:
             elif ssl_only:
                 quick_reply_with = hutils.build_response(403)
             else:
-                error_log.info('Client on %s/%s does not use SSL/TLS',
+                error_log.info('Client on %s / %s does not use SSL/TLS',
                                socket, address)
 
-        status_codes = ws.cworker.ConnectionWorker.work(
-            client_socket=client_socket,
+        conn_worker = ws.cworker.ConnectionWorker(
+            iterable_socket=client_socket,
             address=address,
             auth_scheme=self.auth_scheme,
-            quick_reply_with=quick_reply_with,
-            static_files=self.static_files
+            static_files=self.static_files,
+            worker_ctx={'request_stats': self.request_stats}
         )
-        self.rate_controller.record_handled_connection(
-            ip_address=address[0],
-            status_codes=status_codes
-        )
+        try:
+            with conn_worker:
+                conn_worker.process_connection(
+                    quick_reply_with=quick_reply_with)
+        finally:
+            self.rate_controller.record_handled_connection(
+                ip_address=address[0],
+                status_codes=conn_worker.status_codes()
+            )
+            for exchange_stats in conn_worker.generate_stats():
+                for stat_name, val in exchange_stats.items():
+                    self.request_stats[stat_name]['total'] += val
+                    self.request_stats[stat_name]['count'] += 1

@@ -40,10 +40,35 @@ class SignalReceived(ServerException):
         self.signum = signum
 
 
+class ExcHandler:
+    def __init__(self):
+        self.handlers = {}
+
+    def __call__(self, exc_cls):
+        def decorator(func):
+            assert exc_cls not in self.handlers
+
+            self.handlers[exc_cls] = func
+            return func
+
+        return decorator
+
+    def find_handler(self, exc):
+        for cls, handler in self.handlers.items():
+            if exc.__class__ == cls:
+                return handler
+
+    def can_handle(self, exc):
+        return bool(self.find_handler(exc))
+
+    def handle(self, exc):
+        return self.find_handler(exc)(exc)
+
+
 exc_handlers = {}
 
 
-def exc_handler(exc_cls):
+def exc_handler_depreciated(exc_cls):
     def decorator(func):
         assert exc_cls not in exc_handlers
 
@@ -53,7 +78,7 @@ def exc_handler(exc_cls):
     return decorator
 
 
-def handle_exc(exc):
+def handle_exc_depreciated(exc):
     for cls, handler in exc_handlers.items():
         if exc.__class__ == cls:
             return handler(exc)
