@@ -162,6 +162,7 @@ class ConnectionWorker:
             self.push_exchange()
             with record_rusage(self.exchange):
                 request = ws.http.parser.parse(self.sock)
+                self.exchange['request'] = request
                 response = self.handle_request(request)
                 response = self.respond(response)
                 client_persists = request and request_is_persistent(request)
@@ -216,13 +217,17 @@ class ConnectionWorker:
 
             request = self.exchange['request']
             if closing:
+                error_log.debug('Closing connection. (explicitly)')
                 conn = 'close'
             elif request:
                 try:
                     conn = str(request.headers['Connection'], encoding='ascii')
                 except (KeyError, UnicodeDecodeError):
+                    error_log.debug('Getting Connection header from request '
+                                    'failed. Closing connection.')
                     conn = 'close'
             else:
+                error_log.debug('No request parsed. Closing connection.')
                 conn = 'close'
             response.headers['Connection'] = conn
             self.exchange['written'] = True
