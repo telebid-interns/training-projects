@@ -9,7 +9,7 @@ import ws.serve
 import signal
 from ws.err import *
 from ws.config import config
-from ws.logs import error_log
+from ws.logs import error_log, access_log
 
 
 class Worker:
@@ -142,3 +142,5 @@ class Worker:
                 for stat_name, val in exchange_stats.items():
                     self.request_stats[stat_name]['total'] += val
                     self.request_stats[stat_name]['count'] += 1
+            for exchange in conn_worker.exchanges:
+                access_log.log(**exchange)

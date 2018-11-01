@@ -15,7 +15,7 @@ import ws.sockets
 from ws.config import config
 from ws.err import *
 from ws.http.utils import request_is_persistent, response_is_persistent
-from ws.logs import error_log, access_log
+from ws.logs import error_log
 
 CLIENT_ERRORS_THRESHOLD = config.getint('http', 'client_errors_threshold')
 
@@ -120,7 +120,6 @@ class ConnectionWorker:
 
         try:
             self.respond(response)
-            access_log.log(**self.exchange)
         except OSError as e:
             error_log.warning('During cleanup of worker tried to respond to '
                               'client and close the connection but: '
@@ -155,7 +154,6 @@ class ConnectionWorker:
 
             self.push_exchange()
             self.respond(quick_reply_with)
-            access_log.log(**self.exchange)
 
         while True:
             error_log.debug(
@@ -171,7 +169,6 @@ class ConnectionWorker:
 
                 if not (client_persists and server_persists):
                     break
-            access_log.log(**self.exchange)
 
     def handle_request(self, request):
         auth_check = self.auth_scheme.check(request=request,
