@@ -202,6 +202,7 @@ class Server:
                 wp = WorkerProcess(pid=pid, fd_transport=fd_transport)
                 self.workers[wp.pid] = wp
             else:
+                signal.signal(signal.SIGCHLD, signal.SIG_IGN)
                 self.execution_context = self.ExecutionContext.worker
                 # noinspection PyBroadException
                 try:
@@ -234,6 +235,7 @@ class Server:
             while True:
                 pid, exit_indicator = os.waitpid(-1, os.WNOHANG)
                 if pid:
+                    error_log.debug('Reaped pid %s', pid)
                     assert pid not in self.reaped_pids
                     self.reaped_pids.add(pid)
                 else:
