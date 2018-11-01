@@ -1,5 +1,5 @@
 function initMaps () {
-  gmaps = [...document.getElementsByClassName("gmap")];
+  gmaps = [...document.getElementsByClassName("gmaps-map")];
   gmaps.map((gmap) => {
     // TODO asserts
     const markers = [];
