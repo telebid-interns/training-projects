@@ -72,6 +72,7 @@ class Worker:
                 continue
             finally:
                 if sock:
+                    sock.shutdown(ws.sockets.SHUT_RDWR, pass_silently=True)
                     sock.close(pass_silently=True)
 
         # noinspection PyUnreachableCode

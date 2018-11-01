@@ -94,11 +94,7 @@ class ConnectionWorker:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if (not exc_val or
-                isinstance(exc_val, ws.sockets.ClientSocketException) and
-                exc_val == 'CS_PEER_NOT_SENDING'):
-            error_log.debug('Execution successful. Cleaning up worker.')
-            self.sock.safely_close()
+        if not exc_val:
             return False
 
         if self.exchange['written']:
@@ -108,15 +104,12 @@ class ConnectionWorker:
                 'HTTP response.',
                 self.sock.fileno()
             )
-            self.sock.close(with_shutdown=True, safely=False,
-                            pass_silently=True)
             return False
 
         if exc_handler.can_handle(exc_val):
             response, suppress = exc_handler.handle(exc_val)
             if not response:
                 # no need to send back a response
-                self.sock.close(with_shutdown=True, pass_silently=False)
                 return suppress
         else:
             error_log.exception('Could not handle exception. Client will '
@@ -140,8 +133,6 @@ class ConnectionWorker:
                 return suppress
             else:
                 raise
-        finally:
-            self.sock.close(with_shutdown=True, safely=True, pass_silently=True)
 
         return suppress
 
@@ -226,21 +217,17 @@ class ConnectionWorker:
         if response:
             assert isinstance(response, ws.http.structs.HTTPResponse)
 
+            request = self.exchange['request']
             if closing:
-                response.headers['Connection'] = 'close'
-            elif (self.exchange['request'] and
-                  'Connection' not in response.headers and
-                  'Connection' in self.exchange['request'].headers):
-                request_headers = self.exchange['request'].headers
-
+                conn = 'close'
+            elif request:
                 try:
-                    conn_value = str(request_headers['Connection'],
-                                     encoding='ascii')
-                except UnicodeDecodeError:
-                    response.headers['Connection'] = 'close'
-                else:
-                    response.headers['Connection'] = conn_value
-
+                    conn = str(request.headers['Connection'], encoding='ascii')
+                except (KeyError, UnicodeDecodeError):
+                    conn = 'close'
+            else:
+                conn = 'close'
+            response.headers['Connection'] = conn
             self.exchange['written'] = True
             for chunk in response.iter_chunks():
                 self.sock.send_all(chunk)
