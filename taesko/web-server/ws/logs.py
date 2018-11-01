@@ -134,7 +134,7 @@ access_log_file_handler = generic_file_handler(config['access_log'])
 access_log_file_handler.setFormatter(access_log_formatter)
 
 profile_log = _ProfileLog('profile')
-profile_log_formatter = logging.Formatter('%(asctime)s %(message)s')
+profile_log_formatter = logging.Formatter('%(asctime)s %(process)d %(message)s')
 profile_log_stream_handler = logging.StreamHandler()
 profile_log_stream_handler.setFormatter(profile_log_formatter)
 profile_log_file_handler = generic_file_handler(config['profile_log'])
