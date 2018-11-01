@@ -335,10 +335,12 @@ def profile(enabled=True):
     error_log.info('Starting profiling.')
     profiler = cProfile.Profile()
     profiler.enable()
+    profile_log.profile('Enabled profiling')
     try:
         yield
     finally:
         profiler.disable()
+        profile_log.profile('Disabled profiling')
         s = io.StringIO()
         ps = pstats.Stats(profiler, stream=s)
         ps = ps.sort_stats('cumulative')
