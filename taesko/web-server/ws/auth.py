@@ -27,7 +27,7 @@ class BasicCredentials(collections.namedtuple('_BasicCredentials',
 
         login, pw_hash, rest = line.split(',', 3)
         routes = map(hutils.decode_uri_component, rest.split(':'))
-        routes = tuple(hutils.normalized_route(r) for r in routes)
+        routes = tuple(hutils.normalized_route(r) for r in routes if r)
 
         return cls(login=login, pw_hash=pw_hash, routes=routes)
 
@@ -122,6 +122,7 @@ class BasicAuth:
 
         self.credentials = credentials
         self.required_auth = tuple(required_auth)
+        error_log.info('Routes that require auth are: %s', required_auth)
 
     def register_login(self, login, plain_pw, routes):
         with open(self.credentials_storage, mode='a', encoding='utf-8') as f:
