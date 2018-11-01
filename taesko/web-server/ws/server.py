@@ -214,8 +214,9 @@ class Server:
                     os.close(0)
                     os.close(1)
                     os.close(2)
-                    worker = ws.worker.Worker(fd_transport=fd_transport)
-                    exit_code = worker.work()
+                    with profile(WORKER_PROFILING_ON):
+                        worker = ws.worker.Worker(fd_transport=fd_transport)
+                        exit_code = worker.work()
                 except BaseException:
                     error_log.exception('Worker failed.')
                     exit_code = 1
