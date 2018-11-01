@@ -296,18 +296,18 @@ class ClientSocket:
             if not pass_silently:
                 raise
 
-            error_log.warning('Shutting down socket %s caused OSError '
+            error_log.warning('Shutting down client socket %s caused OSError '
                               'with ERRNO=%s and reason: %s',
                               self.fileno(), err.errno, err.strerror)
         finally:
-            error_log.debug2('Closing socket %d', self.sock.fileno())
+            error_log.debug2('Closing client socket %d', self.sock.fileno())
             try:
                 self.sock.close()
             except OSError as err:
                 if not pass_silently:
                     raise
                 else:
-                    error_log.debug3('Closing socket %d failed with - %s',
+                    error_log.debug3('Closing client socket %d failed: %s',
                                      err.strerror)
 
 
