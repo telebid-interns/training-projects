@@ -230,6 +230,7 @@ def execute_script(request, client_socket):
 
     error_log.debug('Request to CGI has body. Writing to stdin...')
 
+    # noinspection PyBroadException
     try:
         length = int(request.headers['Content-Length'])
         body = (next(client_socket) for _ in range(length))
@@ -259,8 +260,8 @@ def execute_script(request, client_socket):
             pass
 
 
-def stdout_chunk_iterator(byte_iterator, *, timeout, stdin, stdout,
-                          in_chunk=4096, out_chunk=4096):
+def stdout_chunk_iterator_depreciated(byte_iterator, *, timeout, stdin, stdout,
+                                      in_chunk=4096, out_chunk=4096):
     assert isinstance(timeout, int)
     assert isinstance(stdin, int)
     assert isinstance(stdout, int)
