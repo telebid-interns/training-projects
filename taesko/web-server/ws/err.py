@@ -63,13 +63,8 @@ class ExcHandler:
 
         return decorator
 
-    def find_handler(self, exc):
-        for cls, handler in self.handlers.items():
-            if exc.__class__ == cls:
-                return handler
-
     def can_handle(self, exc):
-        return bool(self.find_handler(exc))
+        return exc.__class__ in self.handlers
 
     def handle(self, exc):
-        return self.find_handler(exc)(exc)
+        return self.handlers[exc.__class__](exc)
