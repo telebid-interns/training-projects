@@ -1,4 +1,3 @@
-import collections
 import contextlib
 import errno
 import resource
@@ -55,7 +54,7 @@ def handle_client_socket_err(exc):
 
 
 # noinspection PyUnusedLocal
-@exc_handler(SignalReceived)
+@exc_handler(SignalReceivedException)
 def handle_signal(exc):
     return ws.http.utils.build_response(503), False
 

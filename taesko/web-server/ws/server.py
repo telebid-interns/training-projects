@@ -25,9 +25,9 @@ WORKER_PROFILING_ON = config.getboolean('profiling', 'on_workers')
 def default_signal_handler(signum, stack_info):
     error_log.debug3('Received signum %s in default signal handler.', signum)
     signame = signal.Signals(signum).name
-    raise SignalReceived(msg='Received signal {}'.format(signame),
-                         code='DEFAULT_HANDLER_CAUGHT_SIGNAL',
-                         signum=signum)
+    raise SignalReceivedException(msg='Received signal {}'.format(signame),
+                                  code='DEFAULT_HANDLER_CAUGHT_SIGNAL',
+                                  signum=signum)
 
 
 signal.signal(signal.SIGTERM, default_signal_handler)
@@ -354,7 +354,7 @@ def main():
         try:
             with Server() as server:
                 server.listen()
-        except SignalReceived as err:
+        except SignalReceivedException as err:
             if err.signum == signal.SIGTERM:
                 error_log.info('SIGTERM signal broke listen() loop.')
             else:

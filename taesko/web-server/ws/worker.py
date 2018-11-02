@@ -1,5 +1,3 @@
-import collections
-
 import ws.auth
 import ws.cworker
 import ws.http.utils as hutils
@@ -61,7 +59,7 @@ class Worker:
 
                 sock, address = self.connections.popleft()
                 self.handle_connection(socket=sock, address=address)
-            except SignalReceived as err:
+            except SignalReceivedException as err:
                 if err.signum == signal.SIGTERM:
                     error_log.info('Breaking work() loop due to signal %s.',
                                    signal.Signals(err.signum).name)

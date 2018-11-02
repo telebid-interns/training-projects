@@ -1,3 +1,6 @@
+import collections
+
+
 class BaseError(Exception):
     def __init__(self, *, msg, code):
         super().__init__(msg)
@@ -34,18 +37,25 @@ class ServerException(Exception):
         self.code = code
 
 
-class SignalReceived(ServerException):
+class SignalReceivedException(ServerException):
     def __init__(self, msg, code, signum):
         super().__init__(msg=msg, code=code)
         self.signum = signum
 
 
 class ExcHandler:
+    """ Strategy pattern for handling exceptions.
+
+    Instances of this class can register functions as exception handlers by
+    decorating them.
+    """
+
     def __init__(self):
         self.handlers = {}
 
     def __call__(self, exc_cls):
         def decorator(func):
+            assert isinstance(func, collections.Callable)
             assert exc_cls not in self.handlers
 
             self.handlers[exc_cls] = func
@@ -63,24 +73,3 @@ class ExcHandler:
 
     def handle(self, exc):
         return self.find_handler(exc)(exc)
-
-
-exc_handlers = {}
-
-
-def exc_handler_depreciated(exc_cls):
-    def decorator(func):
-        assert exc_cls not in exc_handlers
-
-        exc_handlers[exc_cls] = func
-        return func
-
-    return decorator
-
-
-def handle_exc_depreciated(exc):
-    for cls, handler in exc_handlers.items():
-        if exc.__class__ == cls:
-            return handler(exc)
-
-    return None, False
