@@ -5,7 +5,9 @@ import socket
 import ssl
 import time
 from ssl import Purpose
-from socket import SHUT_WR, SHUT_RD, SHUT_RDWR
+# noinspection PyUnresolvedReferences
+from socket import (SHUT_WR, SHUT_RD, SHUT_RDWR, AF_INET, SOCK_STREAM,
+                    SOL_SOCKET, SO_REUSEADDR)
 
 from ws.config import config
 from ws.err import *
@@ -369,3 +371,7 @@ class FDTransport:
 
 def create_default_ssl_context(purpose=Purpose.SERVER_AUTH, **kwargs):
     return ssl.create_default_context(purpose, **kwargs)
+
+
+def randomize_ssl_after_fork():
+    ssl.RAND_add(ssl.RAND_bytes(10), 0.0)

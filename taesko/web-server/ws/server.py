@@ -8,8 +8,6 @@ import json
 import os
 import pstats
 import signal
-import socket
-import ssl
 import subprocess
 import time
 
@@ -59,8 +57,9 @@ class Server:
                                                  'process_count_limit')
         self.execution_context = self.ExecutionContext.main
 
-        self.sock = ws.sockets.ServerSocket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock = ws.sockets.ServerSocket(ws.sockets.AF_INET,
+                                            ws.sockets.SOCK_STREAM)
+        self.sock.setsockopt(ws.sockets.SOL_SOCKET, ws.sockets.SO_REUSEADDR, 1)
         self.accepted_connections = 0
         self.workers = {}
         self.reaping = False
@@ -123,7 +122,7 @@ class Server:
             # TODO add rate limiting on rate of clients sending connections
             # instead of on the HTTP syntax (which will be deferred to workers)
             try:
-                client_socket, address = self.sock.accept()
+                sock, address = self.sock.accept()
             except OSError as err:
                 error_log.warning('accept() raised ERRNO=%s with MSG=%s',
                                   err.errno, err.strerror)
@@ -136,13 +135,16 @@ class Server:
                 continue
 
             self.accepted_connections += 1
-            passed = self.distribute_connection(client_socket=client_socket,
+            passed = self.distribute_connection(client_socket=sock,
                                                 address=address)
             if not passed:
                 # TODO fork and reply quickly with a 503
+                error_log.warning('Could not distribute connection %s / %s to '
+                                  'workers. Dropping connection.',
+                                  sock, address)
                 pass
 
-            client_socket.close(pass_silently=True)
+            sock.close(pass_silently=True)
 
             # duplicate the set so SIGCHLD handler doesn't cause problems
             to_remove = frozenset(self.reaped_pids)
@@ -197,7 +199,7 @@ class Server:
             if pid:
                 error_log.debug('Forked worker with pid=%s', pid)
                 self.execution_context = self.ExecutionContext.main
-                ssl.RAND_add(ssl.RAND_bytes(10), 0.0)
+                ws.sockets.randomize_ssl_after_fork()
                 fd_transport.mode = 'sender'
                 wp = WorkerProcess(pid=pid, fd_transport=fd_transport)
                 self.workers[wp.pid] = wp
@@ -242,9 +244,9 @@ class Server:
                 else:
                     break
         except OSError as err:
-            error_log.warning('During reaping of zombie child: wait() sys call '
-                              'failed with ERRNO=%s and MSG=%s',
-                              err.errno, err.strerror)
+            error_log.debug('During reaping of zombie child: wait() sys call '
+                            'failed with ERRNO=%s and MSG=%s. This is mostly '
+                            'not a problem.', err.errno, err.strerror)
         finally:
             self.reaping = False
 
@@ -262,7 +264,7 @@ class WorkerProcess:
 
     def send_connections(self, connections):
         sockets, addresses = zip(*connections)
-        msg = json.dumps(addresses).encode('utf-8')
+        msg = bytes(json.dumps(addresses), encoding='utf-8')
         fds = [cs.fileno() for cs in sockets]
         self.fd_transport.send_fds(msg=msg, fds=fds)
         self.sent_sockets += len(sockets)
