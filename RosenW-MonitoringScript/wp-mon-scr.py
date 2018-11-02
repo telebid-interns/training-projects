@@ -23,6 +23,12 @@ class WordPressMonitor(object):
         self.option_actual_dict = {}
 
     def check_version(self):
+        """Reads the /wp-includes/version.php file and extracts the value of $wp_version
+
+            Raises AssertionError when $wp_version is not found 
+            in the file or is not contained in MAINTAINED_VERSIONS
+            Returns None
+        """
         content = self.read_whole_file(self.wp_path + '/wp-includes/version.php')
         pattern = re.compile("""\$wp_version\s*=\s*['"]([^'"]*?)['"];""")
         match = pattern.search(content)
@@ -31,6 +37,12 @@ class WordPressMonitor(object):
         assert wp_version in self.MAINTAINED_VERSIONS, 'WP version ({}) is not maintained. Maintained versions are: {}'.format(wp_version, ', '.join(self.MAINTAINED_VERSIONS))
 
     def init_db(self):
+        """Reads the /wp-config.php file, extracts the DB_NAME, DB_USER, DB_PASSWORD and DB_HOST
+            values with a regex and saves them in dict 
+
+            Raises AssertionError if the regex doesnt find all the values
+            Returns None
+        """
         content = self.read_whole_file(self.wp_path + '/wp-config.php')
 
         for word in ['DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_HOST']:
@@ -49,6 +61,14 @@ class WordPressMonitor(object):
         self.cur = self.db.cursor()
 
     def start_test(self):
+        """Querries the WP database, extracts option_name column value from the wp_options table
+            and asserts the expected values with the actual
+
+            If assertion succeeds '1' is printed on stdout
+            If assertion fails '0' is printed on stdout and differences are printed on stderr
+
+            Returns None
+        """
         for option in self.option_expected_dict:
             rows = self.execute_sql("SELECT option_value FROM wp_options WHERE option_name = %s", [option])
             self.option_actual_dict[option] = rows[0][0]
@@ -78,15 +98,18 @@ class WordPressMonitor(object):
             assert False, 'Could not read file {}'.format(path)
 
     def fail(self):
+        """Prints differences on stderr"""
         sys.stderr.write('Expected:\n')
         for option in self.option_expected_dict:
-            sys.stderr.write('{}: {}\n'.format(option, self.option_expected_dict[option]))
+            if self.option_expected_dict[option] != self.option_actual_dict[option]:
+                sys.stderr.write('{}: {}\n'.format(option, self.option_expected_dict[option]))
 
         sys.stderr.write('\n')
 
-        sys.stderr.write('Actual:')
+        sys.stderr.write('Actual:\n')
         for option in self.option_actual_dict:
-            sys.stderr.write('{}: {}\n'.format(option, self.option_actual_dict[option]))
+            if self.option_expected_dict[option] != self.option_actual_dict[option]:
+                sys.stderr.write('{}: {}\n'.format(option, self.option_actual_dict[option]))
 
 if __name__ == '__main__':
     assert len(sys.argv) > 1, 'WordPress path required as first parameter'
