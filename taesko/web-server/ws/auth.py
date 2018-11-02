@@ -1,7 +1,8 @@
 import base64
 import binascii
 import collections
-import hashlib
+import crypt
+import hmac
 import os
 import pathlib
 
@@ -21,6 +22,15 @@ class InvalidCredentials(AuthException):
 
 class BasicCredentials(collections.namedtuple('_BasicCredentials',
                                               ['login', 'pw_hash', 'routes'])):
+    """ Stores credentials in a {login}, {pw_hash}, {routes} line format.
+
+    Password is encoding using crypt(). It is not portable across different
+    systems (possibly even different Linux systems).
+    Routes are stored percent encoded and separated by a ':' character.
+
+    The attributes login, pw_hash and routes are all ascii strings.
+    The attribute routes is always in a decoded state.
+    """
     @classmethod
     def from_line(cls, line):
         assert isinstance(line, str)
@@ -32,23 +42,17 @@ class BasicCredentials(collections.namedtuple('_BasicCredentials',
         return cls(login=login, pw_hash=pw_hash, routes=routes)
 
     @staticmethod
-    def hash_login(login, password, encoding='utf-8'):
-        salted_pw = password + login[:6]
-        ph = hashlib.sha256(salted_pw.encode(encoding)).hexdigest()
-        return ph
-
-    @staticmethod
     def serialize_plain_text(login, plain_pw, routes):
         routes_part = ':'.join(map(hutils.encode_uri_component, routes))
-        pw_hash = BasicCredentials.hash_login(login=login, password=plain_pw)
+        pw_hash = crypt.crypt(plain_pw)
         return ','.join([login, pw_hash, routes_part])
 
     def match_credentials(self, login, password):
         assert isinstance(login, str)
         assert isinstance(password, str)
 
-        ph = self.hash_login(login, password)
-        return self.pw_hash == ph
+        return hmac.compare_digest(self.pw_hash,
+                                   crypt.crypt(password, self.pw_hash))
 
 
 class BasicAuth:
