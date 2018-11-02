@@ -30,7 +30,11 @@ class StaticFiles:
         self.document_root = document_root
         self.route_prefix = route_prefix
         self.file_keys = frozenset()
-        self.reindex_files()
+        self.reindex_is_scheduled = False
+
+    def schedule_reindex(self):
+        """ Method to be used as a signal handler to avoid race conditions."""
+        self.reindex_is_scheduled = True
 
     def reindex_files(self):
         error_log.info('Reindexing files under dir %s', self.document_root)
@@ -42,8 +46,12 @@ class StaticFiles:
                 file_keys.add((stat.st_ino, stat.st_dev))
         self.file_keys = frozenset(file_keys)
         error_log.debug3('Indexed file keys are: %s', self.file_keys)
+        self.reindex_is_scheduled = False
 
     def get_route(self, route):
+        if self.reindex_is_scheduled:
+            self.reindex_files()
+
         resolved = self.resolve_route(route)
 
         if not resolved:
@@ -66,24 +74,23 @@ class StaticFiles:
             return ws.http.utils.build_response(404)
 
     def resolve_route(self, route):
+        if self.reindex_is_scheduled:
+            self.reindex_files()
+
         route = ws.http.utils.decode_uri_component(route)
 
         if not route.startswith(self.route_prefix):
             error_log.debug('Route %s does not start with prefix %s',
                             route, self.route_prefix)
             return None
+        elif route == self.route_prefix:
+            return config.get('resources', 'index_page', fallback=None)
 
         rel_path = route[len(self.route_prefix):]
-        file_path = os.path.join(self.document_root, rel_path)
-        resolved = os.path.abspath(os.path.realpath(file_path))
-
-        if not resolved.startswith(self.document_root):
-            error_log.debug('Resolved route %s is not inside document root %s',
-                            resolved, self.document_root)
-            return None
+        file_path = os.path.abspath(os.path.join(self.document_root, rel_path))
 
         try:
-            stat = os.stat(resolved)
+            stat = os.stat(file_path)
             file_key = (stat.st_ino, stat.st_dev)
         except FileNotFoundError:
             return None
@@ -93,7 +100,7 @@ class StaticFiles:
                             'file keys.')
             return None
 
-        return resolved
+        return file_path
 
 
 def file_chunk_gen(fp):
