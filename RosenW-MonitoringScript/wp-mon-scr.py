@@ -11,10 +11,10 @@ class WordPressMonitor(object):
 
     def __init__(self, wp_path):
         self.wp_path = wp_path
+        self.db_info = {}
         self.check_version()
         self.init_db()
 
-        self.db_info = {}
 
         self.option_expected_dict = {
             'users_can_register': '0',
