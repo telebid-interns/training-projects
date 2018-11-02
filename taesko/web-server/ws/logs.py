@@ -32,9 +32,13 @@ def add_log_level(
         method_name = method_name or level_name.lower()
 
         def log_custom_level(self, *args, **kwargs):
-            # self is a logging.Logger instance
+            if not isinstance(level, int):
+                if logging.raiseExceptions:
+                    raise TypeError("level must be an integer")
+                else:
+                    return
             if self.isEnabledFor(level):
-                self.log(level, *args, **kwargs)
+                self._log(level, args[0], args[1:], **kwargs)
 
         log_custom_level.__name__ = method_name
         setattr(logging.Logger, method_name, log_custom_level)
