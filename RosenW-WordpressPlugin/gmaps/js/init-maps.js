@@ -1,7 +1,6 @@
 function initMaps () {
   gmaps = [...document.getElementsByClassName("gmaps-map")];
   gmaps.map((gmap) => {
-    // TODO asserts
     const markers = [];
 
     const center = { lat: 0, lng: 0 };
