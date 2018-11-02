@@ -109,14 +109,13 @@ class Worker:
             socket.close(pass_silently=True)
             return
 
-        client_socket = ws.sockets.ClientSocket(sock=socket)
+        wrapped_sock = socket
 
         if self.ssl_ctx:
             if socket.client_uses_ssl():
-                ssl_sock = ws.sockets.SSLSocket.from_sock(
+                wrapped_sock = ws.sockets.SSLSocket.from_sock(
                     sock=socket, context=self.ssl_ctx, server_side=True
                 )
-                client_socket = ws.sockets.ClientSocket(sock=ssl_sock)
             elif ssl_only:
                 quick_reply_with = hutils.build_response(403)
             else:
@@ -124,7 +123,7 @@ class Worker:
                                socket, address)
 
         conn_worker = ws.cworker.ConnectionWorker(
-            iterable_socket=client_socket,
+            sock=wrapped_sock,
             address=address,
             auth_scheme=self.auth_scheme,
             static_files=self.static_files,

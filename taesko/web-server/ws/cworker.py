@@ -42,7 +42,7 @@ def handle_parse_err(exc):
     return ws.http.utils.build_response(400), True
 
 
-@exc_handler(ws.sockets.ClientSocketException)
+@exc_handler(ws.http.parser.ClientSocketException)
 def handle_client_socket_err(exc):
     error_log.warning('Client socket error with code=%s occurred', exc.code)
     if exc.code in ('CS_PEER_SEND_IS_TOO_SLOW', 'CS_CONNECTION_TIMED_OUT'):
@@ -67,13 +67,13 @@ class ConnectionWorker:
 
     """
 
-    def __init__(self, iterable_socket, address, *, auth_scheme, static_files,
+    def __init__(self, sock, address, *, auth_scheme, static_files,
                  worker_ctx):
-        assert isinstance(iterable_socket, ws.sockets.ClientSocket)
+        assert isinstance(sock, (ws.sockets.Socket, ws.sockets.SSLSocket))
         assert isinstance(address, collections.Container)
         assert isinstance(worker_ctx, collections.Mapping)
 
-        self.sock = iterable_socket
+        self.sock = sock
         self.address = address
         self.auth_scheme = auth_scheme
         self.static_files = static_files
@@ -160,8 +160,9 @@ class ConnectionWorker:
                 'context and parsing request...')
             self.push_exchange()
             with record_rusage(self.exchange):
-                request = ws.http.parser.parse(self.sock)
+                request, body_start = ws.http.parser.parse(self.sock)
                 self.exchange['request'] = request
+                self.exchange['body_start'] = body_start
                 response = self.handle_request(request)
                 response = self.respond(response)
                 client_persists = request and request_is_persistent(request)
@@ -190,11 +191,19 @@ class ConnectionWorker:
                 if static_response.status_line.status_code == 200:
                     response = static_response
                 elif ws.cgi.can_handle_request(request):
-                    response = ws.cgi.execute_script(request, self.sock)
+                    response = ws.cgi.execute_script(
+                        request,
+                        socket=self.sock,
+                        body_start=self.exchange['body_start']
+                    )
                 else:
                     response = ws.http.utils.build_response(404)
         elif ws.cgi.can_handle_request(request):
-            response = ws.cgi.execute_script(request, self.sock)
+            response = ws.cgi.execute_script(
+                request,
+                socket=self.sock,
+                body_start=self.exchange['body_start']
+            )
         else:
             response = ws.http.utils.build_response(405)
 
@@ -230,8 +239,13 @@ class ConnectionWorker:
                 conn = 'close'
             response.headers['Connection'] = conn
             self.exchange['written'] = True
-            for chunk in response.iter_chunks():
-                self.sock.send_all(chunk)
+            try:
+                for chunk in response.iter_chunks():
+                    self.sock.sendall(chunk)
+            except OSError as err:
+                error_log.warning('Error occurred while sending response '
+                                  'through socket. ERRNO=%s and MSG=%s',
+                                  err.errno, err.strerror)
 
         return response
 

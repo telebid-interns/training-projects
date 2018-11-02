@@ -3,8 +3,7 @@ import io
 
 
 HTTPRequest = collections.namedtuple('HTTPRequest', ['request_line',
-                                                     'headers',
-                                                     'body'])
+                                                     'headers'])
 
 
 class HTTPRequestLine(collections.namedtuple('HTTPStartLine',

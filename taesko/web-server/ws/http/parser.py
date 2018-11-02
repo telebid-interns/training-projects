@@ -1,7 +1,9 @@
 import re
+import time
 
 import ws.http.structs
 import ws.utils
+import ws.sockets
 from ws.config import config
 from ws.err import *
 from ws.logs import error_log
@@ -27,44 +29,91 @@ class ParserException(ServerException):
         super().__init__(msg=msg, code=code)
 
 
-class SpyIterator:
-    def __init__(self, iterable):
-        self.it = iter(iterable)
-        self.peeked = []
-        self.iterated_count = 0
+class ClientSocketException(ParserException):
+    default_msg = 'Client socket caused an error.'
+    default_code = 'CS_ERROR'
 
-    def peek(self, n=1, entire_substring=False):
-        for k in range(len(self.peeked), n):
-            next_ = next(self.it)
-            self.peeked.append(next_)
+    def __init__(self, msg=default_code, code=default_code):
+        super().__init__(msg=msg, code=code)
 
-        if entire_substring:
-            return bytes(self.peeked[:n])
-        else:
-            return self.peeked[n - 1]
 
-    def skip(self, n=1):
-        return bytes(next(self) for _ in range(n))
+class SocketIterator:
+    """ Optimal byte iterator over plain sockets.
+
+    The __next__ method of this class ALWAYS returns one byte from the
+    underlying socket or raises an exception.
+
+    Exceptions raised during iteration:
+
+    ClientSocketException(code='CS_PEER_SEND_IS_TOO_SLOW') - when __next__ is
+        called and the socket times out.
+    ClientSocketException(code='CS_PEER_NOT_SENDING' - when __next__ is called
+        and the client sends 0 bytes through the socket indicating he is done.
+    ClientSocketException(code='CS_CONNECTION_TIMED_OUT') - when __next__ is
+        called but the connection_timeout has been exceeded.
+    StopIteration() - if __next__ is called after the socket was broken
+
+    """
+    buffer_size = 2048
+    default_socket_timeout = config.getint('http', 'request_timeout')
+    default_connection_timeout = config.getint('http', 'connection_timeout')
+
+    def __init__(self, sock, *,
+                 socket_timeout=default_socket_timeout,
+                 connection_timeout=default_connection_timeout):
+        assert isinstance(sock, (ws.sockets.Socket, ws.sockets.SSLSocket))
+        assert isinstance(socket_timeout, int)
+        assert isinstance(connection_timeout, int)
+
+        self.sock = sock
+        self.current_chunk = None
+        self.socket_broke = False
+        self.connection_timeout = connection_timeout
+        self.connected_on = time.time()
+        self.written = False
+
+        self.sock.settimeout(socket_timeout)
 
     def __iter__(self):
         return self
 
     def __next__(self):
-        if self.peeked:
-            return self.peeked.pop(0)
-        else:
-            value = next(self.it)
-            self.iterated_count += 1
+        if self.current_chunk:
+            try:
+                return next(self.current_chunk)
+            except StopIteration:
+                pass
+        elif self.socket_broke:
+            raise StopIteration()
 
-            return value
+        if self.connected_on + self.connection_timeout < time.time():
+            raise ClientSocketException(code='CS_CONNECTION_TIMED_OUT')
+
+        try:
+            chunk = self.sock.recv(self.__class__.buffer_size)
+        except ws.sockets.TimeoutException as e:
+            error_log.warning('Socket timed out while receiving request.')
+            raise ClientSocketException(code='CS_PEER_SEND_IS_TOO_SLOW') from e
+
+        error_log.debug3('Read chunk %s', chunk)
+
+        if chunk == b'':
+            error_log.info('Socket %d broke', self.sock.fileno())
+            self.socket_broke = True
+            raise ClientSocketException(code='CS_PEER_NOT_SENDING')
+
+        self.current_chunk = iter(chunk)
+
+        return next(self.current_chunk)
 
 
-def parse(client_socket):
-    error_log.debug3('Parsing request from socket %s', client_socket.fileno())
+def parse(sock):
+    error_log.debug3('Parsing request from socket %s', sock.fileno())
+    socket_it = SocketIterator(sock)
     lines = []
     line = bytearray()
 
-    for count, byte in enumerate(client_socket):
+    for count, byte in enumerate(socket_it):
         line.append(byte)
 
         if line[-2:] == b'\r\n':
@@ -89,20 +138,12 @@ def parse(client_socket):
         raise ParserException(code='BAD_ENCODING') from err
 
     error_log.debug2('headers is %r with type %r', headers, type(headers))
-
-    try:
-        cl = int(headers.get('Content-Length', 0))
-    except ValueError as e:
-        raise ParserException(code='BAD_CONTENT_LENGTH') from e
-
     error_log.debug2('Deferring parsing of body to later.')
-    body = (next(client_socket) for _ in range(cl))
 
-    return ws.http.structs.HTTPRequest(
-        request_line=request_line,
-        headers=headers,
-        body=body
-    )
+    request = ws.http.structs.HTTPRequest(request_line=request_line,
+                                          headers=headers)
+    leftover = bytes(socket_it.current_chunk)
+    return request, leftover
 
 
 HTTP_VERSION_REGEX = re.compile(b'HTTP/(\\d\\.\\d)')

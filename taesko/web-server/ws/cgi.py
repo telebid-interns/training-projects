@@ -1,5 +1,4 @@
 import os
-import select
 import subprocess
 import time
 
@@ -171,6 +170,7 @@ def prepare_cgi_script_env(request, client_socket):
     script_env = compute_http_headers_env(request)
 
     script_env['GATEWAY_INTERFACE'] = 'CGI/1.1'
+    # noinspection PyTypeChecker
     script_env['PATH_INFO'] = compute_path_info(cgi_script, uri)
     script_env['PATH_TRANSLATED'] = compute_path_translated(
         script_env['PATH_INFO']
@@ -185,23 +185,24 @@ def prepare_cgi_script_env(request, client_socket):
     script_env['SERVER_PROTOCOL'] = 'HTTP/1.1'
     script_env['SERVER_SOFTWARE'] = 'web-server-v0.3.0rc'
 
-    if request.body:
-        cl = request.headers.get('Content-Length', 0)
-        script_env['Content-Length'] = str(cl)
+    cl = request.headers.get('Content-Length', 0)
+    script_env['Content-Length'] = str(int(cl))
 
-        if 'Content-Encoding' in request.headers:
-            script_env['Content-Encoding'] = request.headers['Content-Encoding']
+    if 'Content-Encoding' in request.headers:
+        script_env['Content-Encoding'] = request.headers['Content-Encoding']
 
     return script_env
 
 
-def execute_script(request, client_socket):
+def execute_script(request, socket, body_start=b''):
+    assert isinstance(socket, (ws.sockets.SSLSocket, ws.sockets.Socket))
+    assert isinstance(body_start, (bytes, bytearray))
     assert can_handle_request(request)
 
     uri = request.request_line.request_target
     cgi_script = find_cgi_script(uri)
     error_log.info('Executing CGI script %s', cgi_script.name)
-    script_env = prepare_cgi_script_env(request, client_socket)
+    script_env = prepare_cgi_script_env(request, socket)
     error_log.debug('CGIScript environment will be: %s', script_env)
 
     has_body = 'Content-Length' in request.headers
@@ -209,92 +210,61 @@ def execute_script(request, client_socket):
     if has_body:
         stdin = subprocess.PIPE
     else:
-        stdin = client_socket.fileno()
+        stdin = socket.fileno()
 
     try:
         proc = subprocess.Popen(
             args=os.path.abspath(cgi_script.script_path),
             env=script_env,
             stdin=stdin,
-            stdout=client_socket.fileno()
+            stdout=socket.fileno()
         )
     except (OSError, ValueError):
         error_log.exception('Failed to open subprocess for cgi script {}'
                             .format(cgi_script.name))
         return ws.http.utils.build_response(500)
 
-    if not has_body:
-        client_socket.close(pass_silently=True)
-        return
-
-    error_log.debug('Request to CGI has body. Writing to stdin...')
-
     # noinspection PyBroadException
     try:
+        if not has_body:
+            return
+
+        error_log.debug('Request to CGI has body. Writing to stdin...')
+        start = time.time()
+
         length = int(request.headers['Content-Length'])
-        body = (next(client_socket) for _ in range(length))
+        read_bytes = 0
         chunk_size = 4096
-        while True:
-            try:
-                chunk = bytes(b for i, b in enumerate(body) if i < chunk_size)
-            except ws.sockets.ClientSocketException as err:
-                error_log.warning('Encountered socket error while writing '
-                                  'body - %s', err)
+        while read_bytes < length:
+            if time.time() - start > cgi_script.timeout:
+                error_log.warning('CGI script %s took too long to read body. '
+                                  'Leaving process alive but no more data will '
+                                  'be piped to it.')
                 break
 
-            if chunk:
-                error_log.debug3('Writing chunk %s', chunk)
-                proc.stdin.write(chunk)
+            if body_start:
+                chunk = body_start
+                body_start = b''
             else:
+                chunk = socket.recv(chunk_size)
+                read_bytes += len(chunk)
+            if not chunk:
                 break
-    except ValueError:
-        pass
+
+            error_log.debug3('Writing chunk %s', chunk)
+            while chunk:
+                written = proc.stdin.write(chunk)
+                chunk = chunk[written:]
+    except ws.sockets.TimeoutException:
+        error_log.warning("Client sent data too slowly - socket timed out.")
     except Exception:
         error_log.exception('Failed to write body to CGI script.')
     finally:
-        client_socket.close(pass_silently=True)
         try:
             proc.stdin.close()
         except OSError as err:
             error_log.warning('Closing CGI stdin pipe failed. ERRNO=%s MSG=%s.',
                               err.errno, err.strerror)
-
-
-def stdout_chunk_iterator_depreciated(byte_iterator, *, timeout, stdin, stdout,
-                                      in_chunk=4096, out_chunk=4096):
-    assert isinstance(timeout, int)
-    assert isinstance(stdin, int)
-    assert isinstance(stdout, int)
-    assert isinstance(byte_iterator, collections.Iterable)
-
-    byte_iterator = iter(byte_iterator)
-    has_more_input = False
-    current_chunk = None
-    currently_written = 0
-    start = time.time()
-    while time.time() - timeout < start:
-        rlist, wlist, xlist = [stdout], [], []
-        if has_more_input:
-            wlist.append(stdin)
-        else:
-            os.close(stdin)
-
-        # because current process serves only one request at once
-        # there is no need to have a timeout on this select
-        # if it blocks forever a process manager is going to kill it.
-        rlist, wlist, xlist = select.select(rlist, wlist, xlist)
-        if stdout in rlist:
-            out = os.read(stdout, out_chunk)
-            if not out:
-                break
-            yield out
-        if stdin in wlist:
-            if not current_chunk:
-                current_chunk = b''.join(b for c, b in byte_iterator
-                                         if c < in_chunk)
-                currently_written = 0
-            wrote = os.write(stdin, current_chunk[currently_written:])
-            currently_written += wrote
 
 
 CGI_SCRIPTS = cgi_config()
