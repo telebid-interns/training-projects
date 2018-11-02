@@ -24,9 +24,12 @@ class Worker:
                                                               'count': 0})
         self.parent_ctx = parent_ctx
         self.fd_transport = fd_transport
+        self.rate_controller = ws.ratelimit.HTTPRequestRateController()
         self.auth_scheme = ws.auth.BasicAuth()
         self.static_files = ws.serve.StaticFiles()
-        self.rate_controller = ws.ratelimit.HTTPRequestRateController()
+        self.static_files.reindex_files()
+        signal.signal(signal.SIGUSR1, self.static_files.schedule_reindex)
+
         if config.getboolean('ssl', 'enabled'):
             cert_file = config['ssl']['cert_file']
             purpose = ws.sockets.Purpose.CLIENT_AUTH
