@@ -1,5 +1,4 @@
 import cProfile
-import collections
 import contextlib
 import enum
 import errno
@@ -32,8 +31,6 @@ def default_signal_handler(signum, stack_info):
 
 
 signal.signal(signal.SIGTERM, default_signal_handler)
-
-RESOURCE_METRICS = {}
 
 
 class Server:
@@ -69,7 +66,6 @@ class Server:
     def __enter__(self):
         error_log.info('Binding server on %s:%s', self.host, self.port)
         self.sock.bind((self.host, self.port))
-        error_log.info('Pre-forking %s workers', self.process_count_limit)
         self.fork_workers(self.process_count_limit)
 
         return self
@@ -80,19 +76,15 @@ class Server:
         if self.execution_context == self.ExecutionContext.worker:
             return False
 
-        if exc_val and not isinstance(exc_val, KeyboardInterrupt):
-            error_log.exception('Unhandled error while listening.'
-                                'Shutting down...')
-
         error_log.info("Closing server's listening socket")
         try:
             self.sock.close()
         except OSError:
             error_log.exception('close() on listening socket failed.')
 
+        signal.signal(signal.SIGCHLD, signal.SIG_DFL)
         active_workers = [worker for worker in self.workers.values()
                           if worker.pid not in self.reaped_pids]
-        signal.signal(signal.SIGCHLD, signal.SIG_IGN)
         for worker in active_workers:
             worker.terminate()
 
@@ -103,10 +95,9 @@ class Server:
             time.sleep(timeout)
 
         for worker in active_workers:
-            try:
-                os.kill(worker.pid, signal.SIGKILL)
-            except OSError:
-                pass
+            pid, exit = os.waitpid(worker.pid, os.WNOHANG)
+            if not pid:
+                worker.kill_if_hanged()
 
         return False
 
@@ -142,7 +133,6 @@ class Server:
                 error_log.warning('Could not distribute connection %s / %s to '
                                   'workers. Dropping connection.',
                                   sock, address)
-                pass
 
             sock.close(pass_silently=True)
 
@@ -191,6 +181,7 @@ class Server:
         return first + last
 
     def fork_workers(self, count=1):
+        error_log.info('Forking %s workers', self.process_count_limit)
         assert isinstance(count, int)
 
         for _ in range(count):
@@ -281,8 +272,9 @@ class WorkerProcess:
             self.sent_sigterm_on = time.time()
             os.kill(self.pid, signal.SIGTERM)
             self.terminating = True
-        except OSError:
-            pass
+        except OSError as err:
+            error_log.warning('Failed to sent SIGTERM to worker with pid %s. '
+                              'ERRNO=%s and MSG=%s', err.errno, err.strerror)
 
     def kill_if_hanged(self, now=None):
         if not self.terminating:
@@ -293,8 +285,10 @@ class WorkerProcess:
             # don't fail if worker is already dead.
             try:
                 os.kill(self.pid, signal.SIGKILL)
-            except OSError:
-                pass
+            except OSError as err:
+                error_log.warning('Killing worker with pid %s failed. '
+                                  'ERRNO=%s and MSG=%s',
+                                  err.errno, err.strerror)
 
         return True
 
@@ -362,10 +356,10 @@ def main():
                 server.listen()
         except SignalReceived as err:
             if err.signum == signal.SIGTERM:
-                pass
+                error_log.info('SIGTERM signal broke listen() loop.')
             else:
                 error_log.exception('Unknown signal broke listen() loop.')
         except KeyboardInterrupt:
-            pass
+            error_log.info('KeyboardInterrupt broke listen() loop.')
         except BaseException:
             error_log.exception('Unhandled exception broke listen() loop.')

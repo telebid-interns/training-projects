@@ -1,4 +1,3 @@
-import collections
 import os
 import select
 import subprocess
@@ -256,8 +255,9 @@ def execute_script(request, client_socket):
         client_socket.close(pass_silently=True)
         try:
             proc.stdin.close()
-        except OSError:
-            pass
+        except OSError as err:
+            error_log.warning('Closing CGI stdin pipe failed. ERRNO=%s MSG=%s.',
+                              err.errno, err.strerror)
 
 
 def stdout_chunk_iterator_depreciated(byte_iterator, *, timeout, stdin, stdout,
