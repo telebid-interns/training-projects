@@ -8,18 +8,18 @@ import re
 
 class WordPressMonitor(object):
     MAINTAINED_VERSIONS = ['4.9.8']
-    db_info = {}
 
     def __init__(self, wp_path):
         self.wp_path = wp_path
         self.check_version()
         self.init_db()
 
+        self.db_info = {}
+
         self.option_expected_dict = {
             'users_can_register': '0',
             'default_comment_status': 'closed'
         }
-
         self.option_actual_dict = {}
 
     def check_version(self):
