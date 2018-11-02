@@ -27,7 +27,7 @@ def workbook_from_records(*, column_names, records_iterable, filters,
     assert isinstance(query_name, str)
 
     wb = openpyxl.Workbook()
-    sheet = wb.create_sheet(query_name)
+    sheet = wb.active
     offset = (1, 1)
     offset = insert_table(sheet=sheet,
                           columns=['Name', 'Value'],
