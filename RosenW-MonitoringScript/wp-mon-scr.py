@@ -3,38 +3,91 @@ import MySQLdb
 import os
 import requests
 import stat
+import sys
+import re
 
-db = MySQLdb.connect(
-	host="localhost",
-    user="rosen",
-    passwd="1234",
-    db="wpdb"
-)
+class WordPressMonitor(object):
+    MAINTAINED_VERSIONS = ['4.9.8']
+    db_info = {}
 
-cur = db.cursor()
+    def __init__(self, wp_path):
+        self.wp_path = wp_path
+        self.check_version()
+        self.init_db()
 
-cur.execute("SELECT * FROM wp_options WHERE option_name = 'users_can_register'")
-print('Registration allowed value: {}'.format(cur.fetchall()[0][2]))
+        self.option_expected_dict = {
+            'users_can_register': '0',
+            'default_comment_status': 'closed'
+        }
 
-cur.execute("SELECT * FROM wp_options WHERE option_name = 'default_comment_status'")
-print('Comments allowed value: {}'.format(cur.fetchall()[0][2]))
+        self.option_actual_dict = {}
 
-cur.execute("SELECT COUNT(*) FROM wp_users")
-print('User count: {}'.format(cur.fetchall()[0][0]))
+    def check_version(self):
+        content = self.read_whole_file(self.wp_path + '/wp-includes/version.php')
+        pattern = re.compile("""\$wp_version\s*=\s*['"]([^'"]*?)['"];""")
+        match = pattern.search(content)
+        assert match, 'Could not find WP version in {}/wp-includes/version.php'.format(self.wp_path)
+        wp_version = match.group(1)
+        assert wp_version in self.MAINTAINED_VERSIONS, 'WP version ({}) is not maintained. Maintained versions are: {}'.format(wp_version, ', '.join(self.MAINTAINED_VERSIONS))
 
-print('Is Admin Panel Page wp-admin: {}'.format('wp-admin' in next(os.walk('/var/www/html'))[1]))
+    def init_db(self):
+        content = self.read_whole_file(self.wp_path + '/wp-config.php')
 
-req = requests.get('http://localhost/wp-admin')
-print('Can /wp-admin be accessed: {}'.format(req.status_code == 200))
+        for word in ['DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_HOST']:
+            pattern = re.compile("""define\(["']{}["'],\s*["']([^'"]*?)[\"']\);""".format(word))
+            match = pattern.search(content)
+            assert match, 'Could not find {} in {}/wp-confing'.format(word, self.wp_path)
+            self.db_info[word] = match.group(1)
 
-permissions = []
+        self.db = MySQLdb.connect(
+            host=self.db_info['DB_HOST'],
+            user=self.db_info['DB_USER'],
+            passwd=self.db_info['DB_PASSWORD'],
+            db=self.db_info['DB_NAME']
+        )
 
-for root, dirs, files in os.walk('/var/www/html'):
-	for dir in dirs:
-		permissions.append(stat.filemode(os.stat(str(root) + '/' + str(dir)).st_mode))
-	for file in files:
-		permissions.append(stat.filemode(os.stat(str(root) + '/' + str(file)).st_mode))
+        self.cur = self.db.cursor()
 
-print('File and folder permissions: {}'.format(permissions[:10]))
+    def start_test(self):
+        for option in self.option_expected_dict:
+            rows = self.execute_sql("SELECT option_value FROM wp_options WHERE option_name = %s", [option])
+            self.option_actual_dict[option] = rows[0][0]
 
-db.close()
+        for option in self.option_expected_dict:
+            if self.option_actual_dict[option] != self.option_expected_dict[option]:
+                self.fail()
+                sys.stdout.write('0')
+                return
+
+        sys.stdout.write('1')
+
+        self.db.close()
+
+    def execute_sql(self, sql, *args):
+        try:
+            self.cur.execute(sql, args)
+            return self.cur.fetchall()
+        except Exception as e:
+            assert False, 'Could not execute query {} with params {}'.format(sql, args)
+
+    def read_whole_file(self, path):
+        try:
+            with open(path, "r") as file:
+                return file.read()
+        except OSError as e:
+            assert False, 'Could not read file {}'.format(path)
+
+    def fail(self):
+        sys.stderr.write('Expected:\n')
+        for option in self.option_expected_dict:
+            sys.stderr.write('{}: {}\n'.format(option, self.option_expected_dict[option]))
+
+        sys.stderr.write('\n')
+
+        sys.stderr.write('Actual:')
+        for option in self.option_actual_dict:
+            sys.stderr.write('{}: {}\n'.format(option, self.option_actual_dict[option]))
+
+if __name__ == '__main__':
+    assert len(sys.argv) > 1, 'WordPress path required as first parameter'
+    WordPressMonitor(sys.argv[1]).start_test()
