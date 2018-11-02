@@ -63,18 +63,22 @@ class Server:
         self.reaped_pids = set()
         signal.signal(signal.SIGCHLD, self.reap_children)
 
-    def __enter__(self):
+    def setup(self):
+        """ Bind socket and pre-fork workers. """
         error_log.info('Binding server on %s:%s', self.host, self.port)
         self.sock.bind((self.host, self.port))
         self.fork_workers(self.process_count_limit)
 
-        return self
+    def cleanup(self):
+        """ Closing listening socket and reap children.
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+        This method sleeps for the maximum timeout of SIGTERM signal sent to
+        a worker. (Worker.sigterm_timeout)
+        """
         # don't cleanup workers because their sockets were already closed
         # during the self.fork_worker() call
         if self.execution_context == self.ExecutionContext.worker:
-            return False
+            return
 
         error_log.info("Closing server's listening socket")
         try:
@@ -99,6 +103,14 @@ class Server:
             if not pid:
                 worker.kill_if_hanged()
 
+    def __enter__(self):
+        error_log.depreciate('%s', self.__class__.__enter__.__name__)
+        self.setup()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        error_log.depreciate('%s', self.__class__.__exit__.__name__)
+        self.cleanup()
         return False
 
     def listen(self):
@@ -349,11 +361,12 @@ def main():
     # an exception occurs.
     fd_limit = subprocess.check_output(['ulimit', '-n'], shell=True)
     error_log.info('ulimit -n is "%s"', fd_limit.decode('ascii'))
+    server = Server()
+    server.setup()
     with profile(SERVER_PROFILING_ON):
         # noinspection PyBroadException
         try:
-            with Server() as server:
-                server.listen()
+            server.listen()
         except SignalReceivedException as err:
             if err.signum == signal.SIGTERM:
                 error_log.info('SIGTERM signal broke listen() loop.')
@@ -363,3 +376,5 @@ def main():
             error_log.info('KeyboardInterrupt broke listen() loop.')
         except BaseException:
             error_log.exception('Unhandled exception broke listen() loop.')
+        finally:
+            server.cleanup()

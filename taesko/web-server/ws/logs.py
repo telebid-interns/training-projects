@@ -11,6 +11,7 @@ if config.getboolean('profiling', 'logs'):
 else:
     PROFILE_LEVEL_NUM = 1
 
+DEPRECIATE_LEVEL_NUM = 15
 DEBUG2_LEVEL_NUM = 7
 DEBUG3_LEVEL_NUM = 3
 
@@ -45,6 +46,8 @@ def add_log_level(
 
 
 add_log_level(level=PROFILE_LEVEL_NUM, level_name='PROFILE', add_method=False)
+add_log_level(level=DEPRECIATE_LEVEL_NUM, level_name='DEPRECIATE',
+              add_method=False)
 add_log_level(level=DEBUG2_LEVEL_NUM, level_name='DEBUG2')
 add_log_level(level=DEBUG3_LEVEL_NUM, level_name='DEBUG3')
 
