@@ -1,3 +1,5 @@
+import inspect
+import errno
 import traceback
 import os
 import sys
@@ -7,6 +9,9 @@ import urllib.parse
 import enum
 from datetime import datetime
 import json
+
+# "/home/hristo/Documents/training-projects/hspasov-web-server/content",
+# "/home/hristo/Documents/training-projects/hspasov-web-server/logs/access.log",
 
 # ROOT_DIR = (b'/media/hspasov/Files/TelebidPro/training-projects' +
 #            b'/hspasov-web-server/content')
@@ -21,7 +26,7 @@ class BaseError(Exception):
 class AppError(BaseError):
     def __init__(self, msg=''):
         super().__init__(msg)
-        log(msg, INFO)
+        log.error(INFO, msg=msg)
 
 
 class PeerError(BaseError):
@@ -50,36 +55,41 @@ class HTTP1_1MsgFormatter:
 
     @staticmethod
     def parse_req_meta(msg):
-        log('function parse_req_meta called', TRACE)
+        log.error(TRACE)
 
         assert_app(type(msg) == bytes)
 
         msg_parts = msg.split(b'\r\n\r\n', 1)
-        log('msg_parts: {0}'.format(msg_parts), DEBUG)
+        log.error(DEBUG, var_name='msg_parts', var_value=format(msg_parts))
 
         assert_peer(len(msg_parts) == 2, 'Invalid request')
 
         request_line_and_headers = msg_parts[0].split(b'\r\n')
-        log('request_line_and_headers: {0}'.format(request_line_and_headers),
-            DEBUG)
+        log.error(DEBUG, var_name='request_line_and_headers',
+                  var_value=format(request_line_and_headers))
 
         request_line = request_line_and_headers[0]
-        log('request_line: {0}'.format(request_line), DEBUG)
+        log.error(DEBUG, var_name='request_line',
+                  var_value=format(request_line))
 
         req_line_tokens = request_line.split(b' ')
-        log('req_line_tokens: {0}'.format(req_line_tokens), DEBUG)
+        log.error(DEBUG, var_name='req_line_tokens',
+            var_value=format(req_line_tokens))
 
         assert_peer(len(req_line_tokens) == 3, 'Invalid request')
 
         headers = {}
 
-        log('headers not parsed: {0}'.format(request_line_and_headers[1:]), DEBUG)
+        log.error(DEBUG, var_name='headers not parsed',
+            var_value=format(request_line_and_headers[1:]))
 
         for header_field in request_line_and_headers[1:]:
-            log('header_field: {0}'.format(header_field), DEBUG)
+            log.error(DEBUG, var_name='header_field',
+                      var_value=format(header_field))
 
             header_field_split = header_field.split(b':', 1)
-            log('header_field_split: {0}'.format(header_field_split), DEBUG)
+            log.error(DEBUG, var_name='header_field_split',
+                var_value=format(header_field_split))
 
             assert_peer(
                 len(header_field_split[0]) == len(header_field_split[0].strip()),
@@ -87,17 +97,19 @@ class HTTP1_1MsgFormatter:
             )
 
             field_name = header_field_split[0]
-            log('field_name: {0}'.format(field_name), DEBUG)
+            log.error(DEBUG, var_name='field_name',
+                      var_value=format(field_name))
 
             field_value = header_field_split[1].strip()
-            log('field_value: {0}'.format(field_value), DEBUG)
+            log.error(DEBUG, var_name='field_value',
+                      var_value=format(field_value))
 
             headers[field_name] = field_value
 
-        log('headers: {0}'.format(headers), DEBUG)
+        log.error(DEBUG, var_name='headers', var_value=format(headers))
 
         body = msg_parts[1]
-        log('body: {0}'.format(body), DEBUG)
+        log.error(DEBUG, var_name='body', var_value=format(body))
 
         result = {
             'req_line_raw': request_line,
@@ -107,16 +119,16 @@ class HTTP1_1MsgFormatter:
             'headers': headers,
             'body': body,
         }
-        log('parse_req_msg result: {0}'.format(result), DEBUG)
+        log.error(DEBUG, var_name='result', var_value=format(result))
 
         return result
 
     @staticmethod
     def build_res_meta(status_code, headers={}, body=b''):
-        log('function build_res_meta called', TRACE)
-        log('arg status code: {0}'.format(status_code), DEBUG)
-        log('arg headers: {0}'.format(headers), DEBUG)
-        log('arg body: {0}'.format(body), DEBUG)
+        log.error(TRACE)
+        log.error(DEBUG, var_name='status_code', var_value=format(status_code))
+        log.error(DEBUG, var_name='headers', var_value=format(headers))
+        log.error(DEBUG, var_name='body', var_value=format(body))
 
         assert_app(type(status_code) == bytes)
         assert_app(type(headers) == dict)
@@ -131,13 +143,13 @@ class HTTP1_1MsgFormatter:
 
         result += (b'\r\n\r\n' + body)
 
-        log('build_res_meta result: {0}'.format(result), DEBUG)
+        log.error(DEBUG, var_name='result', var_value=format(result))
 
         return result
 
 
 class ClientConnection:
-    class ConnectionState(enum.Enum):
+    class State(enum.Enum):
         ESTABLISHED = enum.auto()
         RECEIVING = enum.auto()
         SENDING = enum.auto()
@@ -149,7 +161,7 @@ class ClientConnection:
         self._conn = conn
         self._conn.settimeout(config['socket_operation_timeout'])
         self._msg_received = b''
-        self.state = self.ConnectionState.ESTABLISHED
+        self.state = self.State.ESTABLISHED
         self.meta = {
             'req_line': '-',
             'user_agent': '-',
@@ -157,41 +169,41 @@ class ClientConnection:
         }
 
     def receive_meta(self):
-        self.state = self.ConnectionState.RECEIVING
+        self.state = self.State.RECEIVING
 
         while len(self._msg_received) <= config['req_msg_limit']:
-            log('receiving data...', TRACE)
+            log.error(TRACE, msg='receiving data...')
 
             try:
                 data = self.receive()
             except socket.timeout:
-                log('timeout while receiving from client', TRACE)
+                log.error(TRACE, msg='timeout while receiving from client')
 
                 self.send_meta(b'408')
 
                 return
 
-            log('data received: {0}'.format(data), DEBUG)
+            log.error(DEBUG, var_name='data', var_value=format(data))
 
             self._msg_received += data
 
             if len(data) <= 0:
-                log('connection closed by peer', TRACE)
+                log.error(TRACE, msg='connection closed by peer')
 
                 return
 
             if self._msg_received.find(b'\r\n\r\n') != -1:
-                log('reached end of request meta', TRACE)
+                log.error(TRACE, msg='reached end of request meta')
                 break
         else:
             # TODO handle long messages
-            log('request message too long', TRACE)
+            log.error(TRACE, msg='request message too long')
 
             self.send_meta(b'400')
 
             return
 
-        log('parsing request message...', TRACE)
+        log.error(TRACE, msg='parsing request message...')
 
         self.meta = HTTP1_1MsgFormatter.parse_req_meta(self._msg_received)
         self.meta['req_line_raw'] = self.meta['req_line_raw'].decode('utf-8')
@@ -199,24 +211,24 @@ class ClientConnection:
         if 'User-Agent' in self.meta['headers']:
             self.meta['user_agent'] = self.meta['headers']['User-Agent']
 
-        log('request meta: {0}'.format(self.meta), DEBUG)
+        log.error(DEBUG, var_name='request meta', var_value=format(self.meta))
 
     def receive(self):
         return self._conn.recv(config['recv_buffer'])
 
     def send_meta(self, status_code, headers={}):
-        log('function send_meta called', TRACE)
-        log('arg status code: {0}'.format(status_code), DEBUG)
-        log('arg headers: {0}'.format(headers), DEBUG)
+        log.error(TRACE)
+        log.error(DEBUG, var_name='status_code', var_value=format(status_code))
+        log.error(DEBUG, var_name='headers', var_value=format(headers))
 
         assert_app(type(status_code) == bytes)
         assert_app(type(headers) == dict)
 
-        self.state = self.ConnectionState.SENDING
+        self.state = self.State.SENDING
 
         result = HTTP1_1MsgFormatter.build_res_meta(status_code, headers)
 
-        log('build_res_meta result: {0}'.format(result), DEBUG)
+        log.error(DEBUG, var_name='result', var_value=format(result))
 
         self._conn.sendall(result)
 
@@ -228,7 +240,8 @@ class ClientConnection:
 
     def close(self):
         self._conn.close()
-        self.state = self.ConnectionState.CLOSED
+        self.state = self.State.CLOSED
+
 
 class Server:
     def __init__(self):
@@ -237,15 +250,16 @@ class Server:
         self._conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._conn.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-        log('socket option SO_REUSEADDR set', TRACE)
+        log.error(TRACE, msg='socket option SO_REUSEADDR set')
 
     def run(self):
         self._conn.bind((config['host'], config['port']))
-        log('socket bound: {0}:{1}'.format(config['host'], config['port']),
-            TRACE)
+        log.error(TRACE, msg='socket bound: {0}:{1}'.format(config['host'],
+                                                            config['port']))
 
         self._conn.listen(config['backlog'])
-        log('listening... backlog: {0}'.format(config['backlog']), TRACE)
+        log.error(TRACE,
+                  msg='listening... backlog: {0}'.format(config['backlog']))
 
         while True:
             try:
@@ -260,12 +274,11 @@ class Server:
                         # may send response to client in case of peer error
                         client_connection.receive_meta()
 
-                        # TODO rename ConnectionState to State
-                        if client_connection.state != ClientConnection.ConnectionState.RECEIVING:
+                        if client_connection.state != ClientConnection.State.RECEIVING:
                             client_connection.close()
                             continue
 
-                        log('resolving file_path...', TRACE)
+                        log.error(TRACE, msg='resolving file_path...')
 
                         # ignoring query params
                         req_target_path = client_connection.meta['target'].split(b'?')[0]
@@ -275,24 +288,30 @@ class Server:
                                 config['root_dir'],
                                 *req_target_path.split(b'/')[1:])
                         )
-                        log('file_path: {0}'.format(file_path), DEBUG)
+                        log.error(DEBUG, var_name='file_path',
+                                  var_value=format(file_path))
 
                         if config['root_dir'] not in file_path:
                             # TODO check if this is correct error handling
-                            log('requested file outside of web server document root', TRACE)
+                            log.error(TRACE,
+                                      msg=('requested file outside of ' +
+                                           'web server document root'))
 
                             client_connection.send_meta(b'400')
 
-                        log('requested file in web server document root', TRACE)
+                        log.error(TRACE, msg=('requested file in web server ' +
+                                          'document root'))
 
                         with open(file_path, mode='rb') as content_file:
-                            log('requested file opened', TRACE)
+                            log.error(TRACE, msg='requested file opened')
 
-                            log('going to send first response package. adding res meta...',
-                                TRACE)
+                            log.error(TRACE, msg=('going to send first ' +
+                                                  'response package. ' +
+                                                  'adding res meta...'))
 
                             content_length = os.path.getsize(file_path)
-                            log('content_length: {0}'.format(content_length), DEBUG)
+                            log.error(DEBUG, var_name='content_length',
+                                var_value=format(content_length))
 
                             headers = {
                                 b'Content-Length': bytes(str(content_length), 'utf-8')
@@ -303,28 +322,38 @@ class Server:
 
                             while True:
                                 response = content_file.read(config['read_buffer'])
-                                log('response: {0}'.format(response), DEBUG)
+                                log.error(DEBUG, var_name='response',
+                                          var_value=format(response))
 
                                 if len(response) <= 0:
-                                    log('end of file reached while reading', TRACE)
+                                    log.error(TRACE, msg=('end of file reach' +
+                                                          'ed while reading'))
                                     break
 
                                 response_packages_sent += 1
-                                log('sending response.. response_packages_sent: {0}'.format(
-                                    response_packages_sent), TRACE)
+                                log.error(TRACE, msg=('sending response.. ' +
+                                                      'response_packages_' +
+                                                      'sent: {0}'.format(
+                                                        response_packages_sent
+                                                      )))
 
                                 client_connection.send(response)
 
                         client_connection.meta['content_length'] = str(content_length)
                     except PeerError as error:
+                        if client_connection.state in (ClientConnection.State.ESTABLISHED, ClientConnection.State.RECEIVING):
+                            client_connection.send_meta(b'400')
                     except FileNotFoundError as error:
+                        if client_connection.state in (ClientConnection.State.ESTABLISHED, ClientConnection.State.RECEIVING):
+                            client_connection.send_meta(b'404')
                     except OSError as error:
-
+                        if client_connection.state in (ClientConnection.State.ESTABLISHED, ClientConnection.State.RECEIVING):
+                            client_connection.send_meta(b'503')
                     except Exception as error:
                         if not isinstance(error, AppError):
                             AppError(traceback.format_exc())
 
-                        if client_connection.state in (ClientConnection.ConnectionState.ESTABLISHED, ClientConnection.ConnectionState.RECEIVING):
+                        if client_connection.state in (ClientConnection.State.ESTABLISHED, ClientConnection.State.RECEIVING):
                             client_connection.send_meta(b'500')
                     finally:
                         try:
@@ -335,23 +364,25 @@ class Server:
 
             except OSError as error:
                 # TODO log
+                ...
             finally:
-                if client_connection.state != ClientConnection.ConnectionState.CLOSED:
+                if client_connection.state != ClientConnection.State.CLOSED:
                     try:
                         client_connection.close()
                     except Exception as error:
                         # TODO log
+                        ...
 
                 if pid == 0:
                     os._exit(os.EX_OSERR)  # TODO change os.EX_OSERR
 
     def accept(self):
-        log('ready to accept connection', TRACE)
+        log.error(TRACE, msg='ready to accept connection')
 
         conn, addr = self._conn.accept()
-        log('connection accepted', TRACE)
-        log('connection: {0}'.format(conn), DEBUG)
-        log('addr: {0}'.format(addr), DEBUG)
+        log.error(TRACE, msg='connection accepted')
+        log.error(DEBUG, var_name='conn', var_value=format(conn))
+        log.error(DEBUG, var_name='addr', var_value=format(addr))
 
         return ClientConnection(conn)
 
@@ -383,35 +414,87 @@ def assert_user(condition, msg):
         raise UserError(msg)
 
 
-# log levels
+# error log levels
 INFO = 1
 TRACE = 2
 DEBUG = 3
 
 
-def log(msg, lvl):
-    assert_app(isinstance(msg, str))
-    assert_app(isinstance(lvl, int))
-    assert_app(lvl >= 1 and lvl <= 3)
+class Log:
+    def __init__(self):
+        self.error_log_file = open(config['error_log'], mode='a')
+        self.access_log_file = open(config['access_log'], mode='a')
 
-    if lvl <= config['log_level']:
-        with open(config['log_file'], mode='a') as log_file:
-            print('{0}  ({1})  {2}'.format(os.getpid(), datetime.now(), msg),
-                  file=sys.stdout)
+    def error(self, lvl, var_name=None, var_value=None, msg=None):
+        if lvl <= config['error_log_level']:
+            fields = []
+
+            if 'pid' in config['error_log_fields']:
+                fields.append(str(os.getpid()))
+            if 'timestamp' in config['error_log_fields']:
+                fields.append(str(datetime.now()))
+            if 'level' in config['error_log_fields']:
+                fields.append(str(lvl))
+            if 'context' in config['error_log_fields']:
+                current_frame = inspect.currentframe()
+                caller_frame = inspect.getouterframes(current_frame, 2)
+                caller_function = caller_frame[1][3]
+                fields.append(caller_function)
+            if 'var_name' in config['error_log_fields']:
+                fields.append(
+                    config['error_log_empty_field']
+                    if var_name is None else var_name)
+            if 'var_value' in config['error_log_fields']:
+                fields.append(
+                    config['error_log_empty_field']
+                    if var_value is None else var_value)
+            if 'msg' in config['error_log_fields']:
+                fields.append(
+                    config['error_log_empty_field'] if msg is None else msg)
+
+            print(config['error_log_field_sep'].join(fields), file=sys.stdout)
+
+    def access(self, lvl, address=None, req_line=None, user_agent=None,
+               content_length=None):
+        if lvl <= config['access_log_level']:
+            fields = []
+
+            if 'pid' in config['access_log_fields']:
+                fields.append(str(os.getpid()))
+            if 'timestamp' in config['access_log_fields']:
+                fields.append(str(datetime.now()))
+            if 'address' in config['access_log_fields']:
+                fields.append(
+                    config['access_log_empty_field']
+                    if address is None else address)
+            if 'req_line' in config['access_log_fields']:
+                fields.append(
+                    config['access_log_empty_fields']
+                    if req_line is None else req_line)
+            if 'user_agent' in config['access_log_fields']:
+                fields.append(
+                    config['access_log_empty_fields']
+                    if user_agent is None else user_agent)
+            if 'content_length' in config['access_log_fields']:
+                fields.append(
+                    config['access_log_empty_fields']
+                    if content_length is None else content_length)
+
+            print(config['access_log_field_sep'].join(fields), file=sys.stdout)
 
 
 def start():
-    log('function start called.', TRACE)
+    log.error(TRACE)
 
     server = Server()
 
     try:
         server.run()
     except OSError as error:
-        log('OSError thrown while initializing web server', TRACE)
-        log(format(error), INFO)
+        log.error(TRACE, msg='OSError thrown while initializing web server')
+        log.error(INFO, msg=format(error))
     except Exception as error:
-        log('Exception thrown while initializing web server', TRACE)
+        log.error(TRACE, msg='Exception thrown while initializing web server')
 
         if not isinstance(error, AppError):
             AppError(traceback.format_exc())
@@ -429,10 +512,12 @@ if __name__ == '__main__':
             # request can be directly concatenated to root dir
             config['root_dir'] = bytes(config['root_dir'], 'utf-8')
 
-            log('config loaded: {0}'.format(config), DEBUG)
+        log = Log()
+        log.error(DEBUG, var_name='config', var_value=format(config))
 
         start()
     except OSError as error:
-        log(format(error), INFO)
+        log.error(INFO, msg=format(error))
     except json.JSONDecodeError as error:
-        log('error while parsing config file: {0}'.format(error), INFO)
+        log.error(INFO,
+                  msg='error while parsing config file: {0}'.format(error))

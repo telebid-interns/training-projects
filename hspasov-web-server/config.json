@@ -6,7 +6,31 @@
   "backlog": 2000,
   "host": "localhost",
   "port": 8080,
-  "root_dir": "/home/hristo/Documents/training-projects/hspasov-web-server/content",
-  "log_file": "/home/hristo/Documents/training-projects/hspasov-web-server/logs/access.log",
-  "log_level": 3
+  "root_dir": "/media/hspasov/Files/TelebidPro/training-projects/hspasov-web-server/content"
+,
+  "access_log": "/media/hspasov/Files/TelebidPro/training-projects/hspasov-web-server/logs/access.log",
+  "error_log": "/media/hspasov/Files/TelebidPro/training-projects/hspasov-web-server/logs/error.log",
+  "error_log_level": 3,
+  "error_log_fields": [
+    "pid",
+    "timestamp",
+    "level",
+    "context",
+    "var_name",
+    "var_value",
+    "msg"
+  ],
+  "access_log_level": 1,
+  "access_log_fields": [
+    "pid",
+    "timestamp",
+    "address",
+    "req_line",
+    "user_agent",
+    "content_length"
+  ],
+  "access_log_field_sep": "  ",
+  "error_log_field_sep": "  ",
+  "access_log_empty_field": "-",
+  "error_log_empty_field": "-"
 }
