@@ -19,9 +19,9 @@ class BaseError(Exception):
 
 
 class AppError(BaseError):
-    def __init__(self, msg=''):
+    def __init__(self, msg='', tb=None):
         super().__init__(msg)
-        log.error(INFO, msg=msg)
+        log.error(INFO, msg=(msg + format(tb)))
 
 
 class PeerError(BaseError):
@@ -331,13 +331,13 @@ class Server:
                                 file_path)
 
                             log.error(DEBUG, var_name='content_length',
-                                    var_value=self.res_meta.content_length)
+                                      var_value=self.res_meta.content_length)
 
                             self.res_meta.headers[b'Content-Length'] = bytes(
                                 str(self.res_meta.content_length), 'utf-8'
                             )
                             client_conn.send_meta(b'200',
-                                                self.res_meta.headers)
+                                                  self.res_meta.headers)
 
                             self.res_meta.packages_sent = 1
 
@@ -345,24 +345,24 @@ class Server:
                                 response = content_file.read(
                                     config['read_buffer'])
                                 log.error(DEBUG, var_name='response',
-                                        var_value=response)
+                                          var_value=response)
 
                                 if len(response) <= 0:
                                     log.error(TRACE, msg=('end of file reach' +
-                                                        'ed while reading'))
+                                                          'ed while reading'))
                                     break
 
                                 self.res_meta.packages_sent += 1
                                 log.error(TRACE,
-                                        msg=('sending response.. ' +
-                                            'response_packages_' +
-                                            'sent: {0}'.format(
-                                                self.res_meta.packages_sent)))
+                                          msg=('sending response.. ' +
+                                               'response_packages_' +
+                                               'sent: {0}'.format(
+                                                 self.res_meta.packages_sent)))
 
                                 client_conn.send(response)
 
                     except PeerError as error:
-                        log.error(TRACE, msg='Peer error while handling request')
+                        log.error(TRACE, msg='PeerError')
                         log.error(DEBUG, msg=error)
 
                         if client_conn.state in (
@@ -372,8 +372,7 @@ class Server:
 
                             client_conn.send_meta(b'400')
                     except FileNotFoundError as error:
-                        log.error(TRACE,
-                            msg='FileNotFound error while handling request')
+                        log.error(TRACE, msg='FileNotFoundError')
                         log.error(DEBUG, msg=error)
 
                         if client_conn.state in (
@@ -392,7 +391,7 @@ class Server:
                             client_conn.send_meta(b'503')
                     except Exception as error:
                         if not isinstance(error, AppError):
-                            AppError(traceback.format_stack())
+                            AppError(error, traceback.format_stack())
 
                         if client_conn.state in (
                             ClientConnection.State.ESTABLISHED,
@@ -437,15 +436,15 @@ class Server:
 
 def assert_app(condition):
     if not isinstance(condition, bool):
-        raise AppError('Condition is not boolean')
+        raise AppError('Condition is not boolean', traceback.format_stack())
 
     if not condition:
-        raise AppError(traceback.format_stack())
+        raise AppError(tb=traceback.format_stack())
 
 
 def assert_peer(condition, msg):
     if not isinstance(condition, bool):
-        raise AppError('Condition is not boolean')
+        raise AppError('Condition is not boolean', traceback.format_stack())
 
     if not condition:
         raise PeerError(msg)
@@ -453,7 +452,7 @@ def assert_peer(condition, msg):
 
 def assert_user(condition, msg):
     if not isinstance(condition, bool):
-        raise AppError('Condition is not boolean')
+        raise AppError('Condition is not boolean', traceback.format_stack())
 
     if not condition:
         raise UserError(msg)
@@ -542,14 +541,14 @@ def start():
         log.error(TRACE, msg='Exception thrown while initializing web server')
 
         if not isinstance(error, AppError):
-            AppError(traceback.format_stack())
+            AppError(tb=traceback.format_stack())
     finally:
         server.stop()
 
 
 if __name__ == '__main__':
     try:
-        # TODO ask how to handle erorrs before log initialized
+        # TODO ask how to handle errors before log initialized
         with open('./config.json', mode='r') as config_file:
             config_file_content = config_file.read()
             config = json.loads(config_file_content)
