@@ -21,7 +21,7 @@ class BaseError(Exception):
 class AppError(BaseError):
     def __init__(self, msg='', tb=None):
         super().__init__(msg)
-        log.error(INFO, msg=(msg + format(tb)))
+        log.error(INFO, msg=(format(msg) + format(tb)))
 
 
 class PeerError(BaseError):
@@ -213,6 +213,14 @@ class ClientConnection:
         log.error(DEBUG, var_name='request meta',
                   var_value=self.req_meta)
 
+# TODO
+#    def receive_body(self):
+#        log.error(TRACE)
+
+#        self.state = self.State.RECEIVING
+
+#        assert_app(self.req_meta.headers[''])
+
     def receive(self):
         log.error(TRACE)
         return self._conn.recv(config['recv_buffer'])
@@ -327,19 +335,20 @@ class Server:
                         with open(file_path, mode='rb') as content_file:
                             log.error(TRACE, msg='requested file opened')
 
-                            self.res_meta.content_length = os.path.getsize(
-                                file_path)
+                            client_conn.res_meta.content_length = \
+                                os.path.getsize(file_path)
 
                             log.error(DEBUG, var_name='content_length',
-                                      var_value=self.res_meta.content_length)
+                                      var_value=client_conn.res_meta.content_length)  # noqa
 
-                            self.res_meta.headers[b'Content-Length'] = bytes(
-                                str(self.res_meta.content_length), 'utf-8'
+                            client_conn.res_meta.headers[b'Content-Length'] = bytes(  # noqa
+                                str(client_conn.res_meta.content_length),
+                                'utf-8'
                             )
                             client_conn.send_meta(b'200',
-                                                  self.res_meta.headers)
+                                                  client_conn.res_meta.headers)
 
-                            self.res_meta.packages_sent = 1
+                            client_conn.res_meta.packages_sent = 1
 
                             while True:
                                 response = content_file.read(
@@ -352,12 +361,10 @@ class Server:
                                                           'ed while reading'))
                                     break
 
-                                self.res_meta.packages_sent += 1
                                 log.error(TRACE,
                                           msg=('sending response.. ' +
                                                'response_packages_' +
-                                               'sent: {0}'.format(
-                                                 self.res_meta.packages_sent)))
+                                               'sent: {0}'.format(client_conn.res_meta.packages_sent)))  # noqa
 
                                 client_conn.send(response)
 
@@ -373,6 +380,15 @@ class Server:
                             client_conn.send_meta(b'400')
                     except FileNotFoundError as error:
                         log.error(TRACE, msg='FileNotFoundError')
+                        log.error(DEBUG, msg=error)
+
+                        if client_conn.state in (
+                            ClientConnection.State.ESTABLISHED,
+                            ClientConnection.State.RECEIVING
+                        ):
+                            client_conn.send_meta(b'404')
+                    except IsADirectoryError as error:
+                        log.error(TRACE, msg='IsADirectoryError')
                         log.error(DEBUG, msg=error)
 
                         if client_conn.state in (
