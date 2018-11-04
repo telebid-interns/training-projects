@@ -2,7 +2,6 @@ import inspect
 import errno
 import traceback
 import os
-# TODO remove import sys
 import socket
 import signal
 import urllib.parse
@@ -43,6 +42,7 @@ class ResponseMeta:
     def __init__(self):
         self.packages_sent = 0
         self.headers = {}
+        self.status_code = None
         self.content_length = None
 
 
@@ -65,7 +65,7 @@ class HTTP1_1MsgFormatter:
         msg_parts = msg.split(b'\r\n\r\n', 1)
         log.error(DEBUG, var_name='msg_parts', var_value=msg_parts)
 
-        if len(msg_parts) == 2:
+        if len(msg_parts) != 2:
             return None
 
         request_line_and_headers = msg_parts[0].split(b'\r\n')
@@ -80,7 +80,7 @@ class HTTP1_1MsgFormatter:
         log.error(DEBUG, var_name='req_line_tokens',
                   var_value=req_line_tokens)
 
-        len(req_line_tokens) == 3:
+        if len(req_line_tokens) != 3:
             return None
 
         headers = {}
@@ -91,7 +91,7 @@ class HTTP1_1MsgFormatter:
         for header_field in request_line_and_headers[1:]:
             header_field_split = header_field.split(b':', 1)
 
-            if len(header_field_split[0]) == len(
+            if len(header_field_split[0]) != len(
                 header_field_split[0].strip()
             ):
                 return None
@@ -234,6 +234,7 @@ class ClientConnection:
         assert type(headers) is dict
 
         self.state = self.State.SENDING
+        self.res_meta.status_code = status_code
 
         result = HTTP1_1MsgFormatter.build_res_meta(status_code, headers)
 
@@ -262,14 +263,13 @@ class ClientConnection:
             req_line = self.req_meta.req_line_raw
             user_agent = self.req_meta.user_agent
 
-        content_length = self.res_meta.content_length
-
         log.access(
             1,
             remote_addr='{0}:{1}'.format(self._addr, self._port),
             req_line=req_line,
             user_agent=user_agent,
-            content_length=content_length,
+            status_code=self.res_meta.status_code,
+            content_length=self.res_meta.content_length,
         )
 
         self._conn.close()
@@ -462,20 +462,30 @@ class Server:
         return ClientConnection(conn, addr)
 
     def reap_child(self, signal_number, stack_frame):
-        log.error(TRACE, msg='reaping a child')
+        log.error(TRACE, msg='reaping children')
 
-        pid, exit_indicators = os.wait()
+        while True:
+            try:
+                pid, exit_indicators = os.waitpid(-1, os.WNOHANG)
+            except ChildProcessError as error:  # when there are no children
+                log.error(TRACE, msg='no children to reap')
+                log.error(DEBUG, var_name='error', var_value=error)
+                break
 
-        exit_status = os.WEXITSTATUS(exit_indicators)
-        signal_number = os.WTERMSIG(exit_indicators)
+            if pid == 0 and exit_indicators == 0:
+                # when there are children, but they have not exited
+                break
+            else:
+                exit_status = os.WEXITSTATUS(exit_indicators)
+                signal_number = os.WTERMSIG(exit_indicators)
 
-        assert (signal_number == 0 and exit_status != 0) or (
-                signal_number != 0 and exit_status == 0)
+                assert (exit_status == 0 and signal_number != 0) or (
+                        exit_status != 0 and signal_number == 0)
 
-        if exit_status == 0:
-            log.error(TRACE, msg='Child pid={0} killed by signal {1}'.format(pid, signal_number)) # noqa
-        else:
-            log.error(TRACE, msg='Child pid={0} exit status={1}'.format(pid, exit_status)) # noqa
+                if exit_status == 0:
+                    log.error(TRACE, msg='Child pid={0} killed by signal {1}'.format(pid, signal_number)) # noqa
+                else:
+                    log.error(TRACE, msg='Child pid={0} exit status={1}'.format(pid, exit_status)) # noqa
 
     def stop(self):
         log.error(TRACE)
@@ -528,11 +538,10 @@ class Log:
                         else format(msg))
 
                 print(config['error_log_field_sep'].join(fields),
-                    file=error_log_file)
+                      file=error_log_file)
 
-# TODO change address to remote address
     def access(self, lvl, *, remote_addr=None, req_line=None, user_agent=None,
-               content_length=None):
+               status_code=None, content_length=None):
         if lvl <= config['access_log_level']:
             fields = []
 
@@ -553,6 +562,10 @@ class Log:
                     fields.append(
                         config['access_log_empty_field']
                         if user_agent is None else format(user_agent))
+                if 'status_code' in config['access_log_fields']:
+                    fields.append(
+                        config['access_log_empty_field']
+                        if status_code is None else format(status_code))
                 if 'content_length' in config['access_log_fields']:
                     fields.append(
                         config['access_log_empty_field']

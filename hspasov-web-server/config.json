@@ -27,6 +27,7 @@
     "remote_addr",
     "req_line",
     "user_agent",
+    "status_code",
     "content_length"
   ],
   "access_log_field_sep": "  ",
