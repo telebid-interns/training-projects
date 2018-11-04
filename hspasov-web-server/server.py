@@ -254,6 +254,24 @@ class ClientConnection:
 
     def close(self):
         log.error(TRACE)
+
+        if self.req_meta is None:
+            req_line = None
+            user_agent = None
+        else:
+            req_line = self.req_meta.req_line_raw
+            user_agent = self.req_meta.user_agent
+
+        content_length = self.res_meta.content_length
+
+        log.access(
+            1,
+            address='{0}:{1}'.format(self._addr, self._port),
+            req_line=req_line,
+            user_agent=user_agent,
+            content_length=content_length,
+        )
+
         self._conn.close()
         self.state = self.State.CLOSED
 
@@ -482,10 +500,10 @@ DEBUG = 3
 
 class Log:
     def error(self, lvl, var_name=None, var_value=None, msg=None):
-        with open(config['error_log'], mode='a') as error_log_file:
-            if lvl <= config['error_log_level']:
-                fields = []
+        if lvl <= config['error_log_level']:
+            fields = []
 
+            with open(config['error_log'], mode='a') as error_log_file:
                 if 'pid' in config['error_log_fields']:
                     fields.append(format(os.getpid()))
                 if 'timestamp' in config['error_log_fields']:
@@ -511,14 +529,16 @@ class Log:
                         if msg is None
                         else format(msg))
 
-            print(config['error_log_field_sep'].join(fields), file=sys.stdout)
+                print(config['error_log_field_sep'].join(fields),
+                      file=sys.stdout)
 
+# TODO change address to remote address
     def access(self, lvl, address=None, req_line=None, user_agent=None,
                content_length=None):
-        with open(config['access_log'], mode='a') as access_log_file:
-            if lvl <= config['access_log_level']:
-                fields = []
+        if lvl <= config['access_log_level']:
+            fields = []
 
+            with open(config['access_log'], mode='a') as access_log_file:
                 if 'pid' in config['access_log_fields']:
                     fields.append(format(os.getpid()))
                 if 'timestamp' in config['access_log_fields']:
@@ -529,18 +549,19 @@ class Log:
                         if address is None else format(address))
                 if 'req_line' in config['access_log_fields']:
                     fields.append(
-                        config['access_log_empty_fields']
+                        config['access_log_empty_field']
                         if req_line is None else format(req_line))
                 if 'user_agent' in config['access_log_fields']:
                     fields.append(
-                        config['access_log_empty_fields']
+                        config['access_log_empty_field']
                         if user_agent is None else format(user_agent))
                 if 'content_length' in config['access_log_fields']:
                     fields.append(
-                        config['access_log_empty_fields']
+                        config['access_log_empty_field']
                         if content_length is None else format(content_length))
 
-            print(config['access_log_field_sep'].join(fields), file=sys.stdout)
+                print(config['access_log_field_sep'].join(fields),
+                      file=access_log_file)
 
 
 def start():
