@@ -10,7 +10,7 @@
 ,
   "access_log": "/home/hristo/Documents/training-projects/hspasov-web-server/logs/access.log",
   "error_log": "/home/hristo/Documents/training-projects/hspasov-web-server/logs/error.log",
-  "error_log_level": 3,
+  "error_log_level": 0,
   "error_log_fields": [
     "pid",
     "timestamp",
@@ -24,7 +24,7 @@
   "access_log_fields": [
     "pid",
     "timestamp",
-    "address",
+    "remote_addr",
     "req_line",
     "user_agent",
     "content_length"

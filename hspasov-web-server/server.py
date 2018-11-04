@@ -24,11 +24,6 @@ class AppError(BaseError):
         log.error(INFO, msg=(format(msg) + format(tb)))
 
 
-class PeerError(BaseError):
-    def __init__(self, msg):
-        super().__init__(msg)
-
-
 class UserError(BaseError):
     def __init__(self, msg):
         super().__init__(msg)
@@ -65,12 +60,13 @@ class HTTP1_1MsgFormatter:
     def parse_req_meta(msg):
         log.error(TRACE)
 
-        assert type(msg) == bytes
+        assert type(msg) is bytes
 
         msg_parts = msg.split(b'\r\n\r\n', 1)
         log.error(DEBUG, var_name='msg_parts', var_value=msg_parts)
 
-        assert_peer(len(msg_parts) == 2, 'Invalid request')
+        if len(msg_parts) == 2:
+            return None
 
         request_line_and_headers = msg_parts[0].split(b'\r\n')
         log.error(DEBUG, var_name='request_line_and_headers',
@@ -84,7 +80,8 @@ class HTTP1_1MsgFormatter:
         log.error(DEBUG, var_name='req_line_tokens',
                   var_value=req_line_tokens)
 
-        assert_peer(len(req_line_tokens) == 3, 'Invalid request')
+        len(req_line_tokens) == 3:
+            return None
 
         headers = {}
 
@@ -94,12 +91,10 @@ class HTTP1_1MsgFormatter:
         for header_field in request_line_and_headers[1:]:
             header_field_split = header_field.split(b':', 1)
 
-            assert_peer(
-                len(header_field_split[0]) == len(
-                    header_field_split[0].strip()
-                ),
-                'Invalid request'
-            )
+            if len(header_field_split[0]) == len(
+                header_field_split[0].strip()
+            ):
+                return None
 
             field_name = header_field_split[0]
             field_value = header_field_split[1].strip()
@@ -131,9 +126,9 @@ class HTTP1_1MsgFormatter:
         log.error(DEBUG, var_name='headers', var_value=headers)
         log.error(DEBUG, var_name='body', var_value=body)
 
-        assert type(status_code) == bytes
-        assert type(headers) == dict
-        assert type(body) == bytes
+        assert type(status_code) is bytes
+        assert type(headers) is dict
+        assert type(body) is bytes
         assert status_code in HTTP1_1MsgFormatter.response_reason_phrases
 
         result = (b'HTTP/1.1 ' + status_code + b' ' +
@@ -210,6 +205,11 @@ class ClientConnection:
 
         self.req_meta = HTTP1_1MsgFormatter.parse_req_meta(self._msg_received)
 
+        if self.req_meta is None:
+            log.error(TRACE, msg='invalid request')
+            self.send_meta(b'400')
+            return
+
         log.error(DEBUG, var_name='request meta',
                   var_value=self.req_meta)
 
@@ -230,8 +230,8 @@ class ClientConnection:
         log.error(DEBUG, var_name='status_code', var_value=status_code)
         log.error(DEBUG, var_name='headers', var_value=headers)
 
-        assert type(status_code) == bytes
-        assert type(headers) == dict
+        assert type(status_code) is bytes
+        assert type(headers) is dict
 
         self.state = self.State.SENDING
 
@@ -266,7 +266,7 @@ class ClientConnection:
 
         log.access(
             1,
-            address='{0}:{1}'.format(self._addr, self._port),
+            remote_addr='{0}:{1}'.format(self._addr, self._port),
             req_line=req_line,
             user_agent=user_agent,
             content_length=content_length,
@@ -279,7 +279,7 @@ class ClientConnection:
 class Server:
     def __init__(self):
         log.error(TRACE)
-        signal.signal(signal.SIGCHLD, signal.SIG_IGN)
+        signal.signal(signal.SIGCHLD, self.reap_child)
 
         self._conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._conn.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -384,16 +384,6 @@ class Server:
 
                                 client_conn.send(response)
 
-                    except PeerError as error:
-                        log.error(TRACE, msg='PeerError')
-                        log.error(DEBUG, msg=error)
-
-                        if client_conn.state in (
-                            ClientConnection.State.ESTABLISHED,
-                            ClientConnection.State.RECEIVING
-                        ):
-
-                            client_conn.send_meta(b'400')
                     except FileNotFoundError as error:
                         log.error(TRACE, msg='FileNotFoundError')
                         log.error(DEBUG, msg=error)
@@ -447,6 +437,7 @@ class Server:
                                 raise error
 
             except OSError as error:
+                log.error(TRACE, msg='OSError')
                 log.error(TRACE, msg=error)
             finally:
                 if client_conn is not None and (
@@ -470,17 +461,25 @@ class Server:
 
         return ClientConnection(conn, addr)
 
+    def reap_child(self, signal_number, stack_frame):
+        log.error(TRACE, msg='reaping a child')
+
+        pid, exit_indicators = os.wait()
+
+        exit_status = os.WEXITSTATUS(exit_indicators)
+        signal_number = os.WTERMSIG(exit_indicators)
+
+        assert (signal_number == 0 and exit_status != 0) or (
+                signal_number != 0 and exit_status == 0)
+
+        if exit_status == 0:
+            log.error(TRACE, msg='Child pid={0} killed by signal {1}'.format(pid, signal_number)) # noqa
+        else:
+            log.error(TRACE, msg='Child pid={0} exit status={1}'.format(pid, exit_status)) # noqa
+
     def stop(self):
         log.error(TRACE)
         self._conn.close()
-
-
-def assert_peer(condition, msg):
-    if not isinstance(condition, bool):
-        raise AppError('Condition is not boolean', traceback.format_stack())
-
-    if not condition:
-        raise PeerError(msg)
 
 
 def assert_user(condition, msg):
@@ -498,7 +497,7 @@ DEBUG = 3
 
 
 class Log:
-    def error(self, lvl, var_name=None, var_value=None, msg=None):
+    def error(self, lvl, *, var_name=None, var_value=None, msg=None):
         if lvl <= config['error_log_level']:
             fields = []
 
@@ -529,10 +528,10 @@ class Log:
                         else format(msg))
 
                 print(config['error_log_field_sep'].join(fields),
-                      file=error_log_file)
+                    file=error_log_file)
 
 # TODO change address to remote address
-    def access(self, lvl, address=None, req_line=None, user_agent=None,
+    def access(self, lvl, *, remote_addr=None, req_line=None, user_agent=None,
                content_length=None):
         if lvl <= config['access_log_level']:
             fields = []
@@ -542,10 +541,10 @@ class Log:
                     fields.append(format(os.getpid()))
                 if 'timestamp' in config['access_log_fields']:
                     fields.append(format(datetime.now()))
-                if 'address' in config['access_log_fields']:
+                if 'remote_addr' in config['access_log_fields']:
                     fields.append(
                         config['access_log_empty_field']
-                        if address is None else format(address))
+                        if remote_addr is None else format(remote_addr))
                 if 'req_line' in config['access_log_fields']:
                     fields.append(
                         config['access_log_empty_field']
