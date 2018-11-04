@@ -1,14 +1,14 @@
 import inspect
-import errno
 import traceback
-import os
-import socket
-import signal
-import urllib.parse
+import errno
 import enum
 from collections import namedtuple
 from datetime import datetime
 import json
+import os
+import socket
+import signal
+import urllib.parse
 
 
 class BaseError(Exception):
@@ -433,6 +433,7 @@ class Server:
                         try:
                             client_conn.shutdown()
                         except OSError as error:
+                            # TODO check error class for ENOTCONN
                             if error.errno != errno.ENOTCONN:
                                 raise error
 
