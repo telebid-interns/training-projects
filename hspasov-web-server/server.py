@@ -2,7 +2,7 @@ import inspect
 import errno
 import traceback
 import os
-import sys
+# TODO remove import sys
 import socket
 import signal
 import urllib.parse
@@ -65,7 +65,7 @@ class HTTP1_1MsgFormatter:
     def parse_req_meta(msg):
         log.error(TRACE)
 
-        assert_app(type(msg) == bytes)
+        assert type(msg) == bytes
 
         msg_parts = msg.split(b'\r\n\r\n', 1)
         log.error(DEBUG, var_name='msg_parts', var_value=msg_parts)
@@ -131,10 +131,10 @@ class HTTP1_1MsgFormatter:
         log.error(DEBUG, var_name='headers', var_value=headers)
         log.error(DEBUG, var_name='body', var_value=body)
 
-        assert_app(type(status_code) == bytes)
-        assert_app(type(headers) == dict)
-        assert_app(type(body) == bytes)
-        assert_app(status_code in HTTP1_1MsgFormatter.response_reason_phrases)
+        assert type(status_code) == bytes
+        assert type(headers) == dict
+        assert type(body) == bytes
+        assert status_code in HTTP1_1MsgFormatter.response_reason_phrases
 
         result = (b'HTTP/1.1 ' + status_code + b' ' +
                   HTTP1_1MsgFormatter.response_reason_phrases[status_code])
@@ -159,11 +159,11 @@ class ClientConnection:
     def __init__(self, conn, addr):
         log.error(TRACE)
 
-        assert_app(isinstance(conn, socket.socket))
-        assert_app(isinstance(addr, tuple))
-        assert_app(len(addr) == 2)
-        assert_app(isinstance(addr[0], str))
-        assert_app(isinstance(addr[1], int))
+        assert isinstance(conn, socket.socket)
+        assert isinstance(addr, tuple)
+        assert len(addr) == 2
+        assert isinstance(addr[0], str)
+        assert isinstance(addr[1], int)
 
         self._conn = conn
         self._addr = addr[0]
@@ -219,7 +219,7 @@ class ClientConnection:
 
 #        self.state = self.State.RECEIVING
 
-#        assert_app(self.req_meta.headers[''])
+#        assert self.req_meta.headers['']
 
     def receive(self):
         log.error(TRACE)
@@ -230,8 +230,8 @@ class ClientConnection:
         log.error(DEBUG, var_name='status_code', var_value=status_code)
         log.error(DEBUG, var_name='headers', var_value=headers)
 
-        assert_app(type(status_code) == bytes)
-        assert_app(type(headers) == dict)
+        assert type(status_code) == bytes
+        assert type(headers) == dict
 
         self.state = self.State.SENDING
 
@@ -244,7 +244,7 @@ class ClientConnection:
     def send(self, data):
         log.error(TRACE)
 
-        assert_app(isinstance(data, bytes))
+        assert isinstance(data, bytes)
 
         self._conn.sendall(data)
 
@@ -319,10 +319,8 @@ class Server:
 
                         log.error(TRACE, msg='resolving file_path...')
 
-                        assert_app(isinstance(
-                            client_conn.req_meta, RequestMeta))
-                        assert_app(
-                            isinstance(client_conn.req_meta.target, bytes))
+                        assert isinstance(client_conn.req_meta, RequestMeta)
+                        assert isinstance(client_conn.req_meta.target, bytes)
 
                         # ignoring query params
                         req_target_path = client_conn.req_meta.target \
@@ -423,9 +421,18 @@ class Server:
                             ClientConnection.State.RECEIVING
                         ):
                             client_conn.send_meta(b'503')
+                    except AssertionError as error:
+                        log.error(TRACE, msg='AssertionError')
+                        AppError(error, traceback.format_stack())
+
+                        if client_conn.state in (
+                            ClientConnection.State.ESTABLISHED,
+                            ClientConnection.State.RECEIVING
+                        ):
+                            client_conn.send_meta(b'500')
                     except Exception as error:
-                        if not isinstance(error, AppError):
-                            AppError(error, traceback.format_stack())
+                        log.error(TRACE, msg='Exception')
+                        AppError(error, traceback.format_stack())
 
                         if client_conn.state in (
                             ClientConnection.State.ESTABLISHED,
@@ -466,14 +473,6 @@ class Server:
     def stop(self):
         log.error(TRACE)
         self._conn.close()
-
-
-def assert_app(condition):
-    if not isinstance(condition, bool):
-        raise AppError('Condition is not boolean', traceback.format_stack())
-
-    if not condition:
-        raise AppError(tb=traceback.format_stack())
 
 
 def assert_peer(condition, msg):
@@ -530,7 +529,7 @@ class Log:
                         else format(msg))
 
                 print(config['error_log_field_sep'].join(fields),
-                      file=sys.stdout)
+                      file=error_log_file)
 
 # TODO change address to remote address
     def access(self, lvl, address=None, req_line=None, user_agent=None,
@@ -574,11 +573,12 @@ def start():
     except OSError as error:
         log.error(TRACE, msg='OSError thrown while initializing web server')
         log.error(INFO, msg=error)
+    except AssertionError as error:
+        log.error(TRACE, msg='AssertionError thrown')
+        AppError(error, traceback.format_stack())
     except Exception as error:
-        log.error(TRACE, msg='Exception thrown while initializing web server')
-
-        if not isinstance(error, AppError):
-            AppError(tb=traceback.format_stack())
+        log.error(TRACE, msg='Exception thrown')
+        AppError(error, traceback.format_stack())
     finally:
         server.stop()
 
