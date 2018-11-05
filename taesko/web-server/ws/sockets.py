@@ -68,7 +68,8 @@ class SSLSocket(ssl.SSLSocket):
             try:
                 super().shutdown(how)
             except OSError:
-                pass
+                error_log.exception('Shutting down socket %s failed.',
+                                    self.fileno())
         else:
             super().shutdown(how)
 
@@ -79,7 +80,8 @@ class SSLSocket(ssl.SSLSocket):
             try:
                 super().close()
             except OSError:
-                pass
+                error_log.exception('Closing socket %s failed.',
+                                    self.fileno())
         else:
             super().close()
 
@@ -102,9 +104,13 @@ class ServerSocket(Socket):
 
 
 class FDTransport:
-    def __init__(self):
+    def __init__(self, sender_timeout=None, receiver_timeout=None):
         pair = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
         self.sender, self.receiver = pair
+        if sender_timeout:
+            self.sender.settimeout(sender_timeout)
+        if receiver_timeout:
+            self.receiver.settimeout(receiver_timeout)
         self.fixed_msg_len = 50
         self.max_fds = 5
         self._mode = None

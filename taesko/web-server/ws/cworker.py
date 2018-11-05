@@ -164,6 +164,7 @@ class ConnectionWorker:
                 self.exchange['request'] = request
                 self.exchange['body_start'] = body_start
                 response = self.handle_request(request)
+                error_log.debug3('Request handler succeeded.')
                 response = self.respond(response)
                 client_persists = request and request_is_persistent(request)
                 server_persists = response and response_is_persistent(response)
@@ -239,13 +240,8 @@ class ConnectionWorker:
                 conn = 'close'
             response.headers['Connection'] = conn
             self.exchange['written'] = True
-            try:
-                for chunk in response.iter_chunks():
-                    self.sock.sendall(chunk)
-            except OSError as err:
-                error_log.warning('Error occurred while sending response '
-                                  'through socket. ERRNO=%s and MSG=%s',
-                                  err.errno, err.strerror)
+            for chunk in response.iter_chunks():
+                self.sock.sendall(chunk)
 
         return response
 
@@ -262,23 +258,6 @@ class ConnectionWorker:
                 if k in keys:
                     stats[k] = v
             yield stats
-
-    # noinspection PyUnusedLocal
-    def handle_termination_depreciated(self, signum, stack_info):
-        error_log.info('Parent process requested termination.'
-                       ' Cleaning up as much as possible and'
-                       ' and sending a service unavailable response')
-
-        # No salvation if bytes have already been sent over the socket
-        if self.exchange['written']:
-            response = ws.http.utils.build_response(503)
-            response.headers['Connection'] = 'close'
-            self.respond(response=response)
-
-        # TODO what kind of error is this ?
-        # raise PeerError(msg='Parent process requested termination.',
-        #                 code='PROCESSING_TIMED_OUT')
-        raise RuntimeError('Parent process requested termination.')
 
 
 @contextlib.contextmanager

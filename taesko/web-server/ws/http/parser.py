@@ -107,28 +107,51 @@ class SocketIterator:
         return next(self.current_chunk)
 
 
-def parse(sock):
-    error_log.debug3('Parsing request from socket %s', sock.fileno())
-    socket_it = SocketIterator(sock)
-    lines = []
-    line = bytearray()
+def recv_request(sock,
+                 chunk_size=4096,
+                 timeout=config.getint('http', 'connection_timeout'),
+                 connection_timeout=config.getint('http', 'request_timeout')):
+    error_log.debug3('recv_request() from %s', sock)
+    assert isinstance(sock, ws.sockets.Socket)
+    assert isinstance(chunk_size, int)
 
-    for count, byte in enumerate(socket_it):
-        line.append(byte)
-
-        if line[-2:] == b'\r\n':
-            del line[-1]
-            del line[-1]
-
-            if line == b'':
-                break
-            else:
-                lines.append(line)
-                line = bytearray()
-        elif count > MAX_HTTP_META_LEN:
+    total_length = 0
+    chunks = []
+    body_offset = -1
+    start = time.time()
+    sock.settimeout(timeout)
+    while body_offset == -1:
+        if total_length > MAX_HTTP_META_LEN:
             raise ParserException(code='PARSER_REQUEST_TOO_LONG')
+        elif time.time() - start > connection_timeout:
+            raise ParserException(code='CS_PEER_CONNECTION_TIMED_OUT')
 
-    error_log.debug3('Parsed lines %s', lines)
+        try:
+            chunk = sock.recv(chunk_size)
+        except ws.sockets.TimeoutException:
+            raise ParserException(code='CS_PEER_SEND_IS_TOO_SLOW')
+        if not chunk:
+            raise ParserException(code='CS_PEER_NOT_SENDING')
+        chunks.append(chunk)
+        total_length += len(chunk)
+        body_offset = chunk.find(b'\r\n\r\n')
+
+    lines = []
+    leftover_body = b''
+
+    for i, chunk in enumerate(chunks):
+        if i == len(chunks) - 1:
+            line_chunk = chunk[:body_offset]
+            leftover_body = chunk[body_offset:]
+        else:
+            line_chunk = chunk
+        lines.extend(line_chunk.split(b'\r\n'))
+
+    return lines, leftover_body
+
+
+def parse(sock):
+    lines, leftover_body = recv_request(sock)
 
     try:
         request_line = parse_request_line(lines[0])
@@ -142,8 +165,7 @@ def parse(sock):
 
     request = ws.http.structs.HTTPRequest(request_line=request_line,
                                           headers=headers)
-    leftover = bytes(socket_it.current_chunk)
-    return request, leftover
+    return request, leftover_body
 
 
 HTTP_VERSION_REGEX = re.compile(b'HTTP/(\\d\\.\\d)')
