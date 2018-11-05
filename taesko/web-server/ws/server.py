@@ -6,7 +6,6 @@ import io
 import json
 import os
 import pstats
-import signal
 import subprocess
 import time
 
@@ -209,7 +208,7 @@ class Server:
             else:
                 self.execution_context = self.ExecutionContext.worker
                 ws.signals.reset_handlers(excluding={ws.signals.SIGTERM})
-                signal.signal(signal.SIGCHLD, signal.SIG_IGN)
+                ws.signals.signal(ws.signals.SIGCHLD, ws.signals.SIG_IGN)
                 # noinspection PyBroadException
                 try:
                     ws.logs.setup_worker_handlers()
@@ -288,7 +287,7 @@ class WorkerProcess:
 
         try:
             self.sent_sigterm_on = time.time()
-            os.kill(self.pid, signal.SIGTERM)
+            os.kill(self.pid, ws.signals.SIGTERM)
             self.terminating = True
         except OSError as err:
             error_log.warning('Failed to sent SIGTERM to worker with pid %s. '
@@ -302,7 +301,7 @@ class WorkerProcess:
         if now - self.sent_sigterm_on > self.sigterm_timeout:
             # don't fail if worker is already dead.
             try:
-                os.kill(self.pid, signal.SIGKILL)
+                ws.signals.kill(self.pid, ws.signals.SIGKILL)
             except OSError as err:
                 error_log.warning('Killing worker with pid %s failed. '
                                   'ERRNO=%s and MSG=%s',
@@ -374,7 +373,7 @@ def main():
         try:
             server.listen()
         except SignalReceivedException as err:
-            if err.signum == signal.SIGTERM:
+            if err.signum == ws.signals.SIGTERM:
                 error_log.info('SIGTERM signal broke listen() loop.')
             else:
                 error_log.exception('Unknown signal broke listen() loop.')

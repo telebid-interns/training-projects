@@ -3,8 +3,8 @@ import ws.cworker
 import ws.http.utils as hutils
 import ws.ratelimit
 import ws.sockets
+import ws.signals
 import ws.serve
-import signal
 from ws.err import *
 from ws.config import config
 from ws.logs import error_log, access_log
@@ -26,7 +26,8 @@ class Worker:
         self.auth_scheme = ws.auth.BasicAuth()
         self.static_files = ws.serve.StaticFiles()
         self.static_files.reindex_files()
-        signal.signal(signal.SIGUSR1, self.static_files.schedule_reindex)
+        ws.signals.signal(ws.signals.SIGUSR1,
+                          self.static_files.schedule_reindex)
 
         if config.getboolean('ssl', 'enabled'):
             cert_file = config['ssl']['cert_file']
@@ -60,9 +61,9 @@ class Worker:
                 sock, address = self.connections.popleft()
                 self.handle_connection(socket=sock, address=address)
             except SignalReceivedException as err:
-                if err.signum == signal.SIGTERM:
+                if err.signum == ws.signals.SIGTERM:
                     error_log.info('Breaking work() loop due to signal %s.',
-                                   signal.Signals(err.signum).name)
+                                   ws.signals.Signals(err.signum).name)
                     break
                 else:
                     error_log.exception('Unknown signal during work() loop')
