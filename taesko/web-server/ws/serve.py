@@ -1,4 +1,3 @@
-import collections
 import io
 import os
 import re
@@ -32,8 +31,10 @@ class StaticFiles:
         self.file_keys = frozenset()
         self.reindex_is_scheduled = False
 
-    def schedule_reindex(self):
+    # noinspection PyUnusedLocal
+    def schedule_reindex(self, signum, stack_frame):
         """ Method to be used as a signal handler to avoid race conditions."""
+        error_log.debug3('Scheduled reindex.')
         self.reindex_is_scheduled = True
 
     def reindex_files(self):

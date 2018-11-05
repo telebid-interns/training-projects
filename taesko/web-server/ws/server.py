@@ -13,6 +13,7 @@ import time
 import ws.cworker
 import ws.logs
 import ws.sockets
+import ws.signals
 import ws.worker
 from ws.config import config
 from ws.err import *
@@ -21,16 +22,8 @@ from ws.logs import error_log, profile_log
 SERVER_PROFILING_ON = config.getboolean('profiling', 'on_server')
 WORKER_PROFILING_ON = config.getboolean('profiling', 'on_workers')
 
-
-def default_signal_handler(signum, stack_info):
-    error_log.debug3('Received signum %s in default signal handler.', signum)
-    signame = signal.Signals(signum).name
-    raise SignalReceivedException(msg='Received signal {}'.format(signame),
-                                  code='DEFAULT_HANDLER_CAUGHT_SIGNAL',
-                                  signum=signum)
-
-
-signal.signal(signal.SIGTERM, default_signal_handler)
+default_signal_handler_depreciated = ws.signals.raising_signal_handler
+ws.signals.signal(ws.signals.SIGTERM, ws.signals.raising_signal_handler)
 
 
 class Server:
@@ -61,7 +54,9 @@ class Server:
         self.workers = {}
         self.reaping = False
         self.reaped_pids = set()
-        signal.signal(signal.SIGCHLD, self.reap_children)
+        self.received_signals = set()
+        ws.signals.signal(ws.signals.SIGCHLD, self.reap_children)
+        ws.signals.signal(ws.signals.SIGUSR1, self.receive_signal)
 
     def setup(self):
         """ Bind socket and pre-fork workers. """
@@ -86,7 +81,7 @@ class Server:
         except OSError:
             error_log.exception('close() on listening socket failed.')
 
-        signal.signal(signal.SIGCHLD, signal.SIG_DFL)
+        ws.signals.signal(ws.signals.SIGCHLD, ws.signals.SIG_DFL)
         active_workers = [worker for worker in self.workers.values()
                           if worker.pid not in self.reaped_pids]
         for worker in active_workers:
@@ -165,6 +160,11 @@ class Server:
             for worker_process in self.workers.values():
                 worker_process.kill_if_hanged()
 
+            if ws.signals.SIGUSR1 in self.received_signals:
+                for pid in self.workers:
+                    ws.signals.kill(pid, ws.signals.SIGUSR1)
+                self.received_signals.remove(ws.signals.SIGUSR1)
+
     def distribute_connection(self, client_socket, address):
         for i, worker in enumerate(self.workers_round_robin()):
             if not worker.can_work():
@@ -200,15 +200,16 @@ class Server:
             fd_transport = ws.sockets.FDTransport()
             pid = os.fork()
             if pid:
-                error_log.debug('Forked worker with pid=%s', pid)
                 self.execution_context = self.ExecutionContext.main
+                error_log.debug('Forked worker with pid=%s', pid)
                 ws.sockets.randomize_ssl_after_fork()
                 fd_transport.mode = 'sender'
                 wp = WorkerProcess(pid=pid, fd_transport=fd_transport)
                 self.workers[wp.pid] = wp
             else:
-                signal.signal(signal.SIGCHLD, signal.SIG_IGN)
                 self.execution_context = self.ExecutionContext.worker
+                ws.signals.reset_handlers(excluding={ws.signals.SIGTERM})
+                signal.signal(signal.SIGCHLD, signal.SIG_IGN)
                 # noinspection PyBroadException
                 try:
                     ws.logs.setup_worker_handlers()
@@ -229,6 +230,11 @@ class Server:
                 # noinspection PyProtectedMember
                 os._exit(exit_code)
 
+    # noinspection PyUnusedLocal
+    def receive_signal(self, signum, stack_frame):
+        self.received_signals.add(signum)
+
+    # noinspection PyUnusedLocal
     def reap_children(self, signum, stack_frame):
         # TODO use a lock
         error_log.debug3('reap_children() called.')
