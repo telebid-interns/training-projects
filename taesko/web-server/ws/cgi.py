@@ -1,4 +1,5 @@
 import os
+import select
 import subprocess
 import time
 
@@ -207,16 +208,11 @@ def execute_script(request, socket, body_start=b''):
 
     has_body = 'Content-Length' in request.headers
 
-    if has_body:
-        stdin = subprocess.PIPE
-    else:
-        stdin = socket.fileno()
-
     try:
         proc = subprocess.Popen(
             args=os.path.abspath(cgi_script.script_path),
             env=script_env,
-            stdin=stdin,
+            stdin=subprocess.PIPE if has_body else socket.fileno(),
             stdout=socket.fileno()
         )
     except (OSError, ValueError):
@@ -235,13 +231,8 @@ def execute_script(request, socket, body_start=b''):
         length = int(request.headers['Content-Length'])
         read_bytes = 0
         chunk_size = 4096
-        while read_bytes < length:
-            if time.time() - start > cgi_script.timeout:
-                error_log.warning('CGI script %s took too long to read body. '
-                                  'Leaving process alive but no more data will '
-                                  'be piped to it.')
-                break
-
+        timeout_reached = False
+        while read_bytes < length and not timeout_reached:
             if body_start:
                 chunk = body_start
                 body_start = b''
@@ -251,10 +242,22 @@ def execute_script(request, socket, body_start=b''):
             if not chunk:
                 break
 
-            error_log.debug3('Writing chunk %s', chunk)
             while chunk:
-                written = proc.stdin.write(chunk)
-                chunk = chunk[written:]
+                avail = select.select([], [proc.stdin], [], cgi_script.timeout)
+                _, wlist, _ = avail
+                if wlist:
+                    written = wlist[0].write(chunk)
+                    chunk = chunk[written:]
+                else:
+                    timeout_reached = True
+                    break
+            if time.time() - start > cgi_script.timeout:
+                timeout_reached = True
+
+        if timeout_reached:
+            error_log.warning('CGI script %s took too long to read body. '
+                              'Leaving process alive but no more data will '
+                              'be piped to it.', cgi_script)
     except ws.sockets.TimeoutException:
         error_log.warning("Client sent data too slowly - socket timed out.")
     except Exception:
