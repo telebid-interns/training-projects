@@ -24,7 +24,7 @@ class WordPressMonitor(object):
         self.wp_path = wp_path
         self.site_url = site_url
         self.db_info = {}
-        self.site_config_file = '{}.php'.format(self.CONFIG_PATH + self.site_url)
+        self.site_config_file = '{}config-{}.php'.format(self.CONFIG_PATH, self.site_url)
         self.table_prefix = self.get_table_prefix()
         self.wp_version = self.get_version()
         assert_user(self.wp_version in self.MAINTAINED_VERSIONS, 'WP version ({}) is not maintained. Maintained versions are: {}'.format(self.wp_version, ', '.join(self.MAINTAINED_VERSIONS)))
@@ -51,7 +51,7 @@ class WordPressMonitor(object):
         return match.group(1)
 
     def get_table_prefix(self):
-        """Reads the configuration file etc/wordpress/<site>.php and extracts the value of $table_prefix
+        """Reads the configuration file etc/wordpress/config-<site>.php and extracts the value of $table_prefix
 
             Raises UserError when $table_prefix is not found
             Returns $table_prefix value as a String
@@ -65,7 +65,7 @@ class WordPressMonitor(object):
         return match.group(1)
 
     def init_db(self):
-        """Reads the configuration file etc/wordpress/<site>.php, extracts the DB_NAME, DB_USER, DB_PASSWORD and DB_HOST
+        """Reads the configuration file etc/wordpress/config-<site>.php, extracts the DB_NAME, DB_USER, DB_PASSWORD and DB_HOST
             values with a regex and saves them in dict 
 
             Raises UserError if the regex doesnt find all the values
@@ -149,7 +149,7 @@ if __name__ == '__main__':
             """
             Please provide both wordpress installation path and site url
 
-            Try 'python3 <script> <wp_installation_path> <site_url>'
+            Try 'python3 <script> <wp_installation_path> <site>'
             """
         )
         WordPressMonitor(sys.argv[1], sys.argv[2]).start_test()
