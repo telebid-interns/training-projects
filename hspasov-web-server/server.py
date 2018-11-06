@@ -256,22 +256,6 @@ class ClientConnection:
     def close(self):
         log.error(TRACE)
 
-        if self.req_meta is None:
-            req_line = None
-            user_agent = None
-        else:
-            req_line = self.req_meta.req_line_raw
-            user_agent = self.req_meta.user_agent
-
-        log.access(
-            1,
-            remote_addr='{0}:{1}'.format(self._addr, self._port),
-            req_line=req_line,
-            user_agent=user_agent,
-            status_code=self.res_meta.status_code,
-            content_length=self.res_meta.content_length,
-        )
-
         self._conn.close()
         self.state = self.State.CLOSED
 
@@ -449,7 +433,24 @@ class Server:
                     except Exception as error:
                         log.error(TRACE, msg=error)
 
-                if pid is not None and pid == 0:
+                if pid is not None and pid == 0:  # child
+                    if client_conn is not None:  # access log
+                        if client_conn.req_meta is None:
+                            req_line = None
+                            user_agent = None
+                        else:
+                            req_line = client_conn.req_meta.req_line_raw
+                            user_agent = client_conn.req_meta.user_agent
+
+                        log.access(
+                            1,
+                            remote_addr='{0}:{1}'.format(client_conn._addr,
+                                                         client_conn._port),
+                            req_line=req_line,
+                            user_agent=user_agent,
+                            status_code=client_conn.res_meta.status_code,
+                            content_length=client_conn.res_meta.content_length,
+                        )
                     os._exit(os.EX_OSERR)  # TODO change os.EX_OSERR
 
     def accept(self):
