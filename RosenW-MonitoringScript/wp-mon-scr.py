@@ -1,7 +1,6 @@
 #!/usr/bin/python
 import MySQLdb
 import os
-import requests
 import stat
 import sys
 import re
@@ -19,11 +18,13 @@ class WordPressMonitor(object):
         '4.1', '4.1.1', '4.1.2'
     ]
     VERSION_FILE_PATH = '/wp-includes/version.php'
-    CONFIG_FILE_PATH = '/wp-config.php'
+    CONFIG_PATH = '/etc/wordpress/'
 
-    def __init__(self, wp_path):
+    def __init__(self, wp_path, site_url):
         self.wp_path = wp_path
+        self.site_url = site_url
         self.db_info = {}
+        self.site_config_file = '{}.php'.format(self.CONFIG_PATH + self.site_url)
         self.table_prefix = self.get_table_prefix()
         self.wp_version = self.get_version()
         assert_user(self.wp_version in self.MAINTAINED_VERSIONS, 'WP version ({}) is not maintained. Maintained versions are: {}'.format(self.wp_version, ', '.join(self.MAINTAINED_VERSIONS)))
@@ -50,32 +51,32 @@ class WordPressMonitor(object):
         return match.group(1)
 
     def get_table_prefix(self):
-        """Reads the /wp-config.php file and extracts the value of $table_prefix
+        """Reads the configuration file etc/wordpress/<site>.php and extracts the value of $table_prefix
 
             Raises UserError when $table_prefix is not found
             Returns $table_prefix value as a String
         """
-        content = self.read_whole_file(self.wp_path + self.CONFIG_FILE_PATH)
+        content = self.read_whole_file(self.site_config_file)
         pattern = re.compile("""\$table_prefix\s*=\s*['"]([^'"]*?)['"];""")
         match = pattern.search(content)
 
-        assert_user(match, 'Could not find WP Database table prefix in {}'.format(self.wp_path + self.CONFIG_FILE_PATH))
+        assert_user(match, 'Could not find WP Database table prefix in {}'.format(self.site_config_file))
 
         return match.group(1)
 
     def init_db(self):
-        """Reads the /wp-config.php file, extracts the DB_NAME, DB_USER, DB_PASSWORD and DB_HOST
+        """Reads the configuration file etc/wordpress/<site>.php, extracts the DB_NAME, DB_USER, DB_PASSWORD and DB_HOST
             values with a regex and saves them in dict 
 
             Raises UserError if the regex doesnt find all the values
             Returns None
         """
-        content = self.read_whole_file(self.wp_path + self.CONFIG_FILE_PATH)
+        content = self.read_whole_file(self.site_config_file)
 
         for word in ['DB_NAME', 'DB_USER', 'DB_PASSWORD', 'DB_HOST']:
             pattern = re.compile("""define\(["']{}["'],\s*["']([^'"]*?)[\"']\);""".format(word))
             match = pattern.search(content)
-            assert_user(match, 'Could not find {} in {}/wp-confing.php'.format(word, self.wp_path))
+            assert_user(match, 'Could not find {} in {}'.format(word, self.site_config_file))
             self.db_info[word] = match.group(1)
 
         self.db = MySQLdb.connect(
@@ -92,24 +93,28 @@ class WordPressMonitor(object):
             and asserts the expected values with the actual
 
             If assertion succeeds '1' is printed on stdout
-            If assertion fails '0' is printed on stdout and differences are printed on stderr
+            If assertion fails '0' is printed on stdout
+
+            Actual WP settings are printed on stderr
 
             Returns None
         """
         has_differences = False
         for option in self.option_expected_dict:
-            rows = self.execute_sql("SELECT option_value FROM {} WHERE option_name = %s".format(MySQLdb.escape_string(self.table_prefix + 'options').decode()), (option))
-            assert_user(len(rows) > 0 and len(rows[0]) > 0, 'Could not get value {} from table {}'.format(option, self.table_prefix + 'options'))
+            rows = self.execute_sql("SELECT option_value FROM {} WHERE option_name = %s".format(MySQLdb.escape_string('{}options'.format(self.table_prefix)).decode()), (option))
+            assert_user(len(rows) > 0 and len(rows[0]) > 0, 'Could not get value {} from table {}'.format(option, '{}options'.format(self.table_prefix)))
             self.option_actual_dict[option] = rows[0][0]
             if self.option_actual_dict[option] != self.option_expected_dict[option]:
                 has_differences = True
 
+        self.db.close()
+
         if has_differences:
-            self.fail()
+            sys.stdout.write('0')
         else:
             sys.stdout.write('1')
-
-        self.db.close()
+        
+        self.print_actual()
 
     def execute_sql(self, sql, *args):
         try:
@@ -125,21 +130,10 @@ class WordPressMonitor(object):
         except FileNotFoundError as e:
             assert_user(False, 'Could not find file {}'.format(path))
 
-    def fail(self):
-        """Prints differences on stderr and 0 on stdout"""
-        sys.stdout.write('0')
-
-        sys.stderr.write('Expected:\n')
-        for option in self.option_expected_dict:
-            if self.option_expected_dict[option] != self.option_actual_dict[option]:
-                sys.stderr.write('{}: {}\n'.format(option, self.option_expected_dict[option]))
-
-        sys.stderr.write('\n')
-
-        sys.stderr.write('Actual:\n')
+    def print_actual(self):
+        """Prints actual wp config values on stderr"""
         for option in self.option_actual_dict:
-            if self.option_expected_dict[option] != self.option_actual_dict[option]:
-                sys.stderr.write('{}: {}\n'.format(option, self.option_actual_dict[option]))
+            sys.stderr.write('{}: {}\n'.format(option, self.option_actual_dict[option]))
 
 class UserError(Exception):
     def __init__(self, message):
@@ -151,8 +145,14 @@ def assert_user(condition, msg):
 
 if __name__ == '__main__':
     try:
-        assert_user(len(sys.argv) > 1, 'WordPress path required as first parameter')
-        WordPressMonitor(sys.argv[1]).start_test()
+        assert_user(len(sys.argv) > 2, 
+            """
+            Please provide both wordpress installation path and site url
+
+            Try 'python3 <script> <wp_installation_path> <site_url>'
+            """
+        )
+        WordPressMonitor(sys.argv[1], sys.argv[2]).start_test()
     except UserError as e:
         sys.stderr.write(str(e) + '\n')
         exit()
