@@ -5,6 +5,7 @@ import enum
 from collections import namedtuple
 from datetime import datetime
 import json
+import sys
 import os
 import socket
 import signal
@@ -293,7 +294,11 @@ class Server:
                     self.stop()
 
                     try:
-                        # may send response to client in case of peer error
+                        log.init_access_log_file()
+                        os.chroot(config['content_dir'])
+
+                        # may send response to client in case of invalid
+                        # request
                         client_conn.receive_meta()
 
                         if client_conn.state != (
@@ -312,22 +317,10 @@ class Server:
                         log.error(DEBUG, var_name='req_target_path',
                                   var_value=req_target_path)
 
-                        file_path = os.path.realpath(
-                            os.path.join(
-                                config['root_dir'],
-                                *req_target_path.split(b'/')[1:])
-                        )
+                        file_path = os.path.realpath(req_target_path)
+
                         log.error(DEBUG, var_name='file_path',
                                   var_value=file_path)
-
-                        if config['root_dir'] not in file_path:
-                            # TODO check if this is correct error handling
-                            log.error(TRACE,
-                                      msg=('requested file outside of ' +
-                                           'web server document root'))
-
-                            client_conn.send_meta(b'400')
-                            break
 
                         log.error(TRACE, msg=('requested file in web server ' +
                                               'document root'))
@@ -451,6 +444,8 @@ class Server:
                             status_code=client_conn.res_meta.status_code,
                             content_length=client_conn.res_meta.content_length,
                         )
+
+                    log.close_access_log_file()
                     os._exit(os.EX_OSERR)  # TODO change os.EX_OSERR
 
     def accept(self):
@@ -509,45 +504,50 @@ DEBUG = 3
 
 
 class Log:
+    def __init__(self):
+        self.access_log_file = None
+
     def error(self, lvl, *, var_name=None, var_value=None, msg=None):
         if lvl <= config['error_log_level']:
             fields = []
 
-            with open(config['error_log'], mode='a') as error_log_file:
-                if 'pid' in config['error_log_fields']:
-                    fields.append(format(os.getpid()))
-                if 'timestamp' in config['error_log_fields']:
-                    fields.append(format(datetime.now()))
-                if 'level' in config['error_log_fields']:
-                    fields.append(format(lvl))
-                if 'context' in config['error_log_fields']:
-                    current_frame = inspect.currentframe()
-                    caller_frame = inspect.getouterframes(current_frame, 2)
-                    caller_function = caller_frame[1][3]
-                    fields.append(format(caller_function))
-                if 'var_name' in config['error_log_fields']:
-                    fields.append(
-                        config['error_log_empty_field']
-                        if var_name is None else format(var_name))
-                if 'var_value' in config['error_log_fields']:
-                    fields.append(
-                        config['error_log_empty_field']
-                        if var_value is None else format(var_value))
-                if 'msg' in config['error_log_fields']:
-                    fields.append(
-                        config['error_log_empty_field']
-                        if msg is None
-                        else format(msg))
+            if 'pid' in config['error_log_fields']:
+                fields.append(format(os.getpid()))
+            if 'timestamp' in config['error_log_fields']:
+                fields.append(format(datetime.now()))
+            if 'level' in config['error_log_fields']:
+                fields.append(format(lvl))
+            if 'context' in config['error_log_fields']:
+                current_frame = inspect.currentframe()
+                caller_frame = inspect.getouterframes(current_frame, 2)
+                caller_function = caller_frame[1][3]
+                fields.append(format(caller_function))
+            if 'var_name' in config['error_log_fields']:
+                fields.append(
+                    config['error_log_empty_field']
+                    if var_name is None else format(var_name))
+            if 'var_value' in config['error_log_fields']:
+                fields.append(
+                    config['error_log_empty_field']
+                    if var_value is None else format(var_value))
+            if 'msg' in config['error_log_fields']:
+                fields.append(
+                    config['error_log_empty_field']
+                    if msg is None
+                    else format(msg))
 
-                print(config['error_log_field_sep'].join(fields),
-                      file=error_log_file)
+            print(config['error_log_field_sep'].join(fields),
+                  file=sys.stderr)
 
     def access(self, lvl, *, remote_addr=None, req_line=None, user_agent=None,
                status_code=None, content_length=None):
         if lvl <= config['access_log_level']:
             fields = []
 
-            with open(config['access_log'], mode='a') as access_log_file:
+            if self.access_log_file is None:
+                self.error(INFO, msg=('Attempt to write in uninitialized ' +
+                                      'access log file'))
+            else:
                 if 'pid' in config['access_log_fields']:
                     fields.append(format(os.getpid()))
                 if 'timestamp' in config['access_log_fields']:
@@ -574,7 +574,14 @@ class Log:
                         if content_length is None else format(content_length))
 
                 print(config['access_log_field_sep'].join(fields),
-                      file=access_log_file)
+                      file=self.access_log_file)
+
+    def init_access_log_file(self):
+        self.access_log_file = open(config['access_log'], mode='a')
+
+    def close_access_log_file(self):
+        self.access_log_file.close()
+        self.access_log_file = None
 
 
 def start():
@@ -606,7 +613,7 @@ if __name__ == '__main__':
 
             # root dir needs to be bytes so that file path received from http
             # request can be directly concatenated to root dir
-            config['root_dir'] = bytes(config['root_dir'], 'utf-8')
+            config['content_dir'] = bytes(config['content_dir'], 'utf-8')
 
         log = Log()
         log.error(DEBUG, var_name='config', var_value=config)

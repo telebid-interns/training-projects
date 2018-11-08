@@ -6,11 +6,10 @@
   "backlog": 2000,
   "host": "localhost",
   "port": 8080,
-  "root_dir": "/home/hristo/Documents/training-projects/hspasov-web-server/content"
+  "content_dir": "/home/hristo/Documents/training-projects/hspasov-web-server/content"
 ,
   "access_log": "/home/hristo/Documents/training-projects/hspasov-web-server/logs/access.log",
-  "error_log": "/home/hristo/Documents/training-projects/hspasov-web-server/logs/error.log",
-  "error_log_level": 0,
+  "error_log_level": 3,
   "error_log_fields": [
     "pid",
     "timestamp",
