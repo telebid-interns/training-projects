@@ -5,6 +5,7 @@ import enum
 from collections import namedtuple
 from datetime import datetime
 import json
+import pwd
 import sys
 import os
 import socket
@@ -164,7 +165,7 @@ class ClientConnection:
         self._conn = conn
         self._addr = addr[0]
         self._port = addr[1]
-        self._conn.settimeout(config['socket_operation_timeout'])
+        self._conn.settimeout(CONFIG['socket_operation_timeout'])
         self._msg_received = b''
         self.state = self.State.ESTABLISHED
         self.req_meta = None
@@ -175,7 +176,7 @@ class ClientConnection:
 
         self.state = self.State.RECEIVING
 
-        while len(self._msg_received) <= config['req_msg_limit']:
+        while len(self._msg_received) <= CONFIG['req_msg_limit']:
             log.error(TRACE, msg='receiving data...')
 
             try:
@@ -224,7 +225,7 @@ class ClientConnection:
 
     def receive(self):
         log.error(TRACE)
-        return self._conn.recv(config['recv_buffer'])
+        return self._conn.recv(CONFIG['recv_buffer'])
 
     def send_meta(self, status_code, headers={}):
         log.error(TRACE)
@@ -273,13 +274,13 @@ class Server:
 
     def run(self):
         log.error(TRACE)
-        self._conn.bind((config['host'], config['port']))
-        log.error(TRACE, msg='socket bound: {0}:{1}'.format(config['host'],
-                                                            config['port']))
+        self._conn.bind((CONFIG['host'], CONFIG['port']))
+        log.error(TRACE, msg='socket bound: {0}:{1}'.format(CONFIG['host'],
+                                                            CONFIG['port']))
 
-        self._conn.listen(config['backlog'])
+        self._conn.listen(CONFIG['backlog'])
         log.error(TRACE,
-                  msg='listening... backlog: {0}'.format(config['backlog']))
+                  msg='listening... backlog: {0}'.format(CONFIG['backlog']))
 
         client_conn = None
         pid = None
@@ -297,7 +298,8 @@ class Server:
 
                     try:
                         log.init_access_log_file()
-                        os.chroot(config['content_dir'])
+                        os.chroot(CONFIG['content_dir'])
+                        os.setreuid(UID, UID)
 
                         # may send response to client in case of invalid
                         # request
@@ -347,7 +349,7 @@ class Server:
 
                             while True:
                                 response = content_file.read(
-                                    config['read_buffer'])
+                                    CONFIG['read_buffer'])
                                 log.error(DEBUG, var_name='response',
                                           var_value=response)
 
@@ -513,76 +515,76 @@ class Log:
         self.access_log_file = None
 
     def error(self, lvl, *, var_name=None, var_value=None, msg=None):
-        if lvl <= config['error_log_level']:
+        if lvl <= CONFIG['error_log_level']:
             fields = []
 
-            if 'pid' in config['error_log_fields']:
+            if 'pid' in CONFIG['error_log_fields']:
                 fields.append(format(os.getpid()))
-            if 'timestamp' in config['error_log_fields']:
+            if 'timestamp' in CONFIG['error_log_fields']:
                 fields.append(format(datetime.now()))
-            if 'level' in config['error_log_fields']:
+            if 'level' in CONFIG['error_log_fields']:
                 fields.append(format(lvl))
-            if 'context' in config['error_log_fields']:
+            if 'context' in CONFIG['error_log_fields']:
                 current_frame = inspect.currentframe()
                 caller_frame = inspect.getouterframes(current_frame, 2)
                 caller_function = caller_frame[1][3]
                 fields.append(format(caller_function))
-            if 'var_name' in config['error_log_fields']:
+            if 'var_name' in CONFIG['error_log_fields']:
                 fields.append(
-                    config['error_log_empty_field']
+                    CONFIG['error_log_empty_field']
                     if var_name is None else format(var_name))
-            if 'var_value' in config['error_log_fields']:
+            if 'var_value' in CONFIG['error_log_fields']:
                 fields.append(
-                    config['error_log_empty_field']
+                    CONFIG['error_log_empty_field']
                     if var_value is None else format(var_value))
-            if 'msg' in config['error_log_fields']:
+            if 'msg' in CONFIG['error_log_fields']:
                 fields.append(
-                    config['error_log_empty_field']
+                    CONFIG['error_log_empty_field']
                     if msg is None
                     else format(msg))
 
-            print(config['error_log_field_sep'].join(fields),
+            print(CONFIG['error_log_field_sep'].join(fields),
                   file=sys.stderr)
 
     def access(self, lvl, *, remote_addr=None, req_line=None, user_agent=None,
                status_code=None, content_length=None):
-        if lvl <= config['access_log_level']:
+        if lvl <= CONFIG['access_log_level']:
             fields = []
 
             if self.access_log_file is None:
                 self.error(INFO, msg=('Attempt to write in uninitialized ' +
                                       'access log file'))
             else:
-                if 'pid' in config['access_log_fields']:
+                if 'pid' in CONFIG['access_log_fields']:
                     fields.append(format(os.getpid()))
-                if 'timestamp' in config['access_log_fields']:
+                if 'timestamp' in CONFIG['access_log_fields']:
                     fields.append(format(datetime.now()))
-                if 'remote_addr' in config['access_log_fields']:
+                if 'remote_addr' in CONFIG['access_log_fields']:
                     fields.append(
-                        config['access_log_empty_field']
+                        CONFIG['access_log_empty_field']
                         if remote_addr is None else format(remote_addr))
-                if 'req_line' in config['access_log_fields']:
+                if 'req_line' in CONFIG['access_log_fields']:
                     fields.append(
-                        config['access_log_empty_field']
+                        CONFIG['access_log_empty_field']
                         if req_line is None else format(req_line))
-                if 'user_agent' in config['access_log_fields']:
+                if 'user_agent' in CONFIG['access_log_fields']:
                     fields.append(
-                        config['access_log_empty_field']
+                        CONFIG['access_log_empty_field']
                         if user_agent is None else format(user_agent))
-                if 'status_code' in config['access_log_fields']:
+                if 'status_code' in CONFIG['access_log_fields']:
                     fields.append(
-                        config['access_log_empty_field']
+                        CONFIG['access_log_empty_field']
                         if status_code is None else format(status_code))
-                if 'content_length' in config['access_log_fields']:
+                if 'content_length' in CONFIG['access_log_fields']:
                     fields.append(
-                        config['access_log_empty_field']
+                        CONFIG['access_log_empty_field']
                         if content_length is None else format(content_length))
 
-                print(config['access_log_field_sep'].join(fields),
+                print(CONFIG['access_log_field_sep'].join(fields),
                       file=self.access_log_file)
 
     def init_access_log_file(self):
-        self.access_log_file = open(config['access_log'], mode='a')
+        self.access_log_file = open(CONFIG['access_log'], mode='a')
 
     def close_access_log_file(self):
         self.access_log_file.close()
@@ -616,14 +618,15 @@ if __name__ == '__main__':
         # TODO ask how to handle errors before log initialized
         with open('./config.json', mode='r') as config_file:
             config_file_content = config_file.read()
-            config = json.loads(config_file_content)
+            CONFIG = json.loads(config_file_content)
 
-            # root dir needs to be bytes so that file path received from http
-            # request can be directly concatenated to root dir
-            config['content_dir'] = bytes(config['content_dir'], 'utf-8')
+        # root dir needs to be bytes so that file path received from http
+        # request can be directly concatenated to root dir
+        CONFIG['content_dir'] = bytes(CONFIG['content_dir'], 'utf-8')
+        UID = pwd.getpwnam(CONFIG['user']).pw_uid
 
         log = Log()
-        log.error(DEBUG, var_name='config', var_value=config)
+        log.error(DEBUG, var_name='config', var_value=CONFIG)
 
         start()
     except OSError as error:
