@@ -291,6 +291,8 @@ class Server:
                 pid = os.fork()
 
                 if pid == 0:  # child process
+                    process_status = os.EX_OK
+
                     self.stop()
 
                     try:
@@ -380,6 +382,8 @@ class Server:
                         ):
                             client_conn.send_meta(b'404')
                     except OSError as error:
+                        process_status = os.EX_OSERR
+
                         log.error(TRACE, msg='OSError')
                         log.error(DEBUG, msg=error)
 
@@ -389,6 +393,8 @@ class Server:
                         ):
                             client_conn.send_meta(b'503')
                     except AssertionError as error:
+                        process_status = os.EX_SOFTWARE
+
                         log.error(TRACE, msg='AssertionError')
                         AppError(error, traceback.format_stack())
 
@@ -398,6 +404,8 @@ class Server:
                         ):
                             client_conn.send_meta(b'500')
                     except Exception as error:
+                        process_status = os.EX_SOFTWARE
+
                         log.error(TRACE, msg='Exception')
                         AppError(error, traceback.format_stack())
 
@@ -410,8 +418,8 @@ class Server:
                         try:
                             client_conn.shutdown()
                         except OSError as error:
-                            # TODO check error class for ENOTCONN
                             if error.errno != errno.ENOTCONN:
+                                process_status = os.EX_OSERR
                                 raise error
 
             except OSError as error:
@@ -446,7 +454,7 @@ class Server:
                         )
 
                     log.close_access_log_file()
-                    os._exit(os.EX_OSERR)  # TODO change os.EX_OSERR
+                    os._exit(process_status)
 
     def accept(self):
         log.error(TRACE, msg='ready to accept connection')
@@ -476,13 +484,10 @@ class Server:
                 exit_status = os.WEXITSTATUS(exit_indicators)
                 signal_number = os.WTERMSIG(exit_indicators)
 
-                assert (exit_status == 0 and signal_number != 0) or (
-                        exit_status != 0 and signal_number == 0)
-
-                if exit_status == 0:
-                    log.error(TRACE, msg='Child pid={0} killed by signal {1}'.format(pid, signal_number)) # noqa
-                else:
+                if signal_number == 0:
                     log.error(TRACE, msg='Child pid={0} exit status={1}'.format(pid, exit_status)) # noqa
+                else:
+                    log.error(TRACE, msg='Child pid={0} killed by signal {1}'.format(pid, signal_number)) # noqa
 
     def stop(self):
         log.error(TRACE)
@@ -596,9 +601,11 @@ def start():
         log.error(INFO, msg=error)
     except AssertionError as error:
         log.error(TRACE, msg='AssertionError thrown')
+        log.error(INFO, msg=error)
         AppError(error, traceback.format_stack())
     except Exception as error:
         log.error(TRACE, msg='Exception thrown')
+        log.error(INFO, msg=error)
         AppError(error, traceback.format_stack())
     finally:
         server.stop()
