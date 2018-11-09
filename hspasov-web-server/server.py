@@ -48,6 +48,11 @@ class ResponseMeta:
         self.content_length = None
 
 
+# class CGIFormatter:
+#    @staticmethod
+#    def
+
+
 class HTTP1_1MsgFormatter:
     response_reason_phrases = {
         b'200': b'OK',
@@ -251,6 +256,39 @@ class ClientConnection:
 
         self._conn.sendall(data)
 
+    def serve_static_file(self, file_path):
+        with open(file_path, mode='rb') as content_file:
+            log.error(TRACE, msg='requested file opened')
+
+            self.res_meta.content_length = os.path.getsize(file_path)
+
+            log.error(DEBUG, var_name='content_length',
+                      var_value=self.res_meta.content_length)
+
+            self.res_meta.headers[b'Content-Length'] = bytes(
+                str(self.res_meta.content_length),
+                'utf-8'
+            )
+            self.send_meta(b'200', self.res_meta.headers)
+
+            self.res_meta.packages_sent = 1
+
+            while True:
+                response = content_file.read(
+                    CONFIG['read_buffer'])
+                log.error(DEBUG, var_name='response', var_value=response)
+
+                if len(response) <= 0:
+                    log.error(TRACE, msg='end of file reached while reading')
+                    break
+
+                log.error(TRACE,
+                          msg=('sending response.. ' +
+                               'response_packages_sent: ' +
+                               '{0}'.format(self.res_meta.packages_sent)))
+
+                self.send(response)
+
     def shutdown(self):
         log.error(TRACE)
         self._conn.shutdown(socket.SHUT_RDWR)
@@ -298,7 +336,8 @@ class Server:
 
                     try:
                         log.init_access_log_file()
-                        os.chroot(CONFIG['content_dir'])
+                        os.chroot(
+                            resolve_web_server_path(CONFIG['content_dir']))
                         os.setreuid(UID, UID)
 
                         # may send response to client in case of invalid
@@ -329,41 +368,7 @@ class Server:
                         log.error(TRACE, msg=('requested file in web server ' +
                                               'document root'))
 
-                        with open(file_path, mode='rb') as content_file:
-                            log.error(TRACE, msg='requested file opened')
-
-                            client_conn.res_meta.content_length = \
-                                os.path.getsize(file_path)
-
-                            log.error(DEBUG, var_name='content_length',
-                                      var_value=client_conn.res_meta.content_length)  # noqa
-
-                            client_conn.res_meta.headers[b'Content-Length'] = bytes(  # noqa
-                                str(client_conn.res_meta.content_length),
-                                'utf-8'
-                            )
-                            client_conn.send_meta(b'200',
-                                                  client_conn.res_meta.headers)
-
-                            client_conn.res_meta.packages_sent = 1
-
-                            while True:
-                                response = content_file.read(
-                                    CONFIG['read_buffer'])
-                                log.error(DEBUG, var_name='response',
-                                          var_value=response)
-
-                                if len(response) <= 0:
-                                    log.error(TRACE, msg=('end of file reach' +
-                                                          'ed while reading'))
-                                    break
-
-                                log.error(TRACE,
-                                          msg=('sending response.. ' +
-                                               'response_packages_' +
-                                               'sent: {0}'.format(client_conn.res_meta.packages_sent)))  # noqa
-
-                                client_conn.send(response)
+                        client_conn.serve_static_file(file_path)
 
                     except FileNotFoundError as error:
                         log.error(TRACE, msg='FileNotFoundError')
@@ -584,11 +589,17 @@ class Log:
                       file=self.access_log_file)
 
     def init_access_log_file(self):
-        self.access_log_file = open(CONFIG['access_log'], mode='a')
+        self.access_log_file = open(
+            resolve_web_server_path(CONFIG['access_log']), mode='a')
 
     def close_access_log_file(self):
         self.access_log_file.close()
         self.access_log_file = None
+
+
+def resolve_web_server_path(path):
+    return os.path.realpath(os.path.join(CONFIG['web_server_dir'],
+                                         *path.split('/')[1:]))
 
 
 def start():
@@ -620,9 +631,6 @@ if __name__ == '__main__':
             config_file_content = config_file.read()
             CONFIG = json.loads(config_file_content)
 
-        # root dir needs to be bytes so that file path received from http
-        # request can be directly concatenated to root dir
-        CONFIG['content_dir'] = bytes(CONFIG['content_dir'], 'utf-8')
         UID = pwd.getpwnam(CONFIG['user']).pw_uid
 
         log = Log()
