@@ -6,28 +6,14 @@ import sys
 import re
 
 class WordPressMonitor(object):
-    MAINTAINED_VERSIONS = [
-        '4.9', '4.9.1', '4.9.2', '4.9.3', '4.9.4', '4.9.5', '4.9.6', '4.9.7', '4.9.8',
-        '4.8', '4.8.1', '4.8.2', '4.8.3',
-        '4.7', '4.7.1', '4.7.2', '4.7.3', '4.7.4', '4.7.5'
-        '4.6', '4.6.1',
-        '4.5', '4.5.1', '4.5.2', '4.5.3',
-        '4.4', '4.4.1', '4.4.2',
-        '4.3', '4.3.1',
-        '4.2', '4.2.1', '4.2.2', '4.2.3', '4.2.4',
-        '4.1', '4.1.1', '4.1.2'
-    ]
-    VERSION_FILE_PATH = '/wp-includes/version.php'
     CONFIG_PATH = '/etc/wordpress/'
 
-    def __init__(self, wp_path, site_url):
+    def __init__(self, wp_path, domain):
         self.wp_path = wp_path
-        self.site_url = site_url
+        self.domain = domain
         self.db_info = {}
-        self.site_config_file = '{}config-{}.php'.format(self.CONFIG_PATH, self.site_url)
+        self.site_config_file = '{}config-{}.php'.format(self.CONFIG_PATH, self.domain)
         self.table_prefix = self.get_table_prefix()
-        self.wp_version = self.get_version()
-        assert_user(self.wp_version in self.MAINTAINED_VERSIONS, 'WP version ({}) is not maintained. Maintained versions are: {}'.format(self.wp_version, ', '.join(self.MAINTAINED_VERSIONS)))
         self.init_db()
 
         self.option_expected_dict = {
@@ -35,20 +21,6 @@ class WordPressMonitor(object):
             'default_comment_status': 'closed'
         }
         self.option_actual_dict = {}
-
-    def get_version(self):
-        """Reads the /wp-includes/version.php file and extracts the value of $wp_version
-
-            Raises UserError when $wp_version is not found 
-            Returns $wp_version as a String
-        """
-        content = self.read_whole_file(self.wp_path + self.VERSION_FILE_PATH)
-        pattern = re.compile("""\$wp_version\s*=\s*['"]([^'"]*?)['"];""")
-        match = pattern.search(content)
-
-        assert_user(match, 'Could not find WP version in {}'.format(self.wp_path + self.VERSION_FILE_PATH))
-
-        return match.group(1)
 
     def get_table_prefix(self):
         """Reads the configuration file etc/wordpress/config-<site>.php and extracts the value of $table_prefix
@@ -102,7 +74,7 @@ class WordPressMonitor(object):
         has_differences = False
         for option in self.option_expected_dict:
             rows = self.execute_sql("SELECT option_value FROM {} WHERE option_name = %s".format(MySQLdb.escape_string('{}options'.format(self.table_prefix)).decode()), (option))
-            assert_user(len(rows) > 0 and len(rows[0]) > 0, 'Could not get value {} from table {}'.format(option, '{}options'.format(self.table_prefix)))
+            assert_user(len(rows) > 0 and len(rows[0]) > 0, 'WP version not maintained')
             self.option_actual_dict[option] = rows[0][0]
             if self.option_actual_dict[option] != self.option_expected_dict[option]:
                 has_differences = True
@@ -147,7 +119,7 @@ if __name__ == '__main__':
     try:
         assert_user(len(sys.argv) > 2, 
             """
-            Please provide both wordpress installation path and site url
+            Please provide both wordpress installation path and domain name
 
             Try 'python3 <script> <wp_installation_path> <site>'
             """

@@ -19,7 +19,7 @@
         isset($table_prefix) or $table_prefix = 'wp_';
 
         $conn = @new mysqli(DB_HOST, DB_USER, DB_PASSWORD, DB_NAME);
-        is_null($conn->connect_error) or throw_usr_err(sprintf("Could not connect to Database check credentials in %s", $config_file));
+        is_null($conn->connect_error) or throw_usr_err(sprintf("Could not connect to Database", $config_file));
 
         $option_expected_dict = [
             'users_can_register' => '0',
