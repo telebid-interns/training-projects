@@ -115,7 +115,7 @@ class HTTP1_1MsgFormatter:
         user_agent = headers['User-Agent'] if 'User-Agent' in headers else None
 
         result = RequestMeta(
-            req_line_raw=request_line.decode('utf-8'),
+            req_line_raw=request_line.decode(),
             method=req_line_tokens[0],
             target=urllib.parse.unquote_to_bytes(req_line_tokens[1]),
             http_version=req_line_tokens[2],
@@ -257,6 +257,8 @@ class ClientConnection:
         self._conn.sendall(data)
 
     def serve_static_file(self, file_path):
+        log.error(TRACE)
+
         with open(file_path, mode='rb') as content_file:
             log.error(TRACE, msg='requested file opened')
 
@@ -288,6 +290,10 @@ class ClientConnection:
                                '{0}'.format(self.res_meta.packages_sent)))
 
                 self.send(response)
+
+    def serve_cgi_script(self, file_path):
+        log.error(TRACE)
+        CONTENT_LENGTH = 20
 
     def shutdown(self):
         log.error(TRACE)
@@ -368,7 +374,14 @@ class Server:
                         log.error(TRACE, msg=('requested file in web server ' +
                                               'document root'))
 
-                        client_conn.serve_static_file(file_path)
+                        # TODO ask how to handle cgi and static files: should
+                        # cgi-bin be inside content directory? How to guarantee
+                        # that cgi scripts cannot be accessed?
+
+                        if file_path.startswith(CONFIG['cgi_dir'].encode()):
+                            client_conn.serve_cgi_script(file_path)
+                        else:
+                            client_conn.serve_static_file(file_path)
 
                     except FileNotFoundError as error:
                         log.error(TRACE, msg='FileNotFoundError')
