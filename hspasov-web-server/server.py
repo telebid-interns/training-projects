@@ -117,7 +117,7 @@ class HTTP1_1MsgFormatter:
         result = RequestMeta(
             req_line_raw=request_line.decode(),
             method=req_line_tokens[0],
-            target=urllib.parse.unquote_to_bytes(req_line_tokens[1]),
+            target=urllib.parse.unquote(req_line_tokens[1].decode()),
             http_version=req_line_tokens[2],
             headers=headers,
             user_agent=user_agent,
@@ -259,6 +259,10 @@ class ClientConnection:
     def serve_static_file(self, file_path):
         log.error(TRACE)
 
+        # TODO can these calls be made earlier?
+        os.chroot(resolve_web_server_path(CONFIG['content_dir']))
+        os.setreuid(UID, UID)
+
         with open(file_path, mode='rb') as content_file:
             log.error(TRACE, msg='requested file opened')
 
@@ -295,7 +299,9 @@ class ClientConnection:
         log.error(TRACE)
         CONTENT_LENGTH = 20
 
-        os.environ['CONTENT_LENGTH'] = str(CONTENT_LENGTH)
+        cgi_env = {
+            'CONTENT_LENGTH': str(CONTENT_LENGTH),
+        }
 
         child_read, parent_write = os.pipe()
         parent_read, child_write = os.pipe()
@@ -303,10 +309,13 @@ class ClientConnection:
         pid = os.fork()
 
         if pid == 0:  # child process
+            print('executing execle')
+            print(file_path)
+
             os.dup2(child_read, sys.stdin.fileno(), inheritable=True)
             os.dup2(child_write, sys.stdout.fileno(), inheritable=True)
-            os.write(sys.stdout.fileno(), b'hello from the other side')
-            os._exit(os.EX_OK)
+            # TODO ask why is argv required:
+            os.execve(resolve_web_server_path(file_path), ['nothing'], cgi_env)
         else:  # parent process
             print('parent reading from child')
             content_read = os.read(parent_read, 25)
@@ -361,9 +370,6 @@ class Server:
 
                     try:
                         log.init_access_log_file()
-                        os.chroot(
-                            resolve_web_server_path(CONFIG['content_dir']))
-                        os.setreuid(UID, UID)
 
                         # may send response to client in case of invalid
                         # request
@@ -377,11 +383,11 @@ class Server:
                         log.error(TRACE, msg='resolving file_path...')
 
                         assert isinstance(client_conn.req_meta, RequestMeta)
-                        assert isinstance(client_conn.req_meta.target, bytes)
+                        assert isinstance(client_conn.req_meta.target, str)
 
                         # ignoring query params
                         req_target_path = client_conn.req_meta.target \
-                            .split(b'?')[0]
+                            .split('?')[0]
                         log.error(DEBUG, var_name='req_target_path',
                                   var_value=req_target_path)
 
@@ -397,7 +403,7 @@ class Server:
                         # cgi-bin be inside content directory? How to guarantee
                         # that cgi scripts cannot be accessed?
 
-                        if file_path.startswith(CONFIG['cgi_dir'].encode()):
+                        if file_path.startswith(CONFIG['cgi_dir']):
                             client_conn.serve_cgi_script(file_path)
                         else:
                             client_conn.serve_static_file(file_path)
