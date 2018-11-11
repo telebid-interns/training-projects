@@ -295,6 +295,25 @@ class ClientConnection:
         log.error(TRACE)
         CONTENT_LENGTH = 20
 
+        os.environ['CONTENT_LENGTH'] = str(CONTENT_LENGTH)
+
+        child_read, parent_write = os.pipe()
+        parent_read, child_write = os.pipe()
+
+        pid = os.fork()
+
+        if pid == 0:  # child process
+            os.dup2(child_read, sys.stdin.fileno(), inheritable=True)
+            os.dup2(child_write, sys.stdout.fileno(), inheritable=True)
+            os.write(sys.stdout.fileno(), b'hello from the other side')
+            os._exit(os.EX_OK)
+        else:  # parent process
+            print('parent reading from child')
+            content_read = os.read(parent_read, 25)
+            print('what the child said: {0}'.format(content_read))
+            pid, exit_status = os.wait()
+            print('child {0} exited. exit_status: {1}'.format(pid, exit_status))
+
     def shutdown(self):
         log.error(TRACE)
         self._conn.shutdown(socket.SHUT_RDWR)
