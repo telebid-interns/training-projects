@@ -90,6 +90,24 @@ class HTTP1_1MsgFormatter:
         if len(req_line_tokens) != 3:
             return None
 
+        method = req_line_tokens[0]
+
+        if method not in (b'GET', b'HEAD', b'POST', b'PUT', b'DELETE',
+                          b'CONNECT', b'OPTIONS', b'TRACE'):
+            return None
+
+        target = urllib.parse.unquote(req_line_tokens[1].decode())
+
+        if '?' in target:
+            target_query_part = target.split('?', 1)[1]
+
+            if len(target_query_part) > 0:
+                query_string = target_query_part
+            else:
+                query_string = None
+        else:
+            query_string = None
+
         headers = {}
 
         log.error(DEBUG, var_name='headers not parsed',
@@ -116,8 +134,9 @@ class HTTP1_1MsgFormatter:
 
         result = RequestMeta(
             req_line_raw=request_line.decode(),
-            method=req_line_tokens[0],
-            target=urllib.parse.unquote(req_line_tokens[1].decode()),
+            method=method,
+            target=target,
+            query_string=query_string,
             http_version=req_line_tokens[2],
             headers=headers,
             user_agent=user_agent,
@@ -168,10 +187,11 @@ class ClientConnection:
         assert isinstance(addr[1], int)
 
         self._conn = conn
-        self._addr = addr[0]
-        self._port = addr[1]
+        self.remote_addr = addr[0]
+        self.remote_port = addr[1]
         self._conn.settimeout(CONFIG['socket_operation_timeout'])
-        self._msg_received = b''
+        self._req_meta_raw = b''
+        self._msg_buffer = None
         self.state = self.State.ESTABLISHED
         self.req_meta = None
         self.res_meta = ResponseMeta()
@@ -181,26 +201,28 @@ class ClientConnection:
 
         self.state = self.State.RECEIVING
 
-        while len(self._msg_received) <= CONFIG['req_msg_limit']:
+        while len(self._req_meta_raw) <= CONFIG['req_meta_limit']:
             log.error(TRACE, msg='receiving data...')
 
             try:
-                data = self.receive()
+                self.receive()
             except socket.timeout:
                 log.error(TRACE, msg='timeout while receiving from client')
                 self.send_meta(b'408')
                 return
 
-            log.error(DEBUG, var_name='data', var_value=data)
+            log.error(DEBUG, var_name='_msg_buffer',
+                      var_value=self._msg_buffer)
 
-            self._msg_received += data
+            self._req_meta_raw += self._msg_buffer
 
-            if len(data) <= 0:
+            if len(self._msg_buffer) <= 0:
                 log.error(TRACE, msg='connection closed by peer')
                 return
 
-            if self._msg_received.find(b'\r\n\r\n') != -1:
+            if self._req_meta_raw.find(b'\r\n\r\n') != -1:
                 log.error(TRACE, msg='reached end of request meta')
+                self._msg_buffer = self._req_meta_raw.split(b'\r\n\r\n', 1)[1]
                 break
         else:
             # TODO handle long messages
@@ -210,7 +232,7 @@ class ClientConnection:
 
         log.error(TRACE, msg='parsing request message...')
 
-        self.req_meta = HTTP1_1MsgFormatter.parse_req_meta(self._msg_received)
+        self.req_meta = HTTP1_1MsgFormatter.parse_req_meta(self._req_meta_raw)
 
         if self.req_meta is None:
             log.error(TRACE, msg='invalid request')
@@ -220,17 +242,9 @@ class ClientConnection:
         log.error(DEBUG, var_name='request meta',
                   var_value=self.req_meta)
 
-# TODO
-#    def receive_body(self):
-#        log.error(TRACE)
-
-#        self.state = self.State.RECEIVING
-
-#        assert self.req_meta.headers['']
-
     def receive(self):
         log.error(TRACE)
-        return self._conn.recv(CONFIG['recv_buffer'])
+        self._msg_buffer = self._conn.recv(CONFIG['recv_buffer'])
 
     def send_meta(self, status_code, headers={}):
         log.error(TRACE)
@@ -297,10 +311,26 @@ class ClientConnection:
 
     def serve_cgi_script(self, file_path):
         log.error(TRACE)
-        CONTENT_LENGTH = 20
+
+        if b'Content-Length' in self.req_meta.headers:
+            assert isinstance(self.req_meta.headers[b'Content-Length'], bytes)
+
+            content_length_str = self.req_meta.headers[b'Content-Length'].decode()
+        else:
+            content_length_str = None
+
+        assert isinstance(self.req_meta.method, bytes)
+        assert isinstance(self.req_meta.query_string, str)
+        assert isinstance(self.remote_addr, str)
 
         cgi_env = {
-            'CONTENT_LENGTH': str(CONTENT_LENGTH),
+            'GATEWAY_INTERFACE': 'CGI/1.1',
+            'CONTENT_LENGTH': content_length_str,
+            'QUERY_STRING': self.req_meta.query_string,
+            'REMOTE_ADDR': self.remote_addr,
+            'REQUEST_METHOD': self.req_meta.method.decode(),
+            'SERVER_PORT': str(CONFIG['port']),
+            'SERVER_PROTOCOL': CONFIG['protocol'],
         }
 
         child_read, parent_write = os.pipe()
@@ -314,10 +344,31 @@ class ClientConnection:
 
             os.dup2(child_read, sys.stdin.fileno(), inheritable=True)
             os.dup2(child_write, sys.stdout.fileno(), inheritable=True)
+            os.close(parent_read)
+            os.close(parent_write)
+
             # TODO ask why is argv required:
             os.execve(resolve_web_server_path(file_path), ['nothing'], cgi_env)
         else:  # parent process
-            print('parent reading from child')
+            os.close(child_read)
+            os.close(child_write)
+
+            if content_length_str is not None:
+                # sending remaining received from receive_meta bytes, which are
+                # not meta, but part of the body
+                bytes_written = len(self._msg_buffer)
+                # TODO ask is it possible to have not all bytes written?
+                os.write(parent_write, self._msg_buffer)
+
+                content_length = int(content_length_str)
+
+                while bytes_written < content_length:
+                    self.receive()  # TODO error handling with recv
+                    bytes_written += len(self._msg_buffer)
+                    os.write(parent_write, self._msg_buffer)
+
+                print('sending bytes to child finished')
+
             content_read = os.read(parent_read, 25)
             print('what the child said: {0}'.format(content_read))
             pid, exit_status = os.wait()
@@ -387,7 +438,7 @@ class Server:
 
                         # ignoring query params
                         req_target_path = client_conn.req_meta.target \
-                            .split('?')[0]
+                            .split('?', 1)[0]
                         log.error(DEBUG, var_name='req_target_path',
                                   var_value=req_target_path)
 
@@ -490,8 +541,8 @@ class Server:
 
                         log.access(
                             1,
-                            remote_addr='{0}:{1}'.format(client_conn._addr,
-                                                         client_conn._port),
+                            remote_addr='{0}:{1}'.format(client_conn.remote_addr,
+                                                         client_conn.remote_port),
                             req_line=req_line,
                             user_agent=user_agent,
                             status_code=client_conn.res_meta.status_code,
@@ -665,6 +716,7 @@ def start():
 if __name__ == '__main__':
     try:
         # TODO ask how to handle errors before log initialized
+        # TODO put asserts on config
         with open('./config.json', mode='r') as config_file:
             config_file_content = config_file.read()
             CONFIG = json.loads(config_file_content)
