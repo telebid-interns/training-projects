@@ -2,7 +2,7 @@
     /**
     * Plugin Name: GMaps
     * Description: Replaces [GMaps-map] with an actual google map
-    * Version: 1.0
+    * Version: 1.1
     * Author: Rosen
     */
 
@@ -55,9 +55,13 @@
     }
 
     function build_div ($atts) {
+        foreach ($atts as $key => $value) {
+            $atts[$key] = htmlspecialchars($value);
+        }
+
         $div = sprintf('<div id="%s" class="gmaps-map" style="width: %s%s; height: %s%s" ', $atts['id'], $atts['width'], $atts['units'], $atts['height'], $atts['units']);
         foreach ($atts as $key => $value) {
-            if (in_array($key, ["center", "zoom", "markers", "units"])) {
+            if (in_array($key, ["center", "zoom", "markers"])) {
                 $div .= sprintf('data-%s="%s" ', $key, $value); 
             }
         }
