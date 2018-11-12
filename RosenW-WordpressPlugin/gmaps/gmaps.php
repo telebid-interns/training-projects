@@ -2,7 +2,7 @@
     /**
     * Plugin Name: GMaps
     * Description: Replaces [GMaps-map] with an actual google map
-    * Version: 1.1
+    * Version: 1.2
     * Author: Rosen
     */
 

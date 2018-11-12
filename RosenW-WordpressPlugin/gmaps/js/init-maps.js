@@ -7,7 +7,7 @@ function initMaps () {
       let zoom = 1;
 
       if (typeof gmap.dataset.zoom === 'string') {
-        assert(Number(gmap.dataset.zoom));
+        assert(!isNaN(gmap.dataset.zoom));
         zoom = Number(gmap.dataset.zoom);
       }
 
@@ -15,8 +15,8 @@ function initMaps () {
         centerTokens = gmap.dataset.center.split(', ');
         center.lat = Number(centerTokens[0].substr(1));
         center.lng = Number(centerTokens[1].substr(0, centerTokens[1].length - 1));
-        assert(Number(center.lat));
-        assert(Number(center.lng));
+        assert(!isNaN(center.lat));
+        assert(!isNaN(center.lng));
       }
 
       const map = new google.maps.Map(gmap, {
@@ -32,8 +32,8 @@ function initMaps () {
             lng: Number(pairTokens[1].substr(0, pairTokens[1].length - 1))
           }
 
-          assert(Number(position.lat));
-          assert(Number(position.lng));
+          assert(!isNaN(position.lat));
+          assert(!isNaN(position.lng));
 
           new google.maps.Marker({
             position,
