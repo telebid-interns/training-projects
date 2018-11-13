@@ -396,14 +396,16 @@ class ClientConnection:
                 data = os.read(parent_read, CONFIG['read_buffer'])
                 self._cgi_res_meta_raw += data
 
+                log.error(DEBUG, var_name='cgi_res_meta_raw', var_value=self._cgi_res_meta_raw)
+
                 if len(data) <= 0:
                     log.error(TRACE, msg='invalid cgi response')
                     self.send_meta(b'502')
                     return
 
-                if self._cgi_res_meta_raw.find(b'\r\n\r\n') != -1:
+                if self._cgi_res_meta_raw.find(b'\n\n') != -1:
                     log.error(TRACE, msg='finished collecting meta data from cgi')
-                    self._msg_buffer = self._cgi_res_meta_raw.split(b'\r\n\r\n', 1)[1]
+                    self._msg_buffer = self._cgi_res_meta_raw.split(b'\n\n', 1)[1]
                     break
             else:
                 log.error(TRACE, msg='cgi response meta too long')
@@ -412,13 +414,13 @@ class ClientConnection:
 
             log.error(TRACE, msg='parsing CGI meta...')
 
-            headers_raw = self._cgi_res_meta_raw.split(b'\r\n\r\n', 1)[0]
-            header_lines = headers_raw.split(b'\r\n')
+            headers_raw = self._cgi_res_meta_raw.split(b'\n\n', 1)[0]
+            header_lines = headers_raw.split(b'\n')
 
             res_headers = {}
 
             for header_line in header_lines:
-                header_split = header_line.split(':', 1)
+                header_split = header_line.split(b':', 1)
 
                 if len(header_split) != 2:
                     self.send_meta(b'502')
@@ -431,7 +433,7 @@ class ClientConnection:
             if 'Status' in res_headers and res_headers['Status'] in HTTP1_1MsgFormatter.response_reason_phrases.keys():
                 self.send_meta(res_headers['Status'], res_headers)  # TODO maybe status code should not be in headers
             else:
-                self.send_meta(b'200', read_headers)
+                self.send_meta(b'200', res_headers)
 
             if len(self._msg_buffer) > 0:
                 self.send(self._msg_buffer)
