@@ -189,14 +189,14 @@ class ClientConnection:
         self._req_meta_raw = b''
         self._cgi_res_meta_raw = b''
         self._msg_buffer = None
-        self.state = self.State.ESTABLISHED
+        self.state = ClientConnection.State.ESTABLISHED
         self.req_meta = None
         self.res_meta = ResponseMeta()
 
     def receive_meta(self):
         log.error(TRACE)
 
-        self.state = self.State.RECEIVING
+        self.state = ClientConnection.State.RECEIVING
 
         while len(self._req_meta_raw) <= CONFIG['req_meta_limit']:
             log.error(TRACE, msg='receiving data...')
@@ -250,14 +250,19 @@ class ClientConnection:
         assert type(status_code) is bytes
         assert type(headers) is dict
 
-        self.state = self.State.SENDING
+        self.state = ClientConnection.State.SENDING
         self.res_meta.status_code = status_code
 
         result = HTTP1_1MsgFormatter.build_res_meta(status_code, headers)
 
         log.error(DEBUG, var_name='result', var_value=result)
 
-        self._conn.sendall(result)
+        try:
+            self._conn.sendall(result)
+        except Exception as error:
+            log.error(DEBUG, msg='GOT IT!')
+            log.error(DEBUG, msg=error)
+            raise error
 
     def send(self, data):
         log.error(TRACE)
@@ -268,10 +273,6 @@ class ClientConnection:
 
     def serve_static_file(self, file_path):
         log.error(TRACE)
-
-        # TODO can these calls be made earlier?
-        os.chroot(resolve_web_server_path(CONFIG['content_dir']))
-        os.setreuid(UID, UID)
 
         with open(file_path, mode='rb') as content_file:
             log.error(TRACE, msg='requested file opened')
@@ -313,7 +314,8 @@ class ClientConnection:
 
             content_length_str = self.req_meta.headers[b'Content-Length'].decode()
         else:
-            content_length_str = None
+            log.error(TRACE, msg='No content length provided')
+            self.send_meta(b'400')
 
         assert isinstance(self.req_meta.method, bytes)
         assert (isinstance(self.req_meta.query_string, str) or
@@ -339,18 +341,35 @@ class ClientConnection:
         pid = os.fork()
 
         if pid == 0:  # child process
-            os.dup2(child_read, sys.stdin.fileno(), inheritable=True)
-            os.dup2(child_write, sys.stdout.fileno(), inheritable=True)
-            os.close(parent_read)
-            os.close(parent_write)
+            try:
+                os.dup2(child_read, sys.stdin.fileno(), inheritable=True)
+                os.dup2(child_write, sys.stdout.fileno(), inheritable=True)
+                os.close(parent_read)
+                os.close(parent_write)
 
-            for key, value in cgi_env.items():
-                assert isinstance(key, str)
-                assert isinstance(value, str)
+                for key, value in cgi_env.items():
+                    assert isinstance(key, str)
+                    assert isinstance(value, str)
 
-            resolved_path = resolve_web_server_path(file_path)
-            os.execve(resolved_path, [resolved_path], cgi_env)
+                f = os.open(file_path, os.O_CLOEXEC)
+                log.error(DEBUG, msg='successfully opened')
+                log.error(DEBUG, msg=f)
+
+                log.error(DEBUG, msg=os.getcwd())
+
+                os.execve(f, [file_path], cgi_env)
+            except OSError as error:
+                log.error(INFO, msg=error)
+                os._exit(os.EX_OSERR)
+            except Exception as error:
+                handle_error(error, traceback.format_exc())
+                os._exit(os.EX_SOFTWARE)
+            finally:  # this should never run
+                handle_error('Unexpected condition. exec* function did not run before finally.', traceback.format_exc())
+                os._exit(os.EX_SOFTWARE)
         else:  # parent process
+            log.error(DEBUG, msg='New child created with pid {0}'.format(pid))
+
             os.close(child_read)
             os.close(child_write)
 
@@ -358,7 +377,7 @@ class ClientConnection:
                 # sending remaining received from receive_meta bytes, which are
                 # not meta, but part of the body
                 bytes_written = len(self._msg_buffer)
-                # TODO ask is it possible to have not all bytes written?
+                # TODO handle when not all bytes written
                 os.write(parent_write, self._msg_buffer)
 
                 content_length = int(content_length_str)
@@ -378,7 +397,6 @@ class ClientConnection:
                     log.error(DEBUG, var_name='_msg_buffer',
                               var_value=self._msg_buffer)
 
-                    print(self._msg_buffer)
                     bytes_written += len(self._msg_buffer)
                     os.write(parent_write, self._msg_buffer)
 
@@ -386,22 +404,20 @@ class ClientConnection:
                         log.error(TRACE, msg='connection closed by peer')
                         return
 
-            self.state = self.State.SENDING  # TODO change self to ClientConnection
+            self.state = ClientConnection.State.SENDING
 
             while len(self._cgi_res_meta_raw) <= CONFIG['cgi_res_meta_limit']:
                 log.error(TRACE, msg='collecting meta data from cgi..')
 
                 # TODO add new config option, do not use read_buffer
-                # TODO error handling
                 data = os.read(parent_read, CONFIG['read_buffer'])
                 self._cgi_res_meta_raw += data
 
                 log.error(DEBUG, var_name='cgi_res_meta_raw', var_value=self._cgi_res_meta_raw)
 
                 if len(data) <= 0:
-                    log.error(TRACE, msg='invalid cgi response')
-                    self.send_meta(b'502')
-                    return
+                    log.error(TRACE, msg='No data to read.')
+                    break
 
                 if self._cgi_res_meta_raw.find(b'\n\n') != -1:
                     log.error(TRACE, msg='finished collecting meta data from cgi')
@@ -440,7 +456,6 @@ class ClientConnection:
 
             while True:
                 # TODO add new config option, do not use read_buffer
-                # TODO error handling
                 self._msg_buffer = os.read(parent_read, CONFIG['read_buffer'])
 
                 if len(self._msg_buffer) <= 0:
@@ -462,7 +477,7 @@ class ClientConnection:
         log.error(TRACE)
 
         self._conn.close()
-        self.state = self.State.CLOSED
+        self.state = ClientConnection.State.CLOSED
 
 
 class Server:
@@ -497,10 +512,16 @@ class Server:
                 if pid == 0:  # child process
                     process_status = os.EX_OK
 
+                    # SIGCHLD signals should only be handled by parent
+                    signal.signal(signal.SIGCHLD, signal.SIG_DFL)
+
                     self.stop()
 
                     try:
                         log.init_access_log_file()
+
+                        os.chroot(CONFIG['web_server_root'])
+                        os.setreuid(UID, UID)
 
                         # may send response to client in case of invalid
                         # request
@@ -530,9 +551,7 @@ class Server:
                         log.error(TRACE, msg=('requested file in web server ' +
                                               'document root'))
 
-                        # TODO ask how to handle cgi and static files: should
-                        # cgi-bin be inside content directory? How to guarantee
-                        # that cgi scripts cannot be accessed?
+                        # TODO make cgi-bin not accessible
 
                         if file_path.startswith(CONFIG['cgi_dir']):
                             client_conn.serve_cgi_script(file_path)
@@ -597,6 +616,8 @@ class Server:
                             if error.errno != errno.ENOTCONN:
                                 process_status = os.EX_OSERR
                                 raise error
+                else:  # parent process
+                    log.error(DEBUG, msg='New child created with pid {0}'.format(pid))
 
             except OSError as error:
                 log.error(TRACE, msg='OSError')
@@ -761,8 +782,7 @@ class Log:
                       file=self.access_log_file)
 
     def init_access_log_file(self):
-        self.access_log_file = open(
-            resolve_web_server_path(CONFIG['access_log']), mode='a')
+        self.access_log_file = open(CONFIG['access_log'], mode='a')
 
     def close_access_log_file(self):
         self.access_log_file.close()
@@ -773,7 +793,7 @@ def resolve_web_server_path(path):
     log.error(TRACE)
     log.error(DEBUG, var_name='path', var_value=path)
 
-    resolved_path = os.path.realpath(os.path.join(CONFIG['web_server_dir'],
+    resolved_path = os.path.realpath(os.path.join(CONFIG['web_server_root'],
                                      *path.split('/')[1:]))
 
     log.error(DEBUG, var_value=resolved_path)
