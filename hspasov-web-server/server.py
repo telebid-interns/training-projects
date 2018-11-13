@@ -19,12 +19,6 @@ class BaseError(Exception):
         self.msg = msg
 
 
-class AppError(BaseError):
-    def __init__(self, msg='', tb=None):
-        super().__init__(msg)
-        log.error(INFO, msg=(format(msg) + format(tb)))
-
-
 class UserError(BaseError):
     def __init__(self, msg):
         super().__init__(msg)
@@ -34,6 +28,7 @@ RequestMeta = namedtuple('RequestMeta', [
     'req_line_raw',
     'method',
     'target',
+    'query_string',
     'http_version',
     'headers',
     'user_agent',
@@ -60,6 +55,7 @@ class HTTP1_1MsgFormatter:
         b'404': b'Not Found',
         b'408': b'Request Timeout',
         b'500': b'Internal Server Error',
+        b'502': b'Bad Gateway',
         b'503': b'Service Unavailable',
     }
 
@@ -191,6 +187,7 @@ class ClientConnection:
         self.remote_port = addr[1]
         self._conn.settimeout(CONFIG['socket_operation_timeout'])
         self._req_meta_raw = b''
+        self._cgi_res_meta_raw = b''
         self._msg_buffer = None
         self.state = self.State.ESTABLISHED
         self.req_meta = None
@@ -225,7 +222,6 @@ class ClientConnection:
                 self._msg_buffer = self._req_meta_raw.split(b'\r\n\r\n', 1)[1]
                 break
         else:
-            # TODO handle long messages
             log.error(TRACE, msg='request message too long')
             self.send_meta(b'400')
             return
@@ -320,18 +316,22 @@ class ClientConnection:
             content_length_str = None
 
         assert isinstance(self.req_meta.method, bytes)
-        assert isinstance(self.req_meta.query_string, str)
+        assert (isinstance(self.req_meta.query_string, str) or
+                self.req_meta.query_string is None)
         assert isinstance(self.remote_addr, str)
+        assert isinstance(CONFIG['protocol'], str)
 
         cgi_env = {
             'GATEWAY_INTERFACE': 'CGI/1.1',
             'CONTENT_LENGTH': content_length_str,
-            'QUERY_STRING': self.req_meta.query_string,
+            'QUERY_STRING': self.req_meta.query_string or '',
             'REMOTE_ADDR': self.remote_addr,
             'REQUEST_METHOD': self.req_meta.method.decode(),
             'SERVER_PORT': str(CONFIG['port']),
             'SERVER_PROTOCOL': CONFIG['protocol'],
         }
+
+        log.error(DEBUG, var_name='cgi_env', var_value=cgi_env)
 
         child_read, parent_write = os.pipe()
         parent_read, child_write = os.pipe()
@@ -339,16 +339,17 @@ class ClientConnection:
         pid = os.fork()
 
         if pid == 0:  # child process
-            print('executing execle')
-            print(file_path)
-
             os.dup2(child_read, sys.stdin.fileno(), inheritable=True)
             os.dup2(child_write, sys.stdout.fileno(), inheritable=True)
             os.close(parent_read)
             os.close(parent_write)
 
-            # TODO ask why is argv required:
-            os.execve(resolve_web_server_path(file_path), ['nothing'], cgi_env)
+            for key, value in cgi_env.items():
+                assert isinstance(key, str)
+                assert isinstance(value, str)
+
+            resolved_path = resolve_web_server_path(file_path)
+            os.execve(resolved_path, [resolved_path], cgi_env)
         else:  # parent process
             os.close(child_read)
             os.close(child_write)
@@ -362,15 +363,92 @@ class ClientConnection:
 
                 content_length = int(content_length_str)
 
+                log.error(TRACE, msg='before write to cgi loop')
+                log.error(DEBUG, var_name='bytes_written', var_value=bytes_written)
+                log.error(DEBUG, var_name='content_length', var_value=content_length)
+
                 while bytes_written < content_length:
-                    self.receive()  # TODO error handling with recv
+                    try:
+                        self.receive()
+                    except socket.timeout:
+                        log.error(TRACE, msg='timeout while receiving from client')
+                        self.send_meta(b'408')
+                        return
+
+                    log.error(DEBUG, var_name='_msg_buffer',
+                              var_value=self._msg_buffer)
+
+                    print(self._msg_buffer)
                     bytes_written += len(self._msg_buffer)
                     os.write(parent_write, self._msg_buffer)
 
-                print('sending bytes to child finished')
+                    if len(self._msg_buffer) <= 0:
+                        log.error(TRACE, msg='connection closed by peer')
+                        return
 
-            content_read = os.read(parent_read, 25)
-            print('what the child said: {0}'.format(content_read))
+            self.state = self.State.SENDING  # TODO change self to ClientConnection
+
+            while len(self._cgi_res_meta_raw) <= CONFIG['cgi_res_meta_limit']:
+                log.error(TRACE, msg='collecting meta data from cgi..')
+
+                # TODO add new config option, do not use read_buffer
+                # TODO error handling
+                data = os.read(parent_read, CONFIG['read_buffer'])
+                self._cgi_res_meta_raw += data
+
+                if len(data) <= 0:
+                    log.error(TRACE, msg='invalid cgi response')
+                    self.send_meta(b'502')
+                    return
+
+                if self._cgi_res_meta_raw.find(b'\r\n\r\n') != -1:
+                    log.error(TRACE, msg='finished collecting meta data from cgi')
+                    self._msg_buffer = self._cgi_res_meta_raw.split(b'\r\n\r\n', 1)[1]
+                    break
+            else:
+                log.error(TRACE, msg='cgi response meta too long')
+                self.send_meta(b'502')
+                return
+
+            log.error(TRACE, msg='parsing CGI meta...')
+
+            headers_raw = self._cgi_res_meta_raw.split(b'\r\n\r\n', 1)[0]
+            header_lines = headers_raw.split(b'\r\n')
+
+            res_headers = {}
+
+            for header_line in header_lines:
+                header_split = header_line.split(':', 1)
+
+                if len(header_split) != 2:
+                    self.send_meta(b'502')
+                    return
+
+                header_name, header_value = header_split
+
+                res_headers[header_name] = header_value.strip()
+
+            if 'Status' in res_headers and res_headers['Status'] in HTTP1_1MsgFormatter.response_reason_phrases.keys():
+                self.send_meta(res_headers['Status'], res_headers)  # TODO maybe status code should not be in headers
+            else:
+                self.send_meta(b'200', read_headers)
+
+            if len(self._msg_buffer) > 0:
+                self.send(self._msg_buffer)
+
+            while True:
+                # TODO add new config option, do not use read_buffer
+                # TODO error handling
+                self._msg_buffer = os.read(parent_read, CONFIG['read_buffer'])
+
+                if len(self._msg_buffer) <= 0:
+                    log.error(TRACE, msg='end of cgi response reached while reading')
+                    break
+
+                log.error(TRACE, msg='sending response..')
+
+                self.send(self._msg_buffer)
+
             pid, exit_status = os.wait()
             print('child {0} exited. exit_status: {1}'.format(pid, exit_status))
 
@@ -492,7 +570,7 @@ class Server:
                         process_status = os.EX_SOFTWARE
 
                         log.error(TRACE, msg='AssertionError')
-                        AppError(error, traceback.format_stack())
+                        handle_error(error, traceback.format_exc())
 
                         if client_conn.state in (
                             ClientConnection.State.ESTABLISHED,
@@ -503,7 +581,7 @@ class Server:
                         process_status = os.EX_SOFTWARE
 
                         log.error(TRACE, msg='Exception')
-                        AppError(error, traceback.format_stack())
+                        handle_error(error, traceback.format_exc())
 
                         if client_conn.state in (
                             ClientConnection.State.ESTABLISHED,
@@ -591,11 +669,14 @@ class Server:
 
 
 def assert_user(condition, msg):
-    if not isinstance(condition, bool):
-        raise AppError('Condition is not boolean', traceback.format_stack())
+    assert isinstance(condition, bool)
 
     if not condition:
         raise UserError(msg)
+
+
+def handle_error(error, traceback):
+    log.error(INFO, msg=(str(error) + str(traceback)))
 
 
 # error log levels
@@ -687,8 +768,15 @@ class Log:
 
 
 def resolve_web_server_path(path):
-    return os.path.realpath(os.path.join(CONFIG['web_server_dir'],
-                                         *path.split('/')[1:]))
+    log.error(TRACE)
+    log.error(DEBUG, var_name='path', var_value=path)
+
+    resolved_path = os.path.realpath(os.path.join(CONFIG['web_server_dir'],
+                                     *path.split('/')[1:]))
+
+    log.error(DEBUG, var_value=resolved_path)
+
+    return resolved_path
 
 
 def start():
@@ -704,11 +792,11 @@ def start():
     except AssertionError as error:
         log.error(TRACE, msg='AssertionError thrown')
         log.error(INFO, msg=error)
-        AppError(error, traceback.format_stack())
+        handle_error(error, traceback.format_exc())
     except Exception as error:
         log.error(TRACE, msg='Exception thrown')
         log.error(INFO, msg=error)
-        AppError(error, traceback.format_stack())
+        handle_error(error, traceback.format_exc())
     finally:
         server.stop()
 

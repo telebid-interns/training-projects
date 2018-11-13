@@ -3,6 +3,7 @@
   "read_buffer": 4096,
   "recv_buffer": 1024,
   "cgi_buffer": 4096,
+  "cgi_res_meta_limit": 8192,
   "req_meta_limit": 8192,
   "backlog": 2000,
   "protocol": "HTTP/1.1",
