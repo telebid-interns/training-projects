@@ -274,6 +274,9 @@ class ClientConnection:
     def serve_static_file(self, file_path):
         log.error(TRACE)
 
+        os.chroot(CONFIG['web_server_root'])
+        os.setreuid(UID, UID)
+
         with open(file_path, mode='rb') as content_file:
             log.error(TRACE, msg='requested file opened')
 
@@ -316,6 +319,7 @@ class ClientConnection:
         else:
             log.error(TRACE, msg='No content length provided')
             self.send_meta(b'400')
+            return
 
         assert isinstance(self.req_meta.method, bytes)
         assert (isinstance(self.req_meta.query_string, str) or
@@ -351,13 +355,7 @@ class ClientConnection:
                     assert isinstance(key, str)
                     assert isinstance(value, str)
 
-                f = os.open(file_path, os.O_CLOEXEC)
-                log.error(DEBUG, msg='successfully opened')
-                log.error(DEBUG, msg=f)
-
-                log.error(DEBUG, msg=os.getcwd())
-
-                os.execve(f, [file_path], cgi_env)
+                os.execve(resolve_web_server_path(file_path), [file_path], cgi_env)
             except OSError as error:
                 log.error(INFO, msg=error)
                 os._exit(os.EX_OSERR)
@@ -520,9 +518,6 @@ class Server:
                     try:
                         log.init_access_log_file()
 
-                        os.chroot(CONFIG['web_server_root'])
-                        os.setreuid(UID, UID)
-
                         # may send response to client in case of invalid
                         # request
                         client_conn.receive_meta()
@@ -556,7 +551,9 @@ class Server:
                         if file_path.startswith(CONFIG['cgi_dir']):
                             client_conn.serve_cgi_script(file_path)
                         else:
-                            client_conn.serve_static_file(file_path)
+                            client_conn.serve_static_file(
+                                resolve_static_file_path(file_path)
+                            )
 
                     except FileNotFoundError as error:
                         log.error(TRACE, msg='FileNotFoundError')
@@ -796,7 +793,19 @@ def resolve_web_server_path(path):
     resolved_path = os.path.realpath(os.path.join(CONFIG['web_server_root'],
                                      *path.split('/')[1:]))
 
-    log.error(DEBUG, var_value=resolved_path)
+    log.error(DEBUG, var_name='resolved_path', var_value=resolved_path)
+
+    return resolved_path
+
+
+def resolve_static_file_path(path):
+    log.error(TRACE)
+    log.error(DEBUG, var_name='path', var_value=path)
+
+    resolved_path = os.path.realpath(os.path.join(CONFIG['document_root'],
+                                                  *path.split('/')[1:]))
+
+    log.error(DEBUG, var_name='resolved_path', var_value=resolved_path)
 
     return resolved_path
 
