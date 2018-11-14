@@ -9,15 +9,19 @@
     defined('ABSPATH') or die('ABSPATH not defined');
     // TODO: proper app/user error handling
 
+    if (explode('/', add_query_arg($_GET))[1] == 'brainbench-tests') {
+        add_filter('the_content', function () {
+            global $wpdb;
+
+            $rows = $wpdb->get_results($wpdb->prepare(sprintf("SELECT link FROM %sbrainbench_tests WHERE code = %s", $wpdb->prefix, '%s'), $_GET['test']));
+            echo "<a href=\"" . $rows[0]->link . "\"><button>Start Test</button></a>";
+        });
+    }
+
     register_activation_hook ( __FILE__, 'on_activate' );
     register_deactivation_hook ( __FILE__, 'on_deactivate' );
 
-    function on_deactivate () {
-        $title = 'Brainbench Tests';
-        if (get_page_by_title( $title ) != null) {
-            wp_delete_post(get_page_by_title( $title )->ID);
-        }
-    }
+    add_action('admin_menu', 'wp_tests_setup_menu');
 
     function on_activate () {
         global $wpdb;
@@ -50,17 +54,13 @@
         dbDelta( $sql );
     }
 
-    add_action('admin_menu', 'wp_tests_setup_menu');
-    if (explode('/', add_query_arg($_GET))[1] == 'brainbench-tests') {
-        add_filter('the_content', function () {
-            global $wpdb;
-
-            // TODO escape test
-            $rows = $wpdb->get_results("
-                SELECT link FROM " . $wpdb->prefix . "brainbench_tests WHERE code = '" . $_GET['test'] . "'");
-            echo "<a href=\"" . $rows[0]->link . "\"><button>Start Test</button></a>";
-        });
+    function on_deactivate () {
+        $title = 'Brainbench Tests';
+        if (get_page_by_title( $title ) != null) {
+            wp_delete_post(get_page_by_title( $title )->ID);
+        }
     }
+
 
     function wp_tests_setup_menu () {
         if (current_user_can('administrator')) {
@@ -77,48 +77,69 @@
     }
 
     function init_page () {
-        wp_enqueue_script( 'set-default-dates', plugin_dir_url( __FILE__ ) . 'js/set-defaults.js' );
+        if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+            wp_enqueue_script( 'set-default-dates', plugin_dir_url( __FILE__ ) . 'js/set-defaults.js' );
+        }
         // TODO: date-to before today check, large date interval check
-        // TODO: required fields
-        echo "
-                <form method=\"post\">
-                    <label for=\"link\">link URL:</label>
-                    <input type=\"text\" name=\"link\">
-                    <label for=\"email\">E-mail:</label>
-                    <input type=\"email\" name=\"email\">
-                    <label for=\"date-from\">От:</label>
-                    <input id=\"date-from\" type=\"date\" name=\"date-from\">
-                    <label for=\"date-to\">До:</label>
-                    <input id=\"date-to\" type=\"date\" name=\"date-to\">
-                    <label for=\"submit\"></label>
-                    <input type=\"submit\" value=\"Generate Email\">
-            ";
 
-        if ($_POST) {
+        $html = "<form method=\"post\">";
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            global $wpdb;
+
+            $html .= "<label for=\"link\">link URL:</label>\n";
+            $html .= ($_POST['link'] ? sprintf("<input type=\"text\" name=\"link\" value=\"%s\">", htmlspecialchars($_POST['link'])) : "<input type=\"text\" name=\"link\" class=\"invalid-input\">");
+            $html .= "<label for=\"email\">E-mail:</label>\n";
+            $html .= ($_POST['email'] ? sprintf("<input type=\"email\" name=\"email\" value=\"%s\">", htmlspecialchars($_POST['email'])) : "<input type=\"email\" name=\"email\" class=\"invalid-input\">");
+            $html .= "<label for=\"date-from\">От:</label>\n";
+            $html .= ($_POST['date-from'] ? sprintf("<input id=\"date-from\" type=\"date\" name=\"date-from\" value=\"%s\">", htmlspecialchars($_POST['date-from'])) : "<input id=\"date-from\" type=\"date\" name=\"date-from\" class=\"invalid-input\">");
+            $html .= "<label for=\"date-to\">До:</label>\n";
+            $html .= ($_POST['date-to'] ? sprintf("<input id=\"date-to\" type=\"date\" name=\"date-to\" value=\"%s\">", htmlspecialchars($_POST['date-to'])) : "<input id=\"date-to\" type=\"date\" name=\"date-to\" class=\"invalid-input\">");
+
             // TODO: test send email
             // TODO: test path should not be hard codded ? or const
             // TODO: domain name should not be hard coded
             // TODO: table name also shouldnt be hard coded
             // TODO: link should always redirect
-            global $wpdb;
 
-            $code = generateRandomString(30);
+            if ($_POST['link'] && $_POST['email'] && $_POST['date-from'] && $_POST['date-to']) {
+                $code = generateRandomString(30);
 
-            $wpdb->insert(
-                $wpdb->prefix . 'brainbench_tests',
-                array(
-                    'link' => $_POST['link'],
-                    'email' => $_POST['email'],
-                    'start_date' => $_POST['date-from'],
-                    'due_date' => $_POST['date-to'],
-                    'code' => $code,
-                )
-            );
+                $wpdb->insert(
+                    $wpdb->prefix . 'brainbench_tests',
+                    array(
+                        'link' => $_POST['link'],
+                        'email' => $_POST['email'],
+                        'start_date' => $_POST['date-from'],
+                        'due_date' => $_POST['date-to'],
+                        'code' => $code,
+                    )
+                );
 
-            echo "<p>Имаш тест, Цъкни <a href=\"http://" . $_SERVER['HTTP_HOST'] . "/brainbench-tests?test=" . $code . "\"> тук </a> за да го започнеш.</p><p>Срок: " . $_POST['date-to'] . " (включително)</p>";
+                $html .= "<p>Имаш тест, Цъкни <a href=\"http://" . $_SERVER['HTTP_HOST'] . "/brainbench-tests?test=" . $code . "\"> тук </a> за да го започнеш.</p><p>Срок: " . $_POST['date-to'] . " (включително)</p>";
+            } else {
+                $html .= "<p id=\"err-msg\">Моля попълнете всички полета</p>";
+            }
+        } else {
+            $html .= "
+                <label for=\"link\">link URL:</label>
+                <input type=\"text\" name=\"link\">
+                <label for=\"email\">E-mail:</label>
+                <input type=\"email\" name=\"email\">
+                <label for=\"date-from\">От:</label>
+                <input id=\"date-from\" type=\"date\" name=\"date-from\">
+                <label for=\"date-to\">До:</label>
+                <input id=\"date-to\" type=\"date\" name=\"date-to\">
+            ";
         }
 
-        echo "</form>";
+        $html .= "
+                <label for=\"submit\"></label>
+                <input type=\"submit\" value=\"Generate Email\">
+                </form>
+        ";
+
+        echo $html;
     }
 
     function generateRandomString ($length = 20) {

@@ -33,3 +33,11 @@ input:focus {
 p {
   margin-left: 7.3em;
 }
+
+.invalid-input {
+  border: 1px solid #FF0000 !important;
+}
+
+#err-msg {
+  color: #FF0000;
+}
