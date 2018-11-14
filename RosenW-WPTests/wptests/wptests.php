@@ -1,15 +1,66 @@
 <?php
-    /**
+    /*
     * Plugin Name: WP Tests
     * Description: Plugin that enables a form for sending brainbench tests
-    * Version: 0.1
+    * Version: 0.2
     * Author: Rosen
     */
 
     defined('ABSPATH') or die('ABSPATH not defined');
     // TODO: proper app/user error handling
-    
+
+    register_activation_hook ( __FILE__, 'on_activate' );
+    register_deactivation_hook ( __FILE__, 'on_deactivate' );
+
+    function on_deactivate () {
+        $title = 'Brainbench Tests';
+        if (get_page_by_title( $title ) != null) {
+            wp_delete_post(get_page_by_title( $title )->ID);
+        }
+    }
+
+    function on_activate () {
+        global $wpdb;
+
+        $title = 'Brainbench Tests';
+        if (get_page_by_title( $title ) == null || get_page_by_title( $title )->post_status !== 'publish') {
+            // Create the page
+            wp_insert_post(array(
+              'post_title'    => $title,
+              'post_content'  => '',
+              'post_status'   => 'publish',
+              'post_author'   => 1,
+              'post_type'     => 'page',
+            ));
+        }
+
+        $sql = "
+            CREATE TABLE IF NOT EXISTS " . $wpdb->prefix . "brainbench_tests (
+                id INT AUTO_INCREMENT,
+                link TEXT NOT NULL,
+                email TEXT NOT NULL,
+                start_date DATE NOT NULL,
+                due_date DATE NOT NULL,
+                code TEXT NOT NULL,
+                PRIMARY KEY (id)
+            );
+        ";
+
+        require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
+        dbDelta( $sql );
+    }
+
     add_action('admin_menu', 'wp_tests_setup_menu');
+    if (explode('/', add_query_arg($_GET))[1] == 'brainbench-tests') {
+        add_filter('the_content', function () {
+            global $wpdb;
+
+            // TODO escape test
+            $rows = $wpdb->get_results("
+                SELECT link FROM " . $wpdb->prefix . "brainbench_tests WHERE code = '" . $_GET['test'] . "'");
+            echo "<a href=\"" . $rows[0]->link . "\"><button>Start Test</button></a>";
+        });
+    }
 
     function wp_tests_setup_menu () {
         if (current_user_can('administrator')) {
@@ -19,7 +70,7 @@
                 if ($hook !== $test_menu) {
                     return;
                 }
-
+                
                 wp_enqueue_style( 'form-css', plugin_dir_url( __FILE__ ) . 'css/form.css' );
             });
         }
@@ -44,14 +95,27 @@
             ";
 
         if ($_POST) {
-            // TODO: save in db
             // TODO: test send email
             // TODO: test path should not be hard codded ? or const
             // TODO: domain name should not be hard coded
+            // TODO: table name also shouldnt be hard coded
+            // TODO: link should always redirect
+            global $wpdb;
 
-            // echo "<p>Имаш тест, Цъкни <a href=\"http://" . $_SERVER['HTTP_HOST'] . "/wptest/" . generateRandomString(30) . "\"> тук </a> за да го започнеш.</p><p>Срок: " . $_POST['date-to'] . " (включително)</p>";
+            $code = generateRandomString(30);
 
-            mail($_POST['email'], "Weekly Test", "<p>Имаш тест, Цъкни <a href=\"http://" . $_SERVER['HTTP_HOST'] . "/wptest/" . generateRandomString(30) . "\"> тук </a> за да го започнеш.</p><p>Срок: " . $_POST['date-to'] . " (включително)</p>"));
+            $wpdb->insert(
+                $wpdb->prefix . 'brainbench_tests',
+                array(
+                    'link' => $_POST['link'],
+                    'email' => $_POST['email'],
+                    'start_date' => $_POST['date-from'],
+                    'due_date' => $_POST['date-to'],
+                    'code' => $code,
+                )
+            );
+
+            echo "<p>Имаш тест, Цъкни <a href=\"http://" . $_SERVER['HTTP_HOST'] . "/brainbench-tests?test=" . $code . "\"> тук </a> за да го започнеш.</p><p>Срок: " . $_POST['date-to'] . " (включително)</p>";
         }
 
         echo "</form>";
@@ -68,5 +132,4 @@
 
         return $randomString;
     }
-
 ?>
