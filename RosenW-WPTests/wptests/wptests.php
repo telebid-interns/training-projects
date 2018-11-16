@@ -249,7 +249,7 @@
                 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (array_key_exists('reset', $_POST)) { // THIS IS JUST FOR TESTING (pun intended)
                         $wpdb->query(sprintf("UPDATE %s SET opt_value = '%s' WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, BrainBenchTestsPlugin::LOCKED_UNTIL_DEF_VALUE, BrainBenchTestsPlugin::LOCKED_UNTIL_OPT_NAME));
-                        $wpdb->query(sprintf("UPDATE %s SET status = '%s' WHERE code = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::TESTS_TABLE_NAME, BrainBenchTestStatus::COMPLETED, $_POST['code']));
+                        $wpdb->query($wpdb->prepare(sprintf("UPDATE %s SET status = '%s' WHERE code = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::TESTS_TABLE_NAME, BrainBenchTestStatus::COMPLETED, '%s'), $_POST['code']));
                         echo "<p>Теста е завършен успешно.</p>";
                         return;
                     }
@@ -258,11 +258,11 @@
 
                     $this->assert_user(count($rows) === 0, BrainBenchTestsPlugin::SERVICE_BLOCKED_ERR_MSG);
 
-                    $wpdb->query(sprintf("UPDATE %s SET status = '%s' WHERE code = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::TESTS_TABLE_NAME, BrainBenchTestStatus::STARTED, $_POST['code']));
+                    $wpdb->query($wpdb->prepare(sprintf("UPDATE %s SET status = '%s' WHERE code = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::TESTS_TABLE_NAME, BrainBenchTestStatus::STARTED, '%s'), $_POST['code']));
 
                     $wpdb->query(sprintf("UPDATE %s SET opt_value = '%s' WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, strtotime('now +2 hour'), BrainBenchTestsPlugin::LOCKED_UNTIL_OPT_NAME));
 
-                    $wpdb->query(sprintf("UPDATE %s SET opt_value = '%s' WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, $_POST['code'], BrainBenchTestsPlugin::CURRENT_TEST_OPT_NAME));
+                    $wpdb->query($wpdb->prepare(sprintf("UPDATE %s SET opt_value = '%s' WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, '%s', BrainBenchTestsPlugin::CURRENT_TEST_OPT_NAME), $_POST['code']));
 
                     $this->display_test($_POST['link'], $_POST['code']);
                     return;
