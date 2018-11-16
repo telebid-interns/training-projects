@@ -8,7 +8,6 @@
 
     defined('ABSPATH') or die('ABSPATH not defined');
     // TODO: proper app error handling
-    // TODO: test send email
 
     class BrainBenchTestsPlugin {
         const CODE_LENGTH = 30;
@@ -235,17 +234,17 @@
         }
 
         function display_test ($link, $code) {
-            echo sprintf("<a href=\"%s\">Link</a>", htmlspecialchars($link));
             echo "<form method=\"post\">";
             echo "<input type=\"text\" name=\"reset\" value=\"1\" style=\"display: none\">";
             echo sprintf("<input type=\"text\" name=\"code\" value=\"%s\" style=\"display: none\">", htmlspecialchars($code));
-            echo "<input type=\"submit\" value=\"Test Completed\">";
+            echo "<input type=\"submit\" target=\"_blank\" value=\"Test Completed\">";
             echo "</form>";
         }
 
         function load_test_page () {
             try {
                 global $wpdb;
+
                 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (array_key_exists('reset', $_POST)) { // THIS IS JUST FOR TESTING (pun intended)
                         $wpdb->query(sprintf("UPDATE %s SET opt_value = '%s' WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, BrainBenchTestsPlugin::LOCKED_UNTIL_DEF_VALUE, BrainBenchTestsPlugin::LOCKED_UNTIL_OPT_NAME));
@@ -270,8 +269,6 @@
 
                 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                     $rows = $wpdb->get_results(sprintf("SELECT * FROM %s WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, BrainBenchTestsPlugin::CURRENT_TEST_OPT_NAME));
-
-                    // TODO assert app ?
 
                     $current_test = $rows[0]->opt_value;
 
@@ -301,7 +298,7 @@
                     echo sprintf("<input type=\"text\" name=\"link\" value=\"%s\" style=\"display: none\">", htmlspecialchars($rows[0]->link));
                     echo sprintf("<input type=\"text\" name=\"code\" value=\"%s\" style=\"display: none\">", htmlspecialchars($rows[0]->code));
                     echo sprintf("<input type=\"text\" name=\"date-to\" value=\"%s\" style=\"display: none\">", htmlspecialchars($rows[0]->due_date));
-                    echo "<input type=\"submit\" value=\"Start Test\">";
+                    echo sprintf("<input type=\"submit\" onclick='window.open(\"%s\")' value=\"Start Test\">", htmlspecialchars($rows[0]->link));
                     echo "</form>";
                 }
             } catch (UserErrorWPTests $e) {
