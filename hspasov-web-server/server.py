@@ -43,11 +43,6 @@ class ResponseMeta:
         self.content_length = None
 
 
-# class CGIFormatter:
-#    @staticmethod
-#    def
-
-
 class HTTP1_1MsgFormatter:
     response_reason_phrases = {
         b'200': b'OK',
@@ -166,6 +161,116 @@ class HTTP1_1MsgFormatter:
         return result
 
 
+class CGIMsgFormatter:
+    @staticmethod
+    def parse_cgi_res_meta(msg):
+        log.error(TRACE)
+
+        headers_raw = msg.split(b'\n\n', 1)[0]
+        header_lines = headers_raw.split(b'\n')
+
+        res_headers = {}
+
+        for header_line in header_lines:
+            header_split = header_line.split(b':', 1)
+
+            if len(header_split) != 2:
+                return None
+
+            header_name, header_value = header_split
+
+            res_headers[header_name] = header_value.strip()
+
+        return res_headers
+
+    @staticmethod
+    def build_cgi_env(req_meta, remote_addr):
+        log.error(TRACE)
+
+        assert isinstance(req_meta, RequestMeta)
+
+        if b'Content-Length' in req_meta.headers:
+            assert isinstance(req_meta.headers[b'Content-Length'], bytes)
+
+            content_length_str = req_meta.headers[b'Content-Length'].decode()
+        else:
+            log.error(TRACE, msg='No content length provided')
+            return None
+
+        assert isinstance(req_meta.method, bytes)
+        assert (isinstance(req_meta.query_string, str) or
+                req_meta.query_string is None)
+        assert isinstance(remote_addr, str)
+        assert isinstance(CONFIG['protocol'], str)
+
+        cgi_env = {
+            'GATEWAY_INTERFACE': 'CGI/1.1',
+            'CONTENT_LENGTH': content_length_str,
+            'QUERY_STRING': req_meta.query_string or '',
+            'REMOTE_ADDR': remote_addr,
+            'REQUEST_METHOD': req_meta.method.decode(),
+            'SERVER_PORT': str(CONFIG['port']),
+            'SERVER_PROTOCOL': CONFIG['protocol'],
+        }
+
+        log.error(DEBUG, var_name='cgi_env', var_value=cgi_env)
+
+        return cgi_env
+
+
+class CGIHandler:
+    def __init__(self, read_fd, write_fd):
+        self._read_fd = read_fd
+        self._write_fd = write_fd
+        self.msg_buffer = b''
+        self.bytes_written = 0
+        self._cgi_res_meta_raw = b''
+
+    def send(self, data):
+        log.error(TRACE)
+
+        bytes_written = 0
+        bytes_to_write = len(data)
+        data_to_write = data
+
+        # TODO ask whether this while loop is OK
+        # could the server get stuck in it and/or waste CPU?
+        while True:
+            bytes_written += os.write(self._write_fd, data_to_write)
+
+            if bytes_written < bytes_to_write:
+                data_to_write = data[bytes_written:]
+            else:
+                break
+
+        self.bytes_written += bytes_written
+
+    def receive(self):
+        log.error(TRACE)
+        self.msg_buffer = os.read(self._read_fd, CONFIG['read_buffer'])
+
+    def receive_meta(self):
+        while len(self._cgi_res_meta_raw) <= CONFIG['cgi_res_meta_limit']:
+            log.error(TRACE, msg='collecting data from cgi...')
+
+            self.receive()
+            self._cgi_res_meta_raw += self.msg_buffer
+
+            if len(self.msg_buffer) <= 0:
+                log.error(TRACE, msg='No data to read.')
+                break
+
+            if self._cgi_res_meta_raw.find(b'\n\n') != -1:
+                log.error(TRACE, msg='finished collecting meta data from cgi')
+                self.msg_buffer = self._cgi_res_meta_raw.split(b'\n\n', 1)[1]
+                break
+        else:
+            log.error(TRACE, msg='cgi response meta too long')
+            return None
+
+        return self._cgi_res_meta_raw
+
+
 class ClientConnection:
     class State(enum.Enum):
         ESTABLISHED = enum.auto()
@@ -187,7 +292,6 @@ class ClientConnection:
         self.remote_port = addr[1]
         self._conn.settimeout(CONFIG['socket_operation_timeout'])
         self._req_meta_raw = b''
-        self._cgi_res_meta_raw = b''
         self._msg_buffer = None
         self.state = ClientConnection.State.ESTABLISHED
         self.req_meta = None
@@ -269,6 +373,8 @@ class ClientConnection:
 
         assert isinstance(data, bytes)
 
+        log.error(DEBUG, var_name='data', var_value=data)
+
         self._conn.sendall(data)
 
     def serve_static_file(self, file_path):
@@ -312,32 +418,12 @@ class ClientConnection:
     def serve_cgi_script(self, file_path):
         log.error(TRACE)
 
-        if b'Content-Length' in self.req_meta.headers:
-            assert isinstance(self.req_meta.headers[b'Content-Length'], bytes)
+        cgi_env = CGIMsgFormatter.build_cgi_env(self.req_meta,
+                                                self.remote_addr)
 
-            content_length_str = self.req_meta.headers[b'Content-Length'].decode()
-        else:
-            log.error(TRACE, msg='No content length provided')
+        if cgi_env is None:
             self.send_meta(b'400')
             return
-
-        assert isinstance(self.req_meta.method, bytes)
-        assert (isinstance(self.req_meta.query_string, str) or
-                self.req_meta.query_string is None)
-        assert isinstance(self.remote_addr, str)
-        assert isinstance(CONFIG['protocol'], str)
-
-        cgi_env = {
-            'GATEWAY_INTERFACE': 'CGI/1.1',
-            'CONTENT_LENGTH': content_length_str,
-            'QUERY_STRING': self.req_meta.query_string or '',
-            'REMOTE_ADDR': self.remote_addr,
-            'REQUEST_METHOD': self.req_meta.method.decode(),
-            'SERVER_PORT': str(CONFIG['port']),
-            'SERVER_PROTOCOL': CONFIG['protocol'],
-        }
-
-        log.error(DEBUG, var_name='cgi_env', var_value=cgi_env)
 
         child_read, parent_write = os.pipe()
         parent_read, child_write = os.pipe()
@@ -355,7 +441,8 @@ class ClientConnection:
                     assert isinstance(key, str)
                     assert isinstance(value, str)
 
-                os.execve(resolve_web_server_path(file_path), [file_path], cgi_env)
+                os.execve(resolve_web_server_path(file_path),
+                          [file_path], cgi_env)
             except OSError as error:
                 log.error(INFO, msg=error)
                 os._exit(os.EX_OSERR)
@@ -363,7 +450,8 @@ class ClientConnection:
                 handle_error(error, traceback.format_exc())
                 os._exit(os.EX_SOFTWARE)
             finally:  # this should never run
-                handle_error('Unexpected condition. exec* function did not run before finally.', traceback.format_exc())
+                handle_error(('Unexpected condition. exec* function did not ' +
+                              'run before finally.'), traceback.format_exc())
                 os._exit(os.EX_SOFTWARE)
         else:  # parent process
             log.error(DEBUG, msg='New child created with pid {0}'.format(pid))
@@ -371,101 +459,78 @@ class ClientConnection:
             os.close(child_read)
             os.close(child_write)
 
-            if content_length_str is not None:
+            cgi_handler = CGIHandler(parent_read, parent_write)
+
+            if cgi_env['CONTENT_LENGTH'] is not None:
                 # sending remaining received from receive_meta bytes, which are
                 # not meta, but part of the body
-                bytes_written = len(self._msg_buffer)
-                # TODO handle when not all bytes written
-                os.write(parent_write, self._msg_buffer)
+                cgi_handler.send(self._msg_buffer)
 
-                content_length = int(content_length_str)
+                content_length = int(cgi_env['CONTENT_LENGTH'])
 
                 log.error(TRACE, msg='before write to cgi loop')
-                log.error(DEBUG, var_name='bytes_written', var_value=bytes_written)
-                log.error(DEBUG, var_name='content_length', var_value=content_length)
+                log.error(DEBUG, var_name='bytes_written',
+                          var_value=cgi_handler.bytes_written)
+                log.error(DEBUG, var_name='content_length',
+                          var_value=content_length)
 
-                while bytes_written < content_length:
+                while cgi_handler.bytes_written < content_length:
                     try:
                         self.receive()
                     except socket.timeout:
-                        log.error(TRACE, msg='timeout while receiving from client')
+                        log.error(TRACE,
+                                  msg='timeout while receiving from client')
                         self.send_meta(b'408')
                         return
 
                     log.error(DEBUG, var_name='_msg_buffer',
                               var_value=self._msg_buffer)
 
-                    bytes_written += len(self._msg_buffer)
-                    os.write(parent_write, self._msg_buffer)
-
                     if len(self._msg_buffer) <= 0:
                         log.error(TRACE, msg='connection closed by peer')
                         return
 
+                    cgi_handler.send(self._msg_buffer)
+
             self.state = ClientConnection.State.SENDING
 
-            while len(self._cgi_res_meta_raw) <= CONFIG['cgi_res_meta_limit']:
-                log.error(TRACE, msg='collecting meta data from cgi..')
+            cgi_res_meta_raw = cgi_handler.receive_meta()
 
-                # TODO add new config option, do not use read_buffer
-                data = os.read(parent_read, CONFIG['read_buffer'])
-                self._cgi_res_meta_raw += data
-
-                log.error(DEBUG, var_name='cgi_res_meta_raw', var_value=self._cgi_res_meta_raw)
-
-                if len(data) <= 0:
-                    log.error(TRACE, msg='No data to read.')
-                    break
-
-                if self._cgi_res_meta_raw.find(b'\n\n') != -1:
-                    log.error(TRACE, msg='finished collecting meta data from cgi')
-                    self._msg_buffer = self._cgi_res_meta_raw.split(b'\n\n', 1)[1]
-                    break
-            else:
-                log.error(TRACE, msg='cgi response meta too long')
+            if cgi_res_meta_raw is None:
                 self.send_meta(b'502')
                 return
 
             log.error(TRACE, msg='parsing CGI meta...')
 
-            headers_raw = self._cgi_res_meta_raw.split(b'\n\n', 1)[0]
-            header_lines = headers_raw.split(b'\n')
+            res_headers = CGIMsgFormatter.parse_cgi_res_meta(cgi_res_meta_raw)
 
-            res_headers = {}
-
-            for header_line in header_lines:
-                header_split = header_line.split(b':', 1)
-
-                if len(header_split) != 2:
-                    self.send_meta(b'502')
-                    return
-
-                header_name, header_value = header_split
-
-                res_headers[header_name] = header_value.strip()
+            if res_headers is None:
+                self.send_meta(b'502')
+                return
 
             if 'Status' in res_headers and res_headers['Status'] in HTTP1_1MsgFormatter.response_reason_phrases.keys():
                 self.send_meta(res_headers['Status'], res_headers)  # TODO maybe status code should not be in headers
             else:
                 self.send_meta(b'200', res_headers)
 
-            if len(self._msg_buffer) > 0:
-                self.send(self._msg_buffer)
+            if len(cgi_handler.msg_buffer) > 0:
+                self.send(cgi_handler.msg_buffer)
 
             while True:
-                # TODO add new config option, do not use read_buffer
-                self._msg_buffer = os.read(parent_read, CONFIG['read_buffer'])
+                cgi_handler.receive()
 
-                if len(self._msg_buffer) <= 0:
-                    log.error(TRACE, msg='end of cgi response reached while reading')
+                if len(cgi_handler.msg_buffer) <= 0:
+                    log.error(TRACE,
+                              msg='end of cgi response reached while reading')
                     break
 
                 log.error(TRACE, msg='sending response..')
 
-                self.send(self._msg_buffer)
+                self.send(cgi_handler.msg_buffer)
 
             pid, exit_status = os.wait()
-            print('child {0} exited. exit_status: {1}'.format(pid, exit_status))
+            log.error(DEBUG, msg=('child {0} exited.'.format(pid) +
+                                  ' exit_status: {0}'.format(exit_status)))
 
     def shutdown(self):
         log.error(TRACE)
@@ -614,7 +679,7 @@ class Server:
                                 process_status = os.EX_OSERR
                                 raise error
                 else:  # parent process
-                    log.error(DEBUG, msg='New child created with pid {0}'.format(pid))
+                    log.error(DEBUG, msg='New child created with pid {0}'.format(pid))  # noqa
 
             except OSError as error:
                 log.error(TRACE, msg='OSError')
@@ -639,8 +704,8 @@ class Server:
 
                         log.access(
                             1,
-                            remote_addr='{0}:{1}'.format(client_conn.remote_addr,
-                                                         client_conn.remote_port),
+                            remote_addr='{0}:{1}'.format(client_conn.remote_addr,  # noqa
+                                                         client_conn.remote_port),  # noqa
                             req_line=req_line,
                             user_agent=user_agent,
                             status_code=client_conn.res_meta.status_code,
@@ -835,10 +900,32 @@ def start():
 if __name__ == '__main__':
     try:
         # TODO ask how to handle errors before log initialized
-        # TODO put asserts on config
         with open('./config.json', mode='r') as config_file:
             config_file_content = config_file.read()
             CONFIG = json.loads(config_file_content)
+
+        assert isinstance(CONFIG['socket_operation_timeout'], int)
+        assert isinstance(CONFIG['read_buffer'], int)
+        assert isinstance(CONFIG['recv_buffer'], int)
+        assert isinstance(CONFIG['cgi_res_meta_limit'], int)
+        assert isinstance(CONFIG['req_meta_limit'], int)
+        assert isinstance(CONFIG['backlog'], int)
+        assert isinstance(CONFIG['protocol'], str)
+        assert isinstance(CONFIG['host'], str)
+        assert isinstance(CONFIG['port'], int)
+        assert isinstance(CONFIG['user'], str)
+        assert isinstance(CONFIG['web_server_root'], str)
+        assert isinstance(CONFIG['document_root'], str)
+        assert isinstance(CONFIG['cgi_dir'], str)
+        assert isinstance(CONFIG['access_log'], str)
+        assert isinstance(CONFIG['error_log_level'], int)
+        assert isinstance(CONFIG['error_log_fields'], list)
+        assert isinstance(CONFIG['access_log_level'], int)
+        assert isinstance(CONFIG['access_log_fields'], list)
+        assert isinstance(CONFIG['access_log_field_sep'], str)
+        assert isinstance(CONFIG['error_log_field_sep'], str)
+        assert isinstance(CONFIG['access_log_empty_field'], str)
+        assert isinstance(CONFIG['error_log_empty_field'], str)
 
         UID = pwd.getpwnam(CONFIG['user']).pw_uid
 
