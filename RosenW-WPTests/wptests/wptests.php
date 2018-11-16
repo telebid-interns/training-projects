@@ -7,13 +7,14 @@
     */
 
     defined('ABSPATH') or die('ABSPATH not defined');
-    // TODO: proper app/user error handling
+    // TODO: proper app error handling
     // TODO: test send email
     // TODO: test path should not be hard codded ? or const
     // TODO: domain name should not be hard coded
     // TODO: table name also shouldnt be hard coded
     // TODO: link should always redirect
     // TODO: linkut ne e validen suobshtenie se povtarq
+    // TODO: statuses enum ?
 
     class BrainBenchTestsPlugin {
         function __construct () {
@@ -51,6 +52,7 @@
                         start_date DATE NOT NULL,
                         due_date DATE NOT NULL,
                         code TEXT NOT NULL,
+                        status TEXT NOT NULL,
                         PRIMARY KEY (id)
                     );
                 ", $wpdb->prefix
@@ -65,9 +67,23 @@
                     );
                 ", $wpdb->prefix
             ));
+
             // TODO datafication
             $lock_opt_name = 'locked_until';
             $current_test_opt_name = 'current_test';
+            // foreach ([$lock_opt_name, $current_test_opt_name] as $option) {
+            //     $rows = $wpdb->get_results(sprintf("SELECT * FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, $option));
+            //     if (count($rows) === 0) {
+            //         $wpdb->insert(
+            //             $wpdb->prefix . 'brainbench_settings',
+            //             array(
+            //                 'opt_name' => $lock_opt_name,
+            //                 'opt_value' => strtotime('yesterday') // TODO get from array
+            //             )
+            //         );
+            //     }
+            // }
+
             $rows = $wpdb->get_results(sprintf("SELECT * FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, $lock_opt_name));
             if (count($rows) === 0) {
                 $wpdb->insert(
@@ -84,7 +100,7 @@
                     $wpdb->prefix . 'brainbench_settings',
                     array(
                         'opt_name' => $current_test_opt_name,
-                        'opt_value' => ''
+                        'opt_value' => 'no test'
                     )
                 );
             }
@@ -129,6 +145,8 @@
                             <input type=\"submit\" value=\"Generate Email\">
                             </form>
                     ";
+
+                    $this->display_tests();
                 }
             }
         }
@@ -170,6 +188,7 @@
                     'email' => $_POST['email'],
                     'start_date' => $_POST['date-from'],
                     'due_date' => $_POST['date-to'],
+                    'status' => 'not completed',
                     'code' => $code,
                 )
             );
@@ -194,6 +213,18 @@
                     <input type=\"submit\" value=\"Generate Email\">
                 </form>
             ";
+
+            $this->display_tests();
+        }
+
+        function display_tests () {
+            global $wpdb;
+
+            $rows = $wpdb->get_results(sprintf("SELECT * FROM %sbrainbench_tests", $wpdb->prefix));
+
+            foreach ($rows as $row) {
+                echo sprintf("<p>%s - %s - %s - %s - %s - %s - %s</p>", $row->id,  $row->link,  $row->email,  $row->start_date,  $row->due_date, $row->code, $row->status);
+            }
         }
 
         function generateRandomString ($length = 20) {
@@ -208,29 +239,50 @@
             return $randomString;
         }
 
+        function display_test ($link, $code) {
+            echo sprintf("<a href=\"%s\">Link</a>", $link);
+            echo "<form method=\"post\">";
+            echo "<input type=\"text\" name=\"reset\" value=\"1\" style=\"display: none\">";
+            echo sprintf("<input type=\"text\" name=\"code\" value=\"%s\" style=\"display: none\">", $code);
+            echo "<input type=\"submit\" value=\"Test Completed\">";
+            echo "</form>";
+        }
+
         function load_test_page () {
             try {
                 global $wpdb;
                 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-
                     if (array_key_exists('reset', $_POST)) {
                         $wpdb->query(sprintf("UPDATE %sbrainbench_settings SET opt_value = '1' WHERE opt_name = '%s'", $wpdb->prefix, 'locked_until'));
+                        $wpdb->query(sprintf("UPDATE %sbrainbench_tests SET status = 'completed' WHERE code = '%s'", $wpdb->prefix, $_POST['code']));
+                        echo "<p>Теста е завършен успешно.</p>";
                         return;
                     }
 
-                    echo sprintf("<a href=\"%s\">Link</a>", $_POST['link']);
-                    $wpdb->query(sprintf("UPDATE %sbrainbench_settings SET opt_value = '%s' WHERE opt_name = '%s'", $wpdb->prefix, strtotime($_POST['date-to']), 'locked_until'));
+                    $rows = $wpdb->get_results(sprintf("SELECT * FROM %sbrainbench_tests WHERE status = 'started'", $wpdb->prefix));
 
-                    echo "<form method=\"post\">";
-                    echo "<input type=\"text\" name=\"reset\" value=\"1\" style=\"display: none\">";
-                    echo "<input type=\"submit\" value=\"Test Completed\">";
-                    echo "</form>";
+                    $this->assert_user(count($rows) === 0, "Вече има пуснат тест, опитайте по-късно.");
+
+                    $wpdb->query(sprintf("UPDATE %sbrainbench_tests SET status = 'started' WHERE code = '%s'", $wpdb->prefix, $_POST['code']));
+
+                    $wpdb->query(sprintf("UPDATE %sbrainbench_settings SET opt_value = '%s' WHERE opt_name = '%s'", $wpdb->prefix, strtotime('now +2 hour'), 'locked_until'));
+
+                    $wpdb->query(sprintf("UPDATE %sbrainbench_settings SET opt_value = '%s' WHERE opt_name = '%s'", $wpdb->prefix, $_POST['code'], 'current_test'));
+
+                    $this->display_test($_POST['link'], $_POST['code']);
                     return;
                 }
 
+                $rows = $wpdb->get_results(sprintf("SELECT * FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, 'current_test')); // TODO: current_test should be constant
+
+                // TODO assert app ?
+
+                $current_test = $rows[0]->opt_value;
+
                 $rows = $wpdb->get_results(sprintf("SELECT * FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, 'locked_until')); // TODO: lock name should be constant
-                
-                $this->assert_user($rows[0]->opt_value < strtotime('today'), "Вече има пуснат тест, опитайте по-късно");
+
+                $locked_until = $rows[0]->opt_value;
+
 
                 $this->assert_user(array_key_exists('test', $_GET), "Линкът не е валиден");
 
@@ -238,11 +290,21 @@
 
                 $this->assert_user(count($rows) > 0, "Линкът не е валиден");
 
+                $this->assert_user($rows[0]->status !== "completed", "Теста вече е направен.");
+
                 $this->assert_user(strtotime($rows[0]->start_date) <= strtotime('today'), sprintf("Теста ще бъде активен от %s до %s вкл.", $rows[0]->start_date, $rows[0]->due_date));
-                $this->assert_user(strtotime($rows[0]->due_date) >= strtotime('today'), "Срока е изтекъл");
+                $this->assert_user(strtotime($rows[0]->due_date) >= strtotime('today'), "Срока е изтекъл.");
+
+                if ($rows[0]->code === $current_test) {
+                    $this->display_test($rows[0]->link, $rows[0]->code);
+                    return;
+                }
+
+                $this->assert_user($locked_until < strtotime('today'), "Вече има пуснат тест, опитайте по-късно.");
 
                 echo "<form method=\"post\">";
                 echo sprintf("<input type=\"text\" name=\"link\" value=\"%s\" style=\"display: none\">", $rows[0]->link);
+                echo sprintf("<input type=\"text\" name=\"code\" value=\"%s\" style=\"display: none\">", $rows[0]->code);
                 echo sprintf("<input type=\"text\" name=\"date-to\" value=\"%s\" style=\"display: none\">", $rows[0]->due_date);
                 echo "<input type=\"submit\" value=\"Start Test\">";
                 echo "</form>";
