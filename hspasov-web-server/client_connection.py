@@ -102,12 +102,7 @@ class ClientConnection:
 
         log.error(DEBUG, var_name='result', var_value=result)
 
-        try:
-            self._conn.sendall(result)
-        except Exception as error:
-            log.error(DEBUG, msg='GOT IT!')
-            log.error(DEBUG, msg=error)
-            raise error
+        self.send(result)
 
     def send(self, data):
         log.error(TRACE)
