@@ -14,10 +14,10 @@ from http_meta import RequestMeta
 class Server:
     def __init__(self):
         log.error(TRACE)
-        signal.signal(signal.SIGCHLD, self.reap_child)
 
-        self._conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._conn.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+
+        self._conn_fds = []
 
         log.error(TRACE, msg='socket option SO_REUSEADDR set')
 
@@ -36,15 +36,12 @@ class Server:
 
         while True:
             try:
-                client_conn = self.accept()
 
                 pid = os.fork()
 
                 if pid == 0:  # child process
+                    client_conn = self.accept()
                     process_status = os.EX_OK
-
-                    # SIGCHLD signals should only be handled by parent
-                    signal.signal(signal.SIGCHLD, signal.SIG_DFL)
 
                     self.stop()
 
@@ -184,27 +181,6 @@ class Server:
 
                     log.close_access_log_file()
                     os._exit(process_status)
-
-    def accept(self):
-        log.error(TRACE, msg='ready to accept connection')
-
-        conn, addr = self._conn.accept()
-        log.error(TRACE, msg='connection accepted')
-        log.error(DEBUG, var_name='conn', var_value=conn)
-        log.error(DEBUG, var_name='addr', var_value=addr)
-
-        return ClientConnection(conn, addr)
-
-    def reap_child(self, signal_number, stack_frame):
-        while True:
-            try:
-                pid, exit_indicators = os.waitpid(-1, os.WNOHANG)
-            except ChildProcessError:  # when there are no children
-                break
-
-            if pid == 0 and exit_indicators == 0:
-                # when there are children, but they have not exited
-                break
 
     def stop(self):
         log.error(TRACE)

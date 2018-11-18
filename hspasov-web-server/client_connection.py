@@ -38,13 +38,15 @@ class ClientConnection:
         self.req_meta = None
         self.res_meta = ResponseMeta()
 
-    def receive_meta(self):
+    def meta_receiver(self):
         log.error(TRACE)
 
         self.state = ClientConnection.State.RECEIVING
 
         while len(self._req_meta_raw) <= CONFIG['req_meta_limit']:
             log.error(TRACE, msg='receiving data...')
+
+            yield
 
             try:
                 self.receive()
