@@ -2,7 +2,7 @@
     /*
     * Plugin Name: BrainBenchTests
     * Description: Plugin that enables a form for sending brainbench tests
-    * Version: 1.0
+    * Version: 1.1
     * Author: Rosen
     */
 
@@ -266,14 +266,34 @@
             ";
         }
 
-        function display_tests () { // TODO: make it a table
+        function display_tests () {
             global $wpdb;
 
             $rows = $wpdb->get_results(sprintf("SELECT * FROM %s", $wpdb->prefix . BrainBenchTestsPlugin::TESTS_TABLE_NAME));
 
+            echo "<table class=\"test-table\" style=\"margin-top: 3em; width: 100%;\">";
+            echo "  <tr>
+                        <th>ID</th>
+                        <th>Test</th>
+                        <th>Email</th>
+                        <th>Start Date</th>
+                        <th>Due Date</th>
+                        <th>Code</th>
+                        <th>Status</th>
+                    </tr>";
             foreach ($rows as $row) {
-                echo sprintf("<p>%s - %s - %s - %s - %s - %s - %s</p>", $row->id,  htmlspecialchars($row->link),  $row->email,  $row->start_date,  $row->due_date, $row->code, $row->status);
+                echo sprintf("  <tr>
+                                    <th>%s</th>
+                                    <th><a href=\"%s\">link</a></th>
+                                    <th>%s</th>
+                                    <th>%s</th>
+                                    <th>%s</th>
+                                    <th>%s</th>
+                                    <th>%s</th>
+                                </tr>", $row->id, htmlspecialchars($row->link),  $row->email,  $row->start_date,  $row->due_date, $row->code, $row->status
+                            );
             }
+            echo "</table>";
         }
 
         function generateRandomString ($length = 20) {
