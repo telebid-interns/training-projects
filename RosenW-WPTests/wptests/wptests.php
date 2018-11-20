@@ -17,6 +17,7 @@
         const FORM_CSS_PATH = 'css/form.css';
         const JS_SET_DEFAULTS_PATH = 'js/set-defaults.js';
         const MYSQL_TS_FORMAT = "Y-m-d H:i:s";
+        const EMAIL_SUBJECT = "Weekly Tests";
 
         // Admin error messages
         const INVALID_EMAIL_ERR_MSG = "Въведеният имейл е невалиден.";
@@ -47,6 +48,8 @@
             if (explode('/', add_query_arg($_GET))[1] === BrainBenchTestsPlugin::TEST_PATH) {
                 add_filter('the_content', array($this, 'load_test_page'));
             }
+
+
 
             register_activation_hook ( __FILE__, array($this, 'on_activate'));
             register_deactivation_hook ( __FILE__, array($this, 'on_deactivate'));
@@ -222,9 +225,6 @@
             if (!$has_errors) {
                 $code = $this->generateRandomString(BrainBenchTestsPlugin::CODE_LENGTH);
                 $link = sprintf("http://%s/%s?test=%s", $_SERVER['HTTP_HOST'], BrainBenchTestsPlugin::TEST_PATH, $code);
-                echo sprintf("<p>Имаш тест, Цъкни <a href=\"%s\"> тук </a> за да го започнеш.</p>", htmlspecialchars($link));
-                echo sprintf("<p>Срок: %s (включително)</p>", htmlspecialchars($_POST['date-to']));
-                echo sprintf("<p>%s</p>", htmlspecialchars($link));
 
                 $wpdb->insert(
                     $wpdb->prefix . BrainBenchTestsPlugin::TESTS_TABLE_NAME,
@@ -237,6 +237,21 @@
                         'code' => $code,
                     )
                 );
+
+                $msg = sprintf("
+                        <p>Имаш тест, Цъкни <a href=\"%s\"> тук </a> за да го започнеш.</p>
+                        <p>Срок: %s (включително)</p>
+                        <p>%s</p>
+                    ", htmlspecialchars($link), htmlspecialchars($_POST['date-to']), htmlspecialchars($link)
+                );
+
+                if ($this->send_email($_POST['email'], $msg)) {
+                    echo sprintf("<p>Теста беше успешно изпратен на %s</p>", htmlspecialchars($_POST['email']));
+                } else {
+                    echo sprintf("<p id=\"err-msg\">Теста не беше изпратен успешно</p>");
+                    echo "<p>Текст за ръчно изпращане:</p>";
+                    echo $msg;
+                }
             }
 
             echo "</form>";
@@ -245,8 +260,8 @@
             $this->display_tests();
         }
 
-        function send_email ($html, $code) {
-            // TODO: Implement, use
+        function send_email ($to, $msg) {
+            return wp_mail($to, BrainBenchTestsPlugin::EMAIL_SUBJECT, $msg, array('Content-Type: text/html; charset=UTF-8'));
         }
 
         function display_send_test_form () {
