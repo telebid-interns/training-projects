@@ -1,3 +1,4 @@
+import select
 import enum
 import socket
 import os
@@ -38,7 +39,7 @@ class ClientConnection:
         self.req_meta = None
         self.res_meta = ResponseMeta()
 
-    def meta_receiver(self):
+    def receive_meta(self):
         log.error(TRACE)
 
         self.state = ClientConnection.State.RECEIVING
@@ -46,13 +47,11 @@ class ClientConnection:
         while len(self._req_meta_raw) <= CONFIG['req_meta_limit']:
             log.error(TRACE, msg='receiving data...')
 
-            yield
-
             try:
-                self.receive()
+                yield from self.receive()
             except socket.timeout:
                 log.error(TRACE, msg='timeout while receiving from client')
-                self.send_meta(b'408')
+                yield from self.send_meta(b'408')
                 return
 
             log.error(DEBUG, var_name='_msg_buffer',
@@ -70,7 +69,8 @@ class ClientConnection:
                 break
         else:
             log.error(TRACE, msg='request message too long')
-            self.send_meta(b'400')
+
+            yield from self.send_meta(b'400')
             return
 
         log.error(TRACE, msg='parsing request message...')
@@ -79,7 +79,7 @@ class ClientConnection:
 
         if self.req_meta is None:
             log.error(TRACE, msg='invalid request')
-            self.send_meta(b'400')
+            yield from self.send_meta(b'400')
             return
 
         log.error(DEBUG, var_name='request meta',
@@ -87,6 +87,9 @@ class ClientConnection:
 
     def receive(self):
         log.error(TRACE)
+
+        yield (self._conn, select.POLLIN)
+
         self._msg_buffer = self._conn.recv(CONFIG['recv_buffer'])
 
     def send_meta(self, status_code, headers={}):
@@ -104,7 +107,7 @@ class ClientConnection:
 
         log.error(DEBUG, var_name='result', var_value=result)
 
-        self.send(result)
+        yield from self.send(result)
 
     def send(self, data):
         log.error(TRACE)
@@ -112,6 +115,8 @@ class ClientConnection:
         assert isinstance(data, bytes)
 
         log.error(DEBUG, var_name='data', var_value=data)
+
+        yield (self._conn, select.POLLOUT)
 
         self._conn.sendall(data)
 
@@ -121,6 +126,7 @@ class ClientConnection:
         os.chroot(CONFIG['web_server_root'])
         os.setreuid(UID, UID)
 
+        # TODO check is open blocking
         with open(file_path, mode='rb') as content_file:
             log.error(TRACE, msg='requested file opened')
 
@@ -133,11 +139,12 @@ class ClientConnection:
                 str(self.res_meta.content_length),
                 'utf-8'
             )
-            self.send_meta(b'200', self.res_meta.headers)
+            yield from self.send_meta(b'200', self.res_meta.headers)
 
             self.res_meta.packages_sent = 1
 
             while True:
+                # TODO read is blocking io operation
                 response = content_file.read(
                     CONFIG['read_buffer'])
                 log.error(DEBUG, var_name='response', var_value=response)
@@ -151,7 +158,7 @@ class ClientConnection:
                                'response_packages_sent: ' +
                                '{0}'.format(self.res_meta.packages_sent)))
 
-                self.send(response)
+                yield from self.send(response)
 
     def serve_cgi_script(self, file_path):
         log.error(TRACE)
@@ -160,12 +167,13 @@ class ClientConnection:
                                                 self.remote_addr)
 
         if cgi_env is None:
-            self.send_meta(b'400')
+            yield from self.send_meta(b'400')
             return
 
         child_read, parent_write = os.pipe()
         parent_read, child_write = os.pipe()
 
+        # TODO is fork blocking?
         pid = os.fork()
 
         if pid == 0:  # child process
@@ -195,6 +203,7 @@ class ClientConnection:
         else:  # parent process
             log.error(DEBUG, msg='New child created with pid {0}'.format(pid))
 
+            # TODO is close blocking?
             os.close(child_read)
             os.close(child_write)
 
@@ -215,11 +224,11 @@ class ClientConnection:
 
                 while cgi_handler.bytes_written < content_length:
                     try:
-                        self.receive()
+                        yield from self.receive()
                     except socket.timeout:
                         log.error(TRACE,
                                   msg='timeout while receiving from client')
-                        self.send_meta(b'408')
+                        yield from self.send_meta(b'408')
                         return
 
                     log.error(DEBUG, var_name='_msg_buffer',
@@ -229,6 +238,7 @@ class ClientConnection:
                         log.error(TRACE, msg='connection closed by peer')
                         return
 
+                    # TODO cgi is blocking
                     cgi_handler.send(self._msg_buffer)
 
             self.state = ClientConnection.State.SENDING
@@ -236,7 +246,7 @@ class ClientConnection:
             cgi_res_meta_raw = cgi_handler.receive_meta()
 
             if cgi_res_meta_raw is None:
-                self.send_meta(b'502')
+                yield from self.send_meta(b'502')
                 return
 
             log.error(TRACE, msg='parsing CGI meta...')
@@ -244,16 +254,17 @@ class ClientConnection:
             res_headers = CGIMsgFormatter.parse_cgi_res_meta(cgi_res_meta_raw)
 
             if res_headers is None:
-                self.send_meta(b'502')
+                yield from self.send_meta(b'502')
                 return
 
             if 'Status' in res_headers and res_headers['Status'] in HTTP1_1MsgFormatter.response_reason_phrases.keys():
-                self.send_meta(res_headers['Status'], res_headers)  # TODO maybe status code should not be in headers
+                # TODO maybe status code should not be in headers
+                yield from self.send_meta(res_headers['Status'], res_headers)
             else:
-                self.send_meta(b'200', res_headers)
+                yield from self.send_meta(b'200', res_headers)
 
             if len(cgi_handler.msg_buffer) > 0:
-                self.send(cgi_handler.msg_buffer)
+                yield from self.send(cgi_handler.msg_buffer)
 
             while True:
                 cgi_handler.receive()
@@ -265,8 +276,10 @@ class ClientConnection:
 
                 log.error(TRACE, msg='sending response..')
 
-                self.send(cgi_handler.msg_buffer)
+                yield from self.send(cgi_handler.msg_buffer)
 
+            # TODO we block here
+            # yield ....
             pid, exit_status = os.wait()
             log.error(DEBUG, msg=('child {0} exited.'.format(pid) +
                                   ' exit_status: {0}'.format(exit_status)))
