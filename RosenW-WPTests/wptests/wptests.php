@@ -49,8 +49,6 @@
                 add_filter('the_content', array($this, 'load_test_page'));
             }
 
-
-
             register_activation_hook ( __FILE__, array($this, 'on_activate'));
             register_deactivation_hook ( __FILE__, array($this, 'on_deactivate'));
 
@@ -203,7 +201,7 @@
             echo "<label for=\"date-to\">До:</label>\n";
             echo ($_POST['date-to'] && $this->isRealDate($_POST['date-to']) && strtotime($_POST['date-to']) >= strtotime($_POST['date-from']) ? sprintf("<input id=\"date-to\" type=\"date\" name=\"date-to\" value=\"%s\">", htmlspecialchars($_POST['date-to'])) : sprintf("<input id=\"date-to\" type=\"date\" name=\"date-to\" value=\"%s\" class=\"invalid-input\">", htmlspecialchars($_POST['date-to'])));
             echo "<label for=\"submit\"></label>";
-            echo "<input type=\"submit\" value=\"Generate Email\">";
+            echo "<input type=\"submit\" value=\"Send Email\">";
 
             $has_errors = false;
 
@@ -276,7 +274,7 @@
                     <label for=\"date-to\">До:</label>
                     <input id=\"date-to\" type=\"date\" name=\"date-to\">
                     <label for=\"submit\"></label>
-                    <input type=\"submit\" value=\"Generate Email\">
+                    <input type=\"submit\" value=\"Send Email\">
                 </form>
             ";
         }
