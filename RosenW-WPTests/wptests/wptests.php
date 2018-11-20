@@ -8,7 +8,6 @@
 
     defined('ABSPATH') or die('ABSPATH not defined');
     // TODO: proper app error handling
-    // date(BrainBenchTestsPlugin::MYSQL_TS_FORMAT, strtotime('now +2 hour'))
 
     class BrainBenchTestsPlugin {
         const CODE_LENGTH = 30;
@@ -79,6 +78,7 @@
                         due_date DATE NOT NULL,
                         code TEXT NOT NULL,
                         status TEXT NOT NULL,
+                        unlock_time BIGINT,
                         PRIMARY KEY (id)
                     );
                 ", $wpdb->prefix . BrainBenchTestsPlugin::TESTS_TABLE_NAME
@@ -136,7 +136,6 @@
             if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $this->post_admin_page();
             }
-
         }
 
         function display_settings_form () {
@@ -232,7 +231,7 @@
                         'start_date' => $_POST['date-from'],
                         'due_date' => $_POST['date-to'],
                         'status' => BrainBenchTestStatus::NOT_COMPLETED,
-                        'code' => $code,
+                        'code' => $code
                     )
                 );
 
@@ -332,10 +331,10 @@
         function can_start_new_test () {
             global $wpdb;
 
-            $started_tests = $wpdb->get_results(sprintf("SELECT COUNT(*) AS count FROM %s WHERE status = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::TESTS_TABLE_NAME, BrainBenchTestStatus::STARTED));
+            $locks = $wpdb->get_results(sprintf("SELECT COUNT(*) AS count FROM %s WHERE unlock_time > '%s'", $wpdb->prefix . BrainBenchTestsPlugin::TESTS_TABLE_NAME, strtotime("now")));
             $max_parallel = $wpdb->get_results(sprintf("SELECT opt_value FROM %s where opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME));
 
-            return $started_tests[0]->count < (int)$max_parallel[0]->opt_value;
+            return $locks[0]->count < (int)$max_parallel[0]->opt_value;
         }
 
         function load_test_page () {
@@ -344,14 +343,14 @@
 
                 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (array_key_exists('reset', $_POST)) { // THIS IS JUST FOR TESTING
-                        $wpdb->query($wpdb->prepare(sprintf("UPDATE %s SET status = '%s' WHERE code = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::TESTS_TABLE_NAME, BrainBenchTestStatus::COMPLETED, '%s'), $_POST['code']));
+                        $wpdb->query($wpdb->prepare(sprintf("UPDATE %s SET status = '%s', unlock_time = 0 WHERE code = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::TESTS_TABLE_NAME, BrainBenchTestStatus::COMPLETED, '%s'), $_POST['code']));
                         echo "<p>Теста е завършен успешно.</p>";
                         return;
                     }
 
                     $this->assert_user($this->can_start_new_test(), BrainBenchTestsPlugin::SERVICE_BLOCKED_ERR_MSG);
 
-                    $wpdb->query($wpdb->prepare(sprintf("UPDATE %s SET status = '%s' WHERE code = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::TESTS_TABLE_NAME, BrainBenchTestStatus::STARTED, '%s'), $_POST['code']));
+                    $wpdb->query($wpdb->prepare(sprintf("UPDATE %s SET status = '%s', unlock_time = '%s' WHERE code = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::TESTS_TABLE_NAME, BrainBenchTestStatus::STARTED, strtotime('now +2 hour'), '%s'), $_POST['code']));
 
                     $this->display_test($_POST['link'], $_POST['code']);
                     return;
@@ -365,7 +364,6 @@
                     $rows = $wpdb->get_results($wpdb->prepare(sprintf("SELECT * FROM %s WHERE code = %s", $wpdb->prefix . BrainBenchTestsPlugin::TESTS_TABLE_NAME, '%s'), $_GET['test']));
 
                     $this->assert_user(count($rows) > 0, BrainBenchTestsPlugin::LINK_NOT_VALID_ERR_MSG);
-
 
                     $this->assert_user($rows[0]->status !== BrainBenchTestStatus::COMPLETED, BrainBenchTestsPlugin::TEST_ALREADY_COMPLETED_ERR_MSG);
 
