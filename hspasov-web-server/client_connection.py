@@ -123,8 +123,8 @@ class ClientConnection:
     def serve_static_file(self, file_path):
         log.error(TRACE)
 
-        os.chroot(CONFIG['web_server_root'])
-        os.setreuid(UID, UID)
+        # os.chroot(CONFIG['web_server_root'])
+        # os.setreuid(UID, UID)
 
         # TODO check is open blocking
         with open(file_path, mode='rb') as content_file:
@@ -187,8 +187,12 @@ class ClientConnection:
                     assert isinstance(key, str)
                     assert isinstance(value, str)
 
-                os.execve(resolve_web_server_path(file_path),
-                          [file_path], cgi_env)
+                try:
+                    os.execve(resolve_web_server_path(file_path),
+                              [file_path], cgi_env)
+                except FileNotFoundError:
+                    log.error(TRACE, msg='CGI script not found')
+                    os._exit(os.EX_NOINPUT)
             except OSError as error:
                 log.error(INFO, msg=error)
                 os._exit(os.EX_OSERR)
@@ -254,6 +258,7 @@ class ClientConnection:
             res_headers = CGIMsgFormatter.parse_cgi_res_meta(cgi_res_meta_raw)
 
             if res_headers is None:
+                log.error(DEBUG, msg='res_headers is None')
                 yield from self.send_meta(b'502')
                 return
 

@@ -43,7 +43,7 @@ class Worker:
                 assert fd in self._activity_iterators
                 activity_iter = self._activity_iterators[fd]
 
-                result = next(activity_iter)
+                result = next(activity_iter, None)
 
                 assert result is None or isinstance(result, tuple)
 
@@ -58,6 +58,9 @@ class Worker:
 
     def register_activity(self, fd, event, it):
         log.error(TRACE)
+
+        if isinstance(fd, socket.socket):
+            fd = fd.fileno()
 
         self._poll.register(fd, event)
         self._activity_iterators[fd] = it
@@ -180,18 +183,19 @@ class Worker:
     def accept(self):
         log.error(TRACE)
 
-        yield (self._socket, select.POLLIN)
+        while True:
+            yield (self._socket, select.POLLIN)
 
-        conn, addr = self._socket.accept()
-        log.error(TRACE, msg='connection accepted')
-        log.error(DEBUG, var_name='conn', var_value=conn)
-        log.error(DEBUG, var_name='addr', var_value=addr)
+            conn, addr = self._socket.accept()
+            log.error(TRACE, msg='connection accepted')
+            log.error(DEBUG, var_name='conn', var_value=conn)
+            log.error(DEBUG, var_name='addr', var_value=addr)
 
-        self.register_activity(
-            conn,
-            select.POLLIN,
-            self.req_handler(ClientConnection(conn, addr))
-        )
+            self.register_activity(
+                conn,
+                select.POLLIN,
+                self.req_handler(ClientConnection(conn, addr))
+            )
 
     def stop(self):
         log.error(TRACE)

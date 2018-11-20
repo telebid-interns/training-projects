@@ -19,7 +19,12 @@ def resolve_static_file_path(path):
     log.error(TRACE)
     log.error(DEBUG, var_name='path', var_value=path)
 
-    resolved_path = os.path.realpath(os.path.join(CONFIG['document_root'],
+    # resolved_path = os.path.realpath(os.path.join(CONFIG['document_root'],
+    #                                               *path.split('/')[1:]))
+
+    # TODO remove this workaround after chroot issue fixed, use ^^ then
+    resolved_path = os.path.realpath(os.path.join(CONFIG['web_server_root'],
+                                                  *CONFIG['document_root'].split('/')[1:],
                                                   *path.split('/')[1:]))
 
     log.error(DEBUG, var_name='resolved_path', var_value=resolved_path)
