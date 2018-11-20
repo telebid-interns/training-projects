@@ -2,7 +2,7 @@
     /*
     * Plugin Name: BrainBenchTests
     * Description: Plugin that enables a form for sending brainbench tests
-    * Version: 1.1
+    * Version: 1.2
     * Author: Rosen
     */
 
@@ -15,10 +15,10 @@
         const TEST_PATH = 'brainbench-tests';
         const FORM_CSS_PATH = 'css/form.css';
         const JS_SET_DEFAULTS_PATH = 'js/set-defaults.js';
-        const MYSQL_TS_FORMAT = "Y-m-d H:i:s";
         const EMAIL_SUBJECT = "Weekly Tests";
 
         // Admin error messages
+            // send test form
         const INVALID_EMAIL_ERR_MSG = "Въведеният имейл е невалиден.";
         const FILL_ALL_FIELDS_ERR_MSG = "Моля попълнете всички полета.";
         const INVALID_DUE_DATE_ERR_MSG = "Невалидна дата на срок.";
@@ -26,6 +26,7 @@
         const START_DATE_IN_THE_PAST_ERR_MSG = "Датата на задаване не може да бъде в миналото.";
         const DUE_DATE_BEFORE_START_DATE_ERR_MSG = "Датата на срока трябва да бъде след датата на започване.";
 
+            // settings form
         const INVALID_CC_ERR_MSG = "Невалидна конкурентност.";
 
         // Test page errors
@@ -38,6 +39,8 @@
         // Opt name/def values
         const MAX_CONCURRENT_TESTS_OPT_NAME = "maximum_concurrent_tests";
         const MAX_CONCURRENT_TESTS_DEF_VALUE = "2";
+        const EMAIL_MSG_OPT_NAME = "email_msg";
+        const EMAIL_MSG_DEF_VALUE = "";
 
         // Database Table names
         const TESTS_TABLE_NAME = "brainbench_tests";
@@ -94,7 +97,7 @@
                 ", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME
             ));
 
-            $opts_default_values = [ BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME => BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_DEF_VALUE ];
+            $opts_default_values = [ BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME => BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_DEF_VALUE, BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME => BrainBenchTestsPlugin::EMAIL_MSG_DEF_VALUE ];
 
             foreach ($opts_default_values as $option => $default) {
                 $rows = $wpdb->get_results(sprintf("SELECT * FROM %s WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, $option));
@@ -141,21 +144,26 @@
         function display_settings_form () {
             global $wpdb;
 
-            $rows = $wpdb->get_results(sprintf("SELECT opt_value FROM %s WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME));
+            $max_parallel = $wpdb->get_results(sprintf("SELECT opt_value FROM %s WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME))[0]->opt_value;
+            $email_msg = $wpdb->get_results(sprintf("SELECT opt_value FROM %s WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME))[0]->opt_value;
 
             echo sprintf("
                                 <form method=\"post\">
                                     <label for=\"max_parallel\">Concurrency:</label>
                                     <input name=\"max_parallel\" value=\"%s\">
+                                    <label for=\"email_msg\">Email Text:</label>
+                                    <textarea name=\"email_msg\" rows=\"4\" style=\"width: 300px; margin-top: 20px;\">%s</textarea>
                                     <label></label>
                                     <input type=\"submit\" value=\"Set\">
                                 </form>
-                        ", $rows[0]->opt_value);
+                        ", $max_parallel, $email_msg
+            );
         }
 
         function post_admin_page () {
             global $wpdb;
             
+            // TODO add email_msg
             if (array_key_exists('max_parallel', $_POST)) { // second form
                 $this->display_send_test_form();
 
@@ -163,7 +171,9 @@
 
                 echo "<form method=\"post\">";
                 echo "  <label for=\"max_parallel\">Concurrency: </label>\n";
-                echo (is_numeric($_POST['max_parallel']) && (int) $_POST['max_parallel'] > 0 ? sprintf("<input name=\"max_parallel\" value=\"%s\">", $_POST['max_parallel']) : sprintf("<input name=\"max_parallel\" class=\"invalid-input\" value=\"%s\">", $rows[0]->opt_value));
+                echo (is_numeric($_POST['max_parallel']) && (int) $_POST['max_parallel'] > 0 ? sprintf("<input name=\"max_parallel\" value=\"%s\">", htmlspecialchars($_POST['max_parallel'])) : sprintf("<input name=\"max_parallel\" class=\"invalid-input\" value=\"%s\">", $rows[0]->opt_value));
+                echo sprintf("<label for=\"email_msg\">Email Text:</label>
+                                      <textarea name=\"email_msg\" rows=\"4\" style=\"width: 300px; margin-top: 20px;\">%s</textarea>", htmlspecialchars($_POST['email_msg']));
                 echo "  <label></label>";
                 echo "  <input type=\"submit\" value=\"Set\">";
 
@@ -177,7 +187,10 @@
                 }
 
                 if (!$has_errors) {
+                    // TODO datafication
                     $wpdb->query($wpdb->prepare(sprintf("UPDATE %s SET opt_value = '%s' WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, '%s', BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME), $_POST['max_parallel']));
+
+                    $wpdb->query($wpdb->prepare(sprintf("UPDATE %s SET opt_value = '%s' WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, '%s', BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME), $_POST['email_msg']));
 
                     echo "<p>Настройките бяха запазени.</p>";
                 }
@@ -235,19 +248,15 @@
                     )
                 );
 
-                $msg = sprintf("
-                        <p>Имаш тест, Цъкни <a href=\"%s\"> тук </a> за да го започнеш.</p>
-                        <p>Срок: %s (включително)</p>
-                        <p>%s</p>
-                    ", htmlspecialchars($link), htmlspecialchars($_POST['date-to']), htmlspecialchars($link)
-                );
+                $msg = $wpdb->get_results(sprintf("SELECT opt_value FROM %s WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME))[0]->opt_value;
+
+                // TODO make '<link>' constant
+                $msg = str_replace("<link>", htmlspecialchars($link), $msg);
 
                 if ($this->send_email($_POST['email'], $msg)) {
                     echo sprintf("<p>Теста беше успешно изпратен на %s</p>", htmlspecialchars($_POST['email']));
                 } else {
                     echo sprintf("<p id=\"err-msg\">Теста не беше изпратен успешно</p>");
-                    echo "<p>Текст за ръчно изпращане:</p>";
-                    echo $msg;
                 }
             }
 

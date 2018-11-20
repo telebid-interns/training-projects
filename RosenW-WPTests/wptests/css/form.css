@@ -17,7 +17,7 @@ label {
   text-align: right;
 }
 
-input {
+input, textarea {
   font: 1em sans-serif;
 
   width: 300px;
