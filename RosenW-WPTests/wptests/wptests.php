@@ -354,7 +354,7 @@
                 if (count($test_odits) > 0) {
                     foreach ($test_odits as $test_odit) {
 
-                        $odit .= sprintf("%s%s%s\\n", $test_odit->event, str_repeat("-", 40 - strlen($test_odit->event)), $test_odit->time);
+                        $odit .= sprintf("%s%s%s\\n", $test_odit->time, str_repeat(" ", 20), $test_odit->event);
                     }
                 }
 
