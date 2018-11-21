@@ -35,16 +35,20 @@
         const SERVICE_BLOCKED_ERR_MSG = "Услугата е заета, опитайте по-късно.";
         const TEST_ALREADY_COMPLETED_ERR_MSG = "Теста вече е направен.";
         const START_DATE_IN_THE_FUTURE_ERR_MSG = "Теста ще бъде активен от %s до %s вкл.";
+        const INVALID_POST_PARAMETERS_ERR_MSG = "Невалидна заявка.";
 
         // Opt name/def values
         const MAX_CONCURRENT_TESTS_OPT_NAME = "maximum_concurrent_tests";
         const MAX_CONCURRENT_TESTS_DEF_VALUE = "2";
         const EMAIL_MSG_OPT_NAME = "email_msg";
         const EMAIL_MSG_DEF_VALUE = "";
+        const EMAIL_SENDER_OPT_NAME = "email_sender";
+        const EMAIL_SENDER_DEF_VALUE = "wordpress@example.com";
 
         // Database Table names
         const TESTS_TABLE_NAME = "brainbench_tests";
         const SETTINGS_TABLE_NAME = "brainbench_settings";
+        const ODIT_TABLE_NAME = "brainbench_odit";
 
         function __construct () {
             if (explode('/', add_query_arg($_GET))[1] === BrainBenchTestsPlugin::TEST_PATH) {
@@ -54,7 +58,12 @@
             register_activation_hook ( __FILE__, array($this, 'on_activate'));
             register_deactivation_hook ( __FILE__, array($this, 'on_deactivate'));
 
+            add_filter( 'wp_mail_from', array($this, 'change_email') );
             add_action('admin_menu', array($this, 'brainbench_tests_setup_menu'));
+        }
+
+        function change_email ( $email ) {
+            return "rosen@hackerschool-bg.com";
         }
 
         function on_activate () {
@@ -97,7 +106,19 @@
                 ", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME
             ));
 
-            $opts_default_values = [ BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME => BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_DEF_VALUE, BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME => BrainBenchTestsPlugin::EMAIL_MSG_DEF_VALUE ];
+            dbDelta(sprintf("
+                    CREATE TABLE IF NOT EXISTS %s (
+                        id INT AUTO_INCREMENT,
+                        event TEXT NOT NULL,
+                        time TIMESTAMP NOT NULL,
+                        test_id INT,
+                        PRIMARY KEY (id),
+                        FOREIGN KEY (test_id) REFERENCES %s(id)
+                    );
+                ", $wpdb->prefix . BrainBenchTestsPlugin::ODIT_TABLE_NAME, $wpdb->prefix . BrainBenchTestsPlugin::TESTS_TABLE_NAME
+            ));
+
+            $opts_default_values = [ BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME => BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_DEF_VALUE, BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME => BrainBenchTestsPlugin::EMAIL_MSG_DEF_VALUE, BrainBenchTestsPlugin::EMAIL_SENDER_OPT_NAME => BrainBenchTestsPlugin::EMAIL_SENDER_DEF_VALUE ];
 
             foreach ($opts_default_values as $option => $default) {
                 $rows = $wpdb->get_results(sprintf("SELECT * FROM %s WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, $option));
@@ -145,18 +166,21 @@
             global $wpdb;
 
             $max_parallel = $wpdb->get_results(sprintf("SELECT opt_value FROM %s WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME))[0]->opt_value;
+            $email_sender = $wpdb->get_results(sprintf("SELECT opt_value FROM %s WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, BrainBenchTestsPlugin::EMAIL_SENDER_OPT_NAME))[0]->opt_value;
             $email_msg = $wpdb->get_results(sprintf("SELECT opt_value FROM %s WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME))[0]->opt_value;
 
             echo sprintf("
-                                <form method=\"post\">
-                                    <label for=\"max_parallel\">Concurrency:</label>
-                                    <input name=\"max_parallel\" value=\"%s\">
-                                    <label for=\"email_msg\">Email Text:</label>
-                                    <textarea name=\"email_msg\" rows=\"4\" style=\"width: 300px; margin-top: 20px;\">%s</textarea>
-                                    <label></label>
-                                    <input type=\"submit\" value=\"Set\">
-                                </form>
-                        ", $max_parallel, $email_msg
+                            <form method=\"post\">
+                                <label for=\"max_parallel\">Concurrency:</label>
+                                <input name=\"max_parallel\" value=\"%s\">
+                                <label for=\"email_sender\">Email Sender:</label>
+                                <input name=\"email_sender\" value=\"%s\">
+                                <label for=\"email_msg\">Email Text:</label>
+                                <textarea name=\"email_msg\" rows=\"4\" style=\"width: 300px; margin-top: 20px;\">%s</textarea>
+                                <label></label>
+                                <input type=\"submit\" value=\"Set\">
+                            </form>
+                    ", $max_parallel, $email_sender, $email_msg
             );
         }
 
@@ -165,17 +189,35 @@
             
             // TODO add email_msg
             if (array_key_exists('max_parallel', $_POST)) { // second form
+                if (
+                    !array_key_exists('max_parallel', $_POST) ||
+                    !array_key_exists('email_msg', $_POST) ||
+                    !array_key_exists('email_sender', $_POST)
+                    ) {
+                    $this->display_send_test_form();
+                    $this->display_settings_form();
+                    $this->display_tests();
+                    return;
+                }
+
                 $this->display_send_test_form();
 
                 $rows = $wpdb->get_results(sprintf("SELECT opt_value FROM %s WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME));
 
+
                 echo "<form method=\"post\">";
                 echo "  <label for=\"max_parallel\">Concurrency: </label>\n";
                 echo (is_numeric($_POST['max_parallel']) && (int) $_POST['max_parallel'] > 0 ? sprintf("<input name=\"max_parallel\" value=\"%s\">", htmlspecialchars($_POST['max_parallel'])) : sprintf("<input name=\"max_parallel\" class=\"invalid-input\" value=\"%s\">", $rows[0]->opt_value));
-                echo sprintf("<label for=\"email_msg\">Email Text:</label>
-                                      <textarea name=\"email_msg\" rows=\"4\" style=\"width: 300px; margin-top: 20px;\">%s</textarea>", htmlspecialchars($_POST['email_msg']));
-                echo "  <label></label>";
-                echo "  <input type=\"submit\" value=\"Set\">";
+                echo sprintf("
+                    <label for=\"email_sender\">Email Sender:</label>
+                    <input name=\"email_sender\" value=\"%s\">", $_POST['email_sender']
+                );
+                echo sprintf("
+                    <label for=\"email_msg\">Email Text:</label>
+                    <textarea name=\"email_msg\" rows=\"4\" style=\"width: 300px; margin-top: 20px;\">%s</textarea>", htmlspecialchars($_POST['email_msg'])
+                );
+                echo "<label></label>";
+                echo "<input type=\"submit\" value=\"Set\">";
 
                 $has_errors = false;
 
@@ -191,6 +233,8 @@
                     $wpdb->query($wpdb->prepare(sprintf("UPDATE %s SET opt_value = '%s' WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, '%s', BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME), $_POST['max_parallel']));
 
                     $wpdb->query($wpdb->prepare(sprintf("UPDATE %s SET opt_value = '%s' WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, '%s', BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME), $_POST['email_msg']));
+
+                    $wpdb->query($wpdb->prepare(sprintf("UPDATE %s SET opt_value = '%s' WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, '%s', BrainBenchTestsPlugin::EMAIL_SENDER_OPT_NAME), $_POST['email_sender']));
 
                     echo "<p>Настройките бяха запазени.</p>";
                 }
@@ -274,7 +318,7 @@
             echo "
                 <form method=\"post\">
                     <label for=\"link\">link URL:</label>
-                    <input type=\"text\" name=\"link\">
+                    <input type=\"text\" name=\"link\" value=\"https://\">
                     <label for=\"email\">E-mail:</label>
                     <input type=\"email\" name=\"email\">
                     <label for=\"date-from\">От:</label>
@@ -351,11 +395,25 @@
                 global $wpdb;
 
                 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                    if (array_key_exists('reset', $_POST)) { // THIS IS JUST FOR TESTING
+                    $test = $wpdb->get_results($wpdb->prepare(sprintf("SELECT * FROM %s where code = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::TESTS_TABLE_NAME, '%s'), $_POST['code']));
+
+                    $this->assert_user(count($test) === 1, BrainBenchTestsPlugin::LINK_NOT_VALID_ERR_MSG);
+
+                    if (array_key_exists('reset', $_POST)) { // THIS IS JUST FOR TESTING (ON TEST COMPLETE CLICKED)
                         $wpdb->query($wpdb->prepare(sprintf("UPDATE %s SET status = '%s', unlock_time = 0 WHERE code = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::TESTS_TABLE_NAME, BrainBenchTestStatus::COMPLETED, '%s'), $_POST['code']));
                         echo "<p>Теста е завършен успешно.</p>";
                         return;
                     }
+
+                    $this->assert_user(array_key_exists('code', $_POST) && array_key_exists('link', $_POST), BrainBenchTestsPlugin::INVALID_POST_PARAMETERS_ERR_MSG);
+
+                    $wpdb->insert(
+                        $wpdb->prefix . BrainBenchTestsPlugin::ODIT_TABLE_NAME,
+                        array(
+                            'event' => sprintf("Start button clicked"),
+                            'test_id' => $test[0]->id
+                        )
+                    );
 
                     $this->assert_user($this->can_start_new_test(), BrainBenchTestsPlugin::SERVICE_BLOCKED_ERR_MSG);
 
@@ -366,14 +424,21 @@
                 }
 
                 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-                    $rows = $wpdb->get_results($wpdb->prepare(sprintf("SELECT * FROM %s WHERE code = %s", $wpdb->prefix . BrainBenchTestsPlugin::TESTS_TABLE_NAME, '%s'), $_GET['test']));
-
                     $this->assert_user(array_key_exists('test', $_GET), BrainBenchTestsPlugin::LINK_NOT_VALID_ERR_MSG);
 
                     $rows = $wpdb->get_results($wpdb->prepare(sprintf("SELECT * FROM %s WHERE code = %s", $wpdb->prefix . BrainBenchTestsPlugin::TESTS_TABLE_NAME, '%s'), $_GET['test']));
 
                     $this->assert_user(count($rows) > 0, BrainBenchTestsPlugin::LINK_NOT_VALID_ERR_MSG);
 
+                    $wpdb->insert(
+                        $wpdb->prefix . BrainBenchTestsPlugin::ODIT_TABLE_NAME,
+                        array(
+                            'event' => sprintf("Test page visited"),
+                            'test_id' => $rows[0]->id
+                        )
+                    );
+
+                    // TODO replace $rows[0] with test
                     $this->assert_user($rows[0]->status !== BrainBenchTestStatus::COMPLETED, BrainBenchTestsPlugin::TEST_ALREADY_COMPLETED_ERR_MSG);
 
                     $this->assert_user(strtotime($rows[0]->start_date) <= strtotime('today'), sprintf(BrainBenchTestsPlugin::START_DATE_IN_THE_FUTURE_ERR_MSG, $rows[0]->start_date, $rows[0]->due_date));
