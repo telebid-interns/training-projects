@@ -13,8 +13,8 @@
         const CODE_LENGTH = 30;
         const TITLE = 'Brainbench Tests';
         const TEST_PATH = 'brainbench-tests';
-        const FORM_CSS_PATH = 'css/form.css';
-        const JS_SET_DEFAULTS_PATH = 'js/set-defaults.js';
+        const FORM_CSS_PATH = 'css/wptests.css';
+        const JS_SET_DEFAULTS_PATH = 'js/wptests.js';
         const EMAIL_SUBJECT = "Weekly Tests";
 
         // Admin error messages
@@ -345,8 +345,19 @@
                         <th>Due Date</th>
                         <th>Code</th>
                         <th>Status</th>
+                        <th>Odit</th>
                     </tr>";
             foreach ($rows as $row) {
+                $test_odits = $wpdb->get_results(sprintf("SELECT * FROM %s WHERE test_id = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::ODIT_TABLE_NAME, $row->id));
+
+                $odit = '';
+                if (count($test_odits) > 0) {
+                    foreach ($test_odits as $test_odit) {
+
+                        $odit .= sprintf("%s%s%s\\n", $test_odit->event, str_repeat("-", 40 - strlen($test_odit->event)), $test_odit->time);
+                    }
+                }
+
                 echo sprintf("  <tr>
                                     <th>%s</th>
                                     <th><a href=\"%s\">link</a></th>
@@ -355,7 +366,8 @@
                                     <th>%s</th>
                                     <th>%s</th>
                                     <th>%s</th>
-                                </tr>", $row->id, htmlspecialchars($row->link),  $row->email,  $row->start_date,  $row->due_date, $row->code, $row->status
+                                    <th onclick=\"alert('%s'); return false;\"><a href=\"\">odit</a></th>
+                                </tr>", $row->id, htmlspecialchars($row->link),  $row->email,  $row->start_date,  $row->due_date, $row->code, $row->status, $odit
                             );
             }
             echo "</table>";
