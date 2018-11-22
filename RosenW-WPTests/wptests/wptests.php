@@ -2,7 +2,7 @@
     /*
     * Plugin Name: BrainBenchTests
     * Description: Plugin that enables a form for sending brainbench tests
-    * Version: 1.2
+    * Version: 1.3
     * Author: Rosen
     */
 
@@ -88,10 +88,9 @@
 
             require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
             dbDelta(sprintf("
-                    CREATE TABLE IF NOT EXISTS %s (
+                    CREATE TABLE IF NOT EXISTS %sbrainbench_tests (
                         id INT AUTO_INCREMENT,
                         link TEXT NOT NULL,
-                        name TEXT NOT NULL,
                         email TEXT NOT NULL,
                         start_date DATE NOT NULL,
                         due_date DATE NOT NULL,
@@ -100,39 +99,39 @@
                         unlock_time BIGINT,
                         PRIMARY KEY (id)
                     );
-                ", $wpdb->prefix . BrainBenchTestsPlugin::TESTS_TABLE_NAME
+                ", $wpdb->prefix
             ));
 
             dbDelta(sprintf("
-                    CREATE TABLE IF NOT EXISTS %s (
+                    CREATE TABLE IF NOT EXISTS %brainbench_settings (
                         id INT AUTO_INCREMENT,
                         opt_name TEXT NOT NULL,
                         opt_value TEXT NOT NULL,
                         PRIMARY KEY (id)
                     );
-                ", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME
+                ", $wpdb->prefix
             ));
 
             dbDelta(sprintf("
-                    CREATE TABLE IF NOT EXISTS %s (
+                    CREATE TABLE IF NOT EXISTS %sbrainbench_odit (
                         id INT AUTO_INCREMENT,
                         event TEXT NOT NULL,
                         time TIMESTAMP NOT NULL,
                         test_id INT,
                         PRIMARY KEY (id),
-                        FOREIGN KEY (test_id) REFERENCES %s(id)
+                        FOREIGN KEY (test_id) REFERENCES %sbrainbench_tests(id)
                     );
-                ", $wpdb->prefix . BrainBenchTestsPlugin::ODIT_TABLE_NAME, $wpdb->prefix . BrainBenchTestsPlugin::TESTS_TABLE_NAME
+                ", $wpdb->prefix, $wpdb->prefix
             ));
 
             $opts_default_values = [ BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME => BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_DEF_VALUE, BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME => BrainBenchTestsPlugin::EMAIL_MSG_DEF_VALUE, BrainBenchTestsPlugin::EMAIL_SENDER_OPT_NAME => BrainBenchTestsPlugin::EMAIL_SENDER_DEF_VALUE, BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_OPT_NAME => BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_DEF_VALUE, BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_OPT_NAME => BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_DEF_VALUE ];
 
             foreach ($opts_default_values as $option => $default) {
-                $rows = $wpdb->get_results(sprintf("SELECT * FROM %s WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, $option));
+                $rows = $wpdb->get_results(sprintf("SELECT * FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, $option));
 
                 if (count($rows) === 0) {
                     $wpdb->insert(
-                        $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME,
+                        $wpdb->prefix . "brainbench_settings",
                         array(
                             'opt_name' => $option,
                             'opt_value' => $default
@@ -172,16 +171,27 @@
         function display_settings_form () {
             global $wpdb;
 
-            // TODO: datafication
-            $max_parallel = $wpdb->get_results(sprintf("SELECT opt_value FROM %s WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME))[0]->opt_value;
-            $email_sender = $wpdb->get_results(sprintf("SELECT opt_value FROM %s WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, BrainBenchTestsPlugin::EMAIL_SENDER_OPT_NAME))[0]->opt_value;
-            $email_msg = $wpdb->get_results(sprintf("SELECT opt_value FROM %s WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME))[0]->opt_value;
-            $site_key = $wpdb->get_results(sprintf("SELECT opt_value FROM %s WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_OPT_NAME))[0]->opt_value;
-            $secret_key = $wpdb->get_results(sprintf("SELECT opt_value FROM %s WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_OPT_NAME))[0]->opt_value;
+            $settings = [];
 
-            echo sprintf("
+            foreach ([
+                BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME,
+                BrainBenchTestsPlugin::EMAIL_SENDER_OPT_NAME,
+                BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME,
+                BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_OPT_NAME,
+                BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_OPT_NAME ] as $value) {
+                array_push($settings, $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, $value))[0]->opt_value);
+            }
+
+            // TODO: datafication
+            // $max_parallel = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME))[0]->opt_value;
+            // $email_sender = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::EMAIL_SENDER_OPT_NAME))[0]->opt_value;
+            // $email_msg = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME))[0]->opt_value;
+            // $site_key = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_OPT_NAME))[0]->opt_value;
+            // $secret_key = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_OPT_NAME))[0]->opt_value;
+
+            echo vsprintf("
                     <form method=\"post\">
-                        <label for=\"max_parallel\">Concurrency:</label>
+                        <label for=\"max_parallel\">Test Slots:</label>
                         <input name=\"max_parallel\" value=\"%s\">
                         <label for=\"email_sender\">Email Sender:</label>
                         <input name=\"email_sender\" value=\"%s\">
@@ -194,14 +204,13 @@
                         <label></label>
                         <input type=\"submit\" value=\"Set\">
                     </form>
-                ", $max_parallel, $email_sender, $email_msg, $site_key, $secret_key
+                ", $settings
             );
         }
 
         function post_admin_page () {
             global $wpdb;
             
-            // TODO: add email_msg
             if (array_key_exists('max_parallel', $_POST)) { // second form
                 if (
                     !array_key_exists('max_parallel', $_POST) ||
@@ -216,11 +225,11 @@
 
                 $this->display_send_test_form();
 
-                $rows = $wpdb->get_results(sprintf("SELECT opt_value FROM %s WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME));
+                $rows = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME));
 
 
                 echo "<form method=\"post\">";
-                echo "  <label for=\"max_parallel\">Concurrency: </label>\n";
+                echo "  <label for=\"max_parallel\">Test Slots: </label>\n";
                 echo (is_numeric($_POST['max_parallel']) && (int) $_POST['max_parallel'] > 0 ? sprintf("<input name=\"max_parallel\" value=\"%s\">", htmlspecialchars($_POST['max_parallel'])) : sprintf("<input name=\"max_parallel\" class=\"invalid-input\" value=\"%s\">", $rows[0]->opt_value));
                 echo sprintf("
                     <label for=\"email_sender\">Email Sender:</label>
@@ -251,16 +260,14 @@
                 }
 
                 if (!$has_errors) {
-                    // TODO: datafication
-                    $wpdb->query($wpdb->prepare(sprintf("UPDATE %s SET opt_value = '%s' WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, '%s', BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME), $_POST['max_parallel']));
-
-                    $wpdb->query($wpdb->prepare(sprintf("UPDATE %s SET opt_value = '%s' WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, '%s', BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME), $_POST['email_msg']));
-
-                    $wpdb->query($wpdb->prepare(sprintf("UPDATE %s SET opt_value = '%s' WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, '%s', BrainBenchTestsPlugin::EMAIL_SENDER_OPT_NAME), $_POST['email_sender']));
-
-                    $wpdb->query($wpdb->prepare(sprintf("UPDATE %s SET opt_value = '%s' WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, '%s', BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_OPT_NAME), $_POST['site_key']));
-
-                    $wpdb->query($wpdb->prepare(sprintf("UPDATE %s SET opt_value = '%s' WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, '%s', BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_OPT_NAME), $_POST['secret_key']));
+                    foreach ([
+                        BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME => $_POST['max_parallel'],
+                        BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME => $_POST['email_msg'],
+                        BrainBenchTestsPlugin::EMAIL_SENDER_OPT_NAME => $_POST['email_sender'],
+                        BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_OPT_NAME => $_POST['site_key'],
+                        BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_OPT_NAME => $_POST['secret_key']] as $key => $value) {
+                        $wpdb->query($wpdb->prepare(sprintf("UPDATE %sbrainbench_settings SET opt_value = '%s' WHERE opt_name = '%s'", $wpdb->prefix, '%s', $key), $value));
+                    }
 
                     echo "<p>Настройките бяха запазени.</p>";
                 }
@@ -280,9 +287,9 @@
             echo ($_POST['real-name'] ? sprintf("<input type=\"text\" name=\"real-name\" value=\"%s\">", htmlspecialchars($_POST['real-name'])) : "<input type=\"text\" name=\"real-name\" class=\"invalid-input\">");
             echo "<label for=\"email\">E-mail:</label>\n";
             echo ($_POST['email'] && filter_var($_POST['email'], FILTER_VALIDATE_EMAIL) ? sprintf("<input type=\"email\" name=\"email\" value=\"%s\">", htmlspecialchars($_POST['email'])) : sprintf("<input type=\"email\" name=\"email\" value=\"%s\" class=\"invalid-input\">", htmlspecialchars($_POST['email'])));
-            echo "<label for=\"date-from\">От:</label>\n";
+            echo "<label for=\"date-from\">Активен от:</label>\n";
             echo ($_POST['date-from'] && $this->isRealDate($_POST['date-from']) && strtotime($_POST['date-from']) >= strtotime('today') ? sprintf("<input id=\"date-from\" type=\"date\" name=\"date-from\" value=\"%s\">", htmlspecialchars($_POST['date-from'])) : sprintf("<input id=\"date-from\" type=\"date\" name=\"date-from\" value=\"%s\" class=\"invalid-input\">", htmlspecialchars($_POST['date-from'])));
-            echo "<label for=\"date-to\">До:</label>\n";
+            echo "<label for=\"date-to\">Срок:</label>\n";
             echo ($_POST['date-to'] && $this->isRealDate($_POST['date-to']) && strtotime($_POST['date-to']) >= strtotime($_POST['date-from']) ? sprintf("<input id=\"date-to\" type=\"date\" name=\"date-to\" value=\"%s\">", htmlspecialchars($_POST['date-to'])) : sprintf("<input id=\"date-to\" type=\"date\" name=\"date-to\" value=\"%s\" class=\"invalid-input\">", htmlspecialchars($_POST['date-to'])));
             echo "<label for=\"submit\"></label>";
             echo "<input type=\"submit\" value=\"Send Email\">";
@@ -308,28 +315,31 @@
                 $code = $this->generateRandomString(BrainBenchTestsPlugin::CODE_LENGTH);
                 $link = sprintf("http://%s/%s?test=%s", $_SERVER['HTTP_HOST'], BrainBenchTestsPlugin::TEST_PATH, $code);
 
+                if (strpos($_POST['link'], 'http://') !== 0 && strpos($_POST['link'], 'https://') !== 0) {
+                    $_POST['link'] = 'http://' . $_POST['link'];
+                }
+
                 $wpdb->insert(
-                    $wpdb->prefix . BrainBenchTestsPlugin::TESTS_TABLE_NAME,
+                    $wpdb->prefix . "brainbench_tests",
                     array(
                         'link' => $_POST['link'],
-                        'name' => $_POST['real-name'],
                         'email' => $_POST['email'],
                         'start_date' => $_POST['date-from'],
                         'due_date' => $_POST['date-to'],
-                        'status' => BrainBenchTestStatus::NOT_COMPLETED,
+                        'status' => BrainBenchTestStatus::NOT_SENT,
                         'code' => $code
                     )
                 );
 
-                $msg = $wpdb->get_results(sprintf("SELECT opt_value FROM %s WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME))[0]->opt_value;
+                $msg = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME))[0]->opt_value;
 
-                // TODO: make '<link>' constant
                 $msg = str_replace("<link>", htmlspecialchars($link), $msg);
                 $msg = str_replace("<name>", htmlspecialchars($_POST['real-name']), $msg);
                 $msg = str_replace("<from>", htmlspecialchars($_POST['date-from']), $msg);
                 $msg = str_replace("<to>", htmlspecialchars($_POST['date-to']), $msg);
 
                 if ($this->send_email($_POST['email'], $msg)) {
+                    $wpdb->query($wpdb->prepare(sprintf("UPDATE %sbrainbench_tests SET status = '%s' WHERE code = '%s'", $wpdb->prefix, BrainBenchTestStatus::SENT, '%s'), $code));
                     echo sprintf("<p>Теста беше успешно изпратен на %s</p>", htmlspecialchars($_POST['email']));
                 } else {
                     echo sprintf("<p id=\"err-msg\">Теста не беше изпратен успешно</p>");
@@ -355,9 +365,9 @@
                     <input name=\"real-name\">
                     <label for=\"email\">E-mail:</label>
                     <input type=\"email\" name=\"email\">
-                    <label for=\"date-from\">От:</label>
+                    <label for=\"date-from\">Активен от:</label>
                     <input id=\"date-from\" type=\"date\" name=\"date-from\">
-                    <label for=\"date-to\">До:</label>
+                    <label for=\"date-to\">Срок:</label>
                     <input id=\"date-to\" type=\"date\" name=\"date-to\">
                     <label for=\"submit\"></label>
                     <input type=\"submit\" value=\"Send Email\">
@@ -368,7 +378,7 @@
         function display_tests () {
             global $wpdb;
 
-            $rows = $wpdb->get_results(sprintf("SELECT * FROM %s", $wpdb->prefix . BrainBenchTestsPlugin::TESTS_TABLE_NAME));
+            $rows = $wpdb->get_results(sprintf("SELECT * FROM %sbrainbench_tests", $wpdb->prefix));
 
             echo "<table class=\"test-table\" style=\"margin-top: 3em; width: 100%;\">";
             echo "  <tr>
@@ -382,7 +392,7 @@
                         <th>Odit</th>
                     </tr>";
             foreach ($rows as $row) {
-                $test_odits = $wpdb->get_results(sprintf("SELECT * FROM %s WHERE test_id = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::ODIT_TABLE_NAME, $row->id));
+                $test_odits = $wpdb->get_results(sprintf("SELECT * FROM %sbrainbench_odit WHERE test_id = '%s'", $wpdb->prefix, $row->id));
 
                 $odit = '';
 
@@ -434,8 +444,8 @@
         function can_start_new_test () {
             global $wpdb;
 
-            $locks = $wpdb->get_results(sprintf("SELECT COUNT(*) AS count FROM %s WHERE unlock_time > '%s'", $wpdb->prefix . BrainBenchTestsPlugin::TESTS_TABLE_NAME, strtotime("now")));
-            $max_parallel = $wpdb->get_results(sprintf("SELECT opt_value FROM %s where opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME));
+            $locks = $wpdb->get_results(sprintf("SELECT COUNT(*) AS count FROM %sbrainbench_tests WHERE unlock_time > '%s'", $wpdb->prefix, strtotime("now")));
+            $max_parallel = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings where opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME));
 
             return $locks[0]->count < (int)$max_parallel[0]->opt_value;
         }
@@ -454,18 +464,20 @@
             global $wpdb;
 
             try {
-                $site_key = $wpdb->get_results(sprintf("SELECT opt_value FROM %s WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_OPT_NAME))[0]->opt_value;
+                $site_key = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_OPT_NAME))[0]->opt_value;
 
                 wp_enqueue_script( 'recaptcha', sprintf("https://www.google.com/recaptcha/api.js", $site_key) );
 
                 $this->assert_user(array_key_exists('test', $_GET), BrainBenchTestsPlugin::LINK_NOT_VALID_ERR_MSG);
 
-                $rows = $wpdb->get_results($wpdb->prepare(sprintf("SELECT * FROM %s WHERE code = %s", $wpdb->prefix . BrainBenchTestsPlugin::TESTS_TABLE_NAME, '%s'), $_GET['test']));
+                $rows = $wpdb->get_results($wpdb->prepare(sprintf("SELECT * FROM %sbrainbench_tests WHERE code = %s", $wpdb->prefix, '%s'), $_GET['test']));
 
                 $this->assert_user(count($rows) > 0, BrainBenchTestsPlugin::LINK_NOT_VALID_ERR_MSG);
 
+                $wpdb->query($wpdb->prepare(sprintf("UPDATE %sbrainbench_tests SET status = '%s' WHERE code = '%s'", $wpdb->prefix, BrainBenchTestStatus::ACTIVATED, '%s'), $_GET['test']));
+
                 $wpdb->insert(
-                    $wpdb->prefix . BrainBenchTestsPlugin::ODIT_TABLE_NAME,
+                    $wpdb->prefix . "brainbench_odit",
                     array(
                         'event' => sprintf("Test page visited"),
                         'test_id' => $rows[0]->id
@@ -478,15 +490,15 @@
                 $this->assert_user(strtotime($rows[0]->start_date) <= strtotime('today'), sprintf(BrainBenchTestsPlugin::START_DATE_IN_THE_FUTURE_ERR_MSG, $rows[0]->start_date, $rows[0]->due_date));
                 $this->assert_user(strtotime($rows[0]->due_date) >= strtotime('today'), BrainBenchTestsPlugin::DUE_DATE_MET_ERR_MSG);
 
+                $this->assert_user($this->can_start_new_test(), BrainBenchTestsPlugin::SERVICE_BLOCKED_ERR_MSG);
+
                 if ($rows[0]->status === BrainBenchTestStatus::STARTED) {
                     $this->display_test($rows[0]->link, $rows[0]->code);
                     return;
                 }
 
-                $this->assert_user($this->can_start_new_test(), BrainBenchTestsPlugin::SERVICE_BLOCKED_ERR_MSG);
-
                 echo "<form method=\"post\" style=\"width: 300px;\">";
-                echo "<p>Здравей Гошо123, За да започнеш теста попълни следната формичка и натисни старт ! :)))</p>";
+                echo "<p>За да започнеш теста попълни следната формичка и натисни старт ! :)))</p>";
                 echo sprintf("<input type=\"text\" name=\"link\" value=\"%s\" style=\"display: none\">", htmlspecialchars($rows[0]->link));
                 echo sprintf("<input type=\"text\" name=\"code\" value=\"%s\" style=\"display: none\">", htmlspecialchars($rows[0]->code));
                 echo sprintf("<input type=\"text\" name=\"date-to\" value=\"%s\" style=\"display: none\">", htmlspecialchars($rows[0]->due_date));
@@ -506,17 +518,17 @@
 
             try {
                 if (array_key_exists('reset', $_POST)) { // THIS IS JUST FOR TESTING (ON TEST COMPLETE CLICKED)
-                    $wpdb->query($wpdb->prepare(sprintf("UPDATE %s SET status = '%s', unlock_time = 0 WHERE code = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::TESTS_TABLE_NAME, BrainBenchTestStatus::COMPLETED, '%s'), $_POST['code']));
+                    $wpdb->query($wpdb->prepare(sprintf("UPDATE %sbrainbench_tests SET status = '%s', unlock_time = 0 WHERE code = '%s'", $wpdb->prefix, BrainBenchTestStatus::COMPLETED, '%s'), $_POST['code']));
                     echo "<p>Теста е завършен успешно.</p>";
                     return;
                 }
 
-                $site_key = $wpdb->get_results(sprintf("SELECT opt_value FROM %s WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_OPT_NAME))[0]->opt_value;
-                $secret_key = $wpdb->get_results(sprintf("SELECT opt_value FROM %s WHERE opt_name = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::SETTINGS_TABLE_NAME, BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_OPT_NAME))[0]->opt_value;
+                $site_key = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_OPT_NAME))[0]->opt_value;
+                $secret_key = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_OPT_NAME))[0]->opt_value;
 
                 wp_enqueue_script( 'recaptcha', sprintf("https://www.google.com/recaptcha/api.js", $site_key) );
 
-                $test = $wpdb->get_results($wpdb->prepare(sprintf("SELECT * FROM %s where code = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::TESTS_TABLE_NAME, '%s'), $_POST['code']));
+                $test = $wpdb->get_results($wpdb->prepare(sprintf("SELECT * FROM %sbrainbench_tests where code = '%s'", $wpdb->prefix, '%s'), $_POST['code']));
 
                 $this->assert_user(count($test) === 1, BrainBenchTestsPlugin::LINK_NOT_VALID_ERR_MSG);
 
@@ -529,7 +541,7 @@
                 $this->assert_user(array_key_exists('code', $_POST) && array_key_exists('link', $_POST), BrainBenchTestsPlugin::INVALID_POST_PARAMETERS_ERR_MSG);
 
                 $wpdb->insert(
-                    $wpdb->prefix . BrainBenchTestsPlugin::ODIT_TABLE_NAME,
+                    $wpdb->prefix . "brainbench_odit",
                     array(
                         'event' => sprintf("Start button clicked"),
                         'test_id' => $test[0]->id
@@ -538,7 +550,9 @@
 
                 $this->assert_user($this->can_start_new_test(), BrainBenchTestsPlugin::SERVICE_BLOCKED_ERR_MSG);
 
-                $wpdb->query($wpdb->prepare(sprintf("UPDATE %s SET status = '%s', unlock_time = '%s' WHERE code = '%s'", $wpdb->prefix . BrainBenchTestsPlugin::TESTS_TABLE_NAME, BrainBenchTestStatus::STARTED, strtotime('now +2 hour'), '%s'), $_POST['code']));
+                echo sprintf("<script>window.open(\"%s\");</script>", htmlspecialchars($_POST['link']));
+
+                $wpdb->query($wpdb->prepare(sprintf("UPDATE %sbrainbench_tests SET status = '%s', unlock_time = '%s' WHERE code = '%s'", $wpdb->prefix, BrainBenchTestStatus::STARTED, strtotime('now +2 hour'), '%s'), $_POST['code']));
 
                 $this->display_test($_POST['link'], $_POST['code']);
             } catch (UserErrorWPTests $err) {
@@ -579,7 +593,9 @@
     }
 
     abstract class BrainBenchTestStatus {
-        const NOT_COMPLETED = 'not completed';
+        const NOT_SENT = 'not sent';
+        const SENT = 'sent';
+        const ACTIVATED = 'activated';
         const STARTED = 'started';
         const COMPLETED = 'completed';
     }
