@@ -182,13 +182,6 @@
                 array_push($settings, $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, $value))[0]->opt_value);
             }
 
-            // TODO: datafication
-            // $max_parallel = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME))[0]->opt_value;
-            // $email_sender = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::EMAIL_SENDER_OPT_NAME))[0]->opt_value;
-            // $email_msg = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME))[0]->opt_value;
-            // $site_key = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_OPT_NAME))[0]->opt_value;
-            // $secret_key = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_OPT_NAME))[0]->opt_value;
-
             echo vsprintf("
                     <form method=\"post\">
                         <label for=\"max_parallel\">Test Slots:</label>
@@ -280,13 +273,13 @@
             }
 
             // adding invalid-input class on invalid data
-            echo "<form method=\"post\">";
+            echo "<form id=\"test-form\" method=\"post\">"; // send tests form
             echo "<label for=\"link\">link URL:</label>\n";
-            echo ($_POST['link'] ? sprintf("<input type=\"text\" name=\"link\" value=\"%s\">", htmlspecialchars($_POST['link'])) : "<input type=\"text\" name=\"link\" class=\"invalid-input\">");
+            echo ($_POST['link'] ? sprintf("<input id=\"link\" type=\"text\" name=\"link\" value=\"%s\">", htmlspecialchars($_POST['link'])) : "<input id=\"link\" type=\"text\" name=\"link\" class=\"invalid-input\">");
             echo "<label for=\"real-name\">Name:</label>\n";
-            echo ($_POST['real-name'] ? sprintf("<input type=\"text\" name=\"real-name\" value=\"%s\">", htmlspecialchars($_POST['real-name'])) : "<input type=\"text\" name=\"real-name\" class=\"invalid-input\">");
+            echo ($_POST['real-name'] ? sprintf("<input id=\"real-name\" type=\"text\" name=\"real-name\" value=\"%s\">", htmlspecialchars($_POST['real-name'])) : "<input id=\"real-name\" type=\"text\" name=\"real-name\" class=\"invalid-input\">");
             echo "<label for=\"email\">E-mail:</label>\n";
-            echo ($_POST['email'] && filter_var($_POST['email'], FILTER_VALIDATE_EMAIL) ? sprintf("<input type=\"email\" name=\"email\" value=\"%s\">", htmlspecialchars($_POST['email'])) : sprintf("<input type=\"email\" name=\"email\" value=\"%s\" class=\"invalid-input\">", htmlspecialchars($_POST['email'])));
+            echo ($_POST['email'] && filter_var($_POST['email'], FILTER_VALIDATE_EMAIL) ? sprintf("<input id=\"email\" type=\"email\" name=\"email\" value=\"%s\">", htmlspecialchars($_POST['email'])) : sprintf("<input id=\"email\" type=\"email\" name=\"email\" value=\"%s\" class=\"invalid-input\">", htmlspecialchars($_POST['email'])));
             echo "<label for=\"date-from\">Активен от:</label>\n";
             echo ($_POST['date-from'] && $this->isRealDate($_POST['date-from']) && strtotime($_POST['date-from']) >= strtotime('today') ? sprintf("<input id=\"date-from\" type=\"date\" name=\"date-from\" value=\"%s\">", htmlspecialchars($_POST['date-from'])) : sprintf("<input id=\"date-from\" type=\"date\" name=\"date-from\" value=\"%s\" class=\"invalid-input\">", htmlspecialchars($_POST['date-from'])));
             echo "<label for=\"date-to\">Срок:</label>\n";
@@ -311,7 +304,14 @@
                 $has_errors = true;
             }
 
-            if (!$has_errors) {
+            if (!$has_errors) { 
+                // resetting form on successful submition
+                echo "  <script>
+                            document.getElementById('link').value = \"\";
+                            document.getElementById('real-name').value = \"\";
+                            document.getElementById('email').value = \"\";
+                        </script>";
+
                 $code = $this->generateRandomString(BrainBenchTestsPlugin::CODE_LENGTH);
                 $link = sprintf("http://%s/%s?test=%s", $_SERVER['HTTP_HOST'], BrainBenchTestsPlugin::TEST_PATH, $code);
 
@@ -358,13 +358,13 @@
 
         function display_send_test_form () {
             echo "
-                <form method=\"post\">
+                <form id=\"test-form\" method=\"post\">
                     <label for=\"link\">link URL:</label>
-                    <input name=\"link\">
+                    <input id=\"link\" name=\"link\">
                     <label for=\"real-name\">Name:</label>
-                    <input name=\"real-name\">
+                    <input id=\"real-name\" name=\"real-name\">
                     <label for=\"email\">E-mail:</label>
-                    <input type=\"email\" name=\"email\">
+                    <input id=\"email\" type=\"email\" name=\"email\">
                     <label for=\"date-from\">Активен от:</label>
                     <input id=\"date-from\" type=\"date\" name=\"date-from\">
                     <label for=\"date-to\">Срок:</label>
