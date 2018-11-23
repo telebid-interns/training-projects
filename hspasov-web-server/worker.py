@@ -30,7 +30,7 @@ class Worker:
         log.error(TRACE,
                   msg='listening... backlog: {0}'.format(CONFIG['backlog']))
 
-        accept_iter = self.accept()
+        accept_iter = self.gen_accept()
 
         self.register_activity(self._socket, select.POLLIN, accept_iter)
 
@@ -41,8 +41,8 @@ class Worker:
 
             for fd, event in action_requests:
                 assert fd in self._activity_iterators
-                activity_iter = self._activity_iterators[fd]
 
+                activity_iter = self._activity_iterators[fd]
                 result = next(activity_iter, None)
 
                 assert result is None or isinstance(result, tuple)
@@ -180,7 +180,7 @@ class Worker:
                 content_length=client_conn.res_meta.content_length,
             )
 
-    def accept(self):
+    def gen_accept(self):
         log.error(TRACE)
 
         while True:

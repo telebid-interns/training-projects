@@ -1,4 +1,5 @@
 import os
+import select
 from config import CONFIG
 from log import log, TRACE, DEBUG
 from http_meta import RequestMeta
@@ -67,7 +68,7 @@ class CGIHandler:
         self._write_fd = write_fd
         self.msg_buffer = b''
         self.bytes_written = 0
-        self._cgi_res_meta_raw = b''
+        self.cgi_res_meta_raw = b''
 
     def send(self, data):
         log.error(TRACE)
@@ -78,37 +79,34 @@ class CGIHandler:
 
         # TODO ask whether this while loop is OK
         # could the server get stuck in it and/or waste CPU?
-        while True:
+        while bytes_written < bytes_to_write:
+            yield (self._write_fd, select.POLLOUT)
             bytes_written += os.write(self._write_fd, data_to_write)
-
-            if bytes_written < bytes_to_write:
-                data_to_write = data[bytes_written:]
-            else:
-                break
+            data_to_write = data[bytes_written:]
 
         self.bytes_written += bytes_written
 
     def receive(self):
         log.error(TRACE)
+
+        yield (self._read_fd, select.POLLIN)
         self.msg_buffer = os.read(self._read_fd, CONFIG['read_buffer'])
 
     def receive_meta(self):
-        while len(self._cgi_res_meta_raw) <= CONFIG['cgi_res_meta_limit']:
+        while len(self.cgi_res_meta_raw) <= CONFIG['cgi_res_meta_limit']:
             log.error(TRACE, msg='collecting data from cgi...')
 
-            self.receive()
-            self._cgi_res_meta_raw += self.msg_buffer
+            yield from self.receive()
+            self.cgi_res_meta_raw += self.msg_buffer
 
             if len(self.msg_buffer) <= 0:
                 log.error(TRACE, msg='No data to read.')
                 break
 
-            if self._cgi_res_meta_raw.find(b'\n\n') != -1:
+            if self.cgi_res_meta_raw.find(b'\n\n') != -1:
                 log.error(TRACE, msg='finished collecting meta data from cgi')
-                self.msg_buffer = self._cgi_res_meta_raw.split(b'\n\n', 1)[1]
+                self.msg_buffer = self.cgi_res_meta_raw.split(b'\n\n', 1)[1]
                 break
         else:
             log.error(TRACE, msg='cgi response meta too long')
-            return None
-
-        return self._cgi_res_meta_raw
+            self.cgi_res_meta_raw = None  # TODO refactor this

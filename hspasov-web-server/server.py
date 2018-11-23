@@ -13,6 +13,8 @@ class Server:
     def run(self):
         log.error(TRACE)
 
+        pid = None
+
         while True:
             try:
 
@@ -23,9 +25,6 @@ class Server:
 
                     worker = Worker()
                     worker.start()  # event loop
-
-                    # after worker quits for some reason:
-                    log.close_access_log_file()
                 else:  # parent process
                     log.error(DEBUG, msg='New child created with pid {0}'.format(pid))  # noqa
                     os.wait()
@@ -33,6 +32,9 @@ class Server:
             except OSError as error:
                 log.error(TRACE, msg='OSError')
                 log.error(TRACE, msg=error)
+            finally:
+                if pid is not None and pid == 0:
+                    log.close_access_log_file()
 
 
 def start():
