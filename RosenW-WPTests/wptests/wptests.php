@@ -2,7 +2,7 @@
     /*
     * Plugin Name: BrainBenchTests
     * Description: Plugin that enables a form for sending brainbench tests
-    * Version: 1.3
+    * Version: 1.4
     * Author: Rosen
     */
 
@@ -57,7 +57,7 @@
         const ODIT_TABLE_NAME = "brainbench_odit";
 
         function __construct () {
-            if (explode('/', add_query_arg($_GET))[1] === BrainBenchTestsPlugin::TEST_PATH) {
+            if (array_key_exists('page_id', $_GET) && get_page_by_title( BrainBenchTestsPlugin::TITLE )->ID === (int)$_GET['page_id']) {
                 add_filter('the_content', array($this, 'load_test_page'));
             }
 
@@ -498,7 +498,7 @@
                 }
 
                 echo "<form method=\"post\" style=\"width: 300px;\">";
-                echo "<p>За да започнеш теста попълни следната формичка и натисни старт ! :)))</p>";
+                echo "<p>За да започнете теста попълнете следната форма.</p>";
                 echo sprintf("<input type=\"text\" name=\"link\" value=\"%s\" style=\"display: none\">", htmlspecialchars($rows[0]->link));
                 echo sprintf("<input type=\"text\" name=\"code\" value=\"%s\" style=\"display: none\">", htmlspecialchars($rows[0]->code));
                 echo sprintf("<input type=\"text\" name=\"date-to\" value=\"%s\" style=\"display: none\">", htmlspecialchars($rows[0]->due_date));
