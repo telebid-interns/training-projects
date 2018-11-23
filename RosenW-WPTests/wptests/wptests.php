@@ -313,7 +313,7 @@
                         </script>";
 
                 $code = $this->generateRandomString(BrainBenchTestsPlugin::CODE_LENGTH);
-                $link = sprintf("http://%s/%s?test=%s", $_SERVER['HTTP_HOST'], BrainBenchTestsPlugin::TEST_PATH, $code);
+                $link = sprintf("%s&test=%s", get_permalink(get_page_by_title( BrainBenchTestsPlugin::TITLE )->ID), $code);
 
                 if (strpos($_POST['link'], 'http://') !== 0 && strpos($_POST['link'], 'https://') !== 0) {
                     $_POST['link'] = 'http://' . $_POST['link'];
@@ -333,7 +333,7 @@
 
                 $msg = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME))[0]->opt_value;
 
-                $msg = str_replace("<link>", htmlspecialchars($link), $msg);
+                $msg = str_replace("<link>", $link, $msg);
                 $msg = str_replace("<name>", htmlspecialchars($_POST['real-name']), $msg);
                 $msg = str_replace("<from>", htmlspecialchars($_POST['date-from']), $msg);
                 $msg = str_replace("<to>", htmlspecialchars($_POST['date-to']), $msg);
@@ -600,5 +600,7 @@
         const COMPLETED = 'completed';
     }
 
-    new BrainBenchTestsPlugin();
+    add_action('wp_loaded', function () {
+        new BrainBenchTestsPlugin();
+    })
 ?>
