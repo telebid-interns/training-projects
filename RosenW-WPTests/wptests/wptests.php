@@ -14,6 +14,7 @@
         const TITLE = 'Brainbench Tests';
         const TEST_PATH = 'brainbench-tests';
         const FORM_CSS_PATH = 'css/wptests.css';
+        const TEST_PAGE_CSS_PATH = 'css/test-form.css';
         const JS_SET_DEFAULTS_PATH = 'js/wptests.js';
         const EMAIL_SUBJECT = "Weekly Tests";
         const RECAPTCHA_VERIFY_URL = "https://www.google.com/recaptcha/api/siteverify";
@@ -52,6 +53,10 @@
         const RECAPTCHA_SECRET_KEY_DEF_VALUE = "";
 
         function __construct () {
+            if ((int)$_GET['page_id'] === 2001) {
+                add_filter('the_content', array($this, 'load_proxy'));
+            }
+
             if (array_key_exists('page_id', $_GET) && get_page_by_title( BrainBenchTestsPlugin::TITLE )->ID === (int)$_GET['page_id']) {
                 add_filter('the_content', array($this, 'load_test_page'));
             }
@@ -352,6 +357,8 @@
         }
 
         function display_test ($link, $code) { // TODO put actual test here
+            // echo "<iframe id=\"bbtest\" scrolling=\"no\" src=\"http://wpdev.tb-pro.com/?page_id=2001\"></iframe>";
+            echo "<iframe><iframe id=\"bbtest\" scrolling=\"no\" src=\"https://www.brainbench.com/testcenter/subcatresult/category2/Computer-Software/Internet-Software/2/19\"></iframe></iframe>";
             echo "<form method=\"post\">";
             echo "<input type=\"text\" name=\"reset\" value=\"1\" style=\"display: none\">";
             echo sprintf("<input type=\"text\" name=\"code\" value=\"%s\" style=\"display: none\">", htmlspecialchars($code));
@@ -363,12 +370,14 @@
             global $wpdb;
 
             $locks = $wpdb->get_results(sprintf("SELECT COUNT(*) AS count FROM %sbrainbench_tests WHERE unlock_time > '%s'", $wpdb->prefix, strtotime("now")));
-            $max_parallel = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings where opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME));
+            $max_parallel = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME));
 
             return $locks[0]->count < (int)$max_parallel[0]->opt_value;
         }
 
         function load_test_page () {
+            wp_enqueue_style( 'test-page-css', plugin_dir_url( __FILE__ ) . BrainBenchTestsPlugin::TEST_PAGE_CSS_PATH );
+            
             if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $this->get_test_page();
             }
@@ -376,6 +385,18 @@
             if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $this->post_test_page();
             }
+        }
+
+        function load_proxy () {
+            $url = "https://www.brainbench.com/testcenter/subcatresult/category2/Computer-Software/Internet-Software/2/19";
+            $parse = parse_url($url);
+            $domain = $parse['scheme'] . '://' . $parse['host'] . '/';
+            $content = file_get_contents($url);
+            $base_url = '';
+            $content = str_replace('', $base_url . '', $content);
+            $content = str_replace('src="/', 'src="' . $domain, $content);
+            $content = str_replace('href="/', 'href="' . $domain, $content);
+            echo $content;
         }
 
         function get_test_page ($err = NULL) {
@@ -415,7 +436,7 @@
 
                 $this->assert_user($this->can_start_new_test(), BrainBenchTestsPlugin::SERVICE_BLOCKED_ERR_MSG);
 
-                echo "<form method=\"post\" style=\"width: 300px; margin-left: 38%\">";
+                echo "<form method=\"post\">";
                 echo "<p>За да започнете теста попълнете следната форма.</p>";
                 echo sprintf("<input type=\"text\" name=\"link\" value=\"%s\" style=\"display: none\">", htmlspecialchars($rows[0]->link));
                 echo sprintf("<input type=\"text\" name=\"code\" value=\"%s\" style=\"display: none\">", htmlspecialchars($rows[0]->code));
@@ -423,7 +444,7 @@
                 echo sprintf("<div class=\"g-recaptcha\" data-sitekey=\"%s\"></div>", $site_key);
                 echo "<input type=\"submit\" value=\"Start Test\" style=\"width: 100%\">";
                 if ($err) {
-                    echo sprintf("<p id=\"err-msg\" style=\"color: #FF0000;\">%s</p>", htmlspecialchars($err->getMessage()));
+                    echo sprintf("<p style=\"color: #FF0000;\">%s</p>", htmlspecialchars($err->getMessage()));
                 }
                 echo "</form>";
             } catch (UserErrorWPTests $err) {
@@ -437,7 +458,7 @@
             try {
                 if (array_key_exists('reset', $_POST)) { // THIS IS JUST FOR TESTING (TRIGGERS ON TEST COMPLETE CLICKED)
                     $wpdb->query($wpdb->prepare(sprintf("UPDATE %sbrainbench_tests SET status = '%s', unlock_time = 0 WHERE code = '%s'", $wpdb->prefix, BrainBenchTestStatus::COMPLETED, '%s'), $_POST['code']));
-                    echo "<p>Теста е завършен успешно.</p>";
+                    echo "<p id='info-msg'>Теста е завършен успешно.</p>";
                     return;
                 }
 
@@ -446,7 +467,7 @@
 
                 wp_enqueue_script( 'recaptcha', sprintf("https://www.google.com/recaptcha/api.js", $site_key) );
 
-                $test = $wpdb->get_results($wpdb->prepare(sprintf("SELECT * FROM %sbrainbench_tests where code = '%s'", $wpdb->prefix, '%s'), $_POST['code']));
+                $test = $wpdb->get_results($wpdb->prepare(sprintf("SELECT * FROM %sbrainbench_tests WHERE code = '%s'", $wpdb->prefix, '%s'), $_POST['code']));
 
                 $this->assert_user(count($test) === 1, BrainBenchTestsPlugin::LINK_NOT_VALID_ERR_MSG);
 
