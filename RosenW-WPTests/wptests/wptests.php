@@ -51,100 +51,18 @@
         const RECAPTCHA_SECRET_KEY_OPT_NAME = "recaptcha_secret_key";
         const RECAPTCHA_SECRET_KEY_DEF_VALUE = "";
 
-        // Database Table names
-        const TESTS_TABLE_NAME = "brainbench_tests";
-        const SETTINGS_TABLE_NAME = "brainbench_settings";
-        const ODIT_TABLE_NAME = "brainbench_odit";
-
         function __construct () {
             if (array_key_exists('page_id', $_GET) && get_page_by_title( BrainBenchTestsPlugin::TITLE )->ID === (int)$_GET['page_id']) {
                 add_filter('the_content', array($this, 'load_test_page'));
             }
 
-            register_activation_hook ( __FILE__, array($this, 'on_activate'));
-            register_deactivation_hook ( __FILE__, array($this, 'on_deactivate'));
-
             add_filter( 'wp_mail_from', array($this, 'change_email') );
             add_action('admin_menu', array($this, 'brainbench_tests_setup_menu'));
         }
 
-        function change_email ( $email ) {
-            return "rosen@hackerschool-bg.com";
-        }
-
-        function on_activate () {
+        function change_email () {
             global $wpdb;
-
-            if (get_page_by_title( BrainBenchTestsPlugin::TITLE ) == null || get_page_by_title( BrainBenchTestsPlugin::TITLE )->post_status !== 'publish') {
-                // Create the page if no such
-                wp_insert_post(array(
-                  'post_title'    => BrainBenchTestsPlugin::TITLE,
-                  'post_content'  => '',
-                  'post_status'   => 'publish',
-                  'post_author'   => 1,
-                  'post_type'     => 'page',
-                ));
-            }
-
-            require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
-            dbDelta(sprintf("
-                    CREATE TABLE IF NOT EXISTS %sbrainbench_tests (
-                        id INT AUTO_INCREMENT,
-                        link TEXT NOT NULL,
-                        email TEXT NOT NULL,
-                        start_date DATE NOT NULL,
-                        due_date DATE NOT NULL,
-                        code TEXT NOT NULL,
-                        status TEXT NOT NULL,
-                        unlock_time BIGINT,
-                        PRIMARY KEY (id)
-                    );
-                ", $wpdb->prefix
-            ));
-
-            dbDelta(sprintf("
-                    CREATE TABLE IF NOT EXISTS %brainbench_settings (
-                        id INT AUTO_INCREMENT,
-                        opt_name TEXT NOT NULL,
-                        opt_value TEXT NOT NULL,
-                        PRIMARY KEY (id)
-                    );
-                ", $wpdb->prefix
-            ));
-
-            dbDelta(sprintf("
-                    CREATE TABLE IF NOT EXISTS %sbrainbench_odit (
-                        id INT AUTO_INCREMENT,
-                        event TEXT NOT NULL,
-                        time TIMESTAMP NOT NULL,
-                        test_id INT,
-                        PRIMARY KEY (id),
-                        FOREIGN KEY (test_id) REFERENCES %sbrainbench_tests(id)
-                    );
-                ", $wpdb->prefix, $wpdb->prefix
-            ));
-
-            $opts_default_values = [ BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME => BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_DEF_VALUE, BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME => BrainBenchTestsPlugin::EMAIL_MSG_DEF_VALUE, BrainBenchTestsPlugin::EMAIL_SENDER_OPT_NAME => BrainBenchTestsPlugin::EMAIL_SENDER_DEF_VALUE, BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_OPT_NAME => BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_DEF_VALUE, BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_OPT_NAME => BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_DEF_VALUE ];
-
-            foreach ($opts_default_values as $option => $default) {
-                $rows = $wpdb->get_results(sprintf("SELECT * FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, $option));
-
-                if (count($rows) === 0) {
-                    $wpdb->insert(
-                        $wpdb->prefix . "brainbench_settings",
-                        array(
-                            'opt_name' => $option,
-                            'opt_value' => $default
-                        )
-                    );
-                }
-            }
-        }
-
-        function on_deactivate () {
-            if (get_page_by_title( BrainBenchTestsPlugin::TITLE ) != null) {
-                wp_delete_post(get_page_by_title( BrainBenchTestsPlugin::TITLE )->ID);
-            }
+            return $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::EMAIL_SENDER_OPT_NAME))[0]->opt_value;
         }
 
         function brainbench_tests_setup_menu () {
@@ -517,7 +435,7 @@
             global $wpdb;
 
             try {
-                if (array_key_exists('reset', $_POST)) { // THIS IS JUST FOR TESTING (ON TEST COMPLETE CLICKED)
+                if (array_key_exists('reset', $_POST)) { // THIS IS JUST FOR TESTING (TRIGGERS ON TEST COMPLETE CLICKED)
                     $wpdb->query($wpdb->prepare(sprintf("UPDATE %sbrainbench_tests SET status = '%s', unlock_time = 0 WHERE code = '%s'", $wpdb->prefix, BrainBenchTestStatus::COMPLETED, '%s'), $_POST['code']));
                     echo "<p>Теста е завършен успешно.</p>";
                     return;
@@ -531,7 +449,6 @@
                 $test = $wpdb->get_results($wpdb->prepare(sprintf("SELECT * FROM %sbrainbench_tests where code = '%s'", $wpdb->prefix, '%s'), $_POST['code']));
 
                 $this->assert_user(count($test) === 1, BrainBenchTestsPlugin::LINK_NOT_VALID_ERR_MSG);
-
 
                 $response = $this->httpPost(BrainBenchTestsPlugin::RECAPTCHA_VERIFY_URL, 
                     ['secret' => $secret_key, 'response' => $_POST['g-recaptcha-response']]);
@@ -600,7 +517,87 @@
         const COMPLETED = 'completed';
     }
 
+
+
+    function on_bbt_activate () {
+        global $wpdb;
+
+        if (get_page_by_title( BrainBenchTestsPlugin::TITLE ) == null || get_page_by_title( BrainBenchTestsPlugin::TITLE )->post_status !== 'publish') {
+            // Create the page if no such
+            wp_insert_post(array(
+              'post_title'    => BrainBenchTestsPlugin::TITLE,
+              'post_content'  => '',
+              'post_status'   => 'publish',
+              'post_author'   => 1,
+              'post_type'     => 'page',
+            ));
+        }
+
+        require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
+        dbDelta(sprintf("
+                CREATE TABLE IF NOT EXISTS %sbrainbench_tests (
+                    id INT AUTO_INCREMENT,
+                    link TEXT NOT NULL,
+                    email TEXT NOT NULL,
+                    start_date DATE NOT NULL,
+                    due_date DATE NOT NULL,
+                    code TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    unlock_time BIGINT,
+                    PRIMARY KEY (id)
+                );
+            ", $wpdb->prefix
+        ));
+
+        dbDelta(sprintf("
+                CREATE TABLE IF NOT EXISTS %sbrainbench_settings (
+                    id INT AUTO_INCREMENT,
+                    opt_name TEXT NOT NULL,
+                    opt_value TEXT NOT NULL,
+                    PRIMARY KEY (id)
+                );
+            ", $wpdb->prefix
+        ));
+
+        dbDelta(sprintf("
+                CREATE TABLE IF NOT EXISTS %sbrainbench_odit (
+                    id INT AUTO_INCREMENT,
+                    event TEXT NOT NULL,
+                    time TIMESTAMP NOT NULL,
+                    test_id INT,
+                    PRIMARY KEY (id),
+                    FOREIGN KEY (test_id) REFERENCES %sbrainbench_tests(id)
+                );
+            ", $wpdb->prefix, $wpdb->prefix
+        ));
+
+        $opts_default_values = [ BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME => BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_DEF_VALUE, BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME => BrainBenchTestsPlugin::EMAIL_MSG_DEF_VALUE, BrainBenchTestsPlugin::EMAIL_SENDER_OPT_NAME => BrainBenchTestsPlugin::EMAIL_SENDER_DEF_VALUE, BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_OPT_NAME => BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_DEF_VALUE, BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_OPT_NAME => BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_DEF_VALUE ];
+
+        foreach ($opts_default_values as $option => $default) {
+            $rows = $wpdb->get_results(sprintf("SELECT * FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, $option));
+
+            if (count($rows) === 0) {
+                $wpdb->insert(
+                    $wpdb->prefix . "brainbench_settings",
+                    array(
+                        'opt_name' => $option,
+                        'opt_value' => $default
+                    )
+                );
+            }
+        }
+    }
+
+    function on_bbt_deactivate () {
+        if (get_page_by_title( BrainBenchTestsPlugin::TITLE ) != null) {
+            wp_delete_post(get_page_by_title( BrainBenchTestsPlugin::TITLE )->ID);
+        }
+    }
+
+    register_activation_hook ( __FILE__, 'on_bbt_activate');
+    register_deactivation_hook ( __FILE__, 'on_bbt_deactivate');
+
     add_action('wp_loaded', function () {
         new BrainBenchTestsPlugin();
-    })
+    });
 ?>
