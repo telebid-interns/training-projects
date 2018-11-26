@@ -450,10 +450,13 @@
 
                 $this->assert_user(count($test) === 1, BrainBenchTestsPlugin::LINK_NOT_VALID_ERR_MSG);
 
-                $response = $this->httpPost(BrainBenchTestsPlugin::RECAPTCHA_VERIFY_URL, 
-                    ['secret' => $secret_key, 'response' => $_POST['g-recaptcha-response']]);
+                $response = wp_remote_post(BrainBenchTestsPlugin::RECAPTCHA_VERIFY_URL, 
+                    ['body' => [
+                        'secret' => $secret_key, 
+                        'response' => $_POST['g-recaptcha-response']
+                    ]]);
 
-                $this->assert_user(json_decode($response)->success === true, BrainBenchTestsPlugin::RECAPTCHA_FAILED_ERR_MSG);
+                $this->assert_user(json_decode($response["body"])->success === true, BrainBenchTestsPlugin::RECAPTCHA_FAILED_ERR_MSG);
 
                 $this->assert_user(array_key_exists('code', $_POST) && array_key_exists('link', $_POST), BrainBenchTestsPlugin::INVALID_POST_PARAMETERS_ERR_MSG);
 
@@ -486,16 +489,6 @@
             return checkdate($month, $day, $year);
         }
 
-        function httpPost($url, $data) {
-            $curl = curl_init($url);
-            curl_setopt($curl, CURLOPT_POST, true);
-            curl_setopt($curl, CURLOPT_POSTFIELDS, http_build_query($data));
-            curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-            $response = curl_exec($curl);
-            curl_close($curl);
-            return $response;
-        }
-
         function assert_user ($condition, $msg) {
             if (!$condition) {
                 throw new UserErrorWPTests($msg);
@@ -516,8 +509,6 @@
         const STARTED = 'started';
         const COMPLETED = 'completed';
     }
-
-
 
     function on_bbt_activate () {
         global $wpdb;
