@@ -351,7 +351,7 @@
             return $randomString;
         }
 
-        function display_test ($link, $code) {
+        function display_test ($link, $code) { // TODO put actual test here
             echo "<form method=\"post\">";
             echo "<input type=\"text\" name=\"reset\" value=\"1\" style=\"display: none\">";
             echo sprintf("<input type=\"text\" name=\"code\" value=\"%s\" style=\"display: none\">", htmlspecialchars($code));
@@ -392,8 +392,6 @@
 
                 $this->assert_user(count($rows) > 0, BrainBenchTestsPlugin::LINK_NOT_VALID_ERR_MSG);
 
-                $wpdb->query($wpdb->prepare(sprintf("UPDATE %sbrainbench_tests SET status = '%s' WHERE code = '%s'", $wpdb->prefix, BrainBenchTestStatus::ACTIVATED, '%s'), $_GET['test']));
-
                 $wpdb->insert(
                     $wpdb->prefix . "brainbench_odit",
                     array(
@@ -402,20 +400,22 @@
                     )
                 );
 
+                if ($rows[0]->status === BrainBenchTestStatus::STARTED) {
+                    $this->display_test($rows[0]->link, $rows[0]->code);
+                    return;
+                }
+
                 // TODO: replace $rows[0] with test
                 $this->assert_user($rows[0]->status !== BrainBenchTestStatus::COMPLETED, BrainBenchTestsPlugin::TEST_ALREADY_COMPLETED_ERR_MSG);
+
+                $wpdb->query($wpdb->prepare(sprintf("UPDATE %sbrainbench_tests SET status = '%s' WHERE code = '%s'", $wpdb->prefix, BrainBenchTestStatus::ACTIVATED, '%s'), $_GET['test']));
 
                 $this->assert_user(strtotime($rows[0]->start_date) <= strtotime('today'), sprintf(BrainBenchTestsPlugin::START_DATE_IN_THE_FUTURE_ERR_MSG, $rows[0]->start_date, $rows[0]->due_date));
                 $this->assert_user(strtotime($rows[0]->due_date) >= strtotime('today'), BrainBenchTestsPlugin::DUE_DATE_MET_ERR_MSG);
 
                 $this->assert_user($this->can_start_new_test(), BrainBenchTestsPlugin::SERVICE_BLOCKED_ERR_MSG);
 
-                if ($rows[0]->status === BrainBenchTestStatus::STARTED) {
-                    $this->display_test($rows[0]->link, $rows[0]->code);
-                    return;
-                }
-
-                echo "<form method=\"post\" style=\"width: 300px;\">";
+                echo "<form method=\"post\" style=\"width: 300px; margin-left: 38%\">";
                 echo "<p>За да започнете теста попълнете следната форма.</p>";
                 echo sprintf("<input type=\"text\" name=\"link\" value=\"%s\" style=\"display: none\">", htmlspecialchars($rows[0]->link));
                 echo sprintf("<input type=\"text\" name=\"code\" value=\"%s\" style=\"display: none\">", htmlspecialchars($rows[0]->code));
