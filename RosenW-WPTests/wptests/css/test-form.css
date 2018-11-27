@@ -14,7 +14,6 @@ form {
 }
 
 #bbtest {
-	height: 700px;
-	width: 1200px;
-	clip:rect(190px, 100px, 200px, 250px);
+	height: 800px;
+	width: 800px;
 }

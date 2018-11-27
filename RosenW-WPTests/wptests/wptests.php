@@ -15,6 +15,8 @@
         const TEST_PATH = 'brainbench-tests';
         const FORM_CSS_PATH = 'css/wptests.css';
         const TEST_PAGE_CSS_PATH = 'css/test-form.css';
+        const PROXY_PAGE_CSS_PATH = 'css/proxy.css';
+        const PROXY_PAGE_JS_PATH = 'js/proxy.js';
         const JS_SET_DEFAULTS_PATH = 'js/wptests.js';
         const EMAIL_SUBJECT = "Weekly Tests";
         const RECAPTCHA_VERIFY_URL = "https://www.google.com/recaptcha/api/siteverify";
@@ -53,7 +55,7 @@
         const RECAPTCHA_SECRET_KEY_DEF_VALUE = "";
 
         function __construct () {
-            if ((int)$_GET['page_id'] === 2001) {
+            if (array_key_exists('page_id', $_GET) && (int)$_GET['page_id'] === 2001) {
                 add_filter('the_content', array($this, 'load_proxy'));
             }
 
@@ -356,14 +358,16 @@
             return $randomString;
         }
 
-        function display_test ($link, $code) { // TODO put actual test here
-            // echo "<iframe id=\"bbtest\" scrolling=\"no\" src=\"http://wpdev.tb-pro.com/?page_id=2001\"></iframe>";
-            echo "<iframe><iframe id=\"bbtest\" scrolling=\"no\" src=\"https://www.brainbench.com/testcenter/subcatresult/category2/Computer-Software/Internet-Software/2/19\"></iframe></iframe>";
-            echo "<form method=\"post\">";
-            echo "<input type=\"text\" name=\"reset\" value=\"1\" style=\"display: none\">";
-            echo sprintf("<input type=\"text\" name=\"code\" value=\"%s\" style=\"display: none\">", htmlspecialchars($code));
-            echo "<input type=\"submit\" value=\"Test Completed\">";
-            echo "</form>";
+        function display_test ($link, $code) {
+            // http://wpdev.tb-pro.com/?page_id=2001
+            // http://ros.bg/?page_id=281
+            // http://alttest.123assess.com
+            echo sprintf("<iframe id=\"bbtest\" name=\"bbtest\" scrolling=\"no\" src=\"http://wpdev.tb-pro.com/?page_id=2001&test=%s\"></iframe>", $_GET['test']);
+            // echo "<form method=\"post\">";
+            // echo "<input type=\"text\" name=\"reset\" value=\"1\" style=\"display: none\">";
+            // echo sprintf("<input type=\"text\" name=\"code\" value=\"%s\" style=\"display: none\">", htmlspecialchars($code));
+            // echo "<input type=\"submit\" value=\"Test Completed\">";
+            // echo "</form>";
         }
 
         function can_start_new_test () {
@@ -388,15 +392,33 @@
         }
 
         function load_proxy () {
-            $url = "https://www.brainbench.com/testcenter/subcatresult/category2/Computer-Software/Internet-Software/2/19";
-            $parse = parse_url($url);
-            $domain = $parse['scheme'] . '://' . $parse['host'] . '/';
-            $content = file_get_contents($url);
+            global $wpdb;
+            $content = '';
+
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $response = wp_remote_post("http://alttest.123assess.com/" . $_GET['post'] , ['body' => $_POST]);
+
+                $content = $response['body'];
+            } else if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+                $link_rows = $wpdb->get_results($wpdb->prepare(sprintf("SELECT link FROM %sbrainbench_tests WHERE code = '%s'", $wpdb->prefix, '%s'), $_GET['test']));
+                if (count($link_rows) <= 0) {
+                    return;
+                }
+                $url = $link_rows[0]->link;
+                $parse = parse_url($url);
+                $domain = $parse['scheme'] . '://' . $parse['host'] . '/';
+                $content = file_get_contents($url);
+            }
+
             $base_url = '';
             $content = str_replace('', $base_url . '', $content);
             $content = str_replace('src="/', 'src="' . $domain, $content);
             $content = str_replace('href="/', 'href="' . $domain, $content);
-            echo $content;
+            $content = str_replace('action="/', sprintf('action="?page_id=2001&test=%s&post=', $_GET['test']), $content);
+            echo "<div id=\"test-container\">$content</div>";
+
+            wp_enqueue_style( 'proxy-page-css', plugin_dir_url( __FILE__ ) . BrainBenchTestsPlugin::PROXY_PAGE_CSS_PATH );
+            wp_enqueue_script( 'proxy-page-js', plugin_dir_url( __FILE__ ) . BrainBenchTestsPlugin::PROXY_PAGE_JS_PATH );
         }
 
         function get_test_page ($err = NULL) {
@@ -458,6 +480,13 @@
             try {
                 if (array_key_exists('reset', $_POST)) { // THIS IS JUST FOR TESTING (TRIGGERS ON TEST COMPLETE CLICKED)
                     $wpdb->query($wpdb->prepare(sprintf("UPDATE %sbrainbench_tests SET status = '%s', unlock_time = 0 WHERE code = '%s'", $wpdb->prefix, BrainBenchTestStatus::COMPLETED, '%s'), $_POST['code']));
+                    $wpdb->insert(
+                        $wpdb->prefix . "brainbench_odit",
+                        array(
+                            'event' => "Test Completed",
+                            'test_id' => $test[0]->id
+                        )
+                    );
                     echo "<p id='info-msg'>Теста е завършен успешно.</p>";
                     return;
                 }
