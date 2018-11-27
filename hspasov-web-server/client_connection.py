@@ -139,6 +139,10 @@ class ClientConnection:
         fd = None
 
         try:
+            if os.path.isdir(file_path):
+                yield from self.send_meta(b'404')
+                return
+
             fd = os.open(file_path, os.O_RDONLY | os.O_NONBLOCK)
 
             log.error(TRACE, msg='requested file opened')
@@ -152,6 +156,7 @@ class ClientConnection:
                 str(self.res_meta.content_length),
                 'utf-8'
             )
+
             yield from self.send_meta(b'200', self.res_meta.headers)
 
             self.res_meta.packages_sent = 1

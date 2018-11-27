@@ -1,4 +1,5 @@
 import os
+import fcntl
 import socket
 import select
 import traceback
@@ -11,10 +12,11 @@ from web_server_utils import resolve_static_file_path
 
 
 class Worker:
-    def __init__(self, socket):
+    def __init__(self, socket, accept_lock_fd):
         log.error(TRACE)
 
         self._socket = socket
+        self._accept_lock_fd = accept_lock_fd
         self._poll = select.poll()
         self._activity_iterators = {}
 
@@ -115,6 +117,7 @@ class Worker:
         except IsADirectoryError as error:
             log.error(TRACE, msg='IsADirectoryError')
             log.error(DEBUG, msg=error)
+            log.error(DEBUG, var_name='client_conn.state', var_value=client_conn.state)
 
             if client_conn.state in (
                 ClientConnection.State.ESTABLISHED,
@@ -177,12 +180,19 @@ class Worker:
         log.error(TRACE)
 
         while True:
+            # try:
+            #     fcntl.lockf(self._accept_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            # except OSError:
+            #     ...
+
             yield (self._socket, select.POLLIN)
 
             conn, addr = self._socket.accept()
             log.error(TRACE, msg='connection accepted')
             log.error(DEBUG, var_name='conn', var_value=conn)
             log.error(DEBUG, var_name='addr', var_value=addr)
+
+            # fcntl.lockf(self._accept_lock_fd, fcntl.LOCK_UN)
 
             self.register_activity(
                 conn,
@@ -193,3 +203,4 @@ class Worker:
     def stop(self):
         log.error(TRACE)
         self._socket.close()
+        self._accept_lock_fd.close()

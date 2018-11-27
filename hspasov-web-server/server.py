@@ -12,6 +12,7 @@ class Server:
         log.error(TRACE)
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self._accept_lock_fd = open('accept_lock', 'w')
 
     def run(self):
         log.error(TRACE)
@@ -40,7 +41,7 @@ class Server:
                         try:
                             log.init_access_log_file()
 
-                            worker = Worker(self._socket)
+                            worker = Worker(self._socket, self._accept_lock_fd)
                             worker.start()  # event loop
                         except Exception as error:
                             log.error(INFO, msg=error)
