@@ -2,6 +2,7 @@ import traceback
 import json
 import os
 import socket
+import ssl
 from config import CONFIG
 from log import log, TRACE, DEBUG, INFO
 from worker import Worker
@@ -10,7 +11,16 @@ from worker import Worker
 class Server:
     def __init__(self):
         log.error(TRACE)
-        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+        if CONFIG['ssl']:
+            self._socket = ssl.wrap_socket(
+                socket.socket(socket.AF_INET, socket.SOCK_STREAM),
+                certfile=CONFIG['ssl_certificate'],
+                server_side=True
+            )
+        else:
+            self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
         self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._accept_lock_fd = open('accept_lock', 'w')
 

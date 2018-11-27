@@ -6,12 +6,15 @@ with open('./config.json', mode='r') as config_file:
     CONFIG = json.loads(config_file_content)
 
 # TODO assert_user
+assert_user(isinstance(CONFIG['ssl'], bool))
+assert_user(isinstance(CONFIG['ssl_certificate'], str))
 assert_user(isinstance(CONFIG['socket_operation_timeout'], int))
 assert_user(isinstance(CONFIG['read_buffer'], int))
 assert_user(isinstance(CONFIG['recv_buffer'], int))
 assert_user(isinstance(CONFIG['cgi_res_meta_limit'], int))
 assert_user(isinstance(CONFIG['req_meta_limit'], int))
 assert_user(isinstance(CONFIG['backlog'], int))
+assert_user(isinstance(CONFIG['workers'], int))
 assert_user(isinstance(CONFIG['protocol'], str))
 assert_user(isinstance(CONFIG['host'], str))
 assert_user(isinstance(CONFIG['port'], int))
