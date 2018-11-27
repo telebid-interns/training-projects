@@ -60,6 +60,7 @@ class ClientConnection:
 
             if len(self._msg_buffer) <= 0:
                 log.error(TRACE, msg='connection closed by peer')
+                self.state = ClientConnection.State.CLOSED
                 return
 
             if self._req_meta_raw.find(b'\r\n\r\n') != -1:

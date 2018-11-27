@@ -11,24 +11,15 @@ from web_server_utils import resolve_static_file_path
 
 
 class Worker:
-    def __init__(self):
+    def __init__(self, socket):
         log.error(TRACE)
 
-        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self._socket = socket
         self._poll = select.poll()
         self._activity_iterators = {}
 
     def start(self):
         log.error(TRACE)
-
-        self._socket.bind((CONFIG['host'], CONFIG['port']))
-        log.error(TRACE, msg='socket bound: {0}:{1}'.format(CONFIG['host'],
-                                                            CONFIG['port']))
-
-        self._socket.listen(CONFIG['backlog'])
-        log.error(TRACE,
-                  msg='listening... backlog: {0}'.format(CONFIG['backlog']))
 
         accept_iter = self.gen_accept()
 
@@ -88,6 +79,8 @@ class Worker:
 
             log.error(TRACE, msg='resolving file_path...')
 
+            log.error(DEBUG, var_name='req_meta', var_value=client_conn.req_meta)
+            log.error(DEBUG, msg=type(client_conn.req_meta))
             assert isinstance(client_conn.req_meta, RequestMeta)
             assert isinstance(client_conn.req_meta.target, str)
 

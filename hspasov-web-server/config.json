@@ -5,6 +5,7 @@
   "cgi_res_meta_limit": 8192,
   "req_meta_limit": 8192,
   "backlog": 2000,
+  "workers": 4,
   "protocol": "HTTP/1.1",
   "host": "localhost",
   "port": 8080,
