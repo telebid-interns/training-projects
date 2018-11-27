@@ -359,15 +359,7 @@
         }
 
         function display_test ($link, $code) {
-            // http://wpdev.tb-pro.com/?page_id=2001
-            // http://ros.bg/?page_id=281
-            // http://alttest.123assess.com
             echo sprintf("<iframe id=\"bbtest\" name=\"bbtest\" scrolling=\"no\" src=\"http://wpdev.tb-pro.com/?page_id=2001&test=%s\"></iframe>", $_GET['test']);
-            // echo "<form method=\"post\">";
-            // echo "<input type=\"text\" name=\"reset\" value=\"1\" style=\"display: none\">";
-            // echo sprintf("<input type=\"text\" name=\"code\" value=\"%s\" style=\"display: none\">", htmlspecialchars($code));
-            // echo "<input type=\"submit\" value=\"Test Completed\">";
-            // echo "</form>";
         }
 
         function can_start_new_test () {
@@ -396,7 +388,7 @@
             $content = '';
 
             if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                $response = wp_remote_post("http://alttest.123assess.com/" . $_GET['post'] , ['body' => $_POST]);
+                $response = wp_remote_post("http://alttest.123assess.com/" . $_GET['post'] , ['body' => $_POST]); // TODO remove hardcoding
 
                 $content = $response['body'];
             } else if ($_SERVER['REQUEST_METHOD'] === 'GET') {
@@ -413,9 +405,9 @@
             $base_url = '';
             $content = str_replace('', $base_url . '', $content);
             $content = str_replace('src="/', 'src="' . $domain, $content);
-            $content = str_replace('href="/', 'href="' . $domain, $content);
+            $content = str_replace('href="/', sprintf('href="http://%s?page_id=2001&test=%s&page=', $_SERVER['HOST_NAME'], $_GET['test']), $content);
             $content = str_replace('action="/', sprintf('action="?page_id=2001&test=%s&post=', $_GET['test']), $content);
-            echo "<div id=\"test-container\">$content</div>";
+            echo htmlspecialchars("<div id=\"test-container\">$content</div>");
 
             wp_enqueue_style( 'proxy-page-css', plugin_dir_url( __FILE__ ) . BrainBenchTestsPlugin::PROXY_PAGE_CSS_PATH );
             wp_enqueue_script( 'proxy-page-js', plugin_dir_url( __FILE__ ) . BrainBenchTestsPlugin::PROXY_PAGE_JS_PATH );
@@ -519,8 +511,6 @@
                 );
 
                 $this->assert_user($this->can_start_new_test(), BrainBenchTestsPlugin::SERVICE_BLOCKED_ERR_MSG);
-
-                echo sprintf("<script>window.open(\"%s\");</script>", htmlspecialchars($_POST['link']));
 
                 $wpdb->query($wpdb->prepare(sprintf("UPDATE %sbrainbench_tests SET status = '%s', unlock_time = '%s' WHERE code = '%s'", $wpdb->prefix, BrainBenchTestStatus::STARTED, strtotime('now +2 hour'), '%s'), $_POST['code']));
 
