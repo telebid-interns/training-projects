@@ -407,7 +407,7 @@
             $content = str_replace('src="/', 'src="' . $domain, $content);
             $content = str_replace('href="/', sprintf('href="http://%s?page_id=2001&test=%s&page=', $_SERVER['HOST_NAME'], $_GET['test']), $content);
             $content = str_replace('action="/', sprintf('action="?page_id=2001&test=%s&post=', $_GET['test']), $content);
-            echo htmlspecialchars("<div id=\"test-container\">$content</div>");
+            echo "<div id=\"test-container\">$content</div>";
 
             wp_enqueue_style( 'proxy-page-css', plugin_dir_url( __FILE__ ) . BrainBenchTestsPlugin::PROXY_PAGE_CSS_PATH );
             wp_enqueue_script( 'proxy-page-js', plugin_dir_url( __FILE__ ) . BrainBenchTestsPlugin::PROXY_PAGE_JS_PATH );
