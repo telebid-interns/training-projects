@@ -12,6 +12,7 @@
     class BrainBenchTestsPlugin {
         const CODE_LENGTH = 30;
         const TITLE = 'Brainbench Tests';
+        const PROXY_TITLE = 'Brainbench Proxy';
         const TEST_PATH = 'brainbench-tests';
         const FORM_CSS_PATH = 'css/wptests.css';
         const TEST_PAGE_CSS_PATH = 'css/test-form.css';
@@ -55,7 +56,7 @@
         const RECAPTCHA_SECRET_KEY_DEF_VALUE = "";
 
         function __construct () {
-            if (array_key_exists('page_id', $_GET) && (int)$_GET['page_id'] === 281) {
+            if (array_key_exists('page_id', $_GET) && get_page_by_title( BrainBenchTestsPlugin::PROXY_TITLE )->ID === (int)$_GET['page_id']) {
                 add_filter('the_content', array($this, 'load_proxy'));
             }
 
@@ -360,7 +361,7 @@
 
         function display_test ($link, $code) {
             //http://wpdev.tb-pro.com/?page_id=2001
-            echo sprintf("<iframe id=\"bbtest\" name=\"bbtest\" scrolling=\"no\" src=\"http://ros.bg/?page_id=281&test=%s&page=%s\"></iframe>", $_GET['test'], $link);
+            echo sprintf("<iframe id=\"bbtest\" name=\"bbtest\" scrolling=\"no\" src=\"http://ros.bg/?page_id=%s&test=%s&page=%s\"></iframe>", get_page_by_title(BrainBenchTestsPlugin::PROXY_TITLE)->ID, $_GET['test'], $link);
         }
 
         function can_start_new_test () {
@@ -389,10 +390,7 @@
             $content = '';
 
             if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                $response = wp_remote_post("http://alttest.123assess.com/" . $_GET['post'] , ['body' => $_POST]); 
-                // TODO remove hardcoding
-
-                $content = $response['body'];
+                $content = wp_remote_post("http://alttest.123assess.com/" . $_GET['post'] , ['body' => $_POST])['body'];
             } else if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $parse = parse_url($_GET['page']);
                 $domain = $parse['scheme'] . '://' . $parse['host'] . '/';
@@ -411,9 +409,9 @@
 
             $a_href_pattern = "<a[^<>]*?href=\"([^<>]*?)\"[^<>]*?>";
 
-            $content = preg_replace("/(<a[^<>]*?href=\")([^<>]*?)(\"[^<>]*?>)/", sprintf("$1http://%s?page_id=281&test=%s&page=$2$3", $_SERVER['HTTP_HOST'], $_GET['test']), $content);
+            $content = preg_replace("/(<a[^<>]*?href=\")([^<>]*?)(\"[^<>]*?>)/", sprintf("$1http://%s?page_id=%s&test=%s&page=$2$3", $_SERVER['HTTP_HOST'], get_page_by_title(BrainBenchTestsPlugin::PROXY_TITLE)->ID, $_GET['test']), $content);
 
-            $content = str_replace('action="/', sprintf('action="?page_id=281&test=%s&post=', $_GET['test']), $content);
+            $content = str_replace('action="/', sprintf('action="?page_id=%s&test=%s&post=', get_page_by_title(BrainBenchTestsPlugin::PROXY_TITLE)->ID, $_GET['test']), $content);
             echo "<div id=\"test-container\">$content</div>";
 
             wp_enqueue_style( 'proxy-page-css', plugin_dir_url( __FILE__ ) . BrainBenchTestsPlugin::PROXY_PAGE_CSS_PATH );
@@ -560,15 +558,19 @@
     function on_bbt_activate () {
         global $wpdb;
 
-        if (get_page_by_title( BrainBenchTestsPlugin::TITLE ) == null || get_page_by_title( BrainBenchTestsPlugin::TITLE )->post_status !== 'publish') {
-            // Create the page if no such
-            wp_insert_post(array(
-              'post_title'    => BrainBenchTestsPlugin::TITLE,
-              'post_content'  => '',
-              'post_status'   => 'publish',
-              'post_author'   => 1,
-              'post_type'     => 'page',
-            ));
+        $page_titles = [ BrainBenchTestsPlugin::TITLE, BrainBenchTestsPlugin::PROXY_TITLE ];
+
+        foreach ($page_titles as $page) {
+            if (get_page_by_title($page) == null || get_page_by_title($page)->post_status !== 'publish') {
+                // Create the page if no such
+                wp_insert_post(array(
+                  'post_title'    => $page,
+                  'post_content'  => '',
+                  'post_status'   => 'publish',
+                  'post_author'   => 1,
+                  'post_type'     => 'page',
+                ));
+            }
         }
 
         require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
@@ -627,8 +629,12 @@
     }
 
     function on_bbt_deactivate () {
-        if (get_page_by_title( BrainBenchTestsPlugin::TITLE ) != null) {
-            wp_delete_post(get_page_by_title( BrainBenchTestsPlugin::TITLE )->ID);
+        $page_titles = [ BrainBenchTestsPlugin::TITLE, BrainBenchTestsPlugin::PROXY_TITLE ];
+
+        foreach ($page_titles as $page) {
+            if (get_page_by_title($page) != null && get_page_by_title($page)->post_status === 'publish') {
+                wp_delete_post(get_page_by_title($page)->ID);
+            }
         }
     }
 
