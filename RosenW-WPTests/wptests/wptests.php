@@ -55,7 +55,7 @@
         const RECAPTCHA_SECRET_KEY_DEF_VALUE = "";
 
         function __construct () {
-            if (array_key_exists('page_id', $_GET) && (int)$_GET['page_id'] === 2001) {
+            if (array_key_exists('page_id', $_GET) && (int)$_GET['page_id'] === 281) {
                 add_filter('the_content', array($this, 'load_proxy'));
             }
 
@@ -359,7 +359,8 @@
         }
 
         function display_test ($link, $code) {
-            echo sprintf("<iframe id=\"bbtest\" name=\"bbtest\" scrolling=\"no\" src=\"http://wpdev.tb-pro.com/?page_id=2001&test=%s\"></iframe>", $_GET['test']);
+            //http://wpdev.tb-pro.com/?page_id=2001
+            echo sprintf("<iframe id=\"bbtest\" name=\"bbtest\" scrolling=\"no\" src=\"http://ros.bg/?page_id=281&test=%s&page=%s\"></iframe>", $_GET['test'], $link);
         }
 
         function can_start_new_test () {
@@ -388,25 +389,31 @@
             $content = '';
 
             if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                $response = wp_remote_post("http://alttest.123assess.com/" . $_GET['post'] , ['body' => $_POST]); // TODO remove hardcoding
+                $response = wp_remote_post("http://alttest.123assess.com/" . $_GET['post'] , ['body' => $_POST]); 
+                // TODO remove hardcoding
 
                 $content = $response['body'];
             } else if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-                $link_rows = $wpdb->get_results($wpdb->prepare(sprintf("SELECT link FROM %sbrainbench_tests WHERE code = '%s'", $wpdb->prefix, '%s'), $_GET['test']));
-                if (count($link_rows) <= 0) {
-                    return;
-                }
-                $url = $link_rows[0]->link;
-                $parse = parse_url($url);
+                $parse = parse_url($_GET['page']);
                 $domain = $parse['scheme'] . '://' . $parse['host'] . '/';
-                $content = file_get_contents($url);
+                $content = file_get_contents($_GET['page']);
             }
 
             $base_url = '';
             $content = str_replace('', $base_url . '', $content);
+            $content = str_replace('src="//', 'src="' . $parse['scheme'] . '://', $content);
             $content = str_replace('src="/', 'src="' . $domain, $content);
-            $content = str_replace('href="/', sprintf('href="http://%s?page_id=2001&test=%s&page=', $_SERVER['HOST_NAME'], $_GET['test']), $content);
-            $content = str_replace('action="/', sprintf('action="?page_id=2001&test=%s&post=', $_GET['test']), $content);
+            $content = str_replace('src="../', 'src="' . $domain . "../", $content);
+            $content = str_replace('srcset="../', 'srcset="' . $domain . "../", $content);
+            $content = str_replace('href="//', 'href="' . $parse['scheme'] . '://', $content);
+            $content = str_replace('href="/', 'href="' . $domain, $content);
+            $content = str_replace('href="../', 'href="' . $domain . "../", $content);
+
+            $a_href_pattern = "<a[^<>]*?href=\"([^<>]*?)\"[^<>]*?>";
+
+            $content = preg_replace("/(<a[^<>]*?href=\")([^<>]*?)(\"[^<>]*?>)/", sprintf("$1http://%s?page_id=281&test=%s&page=$2$3", $_SERVER['HTTP_HOST'], $_GET['test']), $content);
+
+            $content = str_replace('action="/', sprintf('action="?page_id=281&test=%s&post=', $_GET['test']), $content);
             echo "<div id=\"test-container\">$content</div>";
 
             wp_enqueue_style( 'proxy-page-css', plugin_dir_url( __FILE__ ) . BrainBenchTestsPlugin::PROXY_PAGE_CSS_PATH );
@@ -451,7 +458,7 @@
                 $this->assert_user($this->can_start_new_test(), BrainBenchTestsPlugin::SERVICE_BLOCKED_ERR_MSG);
 
                 echo "<form method=\"post\">";
-                echo "<p>За да започнете теста попълнете следната форма.</p>";
+                echo "<p>За да започнете теста попълнете капчата.</p>";
                 echo sprintf("<input type=\"text\" name=\"link\" value=\"%s\" style=\"display: none\">", htmlspecialchars($rows[0]->link));
                 echo sprintf("<input type=\"text\" name=\"code\" value=\"%s\" style=\"display: none\">", htmlspecialchars($rows[0]->code));
                 echo sprintf("<input type=\"text\" name=\"date-to\" value=\"%s\" style=\"display: none\">", htmlspecialchars($rows[0]->due_date));
