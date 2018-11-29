@@ -360,8 +360,7 @@
         }
 
         function display_test ($link, $code) {
-            //http://wpdev.tb-pro.com/?page_id=2001
-            echo sprintf("<iframe id=\"bbtest\" name=\"bbtest\" scrolling=\"no\" src=\"http://ros.bg/?page_id=%s&test=%s&page=%s\"></iframe>", get_page_by_title(BrainBenchTestsPlugin::PROXY_TITLE)->ID, $_GET['test'], $link);
+            echo sprintf("<iframe id=\"bbtest\" name=\"bbtest\" scrolling=\"no\" src=\"http://%s/?page_id=%s&test=%s&page=%s\"></iframe>", $_SERVER['HTTP_HOST'], get_page_by_title(BrainBenchTestsPlugin::PROXY_TITLE)->ID, $_GET['test'], $link);
         }
 
         function can_start_new_test () {
@@ -385,33 +384,72 @@
             }
         }
 
+        // "http://alttest.123assess.com/"
+        // echo var_dump($_POST); // PLAN B
+        // echo "<br><br><br><br>";
+        // echo $_GET['test'];
+        // echo "<br><br><br><br>";
+        // echo var_dump($_GET);
+        // echo "<br><br><br><br>";
+        // echo var_dump($GLOBALS['cookies']);
+        // return;
         function load_proxy () {
             global $wpdb;
             $content = '';
 
             if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-                $content = wp_remote_post("http://alttest.123assess.com/" . $_GET['post'] , ['body' => $_POST])['body'];
+                $cookies = array();
+                foreach ( $_COOKIE as $name => $value ) {
+                    array_push($cookies, new WP_Http_Cookie(array('name' => $name, 'value' => $value)));
+                }
+
+                $content = wp_remote_post($_GET['post'], [
+                    'body' => $_POST,
+                    'cookies' => $cookies
+                ])['body'];
             } else if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-                $parse = parse_url($_GET['page']);
-                $domain = $parse['scheme'] . '://' . $parse['host'] . '/';
-                $content = file_get_contents($_GET['page']);
+                $page = $_GET['page'];
+
+                foreach ($_GET as $key => $value) {
+                    if (!in_array($key, ['test', 'page_id', 'page'])) {
+                        $page .= sprintf('&%s=%s', $key, $value); 
+                    }
+                }
+
+                $entities = array('%21', '%2A', '%27', '%28', '%29', '%3B', '%3A', '%40', '%26', '%3D', '%2B', '%24', '%2C', '%2F', '%3F', '%25', '%23', '%5B', '%5D');
+                $replacements = array('!', '*', "'", "(", ")", ";", ":", "@", "&", "=", "+", "$", ",", "/", "?", "%", "#", "[", "]");
+
+                $page = str_replace($entities, $replacements, urlencode($page));
+                $content = file_get_contents($page);
             }
 
-            $base_url = '';
-            $content = str_replace('', $base_url . '', $content);
-            $content = str_replace('src="//', 'src="' . $parse['scheme'] . '://', $content);
-            $content = str_replace('src="/', 'src="' . $domain, $content);
-            $content = str_replace('src="../', 'src="' . $domain . "../", $content);
-            $content = str_replace('srcset="../', 'srcset="' . $domain . "../", $content);
-            $content = str_replace('href="//', 'href="' . $parse['scheme'] . '://', $content);
-            $content = str_replace('href="/', 'href="' . $domain, $content);
-            $content = str_replace('href="../', 'href="' . $domain . "../", $content);
+            $parse = parse_url($_GET['page']);
+            $domain = $parse['scheme'] . '://' . $parse['host'] . '/';
 
-            $a_href_pattern = "<a[^<>]*?href=\"([^<>]*?)\"[^<>]*?>";
+            $base_url = '';
+            $content = str_ireplace('', $base_url . '', $content);
+            $content = str_ireplace('src="//', 'src="' . $parse['scheme'] . '://', $content);
+            $content = str_ireplace('src="/', 'src="' . $domain, $content);
+            $content = str_ireplace('src="../', 'src="' . $domain . "../", $content);
+            $content = str_ireplace('srcset="../', 'srcset="' . $domain . "../", $content);
+            $content = str_ireplace('href="//', 'href="' . $parse['scheme'] . '://', $content);
+            $content = str_ireplace('href="/', 'href="' . $domain, $content);
+            $content = str_ireplace('href="../', 'href="' . $domain . "../", $content);
+            $content = str_replace('action="//', 'action="' . $parse['scheme'] . '://', $content);
+            $content = str_replace('action="/', 'action="' . $domain, $content);
+            $content = str_replace('action="../', 'action="' . $domain . "../", $content);
+
+            $content = str_ireplace('target="_blank"', '', $content);
+            $content = str_ireplace('t1.jsp', 'http://www.123assess.com/testcenter/brainbench/t1.jsp', $content);
+
+            $content = str_replace('/testcenter/brainbench/popup.jsp', sprintf('?page_id=%s&test=%s&page=http://www.123assess.com/testcenter/brainbench/popup.jsp', get_page_by_title(BrainBenchTestsPlugin::PROXY_TITLE)->ID, $_GET['test']), $content);
+
+            $content = str_replace('/batteryentry/enter.do', sprintf('?page_id=%s&test=%s&page=http://www.123assess.com/batteryentry/enter.do', get_page_by_title(BrainBenchTestsPlugin::PROXY_TITLE)->ID, $_GET['test']), $content);
 
             $content = preg_replace("/(<a[^<>]*?href=\")([^<>]*?)(\"[^<>]*?>)/", sprintf("$1http://%s?page_id=%s&test=%s&page=$2$3", $_SERVER['HTTP_HOST'], get_page_by_title(BrainBenchTestsPlugin::PROXY_TITLE)->ID, $_GET['test']), $content);
 
-            $content = str_replace('action="/', sprintf('action="?page_id=%s&test=%s&post=', get_page_by_title(BrainBenchTestsPlugin::PROXY_TITLE)->ID, $_GET['test']), $content);
+            $content = str_replace('action="', sprintf('action="?page_id=%s&test=%s&page=%s&post=', get_page_by_title(BrainBenchTestsPlugin::PROXY_TITLE)->ID, $_GET['test'], $_GET['page']), $content);
+
             echo "<div id=\"test-container\">$content</div>";
 
             wp_enqueue_style( 'proxy-page-css', plugin_dir_url( __FILE__ ) . BrainBenchTestsPlugin::PROXY_PAGE_CSS_PATH );
@@ -610,6 +648,18 @@
                 );
             ", $wpdb->prefix, $wpdb->prefix
         ));
+
+        // dbDelta(sprintf(" // PLAN B
+        //         CREATE TABLE IF NOT EXISTS %sbrainbench_cookies (
+        //             id INT AUTO_INCREMENT,
+        //             name TEXT NOT NULL,
+        //             value TEXT NOT NULL,
+        //             test_id INT,
+        //             PRIMARY KEY (id),
+        //             FOREIGN KEY (test_id) REFERENCES %sbrainbench_tests(id)
+        //         );
+        //     ", $wpdb->prefix, $wpdb->prefix
+        // ));
 
         $opts_default_values = [ BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME => BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_DEF_VALUE, BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME => BrainBenchTestsPlugin::EMAIL_MSG_DEF_VALUE, BrainBenchTestsPlugin::EMAIL_SENDER_OPT_NAME => BrainBenchTestsPlugin::EMAIL_SENDER_DEF_VALUE, BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_OPT_NAME => BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_DEF_VALUE, BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_OPT_NAME => BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_DEF_VALUE ];
 
