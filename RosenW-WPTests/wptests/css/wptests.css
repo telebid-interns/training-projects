@@ -1,4 +1,5 @@
-form {
+.admin-form {
+  text-align: center;
   margin: 0 auto;
   width: 600px;
   padding: 1em;
@@ -7,8 +8,17 @@ form {
   margin-top: 5em;
 }
 
-form div + div {
-  margin-top: 1em;
+.tests {
+  margin: 0 auto;
+  width: 95%;
+  padding: 1em;
+  border: 1px solid #CCC;
+  border-radius: 1em;
+  margin-top: 5em;
+}
+
+.controls {
+  text-align: center;
 }
 
 label {
@@ -24,6 +34,7 @@ input, textarea {
   box-sizing: border-box;
 
   border: 1px solid #999;
+  resize: vertical;
 }
 
 input:focus {
@@ -31,7 +42,13 @@ input:focus {
 }
 
 p {
-  margin-left: 22em;
+  text-align: center;
+  font-weight: bold;
+}
+
+span {
+  text-align: center;
+  font-weight: bold;
 }
 
 .invalid-input {
@@ -40,4 +57,8 @@ p {
 
 #err-msg {
   color: #FF0000;
+}
+
+.ctrl-form {
+  display: inline;
 }

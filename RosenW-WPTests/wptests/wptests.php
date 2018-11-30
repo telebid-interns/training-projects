@@ -1,6 +1,6 @@
 <?php
     /*
-    * Plugin Name: BrainBenchTests
+    * Plugin Name: Brainbench Tests
     * Description: Plugin that enables a form for sending brainbench tests
     * Version: 1.4
     * Author: Rosen
@@ -11,11 +11,12 @@
 
     class BrainBenchTestsPlugin {
         const CODE_LENGTH = 30;
+        const TESTS_PER_PAGE = 50;
         const TITLE = 'Brainbench Tests';
         const PROXY_TITLE = 'Brainbench Proxy';
         const TEST_PATH = 'brainbench-tests';
         const FORM_CSS_PATH = 'css/wptests.css';
-        const TEST_PAGE_CSS_PATH = 'css/test-form.css';
+        const TEST_PAGE_CSS_PATH = 'css/test-form.css'; // TODO: change names
         const PROXY_PAGE_CSS_PATH = 'css/proxy.css';
         const PROXY_PAGE_JS_PATH = 'js/proxy.js';
         const JS_SET_DEFAULTS_PATH = 'js/wptests.js';
@@ -32,14 +33,14 @@
         const DUE_DATE_BEFORE_START_DATE_ERR_MSG = "Датата на срока трябва да бъде след датата на започване.";
 
             // settings form
-        const INVALID_CC_ERR_MSG = "Невалидна конкурентност.";
+        const INVALID_CC_ERR_MSG = "Невалиден брой слотове.";
 
         // Test page errors
-        const DUE_DATE_MET_ERR_MSG = "Срока е изтекъл.";
+        const DUE_DATE_MET_ERR_MSG = "Срокът е изтекъл.";
         const LINK_NOT_VALID_ERR_MSG = "Линкът не е валиден.";
         const SERVICE_BLOCKED_ERR_MSG = "Услугата е заета, опитайте по-късно.";
-        const TEST_ALREADY_COMPLETED_ERR_MSG = "Теста вече е направен.";
-        const START_DATE_IN_THE_FUTURE_ERR_MSG = "Теста ще бъде активен от %s до %s вкл.";
+        const TEST_ALREADY_COMPLETED_ERR_MSG = "Тестът вече е направен.";
+        const START_DATE_IN_THE_FUTURE_ERR_MSG = "Тестът ще бъде активен от %s до %s вкл.";
         const INVALID_POST_PARAMETERS_ERR_MSG = "Невалидна заявка.";
         const RECAPTCHA_FAILED_ERR_MSG = "Моля потвърдете, че не сте робот.";
 
@@ -75,7 +76,7 @@
 
         function brainbench_tests_setup_menu () {
             if (current_user_can('administrator')) {
-                $test_menu = add_menu_page('Send Test', 'Send Test', 'manage_options', 'wp_tests', array($this, 'init_page'));
+                $test_menu = add_menu_page('Send Test', 'Send Test', 'manage_options', 'wp_tests', array($this, 'init_page')); // TODO: change wp_tests
             }
         }
 
@@ -83,10 +84,7 @@
             wp_enqueue_style( 'form-css', plugin_dir_url( __FILE__ ) . BrainBenchTestsPlugin::FORM_CSS_PATH );
             
             if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-                $this->display_send_test_form();
-                $this->display_settings_form();
-                $this->display_tests();
-                wp_enqueue_script( 'set-default-dates', plugin_dir_url( __FILE__ ) . BrainBenchTestsPlugin::JS_SET_DEFAULTS_PATH );
+                $this->get_admin_page();
             }
 
             if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -109,11 +107,13 @@
             }
 
             echo vsprintf("
-                    <form method=\"post\">
+                    <label id=\"settings-form\"></label>
+                    <form id=\"settings-form\" class=\"admin-form\" method=\"post\" action=\"#settings-form\">
+                        <p>Settings</p>
                         <label for=\"max_parallel\">Test Slots:</label>
                         <input name=\"max_parallel\" value=\"%s\">
                         <label for=\"email_sender\">Email Sender:</label>
-                        <input name=\"email_sender\" value=\"%s\">
+                        <input name=\"email_sender\" type=\"email\" value=\"%s\">
                         <label for=\"email_msg\">Email Text:</label>
                         <textarea name=\"email_msg\" rows=\"4\" style=\"width: 400px; margin-top: 20px;\">%s</textarea>
                         <label for=\"site_key\">Recaptcha site key:</label>
@@ -125,6 +125,15 @@
                     </form>
                 ", $settings
             );
+        }
+
+        function get_admin_page () {
+            global $wpdb;
+            $wpdb->query(sprintf("UPDATE %sbrainbench_tests SET status = '%s' WHERE unlock_time <= '%s' AND status = '%s'", $wpdb->prefix, BrainBenchTestStatus::COMPLETED, strtotime('now'), BrainBenchTestStatus::STARTED));
+            $this->display_send_test_form();
+            $this->display_settings_form();
+            $this->display_tests();
+            wp_enqueue_script( 'set-default-dates', plugin_dir_url( __FILE__ ) . BrainBenchTestsPlugin::JS_SET_DEFAULTS_PATH );
         }
 
         function post_admin_page () {
@@ -147,12 +156,14 @@
                 $rows = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME));
 
 
-                echo "<form method=\"post\">";
+                echo "<label id=\"settings-form\"></label>";
+                echo "<form class=\"admin-form\" method=\"post\" action=\"#settings-form\">";
+                echo "<p>Settings</p>";
                 echo "  <label for=\"max_parallel\">Test Slots: </label>\n";
                 echo (is_numeric($_POST['max_parallel']) && (int) $_POST['max_parallel'] > 0 ? sprintf("<input name=\"max_parallel\" value=\"%s\">", htmlspecialchars($_POST['max_parallel'])) : sprintf("<input name=\"max_parallel\" class=\"invalid-input\" value=\"%s\">", $rows[0]->opt_value));
                 echo sprintf("
                     <label for=\"email_sender\">Email Sender:</label>
-                    <input name=\"email_sender\" value=\"%s\">", $_POST['email_sender']
+                    <input name=\"email_sender\" type=\"email\" value=\"%s\">", $_POST['email_sender']
                 );
                 echo sprintf("
                     <label for=\"email_msg\">Email Text:</label>
@@ -199,18 +210,20 @@
             }
 
             // adding invalid-input class on invalid data
-            echo "<form id=\"test-form\" method=\"post\">"; // send tests form
-            echo "<label for=\"link\">link URL:</label>\n";
+            echo "<label id=\"test-form\"></label>";
+            echo "<form class=\"admin-form\" method=\"post\" action=\"#test-from\">"; // send tests form
+            echo "<p>Send Test</p>";
+            echo "<label for=\"link\">Link URL:</label>\n";
             echo ($_POST['link'] ? sprintf("<input id=\"link\" type=\"text\" name=\"link\" value=\"%s\">", htmlspecialchars($_POST['link'])) : "<input id=\"link\" type=\"text\" name=\"link\" class=\"invalid-input\">");
             echo "<label for=\"real-name\">Name:</label>\n";
             echo ($_POST['real-name'] ? sprintf("<input id=\"real-name\" type=\"text\" name=\"real-name\" value=\"%s\">", htmlspecialchars($_POST['real-name'])) : "<input id=\"real-name\" type=\"text\" name=\"real-name\" class=\"invalid-input\">");
             echo "<label for=\"email\">E-mail:</label>\n";
             echo ($_POST['email'] && filter_var($_POST['email'], FILTER_VALIDATE_EMAIL) ? sprintf("<input id=\"email\" type=\"email\" name=\"email\" value=\"%s\">", htmlspecialchars($_POST['email'])) : sprintf("<input id=\"email\" type=\"email\" name=\"email\" value=\"%s\" class=\"invalid-input\">", htmlspecialchars($_POST['email'])));
-            echo "<label for=\"date-from\">Активен от:</label>\n";
+            echo "<label for=\"date-from\">Start Date:</label>\n";
             echo ($_POST['date-from'] && $this->isRealDate($_POST['date-from']) && strtotime($_POST['date-from']) >= strtotime('today') ? sprintf("<input id=\"date-from\" type=\"date\" name=\"date-from\" value=\"%s\">", htmlspecialchars($_POST['date-from'])) : sprintf("<input id=\"date-from\" type=\"date\" name=\"date-from\" value=\"%s\" class=\"invalid-input\">", htmlspecialchars($_POST['date-from'])));
-            echo "<label for=\"date-to\">Срок:</label>\n";
+            echo "<label for=\"date-to\">Due Date:</label>\n";
             echo ($_POST['date-to'] && $this->isRealDate($_POST['date-to']) && strtotime($_POST['date-to']) >= strtotime($_POST['date-from']) ? sprintf("<input id=\"date-to\" type=\"date\" name=\"date-to\" value=\"%s\">", htmlspecialchars($_POST['date-to'])) : sprintf("<input id=\"date-to\" type=\"date\" name=\"date-to\" value=\"%s\" class=\"invalid-input\">", htmlspecialchars($_POST['date-to'])));
-            echo "<label for=\"submit\"></label>";
+            echo "<label for=\"submit\"></label>\n";
             echo "<input type=\"submit\" value=\"Send Email\">";
 
             $has_errors = false;
@@ -284,16 +297,18 @@
 
         function display_send_test_form () {
             echo "
-                <form id=\"test-form\" method=\"post\">
-                    <label for=\"link\">link URL:</label>
+                <label id=\"test-from\"></label>
+                <form class=\"admin-form\" id=\"test-form\" method=\"post\" action=\"#test-from\">
+                    <p>Send Test</p>
+                    <label for=\"link\">Link URL:</label>
                     <input id=\"link\" name=\"link\">
                     <label for=\"real-name\">Name:</label>
                     <input id=\"real-name\" name=\"real-name\">
                     <label for=\"email\">E-mail:</label>
                     <input id=\"email\" type=\"email\" name=\"email\">
-                    <label for=\"date-from\">Активен от:</label>
+                    <label for=\"date-from\">Start Date:</label>
                     <input id=\"date-from\" type=\"date\" name=\"date-from\">
-                    <label for=\"date-to\">Срок:</label>
+                    <label for=\"date-to\">Due Date:</label>
                     <input id=\"date-to\" type=\"date\" name=\"date-to\">
                     <label for=\"submit\"></label>
                     <input type=\"submit\" value=\"Send Email\">
@@ -303,9 +318,53 @@
 
         function display_tests () {
             global $wpdb;
-
-            $rows = $wpdb->get_results(sprintf("SELECT * FROM %sbrainbench_tests", $wpdb->prefix));
-
+            $search = '';
+            $offset = 0;
+            $real_offset = 0;
+            if (array_key_exists('search', $_GET)) {
+                $search = $_GET['search'];
+            }
+            if (array_key_exists('offset', $_GET) && is_numeric($_GET['offset']) && (int) $_GET['offset'] > 0) {
+                $offset = (int) $_GET['offset'];
+                $real_offset = (int) $_GET['offset'] * BrainBenchTestsPlugin::TESTS_PER_PAGE;
+            }
+            $test_count = $wpdb->get_results(sprintf("SELECT COUNT(*) as count FROM %sbrainbench_tests WHERE email LIKE '%s'", $wpdb->prefix, '%' . $search . '%'));
+            $test_rows = $wpdb->get_results(sprintf("SELECT * FROM %sbrainbench_tests WHERE email LIKE '%s' ORDER BY id DESC LIMIT %s OFFSET %s", $wpdb->prefix, '%' . $search . '%', BrainBenchTestsPlugin::TESTS_PER_PAGE, $real_offset));
+            echo "
+                <label id=\"search-form\"></label>
+                <form class=\"admin-form\" action=\"#search-form\">
+                    <p>Search Test</p>
+                    <input name=\"page\" value=\"wp_tests\" style=\"display: none\">
+                    <label for=\"search\">Email:</label>
+                    <input name=\"search\">
+                    <label></label>
+                    <input type=\"submit\" value=\"Search\">
+                </form>
+            ";
+            echo "<label id=\"test-report\"></label>";
+            echo "<div class=\"tests\">";
+            echo sprintf("<p>Showing %s-%s out of %s results</p>", $real_offset, $real_offset + count($test_rows), $test_count[0]->count);
+            echo "<div class=\"controls\">";
+            echo sprintf(
+                "<form class=\"ctrl-form\" action=\"#test-report\">
+                    <input name=\"page\" value=\"wp_tests\" style=\"display: none\">
+                    <input name=\"search\" value=\"%s\" style=\"display: none\">
+                    <input name=\"offset\" value=\"%s\" style=\"display: none\">
+                    <button>Previous Page</button>
+                </form>", $search, $offset - 1
+            );
+            if ($real_offset + count($test_rows) === (int) $test_count[0]->count) {
+                $offset -= 1;
+            }
+            echo sprintf(
+                "<form class=\"ctrl-form\" action=\"#test-report\">
+                    <input name=\"page\" value=\"wp_tests\" style=\"display: none\">
+                    <input name=\"search\" value=\"%s\" style=\"display: none\">
+                    <input name=\"offset\" value=\"%s\" style=\"display: none\">
+                    <button>Next Page</button>
+                </form>", $search, $offset + 1
+            );
+            echo "</div>";
             echo "<table class=\"test-table\" style=\"margin-top: 3em; width: 100%;\">";
             echo "  <tr>
                         <th>ID</th>
@@ -315,22 +374,18 @@
                         <th>Due Date</th>
                         <th>Code</th>
                         <th>Status</th>
-                        <th>Odit</th>
+                        <th>Audit</th>
                     </tr>";
-            foreach ($rows as $row) {
-                $test_odits = $wpdb->get_results(sprintf("SELECT * FROM %sbrainbench_odit WHERE test_id = '%s'", $wpdb->prefix, $row->id));
-
-                $odit = '';
-
-                if (count($test_odits) > 0) {
-                    foreach ($test_odits as $test_odit) {
-
-                        $odit .= sprintf("%s%s%s\\n", $test_odit->time, str_repeat(" ", 20), $test_odit->event);
+            foreach ($test_rows as $row) {
+                $test_audits = $wpdb->get_results(sprintf("SELECT * FROM %sbrainbench_odit WHERE test_id = '%s'", $wpdb->prefix, $row->id));
+                $audit = '';
+                if (count($test_audits) > 0) {
+                    foreach ($test_audits as $test_audit) {
+                        $audit .= sprintf("%s%s%s\\n", $test_audit->time, str_repeat(" ", 20), $test_audit->event);
                     }
                 } else {
-                    $odit .= 'No actions have been performed for this test.';
+                    $audit .= 'No actions have been performed for this test.';
                 }
-
                 echo sprintf("  
                     <tr>
                         <th>%s</th>
@@ -340,11 +395,12 @@
                         <th>%s</th>
                         <th>%s</th>
                         <th>%s</th>
-                        <th onclick=\"alert('%s'); return false;\"><a href=\"\">odit</a></th>
-                    </tr>", $row->id, htmlspecialchars($row->link),  $row->email,  $row->start_date,  $row->due_date, $row->code, $row->status, $odit
+                        <th onclick=\"alert('%s'); return false;\"><a href=\"\">audit</a></th>
+                    </tr>", $row->id, htmlspecialchars($row->link),  $row->email,  $row->start_date,  $row->due_date, $row->code, $row->status, $audit
                 );
             }
             echo "</table>";
+            echo "</div>";
         }
 
         function generateRandomString ($length = 20) {
@@ -385,14 +441,18 @@
         }
 
         // "http://alttest.123assess.com/"
-        // echo var_dump($_POST); // PLAN B
-        // echo "<br><br><br><br>";
-        // echo $_GET['test'];
-        // echo "<br><br><br><br>";
-        // echo var_dump($_GET);
-        // echo "<br><br><br><br>";
-        // echo var_dump($GLOBALS['cookies']);
-        // return;
+        // WOKING COOKIES EXAMPLE
+
+        //  Origin: http://www.123assess.com
+        //  Upgrade-Insecure-Requests: 1
+        //  Content-Type: application/x-www-form-urlencoded
+        //  User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/70.0.3538.77 Chrome/70.0.3538.77 Safari/537.36
+        //  Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8
+        //  Referer: http://www.123assess.com/batteryentry/enter.do?pin=ZC11484-UP1L-MZVE&requesturi=%2Fvtc%2Fassess%2Fbegin.jsp
+        //  Accept-Encoding: gzip, deflate
+        //  Accept-Language: en-GB,en;q=0.9,bg;q=0.8,en-US;q=0.7
+        //  Cookie: opEueMonUID=u_mh5cblew3eojn4a36qq; JSESSIONID=C8163766C459D6E8025240EAE59EE6BA; _op_jsTiming=1543501020185%7Chttp%3A%2F%2Fwww.123assess.com%2Fevent%2Fdispatch
+
         function load_proxy () {
             global $wpdb;
             $content = '';
@@ -403,7 +463,7 @@
                     array_push($cookies, new WP_Http_Cookie(array('name' => $name, 'value' => $value)));
                 }
 
-                $content = wp_remote_post($_GET['post'], [
+                $content = wp_remote_post($_GET['post'], [ // TODO add Headers
                     'body' => $_POST,
                     'cookies' => $cookies
                 ])['body'];
@@ -462,7 +522,7 @@
             try {
                 $site_key = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_OPT_NAME))[0]->opt_value;
 
-                wp_enqueue_script( 'recaptcha', sprintf("https://www.google.com/recaptcha/api.js", $site_key) );
+                wp_enqueue_script('recaptcha', sprintf("https://www.google.com/recaptcha/api.js", $site_key));
 
                 $this->assert_user(array_key_exists('test', $_GET), BrainBenchTestsPlugin::LINK_NOT_VALID_ERR_MSG);
 
@@ -478,30 +538,28 @@
                     )
                 );
 
-                if ($rows[0]->status === BrainBenchTestStatus::STARTED) {
-                    $this->display_test($rows[0]->link, $rows[0]->code);
-                    return;
-                }
 
                 // TODO: replace $rows[0] with test
                 $this->assert_user($rows[0]->status !== BrainBenchTestStatus::COMPLETED, BrainBenchTestsPlugin::TEST_ALREADY_COMPLETED_ERR_MSG);
 
-                $wpdb->query($wpdb->prepare(sprintf("UPDATE %sbrainbench_tests SET status = '%s' WHERE code = '%s'", $wpdb->prefix, BrainBenchTestStatus::ACTIVATED, '%s'), $_GET['test']));
 
                 $this->assert_user(strtotime($rows[0]->start_date) <= strtotime('today'), sprintf(BrainBenchTestsPlugin::START_DATE_IN_THE_FUTURE_ERR_MSG, $rows[0]->start_date, $rows[0]->due_date));
                 $this->assert_user(strtotime($rows[0]->due_date) >= strtotime('today'), BrainBenchTestsPlugin::DUE_DATE_MET_ERR_MSG);
 
+                if ($rows[0]->status === BrainBenchTestStatus::STARTED) {
+                    $this->display_test($rows[0]->link, $rows[0]->code);
+                    return;
+                }
+                $wpdb->query($wpdb->prepare(sprintf("UPDATE %sbrainbench_tests SET status = '%s' WHERE code = '%s'", $wpdb->prefix, BrainBenchTestStatus::ACTIVATED, '%s'), $_GET['test']));
+
                 $this->assert_user($this->can_start_new_test(), BrainBenchTestsPlugin::SERVICE_BLOCKED_ERR_MSG);
 
-                echo "<form method=\"post\">";
-                echo "<p>За да започнете теста попълнете капчата.</p>";
-                echo sprintf("<input type=\"text\" name=\"link\" value=\"%s\" style=\"display: none\">", htmlspecialchars($rows[0]->link));
-                echo sprintf("<input type=\"text\" name=\"code\" value=\"%s\" style=\"display: none\">", htmlspecialchars($rows[0]->code));
-                echo sprintf("<input type=\"text\" name=\"date-to\" value=\"%s\" style=\"display: none\">", htmlspecialchars($rows[0]->due_date));
+                echo "<form class=\"admin-form\" method=\"post\" style=\"width: 300px; margin-left: 38%\">";
+                echo "<p>За да започнете теста попълнете следната captcha.</p>";
                 echo sprintf("<div class=\"g-recaptcha\" data-sitekey=\"%s\"></div>", $site_key);
                 echo "<input type=\"submit\" value=\"Start Test\" style=\"width: 100%\">";
                 if ($err) {
-                    echo sprintf("<p style=\"color: #FF0000;\">%s</p>", htmlspecialchars($err->getMessage()));
+                    echo sprintf("<p id=\"err-msg\" style=\"color: #FF0000;\">%s</p>", htmlspecialchars($err->getMessage()));
                 }
                 echo "</form>";
             } catch (UserErrorWPTests $err) {
@@ -513,51 +571,37 @@
             global $wpdb;
 
             try {
-                if (array_key_exists('reset', $_POST)) { // THIS IS JUST FOR TESTING (TRIGGERS ON TEST COMPLETE CLICKED)
-                    $wpdb->query($wpdb->prepare(sprintf("UPDATE %sbrainbench_tests SET status = '%s', unlock_time = 0 WHERE code = '%s'", $wpdb->prefix, BrainBenchTestStatus::COMPLETED, '%s'), $_POST['code']));
-                    $wpdb->insert(
-                        $wpdb->prefix . "brainbench_odit",
-                        array(
-                            'event' => "Test Completed",
-                            'test_id' => $test[0]->id
-                        )
-                    );
-                    echo "<p id='info-msg'>Теста е завършен успешно.</p>";
-                    return;
-                }
-
                 $site_key = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_OPT_NAME))[0]->opt_value;
                 $secret_key = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_OPT_NAME))[0]->opt_value;
 
                 wp_enqueue_script( 'recaptcha', sprintf("https://www.google.com/recaptcha/api.js", $site_key) );
 
-                $test = $wpdb->get_results($wpdb->prepare(sprintf("SELECT * FROM %sbrainbench_tests WHERE code = '%s'", $wpdb->prefix, '%s'), $_POST['code']));
+                $test_rows = $wpdb->get_results($wpdb->prepare(sprintf("SELECT * FROM %sbrainbench_tests where code = '%s'", $wpdb->prefix, '%s'), $_GET['test']));
 
-                $this->assert_user(count($test) === 1, BrainBenchTestsPlugin::LINK_NOT_VALID_ERR_MSG);
+                $this->assert_user(count($test_rows) === 1, BrainBenchTestsPlugin::LINK_NOT_VALID_ERR_MSG);
 
                 $response = wp_remote_post(BrainBenchTestsPlugin::RECAPTCHA_VERIFY_URL, 
                     ['body' => [
                         'secret' => $secret_key, 
                         'response' => $_POST['g-recaptcha-response']
-                    ]]);
+                    ]]
+                );
 
                 $this->assert_user(json_decode($response["body"])->success === true, BrainBenchTestsPlugin::RECAPTCHA_FAILED_ERR_MSG);
-
-                $this->assert_user(array_key_exists('code', $_POST) && array_key_exists('link', $_POST), BrainBenchTestsPlugin::INVALID_POST_PARAMETERS_ERR_MSG);
 
                 $wpdb->insert(
                     $wpdb->prefix . "brainbench_odit",
                     array(
                         'event' => sprintf("Start button clicked"),
-                        'test_id' => $test[0]->id
+                        'test_id' => $test_rows[0]->id
                     )
                 );
 
                 $this->assert_user($this->can_start_new_test(), BrainBenchTestsPlugin::SERVICE_BLOCKED_ERR_MSG);
 
-                $wpdb->query($wpdb->prepare(sprintf("UPDATE %sbrainbench_tests SET status = '%s', unlock_time = '%s' WHERE code = '%s'", $wpdb->prefix, BrainBenchTestStatus::STARTED, strtotime('now +2 hour'), '%s'), $_POST['code']));
+                $wpdb->query($wpdb->prepare(sprintf("UPDATE %sbrainbench_tests SET status = '%s', unlock_time = '%s' WHERE code = '%s'", $wpdb->prefix, BrainBenchTestStatus::STARTED, strtotime('now +2 hour'), '%s'), $test_rows[0]->code));
 
-                $this->display_test($_POST['link'], $_POST['code']);
+                echo sprintf("<script>document.location.href='%s'</script>", htmlspecialchars($test_rows[0]->link));
             } catch (UserErrorWPTests $err) {
                 $this->get_test_page($err);
             }
@@ -648,18 +692,6 @@
                 );
             ", $wpdb->prefix, $wpdb->prefix
         ));
-
-        // dbDelta(sprintf(" // PLAN B
-        //         CREATE TABLE IF NOT EXISTS %sbrainbench_cookies (
-        //             id INT AUTO_INCREMENT,
-        //             name TEXT NOT NULL,
-        //             value TEXT NOT NULL,
-        //             test_id INT,
-        //             PRIMARY KEY (id),
-        //             FOREIGN KEY (test_id) REFERENCES %sbrainbench_tests(id)
-        //         );
-        //     ", $wpdb->prefix, $wpdb->prefix
-        // ));
 
         $opts_default_values = [ BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME => BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_DEF_VALUE, BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME => BrainBenchTestsPlugin::EMAIL_MSG_DEF_VALUE, BrainBenchTestsPlugin::EMAIL_SENDER_OPT_NAME => BrainBenchTestsPlugin::EMAIL_SENDER_DEF_VALUE, BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_OPT_NAME => BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_DEF_VALUE, BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_OPT_NAME => BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_DEF_VALUE ];
 
