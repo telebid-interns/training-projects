@@ -180,25 +180,33 @@ class Worker:
         log.error(TRACE)
 
         while True:
-            # try:
-            #     fcntl.lockf(self._accept_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            # except OSError:
-            #     ...
+            try:
+                fcntl.lockf(self._accept_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
 
-            yield (self._socket, select.POLLIN)
+                yield (self._socket, select.POLLIN)
 
-            conn, addr = self._socket.accept()
-            log.error(TRACE, msg='connection accepted')
-            log.error(DEBUG, var_name='conn', var_value=conn)
-            log.error(DEBUG, var_name='addr', var_value=addr)
+                conn, addr = self._socket.accept()
+                log.error(TRACE, msg='connection accepted')
+                log.error(DEBUG, var_name='conn', var_value=conn)
+                log.error(DEBUG, var_name='addr', var_value=addr)
 
-            # fcntl.lockf(self._accept_lock_fd, fcntl.LOCK_UN)
+                fcntl.lockf(self._accept_lock_fd, fcntl.LOCK_UN)
 
-            self.register_activity(
-                conn,
-                select.POLLIN,
-                self.req_handler(ClientConnection(conn, addr))
-            )
+                self.register_activity(
+                    conn,
+                    select.POLLIN,
+                    self.req_handler(ClientConnection(conn, addr))
+                )
+            except OSError:
+                # There is a performance problem with this implementation:
+                # let's say that worker 1 locks,
+                # then a client wants to connect,
+                # then worker 1 doesnt accept the connection quickly enough.
+                # In this case the rest of the workers
+                # will loop until worker 1 accepts the connection.
+                # Though, that would not prevent them from serving
+                # any requests they have to serve, thanks to yield
+                yield (self._socket, select.POLLIN)
 
     def stop(self):
         log.error(TRACE)
