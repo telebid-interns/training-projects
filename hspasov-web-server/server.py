@@ -1,5 +1,3 @@
-import traceback
-import json
 import os
 import socket
 import ssl
@@ -47,7 +45,7 @@ class Server:
 
                     pid = os.fork()
 
-                    if pid == 0:  # child proces8s
+                    if pid == 0:  # child process
                         try:
                             log.init_access_log_file()
 
@@ -69,33 +67,3 @@ class Server:
             finally:
                 if pid is not None and pid == 0:
                     log.close_access_log_file()
-
-
-def start():
-    log.error(TRACE)
-
-    server = Server()
-
-    try:
-        server.run()
-    except OSError as error:
-        log.error(TRACE, msg='OSError thrown while initializing web server')
-        log.error(INFO, msg=error)
-    except AssertionError as error:
-        log.error(TRACE, msg='AssertionError thrown')
-        log.error(INFO, msg=str(error) + str(traceback.format_exc()))
-    except Exception as error:
-        log.error(TRACE, msg='Exception thrown')
-        log.error(INFO, msg=str(error) + str(traceback.format_exc()))
-
-
-if __name__ == '__main__':
-    try:
-        log.error(DEBUG, var_name='config', var_value=CONFIG)
-
-        start()
-    except OSError as error:
-        log.error(INFO, msg=error)
-    except json.JSONDecodeError as error:
-        log.error(INFO,
-                  msg='error while parsing config file: {0}'.format(error))

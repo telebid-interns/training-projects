@@ -1,7 +1,13 @@
+import os
+import sys
 import json
 from error_handling import assert_user
 
-with open('./config.json', mode='r') as config_file:
+assert_user(len(sys.argv) == 2, 'Expected argument config file')
+assert_user(os.path.isfile(sys.argv[1]),
+            'File not found. Absolute path expected!')
+
+with open(sys.argv[1], mode='r') as config_file:
     config_file_content = config_file.read()
     CONFIG = json.loads(config_file_content)
 
