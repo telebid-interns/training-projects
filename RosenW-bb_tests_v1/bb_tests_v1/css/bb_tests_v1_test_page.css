@@ -24,6 +24,7 @@ input, textarea {
   box-sizing: border-box;
 
   border: 1px solid #999;
+  resize: vertical;
 }
 
 input:focus {

@@ -31,11 +31,11 @@
         const INVALID_CC_ERR_MSG = "Невалиден брой слотове.";
 
         // Test page errors
-        const DUE_DATE_MET_ERR_MSG = "Срока е изтекъл.";
+        const DUE_DATE_MET_ERR_MSG = "Срокът е изтекъл.";
         const LINK_NOT_VALID_ERR_MSG = "Линкът не е валиден.";
         const SERVICE_BLOCKED_ERR_MSG = "Услугата е заета, опитайте по-късно.";
-        const TEST_ALREADY_COMPLETED_ERR_MSG = "Теста вече е направен.";
-        const START_DATE_IN_THE_FUTURE_ERR_MSG = "Теста ще бъде активен от %s до %s вкл.";
+        const TEST_ALREADY_COMPLETED_ERR_MSG = "Тестът вече е направен.";
+        const START_DATE_IN_THE_FUTURE_ERR_MSG = "Тестът ще бъде активен от %s до %s вкл.";
         const INVALID_POST_PARAMETERS_ERR_MSG = "Невалидна заявка.";
         const RECAPTCHA_FAILED_ERR_MSG = "Моля потвърдете, че не сте робот.";
 
@@ -104,7 +104,7 @@
                         <label for=\"max_parallel\">Test Slots:</label>
                         <input name=\"max_parallel\" value=\"%s\">
                         <label for=\"email_sender\">Email Sender:</label>
-                        <input name=\"email_sender\" value=\"%s\">
+                        <input name=\"email_sender\" type=\"email\" value=\"%s\">
                         <label for=\"email_msg\">Email Text:</label>
                         <textarea name=\"email_msg\" rows=\"4\" style=\"width: 400px; margin-top: 20px;\">%s</textarea>
                         <label for=\"site_key\">Recaptcha site key:</label>
@@ -155,7 +155,7 @@
                 echo (is_numeric($_POST['max_parallel']) && (int) $_POST['max_parallel'] > 0 ? sprintf("<input name=\"max_parallel\" value=\"%s\">", htmlspecialchars($_POST['max_parallel'])) : sprintf("<input name=\"max_parallel\" class=\"invalid-input\" value=\"%s\">", $rows[0]->opt_value));
                 echo sprintf("
                     <label for=\"email_sender\">Email Sender:</label>
-                    <input name=\"email_sender\" value=\"%s\">", $_POST['email_sender']
+                    <input name=\"email_sender\" type=\"email\" value=\"%s\">", $_POST['email_sender']
                 );
                 echo sprintf("
                     <label for=\"email_msg\">Email Text:</label>
@@ -205,15 +205,15 @@
             echo "<label id=\"test-form\"></label>";
             echo "<form class=\"admin-form\" method=\"post\" action=\"#test-from\">"; // send tests form
             echo "<p>Send Test</p>";
-            echo "<label for=\"link\">link URL:</label>\n";
+            echo "<label for=\"link\">Link URL:</label>\n";
             echo ($_POST['link'] ? sprintf("<input id=\"link\" type=\"text\" name=\"link\" value=\"%s\">", htmlspecialchars($_POST['link'])) : "<input id=\"link\" type=\"text\" name=\"link\" class=\"invalid-input\">");
             echo "<label for=\"real-name\">Name:</label>\n";
             echo ($_POST['real-name'] ? sprintf("<input id=\"real-name\" type=\"text\" name=\"real-name\" value=\"%s\">", htmlspecialchars($_POST['real-name'])) : "<input id=\"real-name\" type=\"text\" name=\"real-name\" class=\"invalid-input\">");
             echo "<label for=\"email\">E-mail:</label>\n";
             echo ($_POST['email'] && filter_var($_POST['email'], FILTER_VALIDATE_EMAIL) ? sprintf("<input id=\"email\" type=\"email\" name=\"email\" value=\"%s\">", htmlspecialchars($_POST['email'])) : sprintf("<input id=\"email\" type=\"email\" name=\"email\" value=\"%s\" class=\"invalid-input\">", htmlspecialchars($_POST['email'])));
-            echo "<label for=\"date-from\">Активен от:</label>\n";
+            echo "<label for=\"date-from\">Start Date:</label>\n";
             echo ($_POST['date-from'] && $this->isRealDate($_POST['date-from']) && strtotime($_POST['date-from']) >= strtotime('today') ? sprintf("<input id=\"date-from\" type=\"date\" name=\"date-from\" value=\"%s\">", htmlspecialchars($_POST['date-from'])) : sprintf("<input id=\"date-from\" type=\"date\" name=\"date-from\" value=\"%s\" class=\"invalid-input\">", htmlspecialchars($_POST['date-from'])));
-            echo "<label for=\"date-to\">Срок:</label>\n";
+            echo "<label for=\"date-to\">Due Date:</label>\n";
             echo ($_POST['date-to'] && $this->isRealDate($_POST['date-to']) && strtotime($_POST['date-to']) >= strtotime($_POST['date-from']) ? sprintf("<input id=\"date-to\" type=\"date\" name=\"date-to\" value=\"%s\">", htmlspecialchars($_POST['date-to'])) : sprintf("<input id=\"date-to\" type=\"date\" name=\"date-to\" value=\"%s\" class=\"invalid-input\">", htmlspecialchars($_POST['date-to'])));
             echo "<label for=\"submit\"></label>\n";
             echo "<input type=\"submit\" value=\"Send Email\">";
@@ -292,15 +292,15 @@
                 <label id=\"test-from\"></label>
                 <form class=\"admin-form\" id=\"test-form\" method=\"post\" action=\"#test-from\">
                     <p>Send Test</p>
-                    <label for=\"link\">link URL:</label>
+                    <label for=\"link\">Link URL:</label>
                     <input id=\"link\" name=\"link\">
                     <label for=\"real-name\">Name:</label>
                     <input id=\"real-name\" name=\"real-name\">
                     <label for=\"email\">E-mail:</label>
                     <input id=\"email\" type=\"email\" name=\"email\">
-                    <label for=\"date-from\">Активен от:</label>
+                    <label for=\"date-from\">Start Date:</label>
                     <input id=\"date-from\" type=\"date\" name=\"date-from\">
-                    <label for=\"date-to\">Срок:</label>
+                    <label for=\"date-to\">Due Date:</label>
                     <input id=\"date-to\" type=\"date\" name=\"date-to\">
                     <label for=\"submit\"></label>
                     <input type=\"submit\" value=\"Send Email\">
@@ -380,20 +380,20 @@
                         <th>Due Date</th>
                         <th>Code</th>
                         <th>Status</th>
-                        <th>Odit</th>
+                        <th>Audit</th>
                     </tr>";
 
             foreach ($test_rows as $row) {
-                $test_odits = $wpdb->get_results(sprintf("SELECT * FROM %sbrainbench_odit WHERE test_id = '%s'", $wpdb->prefix, $row->id));
+                $test_audits = $wpdb->get_results(sprintf("SELECT * FROM %sbrainbench_odit WHERE test_id = '%s'", $wpdb->prefix, $row->id));
 
-                $odit = '';
+                $audit = '';
 
-                if (count($test_odits) > 0) {
-                    foreach ($test_odits as $test_odit) {
-                        $odit .= sprintf("%s%s%s\\n", $test_odit->time, str_repeat(" ", 20), $test_odit->event);
+                if (count($test_audits) > 0) {
+                    foreach ($test_audits as $test_audit) {
+                        $audit .= sprintf("%s%s%s\\n", $test_audit->time, str_repeat(" ", 20), $test_audit->event);
                     }
                 } else {
-                    $odit .= 'No actions have been performed for this test.';
+                    $audit .= 'No actions have been performed for this test.';
                 }
 
                 echo sprintf("  
@@ -405,8 +405,8 @@
                         <th>%s</th>
                         <th>%s</th>
                         <th>%s</th>
-                        <th onclick=\"alert('%s'); return false;\"><a href=\"\">odit</a></th>
-                    </tr>", $row->id, htmlspecialchars($row->link),  $row->email,  $row->start_date,  $row->due_date, $row->code, $row->status, $odit
+                        <th onclick=\"alert('%s'); return false;\"><a href=\"\">audit</a></th>
+                    </tr>", $row->id, htmlspecialchars($row->link),  $row->email,  $row->start_date,  $row->due_date, $row->code, $row->status, $audit
                 );
             }
 
@@ -484,7 +484,7 @@
                 $wpdb->query($wpdb->prepare(sprintf("UPDATE %sbrainbench_tests SET status = '%s' WHERE code = '%s'", $wpdb->prefix, BrainBenchTestStatus::ACTIVATED, '%s'), $_GET['test']));
 
                 echo "<form class=\"admin-form\" method=\"post\" style=\"width: 300px; margin-left: 38%\">";
-                echo "<p>За да започнете теста попълнете следната капча.</p>";
+                echo "<p>За да започнете теста попълнете следната captcha.</p>";
                 echo sprintf("<div class=\"g-recaptcha\" data-sitekey=\"%s\"></div>", $site_key);
                 echo "<input type=\"submit\" value=\"Start Test\" style=\"width: 100%\">";
                 if ($err) {
@@ -492,7 +492,7 @@
                 }
                 echo "</form>";
             } catch (UserErrorWPTests $err) {
-                echo sprintf("<p id=\"err-msg\" style=\"color: #FF0000;\">%s</p>", htmlspecialchars($err->getMessage()));
+                echo sprintf("<p id=\"err-msg\" style=\"color: #FF0000;text-align: center;font-weight: bold;\">%s</p>", htmlspecialchars($err->getMessage()));
             }
         }
 
