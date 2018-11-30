@@ -41,6 +41,8 @@ class ClientConnection:
     def receive_meta(self):
         log.error(TRACE)
 
+        assert self.state == ClientConnection.State.ESTABLISHED
+
         self.state = ClientConnection.State.RECEIVING
 
         while len(self._req_meta_raw) <= CONFIG['req_meta_limit']:
@@ -88,6 +90,8 @@ class ClientConnection:
     def receive(self):
         log.error(TRACE)
 
+        assert self.state == ClientConnection.State.RECEIVING
+
         yield (self._conn, select.POLLIN)
         self._msg_buffer = self._conn.recv(CONFIG['recv_buffer'])
 
@@ -99,19 +103,24 @@ class ClientConnection:
         assert type(status_code) is bytes
         assert type(headers) is dict
 
-        self.state = ClientConnection.State.SENDING
-        self.res_meta.status_code = status_code
+        if self.state in (
+            ClientConnection.State.ESTABLISHED,
+            ClientConnection.State.RECEIVING
+        ):
+            self.state = ClientConnection.State.SENDING
 
-        result = HTTP1_1MsgFormatter.build_res_meta(status_code, headers)
+            self.res_meta.status_code = status_code
+            result = HTTP1_1MsgFormatter.build_res_meta(status_code, headers)
 
-        log.error(DEBUG, var_name='result', var_value=result)
+            log.error(DEBUG, var_name='result', var_value=result)
 
-        yield from self.send(result)
+            yield from self.send(result)
 
     def send(self, data):
         log.error(TRACE)
 
         assert isinstance(data, bytes)
+        assert self.state == ClientConnection.State.SENDING
 
         log.error(DEBUG, var_name='data', var_value=data)
 
@@ -133,27 +142,34 @@ class ClientConnection:
     def serve_static_file(self, file_path):
         log.error(TRACE)
 
+        assert self.state == ClientConnection.State.RECEIVING
+
         # os.chroot(CONFIG['web_server_root'])
         # os.setreuid(UID, UID)
 
         fd = None
 
         try:
-            if os.path.isdir(file_path):
+            if not os.path.isfile(file_path):
                 yield from self.send_meta(b'404')
                 return
 
-            fd = os.open(file_path, os.O_RDONLY | os.O_NONBLOCK)
+            try:
+                fd = os.open(file_path, os.O_RDONLY | os.O_NONBLOCK)
+            except FileNotFoundError as error:
+                log.error(DEBUG, msg=error)
+                yield from self.send_meta(b'404')
+                return
+            except IsADirectoryError as error:
+                log.error(DEBUG, msg=error)
+
+                yield from self.send_meta(b'404')
+                return
 
             log.error(TRACE, msg='requested file opened')
 
-            self.res_meta.content_length = os.path.getsize(file_path)
-
-            log.error(DEBUG, var_name='content_length',
-                      var_value=self.res_meta.content_length)
-
             self.res_meta.headers[b'Content-Length'] = bytes(
-                str(self.res_meta.content_length),
+                str(os.path.getsize(file_path)),
                 'utf-8'
             )
 
@@ -186,12 +202,10 @@ class ClientConnection:
     def serve_cgi_script(self, file_path):
         log.error(TRACE)
 
+        assert self.state == ClientConnection.State.RECEIVING
+
         cgi_env = CGIMsgFormatter.build_cgi_env(self.req_meta,
                                                 self.remote_addr)
-
-        if cgi_env is None:
-            yield from self.send_meta(b'400')
-            return
 
         child_read, parent_write = os.pipe2(os.O_NONBLOCK)
         parent_read, child_write = os.pipe2(os.O_NONBLOCK)
@@ -234,7 +248,7 @@ class ClientConnection:
 
             cgi_handler = CGIHandler(parent_read, parent_write)
 
-            if cgi_env['CONTENT_LENGTH'] is not None:
+            if 'CONTENT_LENGTH' in cgi_env:
                 # sending remaining received from receive_meta bytes, which are
                 # not meta, but part of the body
                 yield from cgi_handler.send(self._msg_buffer)

@@ -1,5 +1,5 @@
 {
-  "ssl": true,
+  "ssl": false,
   "ssl_certificate": "/home/hristo/Documents/training-projects/hspasov-web-server/certificates/cert.pem",
   "socket_operation_timeout": 5,
   "read_buffer": 4096,
@@ -7,7 +7,7 @@
   "cgi_res_meta_limit": 8192,
   "req_meta_limit": 8192,
   "backlog": 2000,
-  "workers": 4,
+  "workers": 10,
   "protocol": "HTTP/1.1",
   "host": "localhost",
   "port": 8080,
@@ -26,7 +26,7 @@
     "var_value",
     "msg"
   ],
-  "access_log_level": 1,
+  "access_log_enabled": true,
   "access_log_fields": [
     "pid",
     "timestamp",

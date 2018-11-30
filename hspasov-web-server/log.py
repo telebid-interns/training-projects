@@ -46,9 +46,9 @@ class Log:
             print(CONFIG['error_log_field_sep'].join(fields),
                   file=sys.stderr)
 
-    def access(self, lvl, *, remote_addr=None, req_line=None, user_agent=None,
+    def access(self, *, remote_addr=None, req_line=None, user_agent=None,
                status_code=None, content_length=None):
-        if lvl <= CONFIG['access_log_level']:
+        if CONFIG['access_log_enabled']:
             fields = []
 
             if self.access_log_file is None:

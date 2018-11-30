@@ -105,52 +105,12 @@ class Worker:
                 yield from client_conn.serve_static_file(
                     resolve_static_file_path(file_path)
                 )
-        except FileNotFoundError as error:
-            log.error(TRACE, msg='FileNotFoundError')
-            log.error(DEBUG, msg=error)
-
-            if client_conn.state in (
-                ClientConnection.State.ESTABLISHED,
-                ClientConnection.State.RECEIVING
-            ):
-                yield from client_conn.send_meta(b'404')
-        except IsADirectoryError as error:
-            log.error(TRACE, msg='IsADirectoryError')
-            log.error(DEBUG, msg=error)
-            log.error(DEBUG, var_name='client_conn.state', var_value=client_conn.state)
-
-            if client_conn.state in (
-                ClientConnection.State.ESTABLISHED,
-                ClientConnection.State.RECEIVING
-            ):
-                yield from client_conn.send_meta(b'404')
         except OSError as error:
-            log.error(TRACE, msg='OSError')
             log.error(DEBUG, msg=error)
-
-            if client_conn.state in (
-                ClientConnection.State.ESTABLISHED,
-                ClientConnection.State.RECEIVING
-            ):
-                yield from client_conn.send_meta(b'503')
-        except AssertionError as error:
-            log.error(TRACE, msg='AssertionError')
-            log.error(INFO, msg=str(error) + str(traceback.format_exc()))
-
-            if client_conn.state in (
-                ClientConnection.State.ESTABLISHED,
-                ClientConnection.State.RECEIVING
-            ):
-                yield from client_conn.send_meta(b'500')
+            yield from client_conn.send_meta(b'503')
         except Exception as error:
-            log.error(TRACE, msg='Exception')
             log.error(INFO, msg=str(error) + str(traceback.format_exc()))
-
-            if client_conn.state in (
-                ClientConnection.State.ESTABLISHED,
-                ClientConnection.State.RECEIVING
-            ):
-                yield from client_conn.send_meta(b'500')
+            yield from client_conn.send_meta(b'500')
         finally:
             try:
                 client_conn.shutdown()
@@ -167,13 +127,12 @@ class Worker:
                 user_agent = client_conn.req_meta.user_agent
 
             log.access(
-                1,
                 remote_addr='{0}:{1}'.format(client_conn.remote_addr,
                                              client_conn.remote_port),
                 req_line=req_line,
                 user_agent=user_agent,
                 status_code=client_conn.res_meta.status_code,
-                content_length=client_conn.res_meta.content_length,
+                content_length=client_conn.res_meta.headers.get(b'Content-Length'),
             )
 
     def gen_accept(self):

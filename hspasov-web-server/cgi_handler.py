@@ -32,15 +32,6 @@ class CGIMsgFormatter:
         log.error(TRACE)
 
         assert isinstance(req_meta, RequestMeta)
-
-        if b'Content-Length' in req_meta.headers:
-            assert isinstance(req_meta.headers[b'Content-Length'], bytes)
-
-            content_length_str = req_meta.headers[b'Content-Length'].decode()
-        else:
-            log.error(TRACE, msg='No content length provided')
-            return None
-
         assert isinstance(req_meta.method, bytes)
         assert (isinstance(req_meta.query_string, str) or
                 req_meta.query_string is None)
@@ -49,13 +40,16 @@ class CGIMsgFormatter:
 
         cgi_env = {
             'GATEWAY_INTERFACE': 'CGI/1.1',
-            'CONTENT_LENGTH': content_length_str,
             'QUERY_STRING': req_meta.query_string or '',
             'REMOTE_ADDR': remote_addr,
             'REQUEST_METHOD': req_meta.method.decode(),
             'SERVER_PORT': str(CONFIG['port']),
             'SERVER_PROTOCOL': CONFIG['protocol'],
         }
+
+        if b'Content-Length' in req_meta.headers:
+            assert isinstance(req_meta.headers[b'Content-Length'], bytes)
+            cgi_env['CONTENT_LENGTH'] = req_meta.headers[b'Content-Length'].decode()  # noqa
 
         log.error(DEBUG, var_name='cgi_env', var_value=cgi_env)
 

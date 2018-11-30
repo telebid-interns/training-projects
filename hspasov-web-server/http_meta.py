@@ -16,4 +16,3 @@ class ResponseMeta:
         self.packages_sent = 0
         self.headers = {}
         self.status_code = None
-        self.content_length = None
