@@ -339,13 +339,14 @@
                 </form>
             ";
 
+            echo "<label id=\"test-report\"></label>";
             echo "<div class=\"tests\">";
             echo sprintf("<p>Showing %s-%s out of %s results</p>", $real_offset, $real_offset + count($test_rows), $test_count[0]->count);
 
             echo "<div class=\"controls\">";
 
             echo sprintf(
-                "<form class=\"ctrl-form\">
+                "<form class=\"ctrl-form\" action=\"#test-report\">
                     <input name=\"page\" value=\"bb_tests_v1\" style=\"display: none\">
                     <input name=\"search\" value=\"%s\" style=\"display: none\">
                     <input name=\"offset\" value=\"%s\" style=\"display: none\">
@@ -359,7 +360,7 @@
             }
 
             echo sprintf(
-                "<form class=\"ctrl-form\">
+                "<form class=\"ctrl-form\" action=\"#test-report\">
                     <input name=\"page\" value=\"bb_tests_v1\" style=\"display: none\">
                     <input name=\"search\" value=\"%s\" style=\"display: none\">
                     <input name=\"offset\" value=\"%s\" style=\"display: none\">
