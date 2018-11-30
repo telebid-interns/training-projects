@@ -11,6 +11,7 @@
 
     class BrainBenchTestsPlugin {
         const CODE_LENGTH = 30;
+        const TESTS_PER_PAGE = 50;
         const TITLE = 'Brainbench Tests';
         const FORM_CSS_PATH = 'css/bb_tests_v1_admin_panel.css';
         const JS_SET_DEFAULTS_PATH = 'js/bb_tests_v1_fix_dates.js';
@@ -320,12 +321,12 @@
 
             if (array_key_exists('offset', $_GET) && is_numeric($_GET['offset']) && (int) $_GET['offset'] > 0) {
                 $offset = (int) $_GET['offset'];
-                $real_offset = (int) $_GET['offset'] * 50;
+                $real_offset = (int) $_GET['offset'] * BrainBenchTestsPlugin::TESTS_PER_PAGE;
             }
 
             $test_count = $wpdb->get_results(sprintf("SELECT COUNT(*) as count FROM %sbrainbench_tests WHERE email LIKE '%s'", $wpdb->prefix, '%' . $search . '%'));
 
-            $test_rows = $wpdb->get_results(sprintf("SELECT * FROM %sbrainbench_tests WHERE email LIKE '%s' ORDER BY id DESC LIMIT 50 OFFSET %s", $wpdb->prefix, '%' . $search . '%', $real_offset));
+            $test_rows = $wpdb->get_results(sprintf("SELECT * FROM %sbrainbench_tests WHERE email LIKE '%s' ORDER BY id DESC LIMIT %s OFFSET %s", $wpdb->prefix, '%' . $search . '%', BrainBenchTestsPlugin::TESTS_PER_PAGE, $real_offset));
 
             echo "
                 <label id=\"search-form\"></label>
@@ -476,7 +477,7 @@
                 $this->assert_user($this->can_start_new_test(), BrainBenchTestsPlugin::SERVICE_BLOCKED_ERR_MSG);
 
                 if ($rows[0]->status === BrainBenchTestStatus::STARTED) {
-                    sprintf("<script>document.location.href='%s'</script>", htmlspecialchars($rows[0]->link));
+                    echo sprintf("<script>document.location.href='%s'</script>", htmlspecialchars($rows[0]->link));
                     return;
                 }
 
