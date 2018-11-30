@@ -474,7 +474,6 @@
                 $this->assert_user(strtotime($rows[0]->start_date) <= strtotime('today'), sprintf(BrainBenchTestsPlugin::START_DATE_IN_THE_FUTURE_ERR_MSG, $rows[0]->start_date, $rows[0]->due_date));
                 $this->assert_user(strtotime($rows[0]->due_date) >= strtotime('today'), BrainBenchTestsPlugin::DUE_DATE_MET_ERR_MSG);
 
-                $this->assert_user($this->can_start_new_test(), BrainBenchTestsPlugin::SERVICE_BLOCKED_ERR_MSG);
 
                 if ($rows[0]->status === BrainBenchTestStatus::STARTED) {
                     echo sprintf("<script>document.location.href='%s'</script>", htmlspecialchars($rows[0]->link));
@@ -482,6 +481,8 @@
                 }
 
                 $wpdb->query($wpdb->prepare(sprintf("UPDATE %sbrainbench_tests SET status = '%s' WHERE code = '%s'", $wpdb->prefix, BrainBenchTestStatus::ACTIVATED, '%s'), $_GET['test']));
+                
+                $this->assert_user($this->can_start_new_test(), BrainBenchTestsPlugin::SERVICE_BLOCKED_ERR_MSG);
 
                 echo "<form class=\"admin-form\" method=\"post\" style=\"width: 300px; margin-left: 38%\">";
                 echo "<p>За да започнете теста попълнете следната captcha.</p>";
