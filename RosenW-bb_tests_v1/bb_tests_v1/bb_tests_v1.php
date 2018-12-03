@@ -15,7 +15,6 @@
         const TITLE = 'Brainbench Tests';
         const FORM_CSS_PATH = 'css/bb_tests_v1_admin_panel.css';
         const JS_SET_DEFAULTS_PATH = 'js/bb_tests_v1_fix_dates.js';
-        const EMAIL_SUBJECT = "Weekly Tests";
         const RECAPTCHA_VERIFY_URL = "https://www.google.com/recaptcha/api/siteverify";
 
         // Admin error messages
@@ -46,6 +45,8 @@
         const EMAIL_MSG_DEF_VALUE = "";
         const EMAIL_SENDER_OPT_NAME = "email_sender";
         const EMAIL_SENDER_DEF_VALUE = "wordpress@example.com";
+        const EMAIL_SUBJECT_OPT_NAME = "email_subject";
+        const EMAIL_SUBJECT_DEF_VALUE = "Test";
         const RECAPTCHA_SITE_KEY_OPT_NAME = "recaptcha_site_key";
         const RECAPTCHA_SITE_KEY_DEF_VALUE = "";
         const RECAPTCHA_SECRET_KEY_OPT_NAME = "recaptcha_secret_key";
@@ -91,6 +92,7 @@
             foreach ([
                 BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME,
                 BrainBenchTestsPlugin::EMAIL_SENDER_OPT_NAME,
+                BrainBenchTestsPlugin::EMAIL_SUBJECT_OPT_NAME,
                 BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME,
                 BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_OPT_NAME,
                 BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_OPT_NAME ] as $value) {
@@ -105,6 +107,8 @@
                         <input name=\"max_parallel\" value=\"%s\">
                         <label for=\"email_sender\">Email Sender:</label>
                         <input name=\"email_sender\" type=\"email\" value=\"%s\">
+                        <label for=\"email_subject\">Email Subject:</label>
+                        <input name=\"email_subject\" value=\"%s\">
                         <label for=\"email_msg\">Email Text:</label>
                         <textarea name=\"email_msg\" rows=\"4\" style=\"width: 400px; margin-top: 20px;\">%s</textarea>
                         <label for=\"site_key\">Recaptcha site key:</label>
@@ -132,11 +136,12 @@
         function post_admin_page () {
             global $wpdb;
             
-            if (array_key_exists('max_parallel', $_POST)) { // second form
+            if (array_key_exists('max_parallel', $_POST)) { // settings form
                 if (
                     !array_key_exists('max_parallel', $_POST) ||
                     !array_key_exists('email_msg', $_POST) ||
-                    !array_key_exists('email_sender', $_POST)
+                    !array_key_exists('email_sender', $_POST) ||
+                    !array_key_exists('email_subject', $_POST)
                     ) {
                     $this->display_send_test_form();
                     $this->display_settings_form();
@@ -156,6 +161,10 @@
                 echo sprintf("
                     <label for=\"email_sender\">Email Sender:</label>
                     <input name=\"email_sender\" type=\"email\" value=\"%s\">", $_POST['email_sender']
+                );
+                echo sprintf("
+                    <label for=\"email_subject\">Email Subject:</label>
+                    <input name=\"email_subject\" value=\"%s\">", $_POST['email_subject']
                 );
                 echo sprintf("
                     <label for=\"email_msg\">Email Text:</label>
@@ -186,6 +195,7 @@
                         BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME => $_POST['max_parallel'],
                         BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME => $_POST['email_msg'],
                         BrainBenchTestsPlugin::EMAIL_SENDER_OPT_NAME => $_POST['email_sender'],
+                        BrainBenchTestsPlugin::EMAIL_SUBJECT_OPT_NAME => $_POST['email_subject'],
                         BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_OPT_NAME => $_POST['site_key'],
                         BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_OPT_NAME => $_POST['secret_key']] as $key => $value) {
                         $wpdb->query($wpdb->prepare(sprintf("UPDATE %sbrainbench_settings SET opt_value = '%s' WHERE opt_name = '%s'", $wpdb->prefix, '%s', $key), $value));
@@ -262,6 +272,7 @@
                     )
                 );
 
+                $subject = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::EMAIL_SUBJECT_OPT_NAME))[0]->opt_value;
                 $msg = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME))[0]->opt_value;
 
                 $msg = str_replace("<link>", $link, $msg);
@@ -269,7 +280,7 @@
                 $msg = str_replace("<from>", htmlspecialchars($_POST['date-from']), $msg);
                 $msg = str_replace("<to>", htmlspecialchars($_POST['date-to']), $msg);
 
-                if ($this->send_email($_POST['email'], $msg)) {
+                if ($this->send_email($_POST['email'], $subject, $msg)) {
                     $wpdb->query($wpdb->prepare(sprintf("UPDATE %sbrainbench_tests SET status = '%s' WHERE code = '%s'", $wpdb->prefix, BrainBenchTestStatus::SENT, '%s'), $code));
                     echo sprintf("<p>Теста беше успешно изпратен на %s</p>", htmlspecialchars($_POST['email']));
                 } else {
@@ -283,8 +294,8 @@
             $this->display_tests();
         }
 
-        function send_email ($to, $msg) {
-            return wp_mail($to, BrainBenchTestsPlugin::EMAIL_SUBJECT, $msg);
+        function send_email ($to, $subject, $msg) {
+            return wp_mail($to, $subject, $msg);
         }
 
         function display_send_test_form () {
@@ -474,14 +485,13 @@
                 $this->assert_user(strtotime($rows[0]->start_date) <= strtotime('today'), sprintf(BrainBenchTestsPlugin::START_DATE_IN_THE_FUTURE_ERR_MSG, $rows[0]->start_date, $rows[0]->due_date));
                 $this->assert_user(strtotime($rows[0]->due_date) >= strtotime('today'), BrainBenchTestsPlugin::DUE_DATE_MET_ERR_MSG);
 
-
                 if ($rows[0]->status === BrainBenchTestStatus::STARTED) {
                     echo sprintf("<script>document.location.href='%s'</script>", htmlspecialchars($rows[0]->link));
                     return;
                 }
 
                 $wpdb->query($wpdb->prepare(sprintf("UPDATE %sbrainbench_tests SET status = '%s' WHERE code = '%s'", $wpdb->prefix, BrainBenchTestStatus::ACTIVATED, '%s'), $_GET['test']));
-                
+
                 $this->assert_user($this->can_start_new_test(), BrainBenchTestsPlugin::SERVICE_BLOCKED_ERR_MSG);
 
                 echo "<form class=\"admin-form\" method=\"post\" style=\"width: 300px; margin-left: 38%\">";
@@ -618,7 +628,7 @@
             ", $wpdb->prefix, $wpdb->prefix
         ));
 
-        $opts_default_values = [ BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME => BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_DEF_VALUE, BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME => BrainBenchTestsPlugin::EMAIL_MSG_DEF_VALUE, BrainBenchTestsPlugin::EMAIL_SENDER_OPT_NAME => BrainBenchTestsPlugin::EMAIL_SENDER_DEF_VALUE, BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_OPT_NAME => BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_DEF_VALUE, BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_OPT_NAME => BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_DEF_VALUE ];
+        $opts_default_values = [ BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME => BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_DEF_VALUE, BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME => BrainBenchTestsPlugin::EMAIL_MSG_DEF_VALUE, BrainBenchTestsPlugin::EMAIL_SENDER_OPT_NAME => BrainBenchTestsPlugin::EMAIL_SENDER_DEF_VALUE, BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_OPT_NAME => BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_DEF_VALUE, BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_OPT_NAME => BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_DEF_VALUE, BrainBenchTestsPlugin::EMAIL_SUBJECT_OPT_NAME => BrainBenchTestsPlugin::EMAIL_SUBJECT_DEF_VALUE ];
 
         foreach ($opts_default_values as $option => $default) {
             $rows = $wpdb->get_results(sprintf("SELECT * FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, $option));
