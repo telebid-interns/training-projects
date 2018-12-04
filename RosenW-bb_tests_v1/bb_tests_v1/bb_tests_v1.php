@@ -14,7 +14,9 @@
         const TESTS_PER_PAGE = 50;
         const TITLE = 'Brainbench Tests';
         const FORM_CSS_PATH = 'css/bb_tests_v1_admin_panel.css';
+        const TEST_PAGE_CSS = 'css/bb_tests_v1_test_page.css';
         const JS_SET_DEFAULTS_PATH = 'js/bb_tests_v1_fix_dates.js';
+        const ON_FORM_SUBMIT_PATH = 'js/bb_tests_v1_on_form_submit.js';
         const RECAPTCHA_VERIFY_URL = "https://www.google.com/recaptcha/api/siteverify";
 
         // Admin error messages
@@ -74,6 +76,9 @@
 
         function init_page () {
             wp_enqueue_style( 'form-css', plugin_dir_url( __FILE__ ) . BrainBenchTestsPlugin::FORM_CSS_PATH );
+
+            // prevents resubmitting of post request on f5 click, also locks form from submitting multiple times
+            wp_enqueue_script( 'on-form-submit', plugin_dir_url( __FILE__ ) . BrainBenchTestsPlugin::ON_FORM_SUBMIT_PATH );
             
             if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $this->get_admin_page();
@@ -101,7 +106,7 @@
 
             echo vsprintf("
                     <label id=\"settings-form\"></label>
-                    <form id=\"settings-form\" class=\"admin-form\" method=\"post\" action=\"#settings-form\">
+                    <form onsubmit=\"return checkBeforeSubmit()\" id=\"settings-form\" class=\"admin-form\" method=\"post\" action=\"#settings-form\">
                         <p>Settings</p>
                         <label for=\"max_parallel\">Test Slots:</label>
                         <input name=\"max_parallel\" value=\"%s\">
@@ -154,7 +159,7 @@
                 $rows = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME));
 
                 echo "<label id=\"settings-form\"></label>";
-                echo "<form class=\"admin-form\" method=\"post\" action=\"#settings-form\">";
+                echo "<form onsubmit=\"return checkBeforeSubmit()\" class=\"admin-form\" method=\"post\" action=\"#settings-form\">";
                 echo "<p>Settings</p>";
                 echo "  <label for=\"max_parallel\">Test Slots: </label>\n";
                 echo (is_numeric($_POST['max_parallel']) && (int) $_POST['max_parallel'] > 0 ? sprintf("<input name=\"max_parallel\" value=\"%s\">", htmlspecialchars($_POST['max_parallel'])) : sprintf("<input name=\"max_parallel\" class=\"invalid-input\" value=\"%s\">", $rows[0]->opt_value));
@@ -208,12 +213,11 @@
                 $this->display_tests();
 
                 wp_enqueue_script( 'set-default-dates', plugin_dir_url( __FILE__ ) . BrainBenchTestsPlugin::JS_SET_DEFAULTS_PATH );
-                return;
             }
 
             // adding invalid-input class on invalid data
             echo "<label id=\"test-form\"></label>";
-            echo "<form class=\"admin-form\" method=\"post\" action=\"#test-from\">"; // send tests form
+            echo "<form onsubmit=\"return checkBeforeSubmit()\" class=\"admin-form\" method=\"post\" action=\"#test-from\">"; // send tests form
             echo "<p>Send Test</p>";
             echo "<label for=\"link\">Link URL:</label>\n";
             echo ($_POST['link'] ? sprintf("<input id=\"link\" type=\"text\" name=\"link\" value=\"%s\">", htmlspecialchars($_POST['link'])) : "<input id=\"link\" type=\"text\" name=\"link\" class=\"invalid-input\">");
@@ -247,11 +251,13 @@
 
             if (!$has_errors) { 
                 // resetting form on successful submition
-                echo "  <script>
-                            document.getElementById('link').value = \"\";
-                            document.getElementById('real-name').value = \"\";
-                            document.getElementById('email').value = \"\";
-                        </script>";
+                echo "
+                    <script>
+                        document.getElementById('link').value = \"\";
+                        document.getElementById('real-name').value = \"\";
+                        document.getElementById('email').value = \"\";
+                    </script>
+                ";
 
                 $code = $this->generateRandomString(BrainBenchTestsPlugin::CODE_LENGTH);
                 $link = sprintf("%s&test=%s", get_permalink(get_page_by_title( BrainBenchTestsPlugin::TITLE )->ID), $code);
@@ -301,7 +307,7 @@
         function display_send_test_form () {
             echo "
                 <label id=\"test-from\"></label>
-                <form class=\"admin-form\" id=\"test-form\" method=\"post\" action=\"#test-from\">
+                <form onsubmit=\"return checkBeforeSubmit()\" class=\"admin-form\" id=\"test-form\" method=\"post\" action=\"#test-from\">
                     <p>Send Test</p>
                     <label for=\"link\">Link URL:</label>
                     <input id=\"link\" name=\"link\">
@@ -341,7 +347,7 @@
 
             echo "
                 <label id=\"search-form\"></label>
-                <form class=\"admin-form\" action=\"#search-form\">
+                <form onsubmit=\"return checkBeforeSubmit()\" class=\"admin-form\" action=\"#search-form\">
                     <p>Search Test</p>
                     <input name=\"page\" value=\"bb_tests_v1\" style=\"display: none\">
                     <label for=\"search\">Email:</label>
@@ -358,7 +364,7 @@
             echo "<div class=\"controls\">";
 
             echo sprintf(
-                "<form class=\"ctrl-form\" action=\"#test-report\">
+                "<form onsubmit=\"return checkBeforeSubmit()\" class=\"ctrl-form\" action=\"#test-report\">
                     <input name=\"page\" value=\"bb_tests_v1\" style=\"display: none\">
                     <input name=\"search\" value=\"%s\" style=\"display: none\">
                     <input name=\"offset\" value=\"%s\" style=\"display: none\">
@@ -372,7 +378,7 @@
             }
 
             echo sprintf(
-                "<form class=\"ctrl-form\" action=\"#test-report\">
+                "<form onsubmit=\"return checkBeforeSubmit()\" class=\"ctrl-form\" action=\"#test-report\">
                     <input name=\"page\" value=\"bb_tests_v1\" style=\"display: none\">
                     <input name=\"search\" value=\"%s\" style=\"display: none\">
                     <input name=\"offset\" value=\"%s\" style=\"display: none\">
@@ -447,6 +453,8 @@
         }
 
         function load_test_page () {
+            wp_enqueue_script( 'on-form-submit', plugin_dir_url( __FILE__ ) . BrainBenchTestsPlugin::ON_FORM_SUBMIT_PATH );
+
             if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $this->get_test_page();
             }
@@ -458,6 +466,8 @@
 
         function get_test_page ($err = NULL) {
             global $wpdb;
+
+            wp_enqueue_style( 'test-page-css', plugin_dir_url( __FILE__ ) . BrainBenchTestsPlugin::TEST_PAGE_CSS );
 
             try {
                 $site_key = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_OPT_NAME))[0]->opt_value;
@@ -494,7 +504,7 @@
 
                 $this->assert_user($this->can_start_new_test(), BrainBenchTestsPlugin::SERVICE_BLOCKED_ERR_MSG);
 
-                echo "<form class=\"admin-form\" method=\"post\" style=\"width: 300px; margin-left: 38%\">";
+                echo "<form onsubmit=\"return checkBeforeSubmit()\" class=\"admin-form\" method=\"post\" style=\"width: 300px; margin-left: 38%\">";
                 echo "<p>За да започнете теста попълнете следната captcha.</p>";
                 echo sprintf("<div class=\"g-recaptcha\" data-sitekey=\"%s\"></div>", $site_key);
                 echo "<input type=\"submit\" value=\"Start Test\" style=\"width: 100%\">";
