@@ -5,6 +5,7 @@ import os
 import sys
 import traceback
 import errno
+import signal
 from config import CONFIG
 from log import log, TRACE, DEBUG, INFO
 from http_meta import ResponseMeta
@@ -252,7 +253,12 @@ class ClientConnection:
 
                 log.error(DEBUG, msg='closed fds of child')
 
-                cgi_handler = CGIHandler(parent_read, parent_write)
+                cgi_handler = CGIHandler(parent_read, parent_write, pid)
+
+                signal.signal(signal.SIGALRM, cgi_handler.kill)
+                signal.alarm(CONFIG['cgi_timeout'])
+
+                log.error(DEBUG, msg='set alarm for {0} seconds'.format(CONFIG['cgi_timeout']))
 
                 if 'CONTENT_LENGTH' in cgi_env:
                     # sending remaining received from receive_meta bytes, which are
@@ -335,6 +341,9 @@ class ClientConnection:
                 # TODO we block here
                 # yield ....
                 pid, exit_status = os.wait()
+
+                signal.alarm(0)
+
                 log.error(DEBUG, msg=('child {0} exited.'.format(pid) +
                                   ' exit_status: {0}'.format(exit_status)))
 

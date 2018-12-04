@@ -1,5 +1,6 @@
 import os
 import select
+import signal
 from config import CONFIG
 from log import log, TRACE, DEBUG
 from http_meta import RequestMeta
@@ -57,9 +58,10 @@ class CGIMsgFormatter:
 
 
 class CGIHandler:
-    def __init__(self, read_fd, write_fd):
+    def __init__(self, read_fd, write_fd, script_pid):
         self._read_fd = read_fd
         self._write_fd = write_fd
+        self._script_pid = script_pid
         self.msg_buffer = b''
         self.bytes_written = 0
         self.cgi_res_meta_raw = b''
@@ -87,6 +89,8 @@ class CGIHandler:
         self.msg_buffer = os.read(self._read_fd, CONFIG['read_buffer'])
 
     def receive_meta(self):
+        log.error(TRACE)
+
         while len(self.cgi_res_meta_raw) <= CONFIG['cgi_res_meta_limit']:
             log.error(TRACE, msg='collecting data from cgi...')
 
@@ -104,3 +108,8 @@ class CGIHandler:
         else:
             log.error(TRACE, msg='cgi response meta too long')
             self.cgi_res_meta_raw = None  # TODO refactor this
+
+    def kill(self, signum, frame):
+        log.error(TRACE)
+
+        os.kill(self._script_pid, signal.SIGTERM)
