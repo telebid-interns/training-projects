@@ -7,7 +7,7 @@ import traceback
 import errno
 import signal
 from config import CONFIG
-from log import log, TRACE, DEBUG, INFO
+from log import log, DEBUG, ERROR
 from http_meta import ResponseMeta
 from http_msg_formatter import HTTP1_1MsgFormatter
 from cgi_handler import CGIHandler, CGIMsgFormatter
@@ -22,7 +22,7 @@ class ClientConnection:
         CLOSED = enum.auto()
 
     def __init__(self, conn, addr):
-        log.error(TRACE)
+        log.error(DEBUG)
 
         assert isinstance(conn, socket.socket)
         assert isinstance(addr, tuple)
@@ -41,19 +41,19 @@ class ClientConnection:
         self.res_meta = ResponseMeta()
 
     def receive_meta(self):
-        log.error(TRACE)
+        log.error(DEBUG)
 
         assert self.state == ClientConnection.State.ESTABLISHED
 
         self.state = ClientConnection.State.RECEIVING
 
         while len(self._req_meta_raw) <= CONFIG['req_meta_limit']:
-            log.error(TRACE, msg='receiving data...')
+            log.error(DEBUG, msg='receiving data...')
 
             try:
                 yield from self.receive()
             except socket.timeout:
-                log.error(TRACE, msg='timeout while receiving from client')
+                log.error(DEBUG, msg='timeout while receiving from client')
                 yield from self.send_meta(b'408')
                 return
 
@@ -63,26 +63,26 @@ class ClientConnection:
             self._req_meta_raw += self._msg_buffer
 
             if len(self._msg_buffer) <= 0:
-                log.error(TRACE, msg='connection closed by peer')
+                log.error(DEBUG, msg='connection closed by peer')
                 self.state = ClientConnection.State.CLOSED
                 return
 
             if self._req_meta_raw.find(b'\r\n\r\n') != -1:
-                log.error(TRACE, msg='reached end of request meta')
+                log.error(DEBUG, msg='reached end of request meta')
                 self._msg_buffer = self._req_meta_raw.split(b'\r\n\r\n', 1)[1]
                 break
         else:
-            log.error(TRACE, msg='request message too long')
+            log.error(DEBUG, msg='request message too long')
 
             yield from self.send_meta(b'400')
             return
 
-        log.error(TRACE, msg='parsing request message...')
+        log.error(DEBUG, msg='parsing request message...')
 
         self.req_meta = HTTP1_1MsgFormatter.parse_req_meta(self._req_meta_raw)
 
         if self.req_meta is None:
-            log.error(TRACE, msg='invalid request')
+            log.error(DEBUG, msg='invalid request')
             yield from self.send_meta(b'400')
             return
 
@@ -90,7 +90,7 @@ class ClientConnection:
                   var_value=self.req_meta)
 
     def receive(self):
-        log.error(TRACE)
+        log.error(DEBUG)
 
         assert self.state == ClientConnection.State.RECEIVING
 
@@ -98,7 +98,7 @@ class ClientConnection:
         self._msg_buffer = self._conn.recv(CONFIG['recv_buffer'])
 
     def send_meta(self, status_code, headers={}):
-        log.error(TRACE)
+        log.error(DEBUG)
         log.error(DEBUG, var_name='status_code', var_value=status_code)
         log.error(DEBUG, var_name='headers', var_value=headers)
 
@@ -121,7 +121,7 @@ class ClientConnection:
             yield from self.send(result)
 
     def send(self, data):
-        log.error(TRACE)
+        log.error(DEBUG)
 
         assert isinstance(data, bytes)
         assert self.state == ClientConnection.State.SENDING
@@ -144,7 +144,7 @@ class ClientConnection:
             data_to_send = data[total_bytes_sent:]
 
     def serve_static_file(self, file_path):
-        log.error(TRACE)
+        log.error(DEBUG)
 
         assert self.state == ClientConnection.State.RECEIVING
 
@@ -170,7 +170,7 @@ class ClientConnection:
                 yield from self.send_meta(b'404')
                 return
 
-            log.error(TRACE, msg='requested file opened')
+            log.error(DEBUG, msg='requested file opened')
 
             self.res_meta.headers[b'Content-Length'] = bytes(
                 str(os.path.getsize(file_path)),
@@ -187,10 +187,10 @@ class ClientConnection:
                 log.error(DEBUG, var_name='response', var_value=response)
 
                 if len(response) <= 0:
-                    log.error(TRACE, msg='end of file reached while reading')
+                    log.error(DEBUG, msg='end of file reached while reading')
                     break
 
-                log.error(TRACE,
+                log.error(DEBUG,
                           msg=('sending response.. ' +
                                'response_packages_sent: ' +
                                '{0}'.format(self.res_meta.packages_sent)))
@@ -204,7 +204,7 @@ class ClientConnection:
                     log.error(DEBUG, msg=error)
 
     def serve_cgi_script(self, file_path):
-        log.error(TRACE)
+        log.error(DEBUG)
 
         assert self.state == ClientConnection.State.RECEIVING
 
@@ -231,18 +231,18 @@ class ClientConnection:
                     os.execve(resolve_web_server_path(file_path),
                               [file_path], cgi_env)
                 except FileNotFoundError:
-                    log.error(TRACE, msg='CGI script not found')
+                    log.error(DEBUG, msg='CGI script not found')
                     os._exit(os.EX_NOINPUT)
             except OSError as error:
-                log.error(INFO, msg=error)
+                log.error(ERROR, msg=error)
                 os._exit(os.EX_OSERR)
             except Exception as error:
-                log.error(INFO, msg=(str(error) + str(traceback.format_exc)))
+                log.error(ERROR, msg=(str(error) + str(traceback.format_exc)))
                 os._exit(os.EX_SOFTWARE)
             finally:  # this should never run
                 err_msg = ('Unexpected condition. exec* function did not ' +
                            'run before finally.'),
-                log.error(INFO, msg=(str(err_msg) + str(traceback.format_exc)))
+                log.error(ERROR, msg=(str(err_msg) + str(traceback.format_exc)))
                 os._exit(os.EX_SOFTWARE)
         else:  # parent process
             log.error(DEBUG, msg='New child created with pid {0}'.format(pid))
@@ -267,7 +267,7 @@ class ClientConnection:
 
                     content_length = int(cgi_env['CONTENT_LENGTH'])
 
-                    log.error(TRACE, msg='before write to cgi loop')
+                    log.error(DEBUG, msg='before write to cgi loop')
                     log.error(DEBUG, var_name='bytes_written',
                             var_value=cgi_handler.bytes_written)
                     log.error(DEBUG, var_name='content_length',
@@ -277,7 +277,7 @@ class ClientConnection:
                         try:
                             yield from self.receive()
                         except socket.timeout:
-                            log.error(TRACE,
+                            log.error(DEBUG,
                                     msg='timeout while receiving from client')
                             yield from self.send_meta(b'408')
                             return
@@ -286,7 +286,7 @@ class ClientConnection:
                                 var_value=self._msg_buffer)
 
                         if len(self._msg_buffer) <= 0:
-                            log.error(TRACE, msg='connection closed by peer')
+                            log.error(DEBUG, msg='connection closed by peer')
                             return
 
                         yield from cgi_handler.send(self._msg_buffer)
@@ -299,7 +299,7 @@ class ClientConnection:
                     yield from self.send_meta(b'502')
                     return
 
-                log.error(TRACE, msg='parsing CGI meta...')
+                log.error(DEBUG, msg='parsing CGI meta...')
 
                 res_headers = CGIMsgFormatter.parse_cgi_res_meta(
                     cgi_handler.cgi_res_meta_raw
@@ -323,11 +323,11 @@ class ClientConnection:
                     yield from cgi_handler.receive()
 
                     if len(cgi_handler.msg_buffer) <= 0:
-                        log.error(TRACE,
+                        log.error(DEBUG,
                                 msg='end of cgi response reached while reading')
                         break
 
-                    log.error(TRACE, msg='sending response..')
+                    log.error(DEBUG, msg='sending response..')
 
                     yield from self.send(cgi_handler.msg_buffer)
             except OSError as error:
@@ -348,11 +348,11 @@ class ClientConnection:
                                   ' exit_status: {0}'.format(exit_status)))
 
     def shutdown(self):
-        log.error(TRACE)
+        log.error(DEBUG)
         self._conn.shutdown(socket.SHUT_RDWR)
 
     def close(self):
-        log.error(TRACE)
+        log.error(DEBUG)
 
         self._conn.close()
         self.state = ClientConnection.State.CLOSED

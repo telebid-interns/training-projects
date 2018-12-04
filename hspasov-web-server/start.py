@@ -9,10 +9,9 @@ def start():
     # function
     import traceback
     from config import CONFIG
-    from log import log, INFO, TRACE, DEBUG
+    from log import log, ERROR, DEBUG
     from server import Server
 
-    log.error(TRACE)
     log.error(DEBUG, var_name='config', var_value=CONFIG)
 
     server = Server()
@@ -20,14 +19,14 @@ def start():
     try:
         server.run()
     except OSError as error:
-        log.error(TRACE, msg='OSError thrown while initializing web server')
-        log.error(INFO, msg=error)
+        log.error(DEBUG, msg='OSError thrown while initializing web server')
+        log.error(ERROR, msg=error)
     except AssertionError as error:
-        log.error(TRACE, msg='AssertionError thrown')
-        log.error(INFO, msg=str(error) + str(traceback.format_exc()))
+        log.error(DEBUG, msg='AssertionError thrown')
+        log.error(ERROR, msg=str(error) + str(traceback.format_exc()))
     except Exception as error:
-        log.error(TRACE, msg='Exception thrown')
-        log.error(INFO, msg=str(error) + str(traceback.format_exc()))
+        log.error(DEBUG, msg='Exception thrown')
+        log.error(ERROR, msg=str(error) + str(traceback.format_exc()))
 
 
 if __name__ == '__main__':

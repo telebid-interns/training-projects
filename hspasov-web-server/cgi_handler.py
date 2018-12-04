@@ -2,14 +2,14 @@ import os
 import select
 import signal
 from config import CONFIG
-from log import log, TRACE, DEBUG
+from log import log, DEBUG
 from http_meta import RequestMeta
 
 
 class CGIMsgFormatter:
     @staticmethod
     def parse_cgi_res_meta(msg):
-        log.error(TRACE)
+        log.error(DEBUG)
 
         headers_raw = msg.split(b'\n\n', 1)[0]
         header_lines = headers_raw.split(b'\n')
@@ -30,7 +30,7 @@ class CGIMsgFormatter:
 
     @staticmethod
     def build_cgi_env(req_meta, remote_addr):
-        log.error(TRACE)
+        log.error(DEBUG)
 
         assert isinstance(req_meta, RequestMeta)
         assert isinstance(req_meta.method, bytes)
@@ -67,7 +67,7 @@ class CGIHandler:
         self.cgi_res_meta_raw = b''
 
     def send(self, data):
-        log.error(TRACE)
+        log.error(DEBUG)
 
         bytes_written = 0
         bytes_to_write = len(data)
@@ -83,33 +83,33 @@ class CGIHandler:
         self.bytes_written += bytes_written
 
     def receive(self):
-        log.error(TRACE)
+        log.error(DEBUG)
 
         yield (self._read_fd, select.POLLIN)
         self.msg_buffer = os.read(self._read_fd, CONFIG['read_buffer'])
 
     def receive_meta(self):
-        log.error(TRACE)
+        log.error(DEBUG)
 
         while len(self.cgi_res_meta_raw) <= CONFIG['cgi_res_meta_limit']:
-            log.error(TRACE, msg='collecting data from cgi...')
+            log.error(DEBUG, msg='collecting data from cgi...')
 
             yield from self.receive()
             self.cgi_res_meta_raw += self.msg_buffer
 
             if len(self.msg_buffer) <= 0:
-                log.error(TRACE, msg='No data to read.')
+                log.error(DEBUG, msg='No data to read.')
                 break
 
             if self.cgi_res_meta_raw.find(b'\n\n') != -1:
-                log.error(TRACE, msg='finished collecting meta data from cgi')
+                log.error(DEBUG, msg='finished collecting meta data from cgi')
                 self.msg_buffer = self.cgi_res_meta_raw.split(b'\n\n', 1)[1]
                 break
         else:
-            log.error(TRACE, msg='cgi response meta too long')
+            log.error(DEBUG, msg='cgi response meta too long')
             self.cgi_res_meta_raw = None  # TODO refactor this
 
     def kill(self, signum, frame):
-        log.error(TRACE)
+        log.error(DEBUG)
 
         os.kill(self._script_pid, signal.SIGTERM)

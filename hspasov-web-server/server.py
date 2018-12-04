@@ -2,13 +2,13 @@ import os
 import socket
 import ssl
 from config import CONFIG
-from log import log, TRACE, DEBUG, INFO
+from log import log, DEBUG, ERROR
 from worker import Worker
 
 
 class Server:
     def __init__(self):
-        log.error(TRACE)
+        log.error(DEBUG)
 
         if CONFIG['ssl']:
             self._socket = ssl.wrap_socket(
@@ -23,17 +23,17 @@ class Server:
         self._accept_lock_fd = open('accept_lock', 'w')
 
     def run(self):
-        log.error(TRACE)
+        log.error(DEBUG)
 
         is_initialized = False
         pid = None
 
         self._socket.bind((CONFIG['host'], CONFIG['port']))
-        log.error(TRACE, msg='socket bound: {0}:{1}'.format(CONFIG['host'],
+        log.error(DEBUG, msg='socket bound: {0}:{1}'.format(CONFIG['host'],
                                                             CONFIG['port']))
 
         self._socket.listen(CONFIG['backlog'])
-        log.error(TRACE,
+        log.error(DEBUG,
                   msg='listening... backlog: {0}'.format(CONFIG['backlog']))
 
         while True:
@@ -52,7 +52,7 @@ class Server:
                             worker = Worker(self._socket, self._accept_lock_fd)
                             worker.start()  # event loop
                         except Exception as error:
-                            log.error(INFO, msg=error)
+                            log.error(ERROR, msg=error)
                         finally:
                             os._exit(os.EX_SOFTWARE)
                     else:  # parent process
@@ -62,8 +62,7 @@ class Server:
                 is_initialized = True
 
             except OSError as error:
-                log.error(TRACE, msg='OSError')
-                log.error(TRACE, msg=error)
+                log.error(DEBUG, msg=error)
             finally:
                 if pid is not None and pid == 0:
                     log.close_access_log_file()

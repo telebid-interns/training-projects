@@ -1,5 +1,5 @@
 import urllib.parse
-from log import log, TRACE, DEBUG
+from log import log, DEBUG
 from http_meta import RequestMeta
 
 
@@ -16,7 +16,7 @@ class HTTP1_1MsgFormatter:
 
     @staticmethod
     def parse_req_meta(msg):
-        log.error(TRACE)
+        log.error(DEBUG)
 
         assert type(msg) is bytes
 
@@ -98,7 +98,6 @@ class HTTP1_1MsgFormatter:
 
     @staticmethod
     def build_res_meta(status_code, headers={}, body=b''):
-        log.error(TRACE)
         log.error(DEBUG, var_name='status_code', var_value=status_code)
         log.error(DEBUG, var_name='headers', var_value=headers)
         log.error(DEBUG, var_name='body', var_value=body)

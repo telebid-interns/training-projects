@@ -5,14 +5,29 @@ from datetime import datetime
 from config import CONFIG
 
 # error log levels
-INFO = 1
-TRACE = 2
+ERROR = 1
+WARNING = 2
 DEBUG = 3
+INFO = 4
 
 
 class Log:
+    # TODO fix redundancy
+    log_lvls = {
+        1: 'ERROR',
+        2: 'WARNING',
+        3: 'DEBUG',
+        4: 'INFO',
+    }
+
     def __init__(self):
         self.access_log_file = None
+
+    @staticmethod
+    def resolve_log_lvl_name(lvl):
+        assert lvl in Log.log_lvls
+
+        return Log.log_lvls[lvl]
 
     def error(self, lvl, *, var_name=None, var_value=None, msg=None):
         if lvl <= CONFIG['error_log_level']:
@@ -23,7 +38,7 @@ class Log:
             if 'timestamp' in CONFIG['error_log_fields']:
                 fields.append(format(datetime.now()))
             if 'level' in CONFIG['error_log_fields']:
-                fields.append(format(lvl))
+                fields.append(format(Log.resolve_log_lvl_name(lvl)))
             if 'context' in CONFIG['error_log_fields']:
                 current_frame = inspect.currentframe()
                 caller_frame = inspect.getouterframes(current_frame, 2)
@@ -52,8 +67,8 @@ class Log:
             fields = []
 
             if self.access_log_file is None:
-                self.error(INFO, msg=('Attempt to write in uninitialized ' +
-                                      'access log file'))
+                self.error(ERROR, msg=('Attempt to write in uninitialized ' +
+                                       'access log file'))
             else:
                 if 'pid' in CONFIG['access_log_fields']:
                     fields.append(format(os.getpid()))

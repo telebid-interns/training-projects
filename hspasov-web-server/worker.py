@@ -5,7 +5,7 @@ import select
 import traceback
 import errno
 from http_meta import RequestMeta
-from log import log, TRACE, DEBUG, INFO
+from log import log, DEBUG, ERROR
 from config import CONFIG
 from client_connection import ClientConnection
 from web_server_utils import resolve_static_file_path
@@ -13,7 +13,7 @@ from web_server_utils import resolve_static_file_path
 
 class Worker:
     def __init__(self, socket, accept_lock_fd):
-        log.error(TRACE)
+        log.error(DEBUG)
 
         self._socket = socket
         self._accept_lock_fd = accept_lock_fd
@@ -21,7 +21,7 @@ class Worker:
         self._activity_iterators = {}
 
     def start(self):
-        log.error(TRACE)
+        log.error(DEBUG)
 
         accept_iter = self.gen_accept()
 
@@ -50,7 +50,7 @@ class Worker:
                                            activity_iter)
 
     def register_activity(self, fd, event, it):
-        log.error(TRACE)
+        log.error(DEBUG)
 
         if isinstance(fd, socket.socket):
             fd = fd.fileno()
@@ -59,14 +59,14 @@ class Worker:
         self._activity_iterators[fd] = it
 
     def unregister_activity(self, fd):
-        log.error(TRACE)
+        log.error(DEBUG)
 
         self._poll.unregister(fd)
         del self._activity_iterators[fd]
 
     def req_handler(self, client_conn):
         try:
-            log.error(TRACE)
+            log.error(DEBUG)
 
             assert isinstance(client_conn, ClientConnection)
 
@@ -79,7 +79,7 @@ class Worker:
             ):
                 return
 
-            log.error(TRACE, msg='resolving file_path...')
+            log.error(DEBUG, msg='resolving file_path...')
 
             log.error(DEBUG, var_name='req_meta', var_value=client_conn.req_meta)
             log.error(DEBUG, msg=type(client_conn.req_meta))
@@ -95,7 +95,7 @@ class Worker:
 
             log.error(DEBUG, var_name='file_path', var_value=file_path)
 
-            log.error(TRACE, msg='requested file in web server document root')
+            log.error(DEBUG, msg='requested file in web server document root')
 
             # TODO make cgi-bin not accessible
 
@@ -109,7 +109,7 @@ class Worker:
             log.error(DEBUG, msg=error)
             yield from client_conn.send_meta(b'503')
         except Exception as error:
-            log.error(INFO, msg=str(error) + str(traceback.format_exc()))
+            log.error(ERROR, msg=str(error) + str(traceback.format_exc()))
             yield from client_conn.send_meta(b'500')
         finally:
             try:
@@ -136,7 +136,7 @@ class Worker:
             )
 
     def gen_accept(self):
-        log.error(TRACE)
+        log.error(DEBUG)
 
         while True:
             try:
@@ -145,7 +145,7 @@ class Worker:
                 yield (self._socket, select.POLLIN)
 
                 conn, addr = self._socket.accept()
-                log.error(TRACE, msg='connection accepted')
+                log.error(DEBUG, msg='connection accepted')
                 log.error(DEBUG, var_name='conn', var_value=conn)
                 log.error(DEBUG, var_name='addr', var_value=addr)
 
@@ -168,6 +168,6 @@ class Worker:
                 yield (self._socket, select.POLLIN)
 
     def stop(self):
-        log.error(TRACE)
+        log.error(DEBUG)
         self._socket.close()
         self._accept_lock_fd.close()
