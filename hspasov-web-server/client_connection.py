@@ -4,6 +4,7 @@ import socket
 import os
 import sys
 import traceback
+import errno
 from config import CONFIG
 from log import log, TRACE, DEBUG, INFO
 from http_meta import ResponseMeta
@@ -102,6 +103,8 @@ class ClientConnection:
 
         assert type(status_code) is bytes
         assert type(headers) is dict
+
+        log.error(DEBUG, var_name='state', var_value=self.state)
 
         if self.state in (
             ClientConnection.State.ESTABLISHED,
@@ -243,86 +246,96 @@ class ClientConnection:
         else:  # parent process
             log.error(DEBUG, msg='New child created with pid {0}'.format(pid))
 
-            os.close(child_read)
-            os.close(child_write)
+            try:
+                os.close(child_read)
+                os.close(child_write)
 
-            cgi_handler = CGIHandler(parent_read, parent_write)
+                log.error(DEBUG, msg='closed fds of child')
 
-            if 'CONTENT_LENGTH' in cgi_env:
-                # sending remaining received from receive_meta bytes, which are
-                # not meta, but part of the body
-                yield from cgi_handler.send(self._msg_buffer)
+                cgi_handler = CGIHandler(parent_read, parent_write)
 
-                content_length = int(cgi_env['CONTENT_LENGTH'])
-
-                log.error(TRACE, msg='before write to cgi loop')
-                log.error(DEBUG, var_name='bytes_written',
-                          var_value=cgi_handler.bytes_written)
-                log.error(DEBUG, var_name='content_length',
-                          var_value=content_length)
-
-                while cgi_handler.bytes_written < content_length:
-                    try:
-                        yield from self.receive()
-                    except socket.timeout:
-                        log.error(TRACE,
-                                  msg='timeout while receiving from client')
-                        yield from self.send_meta(b'408')
-                        return
-
-                    log.error(DEBUG, var_name='_msg_buffer',
-                              var_value=self._msg_buffer)
-
-                    if len(self._msg_buffer) <= 0:
-                        log.error(TRACE, msg='connection closed by peer')
-                        return
-
+                if 'CONTENT_LENGTH' in cgi_env:
+                    # sending remaining received from receive_meta bytes, which are
+                    # not meta, but part of the body
                     yield from cgi_handler.send(self._msg_buffer)
 
-            self.state = ClientConnection.State.SENDING
+                    content_length = int(cgi_env['CONTENT_LENGTH'])
 
-            yield from cgi_handler.receive_meta()
+                    log.error(TRACE, msg='before write to cgi loop')
+                    log.error(DEBUG, var_name='bytes_written',
+                            var_value=cgi_handler.bytes_written)
+                    log.error(DEBUG, var_name='content_length',
+                            var_value=content_length)
 
-            if cgi_handler.cgi_res_meta_raw is None:  # TODO refactor this
-                yield from self.send_meta(b'502')
-                return
+                    while cgi_handler.bytes_written < content_length:
+                        try:
+                            yield from self.receive()
+                        except socket.timeout:
+                            log.error(TRACE,
+                                    msg='timeout while receiving from client')
+                            yield from self.send_meta(b'408')
+                            return
 
-            log.error(TRACE, msg='parsing CGI meta...')
+                        log.error(DEBUG, var_name='_msg_buffer',
+                                var_value=self._msg_buffer)
 
-            res_headers = CGIMsgFormatter.parse_cgi_res_meta(
-                cgi_handler.cgi_res_meta_raw
-            )
+                        if len(self._msg_buffer) <= 0:
+                            log.error(TRACE, msg='connection closed by peer')
+                            return
 
-            if res_headers is None:
-                log.error(DEBUG, msg='res_headers is None')
-                yield from self.send_meta(b'502')
-                return
+                        yield from cgi_handler.send(self._msg_buffer)
 
-            if 'Status' in res_headers and res_headers['Status'] in HTTP1_1MsgFormatter.response_reason_phrases.keys():
-                # TODO maybe status code should not be in headers
-                yield from self.send_meta(res_headers['Status'], res_headers)
-            else:
-                yield from self.send_meta(b'200', res_headers)
+                log.error(DEBUG, msg='receiving CGI meta')
 
-            if len(cgi_handler.msg_buffer) > 0:
-                yield from self.send(cgi_handler.msg_buffer)
+                yield from cgi_handler.receive_meta()
 
-            while True:
-                yield from cgi_handler.receive()
+                if cgi_handler.cgi_res_meta_raw is None:  # TODO refactor this
+                    yield from self.send_meta(b'502')
+                    return
 
-                if len(cgi_handler.msg_buffer) <= 0:
-                    log.error(TRACE,
-                              msg='end of cgi response reached while reading')
-                    break
+                log.error(TRACE, msg='parsing CGI meta...')
 
-                log.error(TRACE, msg='sending response..')
+                res_headers = CGIMsgFormatter.parse_cgi_res_meta(
+                    cgi_handler.cgi_res_meta_raw
+                )
 
-                yield from self.send(cgi_handler.msg_buffer)
+                if res_headers is None:
+                    log.error(DEBUG, msg='res_headers is None')
+                    yield from self.send_meta(b'502')
+                    return
 
-            # TODO we block here
-            # yield ....
-            pid, exit_status = os.wait()
-            log.error(DEBUG, msg=('child {0} exited.'.format(pid) +
+                if 'Status' in res_headers and res_headers['Status'] in HTTP1_1MsgFormatter.response_reason_phrases.keys():
+                    # TODO maybe status code should not be in headers
+                    yield from self.send_meta(res_headers['Status'], res_headers)
+                else:
+                    yield from self.send_meta(b'200', res_headers)
+
+                if len(cgi_handler.msg_buffer) > 0:
+                    yield from self.send(cgi_handler.msg_buffer)
+
+                while True:
+                    yield from cgi_handler.receive()
+
+                    if len(cgi_handler.msg_buffer) <= 0:
+                        log.error(TRACE,
+                                msg='end of cgi response reached while reading')
+                        break
+
+                    log.error(TRACE, msg='sending response..')
+
+                    yield from self.send(cgi_handler.msg_buffer)
+            except OSError as error:
+                if error.errno == errno.EPIPE:
+                    log.error(DEBUG, msg=error)
+
+                    yield from self.send_meta(b'502')
+                else:
+                    raise error
+            finally:
+                # TODO we block here
+                # yield ....
+                pid, exit_status = os.wait()
+                log.error(DEBUG, msg=('child {0} exited.'.format(pid) +
                                   ' exit_status: {0}'.format(exit_status)))
 
     def shutdown(self):
