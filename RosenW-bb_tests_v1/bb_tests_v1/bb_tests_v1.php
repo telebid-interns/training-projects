@@ -75,10 +75,10 @@
         }
 
         function init_page () {
-            wp_enqueue_style( 'form-css', plugin_dir_url( __FILE__ ) . BrainBenchTestsPlugin::FORM_CSS_PATH );
-
             // prevents resubmitting of post request on f5 click, also locks form from submitting multiple times
             wp_enqueue_script( 'on-form-submit', plugin_dir_url( __FILE__ ) . BrainBenchTestsPlugin::ON_FORM_SUBMIT_PATH );
+            wp_enqueue_style( 'form-css', plugin_dir_url( __FILE__ ) . BrainBenchTestsPlugin::FORM_CSS_PATH );
+
             
             if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 $this->get_admin_page();
@@ -213,6 +213,7 @@
                 $this->display_tests();
 
                 wp_enqueue_script( 'set-default-dates', plugin_dir_url( __FILE__ ) . BrainBenchTestsPlugin::JS_SET_DEFAULTS_PATH );
+                return;
             }
 
             // adding invalid-input class on invalid data
