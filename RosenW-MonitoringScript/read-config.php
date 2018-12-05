@@ -15,8 +15,8 @@
                         'registration_allowed' => [
                             'name' => 'WP Registration',
                             'type' => 'bool',
-                            'value' => $values['users_can_register'],
-                            'timestamp' => time(),
+                            'value' => (int) $values['users_can_register'][0],
+                            'timestamp' => $values['users_can_register'][1],
                             'triggers' => [
                                 'trig1' => [
                                     'descr' => 'WordPress Registration allowed',
@@ -29,8 +29,8 @@
                         'comments_allowed' => [
                             'name' => 'WP Comments',
                             'type' => 'text',
-                            'value' => $values['default_comment_status'],
-                            'timestamp' => time(),
+                            'value' => $values['default_comment_status'][0],
+                            'timestamp' => $values['default_comment_status'][1],
                             'triggers' => [
                                 'trig1' => [
                                     'descr' => 'WordPress Comments allowed',
@@ -75,8 +75,9 @@
             $result = $conn->query(sprintf("SELECT option_value FROM %soptions WHERE option_name = '%s'", $table_prefix, $opt)) or throw_usr_err(sprintf("Could not find option_name value in table %soptions, please check if %s is your wordpress table prefix", $table_prefix, $table_prefix));
 
             while ($row = mysqli_fetch_assoc($result)) {
-                // fwrite(STDERR, sprintf("%s: %s" . PHP_EOL, $opt, $row['option_value']));
-                $values[$opt] = $row['option_value'];
+                $values[$opt] = [];
+                $values[$opt][0] = $row['option_value'];
+                $values[$opt][1] = time();
             }
         }
 
