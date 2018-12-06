@@ -42,37 +42,87 @@
         // Opt name/def values
         const MAX_CONCURRENT_TESTS_OPT_NAME = "maximum_concurrent_tests";
         const MAX_CONCURRENT_TESTS_DEF_VALUE = "2";
-        const EMAIL_MSG_OPT_NAME = "email_msg";
-        const EMAIL_MSG_DEF_VALUE = "";
-        const EMAIL_SENDER_OPT_NAME = "email_sender";
-        const EMAIL_SENDER_DEF_VALUE = "wordpress@example.com";
-        const EMAIL_SENDER_NAME_OPT_NAME = "email_sender_name";
-        const EMAIL_SENDER_NAME_DEF_VALUE = "Wordpress";
-        const EMAIL_SUBJECT_OPT_NAME = "email_subject";
-        const EMAIL_SUBJECT_DEF_VALUE = "Test";
         const RECAPTCHA_SITE_KEY_OPT_NAME = "recaptcha_site_key";
         const RECAPTCHA_SITE_KEY_DEF_VALUE = "";
         const RECAPTCHA_SECRET_KEY_OPT_NAME = "recaptcha_secret_key";
         const RECAPTCHA_SECRET_KEY_DEF_VALUE = "";
+            // email settings
+                //smtp settings 
+        const SMTP_PORT_OPT_NAME = "smtp_port";
+        const SMTP_PORT_DEF_VALUE = "25";
+
+        const SMTP_HOST_OPT_NAME = "smtp_host";
+        const SMTP_HOST_DEF_VALUE = "smtp.gmail.com";
+
+        const SMTP_USERNAME_OPT_NAME = "smtp_username";
+        const SMTP_USERNAME_DEF_VALUE = "";
+
+        const SMTP_PASS_OPT_NAME = "smtp_password";
+        const SMTP_PASS_DEF_VALUE = "";
+
+        const ENCRYPTION_KEY_OPT_NAME = 'encryption_key';
+
+        const SMTP_FROM_NAME_OPT_NAME = "smtp_from_name";
+        const SMTP_FROM_NAME_DEF_VALUE = "Wordpress";
+                // actual email settings 
+        const EMAIL_SUBJECT_OPT_NAME = "email_subject";
+        const EMAIL_SUBJECT_DEF_VALUE = "Test";
+
+        const EMAIL_MSG_OPT_NAME = "email_msg";
+        const EMAIL_MSG_DEF_VALUE = "";
 
         function __construct () {
             if (array_key_exists('page_id', $_GET) && get_page_by_title( BrainBenchTestsPlugin::TITLE )->ID === (int)$_GET['page_id']) {
                 add_filter('the_content', array($this, 'load_test_page'));
             }
-
-            add_filter( 'wp_mail_from', array($this, 'change_email') );
-            add_filter( 'wp_mail_from_name', array($this, 'change_name') );
+          
+            // add the action 
+            add_action( 'phpmailer_init', array($this, 'init_smtp'));
             add_action('admin_menu', array($this, 'brainbench_tests_setup_menu'));
         }
 
-        function change_email () {
-            global $wpdb;
-            return $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::EMAIL_SENDER_OPT_NAME))[0]->opt_value;
-        }
+        function init_smtp ($phpmailer) {
+            if (!is_object($phpmailer)) {
+                $phpmailer = (object) $phpmailer;
+            }
 
-        function change_name () {
             global $wpdb;
-            return $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::EMAIL_SENDER_NAME_OPT_NAME))[0]->opt_value;
+
+            $phpmailer->Mailer = 'smtp';
+            $phpmailer->SMTPAuth = true;
+            $phpmailer->SMTPSecure = 'tls';
+
+            $phpmailer->Port = $wpdb->get_results(sprintf("
+                SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", 
+                $wpdb->prefix, BrainBenchTestsPlugin::SMTP_PORT_OPT_NAME
+            ))[0]->opt_value;
+
+            $phpmailer->Host = $wpdb->get_results(sprintf("
+                SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", 
+                $wpdb->prefix, BrainBenchTestsPlugin::SMTP_HOST_OPT_NAME
+            ))[0]->opt_value;
+
+            $phpmailer->Username = $wpdb->get_results(sprintf("
+                SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", 
+                $wpdb->prefix, BrainBenchTestsPlugin::SMTP_USERNAME_OPT_NAME
+            ))[0]->opt_value;
+
+            $enc_key = $wpdb->get_results(sprintf("
+                SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", 
+                $wpdb->prefix, BrainBenchTestsPlugin::ENCRYPTION_KEY_OPT_NAME
+            ))[0]->opt_value;
+
+            $iv = substr(hash('sha256', $enc_key), 0, 16);
+
+            $phpmailer->Password = openssl_decrypt($wpdb->get_results(sprintf("
+                SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", 
+                $wpdb->prefix, BrainBenchTestsPlugin::SMTP_PASS_OPT_NAME
+            ))[0]->opt_value, 'aes-256-cfb8', $enc_key, 0, $iv); 
+
+            $phpmailer->FromName = $wpdb->get_results(sprintf("
+                SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", 
+                $wpdb->prefix, BrainBenchTestsPlugin::SMTP_FROM_NAME_OPT_NAME
+            ))[0]->opt_value;
         }
 
         function brainbench_tests_setup_menu () {
@@ -102,13 +152,28 @@
 
             foreach ([
                 BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME,
-                BrainBenchTestsPlugin::EMAIL_SENDER_OPT_NAME,
-                BrainBenchTestsPlugin::EMAIL_SENDER_NAME_OPT_NAME,
+                BrainBenchTestsPlugin::SMTP_PORT_OPT_NAME,
+                BrainBenchTestsPlugin::SMTP_HOST_OPT_NAME,
+                BrainBenchTestsPlugin::SMTP_USERNAME_OPT_NAME,
+                BrainBenchTestsPlugin::SMTP_PASS_OPT_NAME,
+                BrainBenchTestsPlugin::SMTP_FROM_NAME_OPT_NAME,
                 BrainBenchTestsPlugin::EMAIL_SUBJECT_OPT_NAME,
                 BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME,
                 BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_OPT_NAME,
                 BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_OPT_NAME ] as $value) {
-                array_push($settings, $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, $value))[0]->opt_value);
+                $opt_val = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, $value))[0]->opt_value;
+
+                if ($value === BrainBenchTestsPlugin::SMTP_PASS_OPT_NAME) {
+                    $enc_key = $wpdb->get_results(sprintf("
+                        SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", 
+                        $wpdb->prefix, BrainBenchTestsPlugin::ENCRYPTION_KEY_OPT_NAME
+                    ))[0]->opt_value;
+
+                    $iv = substr(hash('sha256', $enc_key), 0, 16);
+                    $opt_val = openssl_decrypt($opt_val, 'aes-256-cfb8', $enc_key, 0, $iv);
+                }
+
+                array_push($settings, $opt_val);
             }
 
             echo vsprintf("
@@ -121,13 +186,18 @@
                         <input id=\"email-dup\" type=\"email\" name=\"email\" style=\"display: none\">
                         <input id=\"date-from-dup\" type=\"date\" name=\"date-from\" style=\"display: none\">
                         <input id=\"date-to-dup\" type=\"date\" name=\"date-to\" style=\"display: none\">
-
                         <label for=\"max_parallel\">Test Slots:</label>
                         <input name=\"max_parallel\" value=\"%s\">
-                        <label for=\"email_sender\">Email Sender:</label>
-                        <input name=\"email_sender\" type=\"email\" value=\"%s\">
-                        <label for=\"email_sender\">Email Sender Name:</label>
-                        <input name=\"email_sender_name\" value=\"%s\">
+                        <label for=\"smtp_port\">SMTP Port:</label>
+                        <input name=\"smtp_port\" value=\"%s\">
+                        <label for=\"smtp_host\">SMTP Host:</label>
+                        <input name=\"smtp_host\" value=\"%s\">
+                        <label for=\"smtp_username\">SMTP Username:</label>
+                        <input name=\"smtp_username\" value=\"%s\">
+                        <label for=\"smtp_password\">SMTP Password:</label>
+                        <input name=\"smtp_password\" type=\"password\" value=\"%s\">
+                        <label for=\"smtp_from_name\">From Name:</label>
+                        <input name=\"smtp_from_name\" value=\"%s\">
                         <label for=\"email_subject\">Email Subject:</label>
                         <input name=\"email_subject\" value=\"%s\">
                         <label for=\"email_msg\">Email Text:</label>
@@ -156,24 +226,6 @@
             global $wpdb;
             
             if (array_key_exists('max_parallel', $_POST)) { // settings form
-                if (
-                    !array_key_exists('max_parallel', $_POST) ||
-                    !array_key_exists('email_msg', $_POST) ||
-                    !array_key_exists('email_sender', $_POST) ||
-                    !array_key_exists('email_subject', $_POST) ||
-                    !array_key_exists('link', $_POST) ||
-                    !array_key_exists('real-name', $_POST) ||
-                    !array_key_exists('email', $_POST) ||
-                    !array_key_exists('date-from', $_POST) ||
-                    !array_key_exists('date-to', $_POST)
-                    ) {
-                    var_dump($_POST);
-                    $this->display_send_test_form();
-                    $this->display_settings_form();
-                    $this->display_tests();
-                    return;
-                }
-
                 $this->display_send_test_form();
 
                 $rows = $wpdb->get_results(sprintf("SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME));
@@ -190,14 +242,26 @@
                 ", $_POST['link'], $_POST['real-name'], $_POST['email'], $_POST['date-from'], $_POST['date-to']);
                 echo "  <label for=\"max_parallel\">Test Slots: </label>\n";
                 echo (is_numeric($_POST['max_parallel']) && (int) $_POST['max_parallel'] > 0 ? sprintf("<input name=\"max_parallel\" value=\"%s\">", htmlspecialchars($_POST['max_parallel'])) : sprintf("<input name=\"max_parallel\" class=\"invalid-input\" value=\"%s\">", $rows[0]->opt_value));
+
                 echo sprintf("
-                    <label for=\"email_sender\">Email Sender:</label>
-                    <input name=\"email_sender\" type=\"email\" value=\"%s\">", $_POST['email_sender']
+                    <label for=\"smtp_port\">SMTP Port:</label>
+                    <input name=\"smtp_port\" value=\"%s\">
+                    <label for=\"smtp_host\">SMTP Host:</label>
+                    <input name=\"smtp_host\" value=\"%s\">
+                    <label for=\"smtp_username\">SMTP Username:</label>
+                    <input name=\"smtp_username\" value=\"%s\">
+                    <label for=\"smtp_password\">SMTP Password:</label>
+                    <input name=\"smtp_password\" type=\"password\" value=\"%s\">
+                    <label for=\"smtp_from_name\">From Name:</label>
+                    <input name=\"smtp_from_name\" value=\"%s\">
+                ", 
+                    $_POST['smtp_port'], 
+                    $_POST['smtp_host'], 
+                    $_POST['smtp_username'], 
+                    $_POST['smtp_password'], 
+                    $_POST['smtp_from_name']
                 );
-                echo sprintf("
-                    <label for=\"email_sender_name\">Email Sender Name:</label>
-                    <input name=\"email_sender_name\" value=\"%s\">", $_POST['email_sender_name']
-                );
+
                 echo sprintf("
                     <label for=\"email_subject\">Email Subject:</label>
                     <input name=\"email_subject\" value=\"%s\">", $_POST['email_subject']
@@ -226,12 +290,22 @@
                     echo sprintf("<p id=\"err-msg\">%s</p>", htmlspecialchars($err->getMessage()));
                 }
 
+                $enc_key = $wpdb->get_results(sprintf("
+                    SELECT opt_value FROM %sbrainbench_settings WHERE opt_name = '%s'", 
+                    $wpdb->prefix, BrainBenchTestsPlugin::ENCRYPTION_KEY_OPT_NAME
+                ))[0]->opt_value;
+
+                $iv = substr(hash('sha256', $enc_key), 0, 16);
+
                 if (!$has_errors) {
                     foreach ([
                         BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME => $_POST['max_parallel'],
                         BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME => $_POST['email_msg'],
-                        BrainBenchTestsPlugin::EMAIL_SENDER_OPT_NAME => $_POST['email_sender'],
-                        BrainBenchTestsPlugin::EMAIL_SENDER_NAME_OPT_NAME => $_POST['email_sender_name'],
+                        BrainBenchTestsPlugin::SMTP_PORT_OPT_NAME => $_POST['smtp_port'],
+                        BrainBenchTestsPlugin::SMTP_HOST_OPT_NAME => $_POST['smtp_host'],
+                        BrainBenchTestsPlugin::SMTP_USERNAME_OPT_NAME => $_POST['smtp_username'],
+                        BrainBenchTestsPlugin::SMTP_PASS_OPT_NAME => openssl_encrypt($_POST['smtp_password'], 'aes-256-cfb8', $enc_key, 0, $iv),
+                        BrainBenchTestsPlugin::SMTP_FROM_NAME_OPT_NAME => $_POST['smtp_from_name'],
                         BrainBenchTestsPlugin::EMAIL_SUBJECT_OPT_NAME => $_POST['email_subject'],
                         BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_OPT_NAME => $_POST['site_key'],
                         BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_OPT_NAME => $_POST['secret_key']] as $key => $value) {
@@ -290,7 +364,7 @@
                     </script>
                 ";
 
-                $code = $this->generateRandomString(BrainBenchTestsPlugin::CODE_LENGTH);
+                $code = bb_tests_generate_random_string(BrainBenchTestsPlugin::CODE_LENGTH);
                 $link = sprintf("%s&test=%s", get_permalink(get_page_by_title( BrainBenchTestsPlugin::TITLE )->ID), $code);
 
                 if (strpos($_POST['link'], 'http://') !== 0 && strpos($_POST['link'], 'https://') !== 0) {
@@ -462,18 +536,6 @@
             echo "</div>";
         }
 
-        function generateRandomString ($length = 20) {
-            $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-            $charactersLength = strlen($characters);
-            $randomString = '';
-
-            for ($i = 0; $i < $length; $i++) {
-                $randomString .= $characters[rand(0, $charactersLength - 1)];
-            }
-
-            return $randomString;
-        }
-
         function can_start_new_test () {
             global $wpdb;
 
@@ -519,7 +581,6 @@
 
                 // TODO: replace $rows[0] with test
                 $this->assert_user($rows[0]->status !== BrainBenchTestStatus::COMPLETED, BrainBenchTestsPlugin::TEST_ALREADY_COMPLETED_ERR_MSG);
-
 
                 $this->assert_user(strtotime($rows[0]->start_date) <= strtotime('today'), sprintf(BrainBenchTestsPlugin::START_DATE_IN_THE_FUTURE_ERR_MSG, $rows[0]->start_date, $rows[0]->due_date));
                 $this->assert_user(strtotime($rows[0]->due_date) >= strtotime('today'), BrainBenchTestsPlugin::DUE_DATE_MET_ERR_MSG);
@@ -667,7 +728,19 @@
             ", $wpdb->prefix, $wpdb->prefix
         ));
 
-        $opts_default_values = [ BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME => BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_DEF_VALUE, BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME => BrainBenchTestsPlugin::EMAIL_MSG_DEF_VALUE, BrainBenchTestsPlugin::EMAIL_SENDER_OPT_NAME => BrainBenchTestsPlugin::EMAIL_SENDER_DEF_VALUE, BrainBenchTestsPlugin::EMAIL_SENDER_NAME_OPT_NAME => BrainBenchTestsPlugin::EMAIL_SENDER_NAME_DEF_VALUE, BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_OPT_NAME => BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_DEF_VALUE, BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_OPT_NAME => BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_DEF_VALUE, BrainBenchTestsPlugin::EMAIL_SUBJECT_OPT_NAME => BrainBenchTestsPlugin::EMAIL_SUBJECT_DEF_VALUE ];
+        $opts_default_values = [
+            BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_OPT_NAME => BrainBenchTestsPlugin::MAX_CONCURRENT_TESTS_DEF_VALUE,
+            BrainBenchTestsPlugin::EMAIL_MSG_OPT_NAME => BrainBenchTestsPlugin::EMAIL_MSG_DEF_VALUE,
+            BrainBenchTestsPlugin::SMTP_PORT_OPT_NAME => BrainBenchTestsPlugin::SMTP_PORT_DEF_VALUE,
+            BrainBenchTestsPlugin::SMTP_HOST_OPT_NAME => BrainBenchTestsPlugin::SMTP_HOST_DEF_VALUE,
+            BrainBenchTestsPlugin::SMTP_USERNAME_OPT_NAME => BrainBenchTestsPlugin::SMTP_USERNAME_DEF_VALUE,
+            BrainBenchTestsPlugin::SMTP_PASS_OPT_NAME => BrainBenchTestsPlugin::SMTP_PASS_DEF_VALUE,
+            BrainBenchTestsPlugin::SMTP_FROM_NAME_OPT_NAME => BrainBenchTestsPlugin::SMTP_FROM_NAME_DEF_VALUE, 
+            BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_OPT_NAME => BrainBenchTestsPlugin::RECAPTCHA_SITE_KEY_DEF_VALUE,
+            BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_OPT_NAME => BrainBenchTestsPlugin::RECAPTCHA_SECRET_KEY_DEF_VALUE,
+            BrainBenchTestsPlugin::EMAIL_SUBJECT_OPT_NAME => BrainBenchTestsPlugin::EMAIL_SUBJECT_DEF_VALUE,
+            BrainBenchTestsPlugin::ENCRYPTION_KEY_OPT_NAME => hash('sha256', bb_tests_generate_random_string(100))
+        ];
 
         foreach ($opts_default_values as $option => $default) {
             $rows = $wpdb->get_results(sprintf("SELECT * FROM %sbrainbench_settings WHERE opt_name = '%s'", $wpdb->prefix, $option));
@@ -682,6 +755,18 @@
                 );
             }
         }
+    }
+
+    function bb_tests_generate_random_string ($length = 20) {
+        $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $charactersLength = strlen($characters);
+        $randomString = '';
+
+        for ($i = 0; $i < $length; $i++) {
+            $randomString .= $characters[rand(0, $charactersLength - 1)];
+        }
+
+        return $randomString;
     }
 
     function on_bbt_deactivate () {
