@@ -39,12 +39,12 @@
                 $this->assert_user(is_numeric($atts['width']), "Width must be a number");
                 $this->assert_user(is_numeric($atts['height']), "Height must be a number");
 
-                $this->assert_user(!isset($GLOBALS['key']) || $GLOBALS['key'] === $atts['key'], "Cannot use multiple API keys");
+                $this->assert_user(!isset($GLOBALS['gmaps-api-key']) || $GLOBALS['gmaps-api-key'] === $atts['key'], "Cannot use multiple API keys");
 
-                $GLOBALS['key'] = $atts['key'];
+                $GLOBALS['gmaps-api-key'] = $atts['key'];
 
                 // unique name 'google_api_script' prevents wp_enqueue_script() from enqueuing script multiple times
-                wp_enqueue_script( 'google_api_script', sprintf('https://maps.googleapis.com/maps/api/js?key=%s&callback=initMaps', $GLOBALS['key']), array(), null, true);
+                wp_enqueue_script( 'google_api_script', sprintf('https://maps.googleapis.com/maps/api/js?key=%s&callback=initMaps', $GLOBALS['gmaps-api-key']), array(), null, true);
 
                 return $this->build_div($atts);
 
