@@ -42,6 +42,12 @@
                         ],
                     ]
                 ],
+                "users" => [
+                    "name" => "User Count",
+                    "type" => "int",
+                    "value" => $items["users"]["value"],
+                    "timestamp" => $items["users"]["ts"]
+                ]
             ]
         ]);
     }
@@ -120,13 +126,17 @@
                 $result = $conn->query(sprintf("SELECT option_value FROM %soptions WHERE option_name = '%s'", $table_prefix, $opt_name));
 
                 assert_user($result, sprintf("Could not find option_name value in table %soptions", $table_prefix), 5005);
+                
+                $row = mysqli_fetch_assoc($result);
 
-                while ($row = mysqli_fetch_assoc($result)) {
-                    $items[$opt_name] = [];
-                    $items[$opt_name]['value'] = (int) !($row['option_value'] === $opt_value);
-                    $items[$opt_name]['ts'] = time();
-                }
+                $items[$opt_name] = [];
+                $items[$opt_name]['value'] = (int) !($row['option_value'] === $opt_value);
+                $items[$opt_name]['ts'] = time();
             }
+
+            $user_count_rows = $conn->query(sprintf("SELECT COUNT(*) AS count FROM %susers", $table_prefix));
+            $items['users']['value'] = mysqli_fetch_assoc($user_count_rows)['count'];
+            $items['users']['ts'] = time();
 
             fwrite(STDOUT, generate_json($argv[1], $items));
         } catch (UserError $err) {
