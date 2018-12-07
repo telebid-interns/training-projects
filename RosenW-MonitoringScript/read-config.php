@@ -1,87 +1,142 @@
 <?php
-    function throw_usr_err ($msg) {
-        fwrite(STDOUT, sprintf("Error: %s" . PHP_EOL, $msg));
-        exit(1);
+    class UserError extends Exception {
+        public function __construct ($message, $code = 0, Exception $previous = null) {
+            parent::__construct($message, $code, $previous);
+        }
     }
 
-    function generateJson ($values) {
-        $arr = [
-            'version' => '3.0',
-            'update_interval' => 60,
-            'applications' => [
-                'wp-settings-mon' => [
-                    'name' => 'WordPress Settings Monitoring',
-                    'items' => [
-                        'registration_allowed' => [
-                            'name' => 'WP Registration',
-                            'type' => 'bool',
-                            'value' => (int) $values['users_can_register'][0],
-                            'timestamp' => $values['users_can_register'][1],
-                            'triggers' => [
-                                'trig1' => [
-                                    'descr' => 'WordPress Registration allowed',
-                                    'prior' => 'warn',
-                                    'range' => [0, 0],
-                                    'resol' => 'Turn off user registration from the  admin panel or change in database table "<wp-prefix>options" set "option_value" to 0 where "option_name" is "users_can_register"'
-                                ],
-                            ]
+    function assert_user ($condition, $msg, $code) {
+        if (!$condition) {
+            throw new UserError($msg, $code);
+        }
+    }
+
+    function generate_json ($domain, $items) {
+        return json_encode([
+            "items" => [
+                "registration_allowed" => [
+                    "name" => "WP Checklist: Registration",
+                    "type" => "bool",
+                    "value" => $items["users_can_register"]["value"],
+                    "timestamp" => $items["users_can_register"]["ts"],
+                    "triggers" => [
+                        "trig1" => [
+                            "descr" => "WordPress Registration allowed",
+                            "prior" => "warn",
+                            "range" => [1, 1],
+                            "resol" => "Turn off user registration from the WP admin panel or change in database table '<wp-prefix>options' set 'option_value' to 0 where 'option_name' is 'users_can_register'"
                         ],
-                        'comments_allowed' => [
-                            'name' => 'WP Comments',
-                            'type' => 'text',
-                            'value' => $values['default_comment_status'][0],
-                            'timestamp' => $values['default_comment_status'][1],
-                            'triggers' => [
-                                'trig1' => [
-                                    'descr' => 'WordPress Comments allowed',
-                                    'prior' => 'warn',
-                                    'match' => '^closed$',
-                                    'resol' => 'Turn off comments from the admin panel or change in database table "<wp-prefix>options" set "option_value" to "closed" where "option_name" is "default_comment_status"'
-                                ],
-                            ]
+                    ]
+                ],
+                "comments_allowed" => [
+                    "name" => "WP Checklist: Comments",
+                    "type" => "bool",
+                    "value" => $items["default_comment_status"]["value"],
+                    "timestamp" => $items["default_comment_status"]["ts"],
+                    "triggers" => [
+                        "trig1" => [
+                            "descr" => "WordPress Comments allowed",
+                            "prior" => "warn",
+                            "range" => [1, 1],
+                            "resol" => "Turn off comments from the WP admin panel or change in database table '<wp-prefix>options' set 'option_value' to 'closed' where 'option_name' is 'default_comment_status'"
                         ],
+                    ]
+                ],
+            ]
+        ]);
+    }
+
+    function generate_error_json ($domain, $code, $msg) {
+        $resol = "No resol specified";
+
+        if ($code === 5001) {
+            $resol = "Check in /etc/wordpress if config files are named properly";
+        }
+
+        if ($code === 5002) {
+            $resol = sprintf("Create config file %s", sprintf("/etc/wordpress/config-%s.php", $domain));
+        }
+
+        if ($code === 5003) {
+            $resol = sprintf("Define DB_HOST, DB_NAME, DB_PASSWORD and DB_USER in %s", sprintf("/etc/wordpress/config-%s.php", $domain));
+        }
+
+        if ($code === 5004) {
+            $resol = sprintf("Check if defined database credentials are correct in %s", sprintf("/etc/wordpress/config-%s.php", $domain));
+        }
+
+        if ($code === 5005) {
+            $resol = "Check if the table prefix is correct";
+        }
+
+        return json_encode([
+            $domain => [
+                "items" => [
+                    "error" => [
+                        "name" => "User Error",
+                        "type" => "bool",
+                        "value" => 1,
+                        "timestamp" => time(),
+                        "triggers" => [
+                            "trig1" => [
+                                "descr" => $msg,
+                                "prior" => "warn",
+                                "range" => [1, 1],
+                                "resol" => $resol
+                            ]
+                        ]
                     ]
                 ]
             ]
-        ];
-
-        return json_encode($arr);
+        ]);
     }
 
     // Script Starts here
     if ($argv && $argv[0] && realpath($argv[0]) === __FILE__) {
-        count($argv) > 1 or throw_usr_err("\n\tPlease provide domain name as first argument\n\n\tTry 'php <script> <domain>'\n");
+        try {
+            assert_user(count($argv) > 1, "Domain not provided", 5001);
+            $config_file = sprintf('/etc/wordpress/config-%s.php', $argv[1]);
+            assert_user(@include $config_file, sprintf("Could not find %s", $config_file), 5002);
 
-        $config_file = sprintf('/etc/wordpress/config-%s.php', $argv[1]);
-        (@include $config_file) or throw_usr_err (sprintf("Could not find %s", $config_file));
+            assert_user(
+                defined('DB_HOST') || 
+                defined('DB_NAME') ||
+                defined('DB_PASSWORD') ||
+                defined('DB_USER'), 
+                "Database credentials not defined", 
+                5003
+            );
 
-        defined('DB_HOST') or throw_usr_err(sprintf("DB_HOST not defined in %s", $config_file));
-        defined('DB_NAME') or throw_usr_err(sprintf("DB_NAME not defined in %s", $config_file));
-        defined('DB_PASSWORD') or throw_usr_err(sprintf("DB_PASSWORD not defined in %s", $config_file));
-        defined('DB_USER') or throw_usr_err(sprintf("DB_USER not defined in %s", $config_file));
+            isset($table_prefix) or $table_prefix = 'wp_';
 
-        isset($table_prefix) or $table_prefix = 'wp_';
+            $conn = @new mysqli(DB_HOST, DB_USER, DB_PASSWORD, DB_NAME);
+            assert_user(is_null($conn->connect_error), "Could not connect to Database", 5004);
 
-        $conn = @new mysqli(DB_HOST, DB_USER, DB_PASSWORD, DB_NAME);
-        is_null($conn->connect_error) or throw_usr_err(sprintf("Could not connect to Database", $config_file));
+            $expected = [ 'users_can_register' => '0', 'default_comment_status' => 'closed' ];
 
-        $options = [ 'users_can_register', 'default_comment_status' ];
+            $items = [];
 
-        $values = [];
+            foreach ($expected as $opt_name => $opt_value) {
+                $result = $conn->query(sprintf("SELECT option_value FROM %soptions WHERE option_name = '%s'", $table_prefix, $opt_name));
 
-        $has_differences = false;
+                assert_user($result, sprintf("Could not find option_name value in table %soptions", $table_prefix), 5005);
 
-        foreach ($options as $opt) {
-            $result = $conn->query(sprintf("SELECT option_value FROM %soptions WHERE option_name = '%s'", $table_prefix, $opt)) or throw_usr_err(sprintf("Could not find option_name value in table %soptions, please check if %s is your wordpress table prefix", $table_prefix, $table_prefix));
-
-            while ($row = mysqli_fetch_assoc($result)) {
-                $values[$opt] = [];
-                $values[$opt][0] = $row['option_value'];
-                $values[$opt][1] = time();
+                while ($row = mysqli_fetch_assoc($result)) {
+                    $items[$opt_name] = [];
+                    $items[$opt_name]['value'] = (int) !($row['option_value'] === $opt_value);
+                    $items[$opt_name]['ts'] = time();
+                }
             }
-        }
 
-        fwrite(STDOUT, generateJson($values));
+            fwrite(STDOUT, generate_json($argv[1], $items));
+        } catch (UserError $err) {
+            $domain = 'no-domain-provided';
+            if (count($argv) > 1) {
+                $domain = $argv[1];
+            }
+
+            fwrite(STDOUT, generate_error_json($domain, $err->getCode(), $err->getMessage()));
+        }
     }
 ?>
 
