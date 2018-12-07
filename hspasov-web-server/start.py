@@ -27,6 +27,8 @@ def start():
     except Exception as error:
         log.error(DEBUG, msg='Exception thrown')
         log.error(ERROR, msg=str(error) + str(traceback.format_exc()))
+    finally:
+        server.stop()
 
 
 if __name__ == '__main__':
