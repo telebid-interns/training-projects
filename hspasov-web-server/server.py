@@ -50,10 +50,13 @@ class Server:
                     pid = os.fork()
 
                     if pid == 0:  # child process
-                        # TODO not sure if this should be outside of try
-                        signal.signal(signal.SIGTERM, signal.SIG_DFL)
-
                         try:
+                            signal.signal(signal.SIGTERM, signal.SIG_DFL)
+                            # TODO ask if init_access_log_file fails, we get
+                            # into an endless loop. But what could the
+                            # alternative be? Stop the server? Count how
+                            # often new worker is created and stop the server
+                            # only when new workers are created too often?
                             log.init_access_log_file()
 
                             worker = Worker(self._socket, self._accept_lock_fd)
@@ -64,19 +67,18 @@ class Server:
                             os._exit(os.EX_SOFTWARE)
                     else:  # parent process
                         self._worker_pids.append(pid)
-                        log.error(DEBUG, msg='New child created with pid {0}'.format(pid))  # noqa
+                        log.error(DEBUG, msg='New worker created with pid {0}'.format(pid))  # noqa
 
                 is_initialized = True
                 worker_pid, worker_exit_status = os.wait()
-                self._worker_pids.remove(worker_pid)
 
-            except OSError as error:
-                log.error(DEBUG, msg=error)
+                log.error(ERROR, msg='Worker with pid {0} exited with status code {1}'.format(pid, os.WEXITSTATUS(worker_exit_status)))  # noqa
+                self._worker_pids.remove(worker_pid)
             finally:
                 if pid is not None and pid == 0:
                     log.close_access_log_file()
 
-    def stop(self, signal_number, stack_frame):
+    def stop(self, signal_number=None, stack_frame=None):
         for worker_pid in self._worker_pids:
             os.kill(worker_pid, signal.SIGTERM)
 
