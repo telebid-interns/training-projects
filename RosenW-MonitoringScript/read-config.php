@@ -42,6 +42,20 @@
                         ],
                     ]
                 ],
+                "wp_admin_accessible" => [
+                    "name" => "WP Checklist: admin page accessible",
+                    "type" => "bool",
+                    "value" => $items['wp_admin_accessible']['value'],
+                    "timestamp" => $items["wp_admin_accessible"]["ts"],
+                    "triggers" => [
+                        "trig1" => [
+                            "descr" => "WordPress Comments allowed",
+                            "prior" => "warn",
+                            "range" => [1, 1],
+                            "resol" => "Forbid access to the admin panel"
+                        ],
+                    ]
+                ],
                 "users" => [
                     "name" => "User Count",
                     "type" => "int",
@@ -137,6 +151,11 @@
             $user_count_rows = $conn->query(sprintf("SELECT COUNT(*) AS count FROM %susers", $table_prefix));
             $items['users']['value'] = mysqli_fetch_assoc($user_count_rows)['count'];
             $items['users']['ts'] = time();
+
+            $http_response = explode(" ", get_headers(sprintf("http://%s/wp-admin/", $argv[1]))[0])[1];
+
+            $items['wp_admin_accessible']['value'] = (int) ($http_response === '200');
+            $items['wp_admin_accessible']['ts'] = time();
 
             fwrite(STDOUT, generate_json($argv[1], $items));
         } catch (UserError $err) {
