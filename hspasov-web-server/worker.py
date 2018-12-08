@@ -4,6 +4,7 @@ import socket
 import select
 import traceback
 import errno
+from profiler import Profiler
 from http_meta import RequestMeta
 from log import log, DEBUG, ERROR
 from config import CONFIG
@@ -18,6 +19,7 @@ class Worker:
         self._socket = socket
         self._accept_lock_fd = accept_lock_fd
         self._poll = select.poll()
+        self._profiler = Profiler()
         self._activity_iterators = {}
 
     def start(self):
@@ -114,7 +116,16 @@ class Worker:
         finally:
             try:
                 client_conn.shutdown()
-                client_conn.close()
+                client_conn_monit = client_conn.close()
+
+                if self._profiler.get_monits_count() >= CONFIG['max_monits']:
+                    log.error(ERROR,
+                              var_name='averages',
+                              var_value=self._profiler.get_averages())
+                    # TODO it should be ERROR only for dev purposes
+                    self._profiler = Profiler()
+
+                self._profiler.add_monit(client_conn_monit)
             except OSError as error:
                 if error.errno != errno.ENOTCONN:
                     raise error

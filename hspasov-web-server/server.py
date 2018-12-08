@@ -2,6 +2,7 @@ import os
 import socket
 import ssl
 import signal
+import traceback
 from config import CONFIG
 from log import log, DEBUG, ERROR
 from worker import Worker
@@ -62,6 +63,7 @@ class Server:
                             worker = Worker(self._socket, self._accept_lock_fd)
                             worker.start()  # event loop
                         except Exception as error:
+                            log.error(ERROR, msg=traceback.format_exc())
                             log.error(ERROR, msg=error)
                         finally:
                             os._exit(os.EX_SOFTWARE)
@@ -72,7 +74,7 @@ class Server:
                 is_initialized = True
                 worker_pid, worker_exit_status = os.wait()
 
-                log.error(ERROR, msg='Worker with pid {0} exited with status code {1}'.format(pid, os.WEXITSTATUS(worker_exit_status)))  # noqa
+                log.error(ERROR, msg='Worker with pid {0} exited with status code {1}'.format(worker_pid, os.WEXITSTATUS(worker_exit_status)))  # noqa
                 self._worker_pids.remove(worker_pid)
             finally:
                 if pid is not None and pid == 0:
