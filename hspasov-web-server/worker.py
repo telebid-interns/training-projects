@@ -30,15 +30,22 @@ class Worker:
         self.register_activity(self._socket, select.POLLIN, accept_iter)
 
         next(accept_iter)
+        self._profiler.mark_event_loop_begin_time()
 
         while True:
+            self._profiler.mark_event_loop_end_time()
             action_requests = self._poll.poll()
+            self._profiler.mark_event_loop_begin_time()
 
             for fd, event in action_requests:
                 assert fd in self._activity_iterators
 
                 activity_iter = self._activity_iterators[fd]
+
+                self._profiler.mark_event_loop_end_time()
                 result = next(activity_iter, None)
+                self._profiler.mark_event_loop_begin_time()
+
 
                 assert result is None or isinstance(result, tuple)
 
@@ -123,6 +130,9 @@ class Worker:
                               var_name='averages',
                               var_value=self._profiler.get_averages())
                     # TODO it should be ERROR only for dev purposes
+                    log.error(ERROR,
+                              var_name='event_loop_time',
+                              var_value=self._profiler.get_event_loop_time())
                     self._profiler = Profiler()
 
                 self._profiler.add_monit(client_conn_monit)

@@ -46,6 +46,17 @@ class ClientConnectionMonit:
 class Profiler:
     def __init__(self):
         self._client_conn_monits = []
+        self._event_loop_time = timedelta(0)
+        self._event_loop_begin_time = None
+
+    def mark_event_loop_begin_time(self):
+        self._event_loop_begin_time = datetime.now()
+
+    def mark_event_loop_end_time(self):
+        assert self._event_loop_begin_time is not None
+
+        self._event_loop_time += datetime.now() - self._event_loop_begin_time
+        self._event_loop_begin_time = None
 
     def add_monit(self, monit):
         assert len(self._client_conn_monits) < CONFIG['max_monits']
@@ -54,6 +65,9 @@ class Profiler:
 
     def get_monits_count(self):
         return len(self._client_conn_monits)
+
+    def get_event_loop_time(self):
+        return self._event_loop_time.microseconds
 
     def get_averages(self):
         if len(self._client_conn_monits) == 0:
