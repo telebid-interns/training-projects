@@ -4,7 +4,7 @@
     // Script Starts here
     if ($argv && $argv[0] && realpath($argv[0]) === __FILE__) {
         $files = scandir(CONFIG_PATH);
-        $apps = new stdClass();;
+        $apps = new stdClass();
         foreach ($files as $file) {
             if (substr($file, -4) === '.php' && strpos($file, "config-") === 0) {
                 $domain = substr($file, 7, -4);

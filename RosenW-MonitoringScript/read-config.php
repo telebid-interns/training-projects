@@ -56,6 +56,20 @@
                         ],
                     ]
                 ],
+                "wp_directory_permissions" => [
+                    "name" => "WP Checklist: Directory permissions",
+                    "type" => "bool",
+                    "value" => $items['permissions']['value'],
+                    "timestamp" => $items["permissions"]["ts"],
+                    "triggers" => [
+                        "trig1" => [
+                            "descr" => "WordPress Permissions 755 for dirs 644 for files",
+                            "prior" => "warn",
+                            "range" => [0, 0],
+                            "resol" => "Fix files/dirs permissions in /usr/share/wordpress should be 755 for dirs, 644 for files"
+                        ],
+                    ]
+                ],
                 "users" => [
                     "name" => "User Count",
                     "type" => "int",
@@ -90,25 +104,46 @@
         }
 
         return json_encode([
-            $domain => [
-                "items" => [
-                    "error" => [
-                        "name" => "User Error",
-                        "type" => "bool",
-                        "value" => 1,
-                        "timestamp" => time(),
-                        "triggers" => [
-                            "trig1" => [
-                                "descr" => $msg,
-                                "prior" => "warn",
-                                "range" => [1, 1],
-                                "resol" => $resol
-                            ]
+            "items" => [
+                "error" => [
+                    "name" => "User Error",
+                    "type" => "bool",
+                    "value" => 1,
+                    "timestamp" => time(),
+                    "triggers" => [
+                        "trig1" => [
+                            "descr" => $msg,
+                            "prior" => "warn",
+                            "range" => [1, 1],
+                            "resol" => $resol
                         ]
                     ]
                 ]
             ]
         ]);
+    }
+
+    function check_permissions ($path) {
+        $files = scandir($path);
+
+        foreach ($files as $file) {
+            if ($file === '.' || $file === '..') {
+                continue;
+            }
+
+            $new_path = $path . DIRECTORY_SEPARATOR . $file;
+            if (is_dir($new_path)) {
+                if (decoct(fileperms($new_path) & 0777) !== '755' || !check_permissions($new_path)) {
+                    return false;
+                }
+            } elseif (is_file($new_path)) {
+                if (decoct(fileperms($new_path) & 0777) !== '644') {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     // Script Starts here
@@ -156,6 +191,10 @@
 
             $items['wp_admin_accessible']['value'] = (int) ($http_response === '200');
             $items['wp_admin_accessible']['ts'] = time();
+
+            assert_user(is_dir('/usr/share/wordpress'), 'Path to WordPress "/usr/share/wordpress" not found', 5006);
+            $items['permissions']['value'] = (int) check_permissions('/usr/share/wordpress');
+            $items['permissions']['ts'] = time();
 
             fwrite(STDOUT, generate_json($argv[1], $items));
         } catch (UserError $err) {
