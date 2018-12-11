@@ -202,7 +202,7 @@ def run_test(ab_args):
                       worker_time='?')
 
 
-def run_tests(*, urls, request_numbers, concurrences):
+def run_tests(*, urls, request_numbers, concurrences, headers=[], body):
     for url in urls:
         concurrencies_results = []
 
@@ -210,7 +210,18 @@ def run_tests(*, urls, request_numbers, concurrences):
             concurrency_results = []
 
             for i in range(TEST_REPETITION):
-                ab_args = ['ab', '-n', n, '-c', c, url]
+                if body is not None:
+                    body_arg = ['-p', body]
+                else:
+                    body_arg = []
+
+                headers_args = []
+
+                for header in headers:
+                    headers_args.extend(['-H', *header])
+
+                ab_args = ['ab', '-n', n, '-c', c,
+                           *headers_args, *body_arg, url]
                 concurrency_results.append(run_test(ab_args))
 
             concurrency_result_avr = calc_tests_avr(concurrency_results)
@@ -258,9 +269,12 @@ def main():
         type=int,
         required=True
     )
-    parser.add_argument('-u', help='Space separated list ofURLs to benchmark',
+    parser.add_argument('-u', help='Space separated list of URLs to benchmark',
                         nargs='+', required=True)
     parser.add_argument('-n', help='Number of total requests', default=20)
+    parser.add_argument('-H', help='Add header, eg. \'Accept-Encoding: gzip\' (repeatable)',
+                        action='append', nargs='*', default=[])
+    parser.add_argument('-p', help='File containing body to POST', default=None)
     args = parser.parse_args()
 
     request_numbers = [args.n] * len(args.c)
@@ -268,6 +282,8 @@ def main():
         urls=args.u,
         request_numbers=request_numbers,
         concurrences=args.c,
+        headers=args.H,
+        body=args.p
     )
 
 
