@@ -4,6 +4,7 @@ import socket
 import select
 import traceback
 import errno
+import time
 from profiler import Profiler
 from http_meta import RequestMeta
 from log import log, DEBUG, ERROR
@@ -35,8 +36,12 @@ class Worker:
         while True:
             self._profiler.mark_event_loop_end_time()
             action_requests = self._poll.poll()
-            self._profiler.mark_event_loop_begin_time()
 
+            # the only action request is check for new connection
+            if len(action_requests) == 1:
+                time.sleep(1)
+
+            self._profiler.mark_event_loop_begin_time()
             for fd, event in action_requests:
                 assert fd in self._activity_iterators
 
@@ -45,7 +50,6 @@ class Worker:
                 self._profiler.mark_event_loop_end_time()
                 result = next(activity_iter, None)
                 self._profiler.mark_event_loop_begin_time()
-
 
                 assert result is None or isinstance(result, tuple)
 
@@ -57,6 +61,8 @@ class Worker:
                     new_fd, new_event = result
                     self.register_activity(new_fd, new_event,
                                            activity_iter)
+
+            self._profiler.mark_event_loop_iteration(action_requests)
 
     def register_activity(self, fd, event, it):
         log.error(DEBUG)
@@ -133,6 +139,15 @@ class Worker:
                     log.error(ERROR,
                               var_name='event_loop_time',
                               var_value=self._profiler.get_event_loop_time())
+                    log.error(ERROR,
+                              var_name='event loop iterations length',
+                              var_value=self._profiler.get_event_loop_iterations_amount())
+                    #log.error(ERROR,
+                    #          var_name='event loop iterations',
+                    #          var_value=self._profiler.get_event_loop_iterations())
+                    log.error(ERROR,
+                              var_name='unsuccessful locks',
+                              var_value=self._profiler.get_unsuccessful_locks())
                     self._profiler = Profiler()
 
                 self._profiler.add_monit(client_conn_monit)
@@ -178,6 +193,7 @@ class Worker:
                     self.req_handler(ClientConnection(conn, addr))
                 )
             except OSError:
+                self._profiler.mark_unsuccessful_lock()
                 # There is a performance problem with this implementation:
                 # let's say that worker 1 locks,
                 # then a client wants to connect,

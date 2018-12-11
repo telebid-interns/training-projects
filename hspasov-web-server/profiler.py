@@ -48,6 +48,11 @@ class Profiler:
         self._client_conn_monits = []
         self._event_loop_time = timedelta(0)
         self._event_loop_begin_time = None
+        self._event_loop_iterations = []
+        self._unsuccessful_locks = 0
+
+    def mark_event_loop_iteration(self, action_requests):
+        self._event_loop_iterations.append(action_requests)
 
     def mark_event_loop_begin_time(self):
         self._event_loop_begin_time = datetime.now()
@@ -57,6 +62,9 @@ class Profiler:
 
         self._event_loop_time += datetime.now() - self._event_loop_begin_time
         self._event_loop_begin_time = None
+
+    def mark_unsuccessful_lock(self):
+        self._unsuccessful_locks += 1
 
     def add_monit(self, monit):
         assert len(self._client_conn_monits) < CONFIG['max_monits']
@@ -68,6 +76,15 @@ class Profiler:
 
     def get_event_loop_time(self):
         return self._event_loop_time.microseconds
+
+    def get_event_loop_iterations_amount(self):
+        return len(self._event_loop_iterations)
+
+    def get_event_loop_iterations(self):
+        return self._event_loop_iterations
+
+    def get_unsuccessful_locks(self):
+        return self._unsuccessful_locks
 
     def get_averages(self):
         if len(self._client_conn_monits) == 0:
