@@ -26,7 +26,7 @@
                         "trig1" => [
                             "descr" => "WordPress Registration allowed",
                             "prior" => "warn",
-                            "range" => [1, 1],
+                            "range" => [0, 0],
                             "resol" => "Turn off user registration from the WP admin panel or change in database table '<wp-prefix>options' set 'option_value' to 0 where 'option_name' is 'users_can_register'"
                         ],
                     ]
@@ -40,7 +40,7 @@
                         "trig1" => [
                             "descr" => "WordPress Comments allowed",
                             "prior" => "warn",
-                            "range" => [1, 1],
+                            "range" => [0, 0],
                             "resol" => "Turn off comments from the WP admin panel or change in database table '<wp-prefix>options' set 'option_value' to 'closed' where 'option_name' is 'default_comment_status'"
                         ],
                     ]
@@ -52,9 +52,9 @@
                     "timestamp" => $items["wp_admin_accessible"]["ts"],
                     "triggers" => [
                         "trig1" => [
-                            "descr" => "WordPress Comments allowed",
+                            "descr" => "WordPress admin page accessible",
                             "prior" => "warn",
-                            "range" => [1, 1],
+                            "range" => [0, 0],
                             "resol" => "Forbid access to the admin panel"
                         ],
                     ]
@@ -201,7 +201,7 @@
                 $row = mysqli_fetch_assoc($result);
 
                 $items[$opt_name] = [];
-                $items[$opt_name]['value'] = (int) !($row['option_value'] === $opt_value);
+                $items[$opt_name]['value'] = (int) ($row['option_value'] === $opt_value);
                 $items[$opt_name]['ts'] = time();
             }
 
@@ -211,7 +211,7 @@
 
             $http_response = explode(" ", get_headers(sprintf("http://%s/wp-admin/", $domain))[0])[1];
 
-            $items['wp_admin_accessible']['value'] = (int) ($http_response === '200');
+            $items['wp_admin_accessible']['value'] = (int) ($http_response !== '200');
             $items['wp_admin_accessible']['ts'] = time();
 
             assert_user(is_dir('/usr/share/wordpress'), 'Path to WordPress "/usr/share/wordpress" not found', 5006);
