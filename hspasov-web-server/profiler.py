@@ -2,45 +2,35 @@ from datetime import datetime, timedelta
 from config import CONFIG
 
 
-class ClientConnectionMonit:
-    def __init__(self):
-        self.start_time = datetime.now()
-        self.receive_meta_begin = None
-        self.receive_meta_end = None
-        self.serve_static_begin = None
-        self.serve_static_end = None
-        self.serve_cgi_begin = None
-        self.serve_cgi_end = None
-        self.send_meta_begin = None
-        self.send_meta_end = None
-        self.end_time = None
+class MonitDuration:
+    def __init__(self, label):
+        self.label = label
+        self.begin = None
+        self.end = None
 
-    def mark_receive_meta_begin(self):
-        self.receive_meta_begin = datetime.now()
-
-    def mark_receive_meta_end(self):
-        self.receive_meta_end = datetime.now()
-
-    def mark_serve_static_begin(self):
-        self.serve_static_begin = datetime.now()
-
-    def mark_serve_static_end(self):
-        self.serve_static_end = datetime.now()
-
-    def mark_serve_cgi_begin(self):
-        self.serve_cgi_begin = datetime.now()
-
-    def mark_serve_cgi_end(self):
-        self.serve_cgi_end = datetime.now()
-
-    def mark_send_meta_begin(self):
-        self.send_meta_begin = datetime.now()
-
-    def mark_send_meta_end(self):
-        self.send_meta_end = datetime.now()
+    def mark_begin(self):
+        self.begin = MonitDuration.get_current_time()
 
     def mark_end(self):
-        self.end_time = datetime.now()
+        self.end = MonitDuration.get_current_time()
+
+    @staticmethod
+    def get_current_time():
+        return datetime.now()
+
+
+class ClientConnectionMonit:
+    def __init__(self, monit_duration_labels):
+        self.monit_durations = {}
+
+        for label in monit_duration_labels:
+            self.monit_durations[label] = MonitDuration(label)
+
+    def mark_begin(self, label):
+        self.monit_durations[label].mark_begin()
+
+    def mark_end(self, label):
+        self.monit_durations[label].mark_end()
 
 
 class Profiler:
@@ -49,7 +39,18 @@ class Profiler:
         self._event_loop_time = timedelta(0)
         self._event_loop_begin_time = None
         self._event_loop_iterations = []
+        self._registering_temp_begin = None
+        self._registering_time = timedelta(0)
         self._unsuccessful_locks = 0
+
+    def mark_registering_begin(self):
+        self._registering_temp_begin = datetime.now()
+
+    def mark_registering_end(self):
+        self._registering_time += datetime.now() - self._registering_temp_begin
+
+    def get_registering_time(self):
+        return self._registering_time.microseconds
 
     def mark_event_loop_iteration(self, action_requests):
         self._event_loop_iterations.append(action_requests)
@@ -90,63 +91,29 @@ class Profiler:
         if len(self._client_conn_monits) == 0:
             return None
 
-        sum_connection_durations = timedelta(0)
-        sum_receive_meta_durations = timedelta(0)
-        sum_serve_static_durations = timedelta(0)
-        sum_serve_cgi_durations = timedelta(0)
-        sum_send_meta_durations = timedelta(0)
+        sample_client_connection = self._client_conn_monits[0]
 
-        receive_meta_monits_count = 0
-        serve_static_monits_count = 0
-        serve_cgi_monits_count = 0
-        send_meta_monits_count = 0
+        sums_durations = {}
+        monits_amount = {}
+
+        for label in sample_client_connection.monit_durations.keys():
+            sums_durations[label] = timedelta(0)
+            monits_amount[label] = 0
 
         for monit in self._client_conn_monits:
-            assert isinstance(monit.start_time, datetime)
-            assert isinstance(monit.end_time, datetime)
+            for duration in monit.monit_durations.values():
+                if duration.begin is not None:
+                    assert isinstance(duration.begin, datetime)
+                    assert isinstance(duration.end, datetime)
 
-            sum_connection_durations += monit.end_time - monit.start_time
-
-            if isinstance(monit.receive_meta_begin, datetime):
-                assert isinstance(monit.receive_meta_end, datetime)
-
-                sum_receive_meta_durations += monit.receive_meta_end - monit.receive_meta_begin
-                receive_meta_monits_count += 1
-
-            if isinstance(monit.serve_static_begin, datetime):
-                assert isinstance(monit.serve_static_end, datetime)
-
-                sum_serve_static_durations += monit.serve_static_end - monit.serve_static_begin
-                serve_static_monits_count += 1
-
-            if isinstance(monit.serve_cgi_begin, datetime):
-                assert isinstance(monit.serve_cgi_end, datetime)
-
-                sum_serve_cgi_durations += monit.serve_cgi_end - monit.serve_cgi_begin
-                serve_cgi_monits_count += 1
-
-            if isinstance(monit.send_meta_begin, datetime):
-                assert isinstance(monit.send_meta_end, datetime)
-
-                sum_send_meta_durations += monit.send_meta_end - monit.send_meta_begin
-                send_meta_monits_count += 1
+                    sums_durations[duration.label] += duration.end - duration.begin
+                    monits_amount[duration.label] += 1
 
         averages = {}
 
-        avr_connection_duration = sum_connection_durations / len(self._client_conn_monits)
-        averages['connection'] = avr_connection_duration.microseconds
-
-        if receive_meta_monits_count > 0:
-            avr_receive_meta_duration = sum_receive_meta_durations / receive_meta_monits_count
-            averages['receive_meta'] = avr_receive_meta_duration.microseconds
-        if serve_static_monits_count > 0:
-            avr_serve_static_duration = sum_serve_static_durations / serve_static_monits_count
-            averages['serve_static'] = avr_serve_static_duration.microseconds
-        if serve_cgi_monits_count > 0:
-            avr_serve_cgi_duration = sum_serve_cgi_durations / serve_cgi_monits_count
-            averages['serve_cgi'] = avr_serve_cgi_duration.microseconds
-        if send_meta_monits_count > 0:
-            avr_send_meta_duration = sum_send_meta_durations / send_meta_monits_count
-            averages['send_meta'] = avr_send_meta_duration.microseconds
+        for label in sample_client_connection.monit_durations.keys():
+            if monits_amount[label] > 0:
+                average_duration = sums_durations[label] / monits_amount[label]
+                averages[label] = average_duration.microseconds
 
         return averages

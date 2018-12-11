@@ -36,12 +36,8 @@ class Worker:
         while True:
             self._profiler.mark_event_loop_end_time()
             action_requests = self._poll.poll()
-
-            # the only action request is check for new connection
-            if len(action_requests) == 1:
-                time.sleep(1)
-
             self._profiler.mark_event_loop_begin_time()
+
             for fd, event in action_requests:
                 assert fd in self._activity_iterators
 
@@ -53,6 +49,7 @@ class Worker:
 
                 assert result is None or isinstance(result, tuple)
 
+                self._profiler.mark_registering_begin()
                 self.unregister_activity(fd)
 
                 if isinstance(result, tuple):
@@ -61,6 +58,7 @@ class Worker:
                     new_fd, new_event = result
                     self.register_activity(new_fd, new_event,
                                            activity_iter)
+                self._profiler.mark_registering_end()
 
             self._profiler.mark_event_loop_iteration(action_requests)
 
@@ -148,6 +146,10 @@ class Worker:
                     log.error(ERROR,
                               var_name='unsuccessful locks',
                               var_value=self._profiler.get_unsuccessful_locks())
+                    log.error(ERROR,
+                              var_name='registering time',
+                              var_value=self._profiler.get_registering_time())
+
                     self._profiler = Profiler()
 
                 self._profiler.add_monit(client_conn_monit)

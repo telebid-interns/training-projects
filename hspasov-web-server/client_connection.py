@@ -32,7 +32,13 @@ class ClientConnection:
         assert isinstance(addr[1], int)
 
         self._conn = conn
-        self._monit = ClientConnectionMonit()
+        self._monit = ClientConnectionMonit([
+            'connection',
+            'receive_meta',
+            'send_meta',
+            'serve_static',
+            'serve_cgi',
+        ])
         self.remote_addr = addr[0]
         self.remote_port = addr[1]
         self._conn.settimeout(CONFIG['socket_operation_timeout'])
@@ -42,9 +48,11 @@ class ClientConnection:
         self.req_meta = None
         self.res_meta = ResponseMeta()
 
+        self._monit.mark_begin('connection')
+
     def receive_meta(self):
         log.error(DEBUG)
-        self._monit.mark_receive_meta_begin()
+        self._monit.mark_begin('receive_meta')
 
         try:
             assert self.state == ClientConnection.State.ESTABLISHED
@@ -93,7 +101,7 @@ class ClientConnection:
             log.error(DEBUG, var_name='request meta',
                     var_value=self.req_meta)
         finally:
-            self._monit.mark_receive_meta_end()
+            self._monit.mark_end('receive_meta')
 
     def receive(self):
         log.error(DEBUG)
@@ -105,7 +113,7 @@ class ClientConnection:
 
     def send_meta(self, status_code, headers={}):
         log.error(DEBUG)
-        self._monit.mark_send_meta_begin()
+        self._monit.mark_begin('send_meta')
 
         log.error(DEBUG, var_name='status_code', var_value=status_code)
         log.error(DEBUG, var_name='headers', var_value=headers)
@@ -129,7 +137,7 @@ class ClientConnection:
 
                 yield from self.send(result)
         finally:
-            self._monit.mark_send_meta_end()
+            self._monit.mark_end('send_meta')
 
     def send(self, data):
         log.error(DEBUG)
@@ -156,7 +164,7 @@ class ClientConnection:
 
     def serve_static_file(self, file_path):
         log.error(DEBUG)
-        self._monit.mark_serve_static_begin()
+        self._monit.mark_begin('serve_static')
 
         try:
             assert self.state == ClientConnection.State.RECEIVING
@@ -216,11 +224,11 @@ class ClientConnection:
                     except Exception as error:
                         log.error(DEBUG, msg=error)
         finally:
-            self._monit.mark_serve_static_end()
+            self._monit.mark_end('serve_static')
 
     def serve_cgi_script(self, file_path):
         log.error(DEBUG)
-        self._monit.mark_serve_cgi_begin()
+        self._monit.mark_begin('serve_cgi')
 
         try:
             assert self.state == ClientConnection.State.RECEIVING
@@ -364,7 +372,7 @@ class ClientConnection:
                     log.error(DEBUG, msg=('child {0} exited.'.format(pid) +
                                     ' exit_status: {0}'.format(exit_status)))
         finally:
-            self._monit.mark_serve_cgi_end()
+            self._monit.mark_end('serve_cgi')
 
     def shutdown(self):
         log.error(DEBUG)
@@ -375,6 +383,6 @@ class ClientConnection:
 
         self._conn.close()
         self.state = ClientConnection.State.CLOSED
-        self._monit.mark_end()
+        self._monit.mark_end('connection')
 
         return self._monit
