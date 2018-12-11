@@ -155,8 +155,6 @@
         $dperm = DEFAULT_DIR_PERMISSIONS;
         $domain = "";
 
-        var_dump($argv);
-
         for ($i=0; $i < count($argv); $i++) {
             if ($argv[$i] === "--fileperm") {
                 $fperm = $argv[$i+1];
@@ -170,8 +168,6 @@
                 $domain = $argv[$i+1];
             }
         }
-
-        echo $domain;
 
         try {
             assert_user($domain, "Domain not provided", 5001);
