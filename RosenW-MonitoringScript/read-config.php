@@ -1,4 +1,7 @@
 <?php
+    const DEFAULT_DIR_PERMISSIONS = '755';
+    const DEFAULT_FILE_PERMISSIONS = '644';
+
     class UserError extends Exception {
         public function __construct ($message, $code = 0, Exception $previous = null) {
             parent::__construct($message, $code, $previous);
@@ -63,10 +66,10 @@
                     "timestamp" => $items["permissions"]["ts"],
                     "triggers" => [
                         "trig1" => [
-                            "descr" => "WordPress Permissions 755 for dirs 644 for files",
+                            "descr" => sprintf("WordPress Permissions %s for dirs %s for files", $items['permissions']['dperm'], $items['permissions']['fperm']),
                             "prior" => "warn",
                             "range" => [0, 0],
-                            "resol" => "Fix files/dirs permissions in /usr/share/wordpress should be 755 for dirs, 644 for files"
+                            "resol" => sprintf("Fix files/dirs permissions in /usr/share/wordpress should be %s for dirs, %s for files", $items['permissions']['dperm'], $items['permissions']['fperm'])
                         ],
                     ]
                 ],
@@ -123,7 +126,7 @@
         ]);
     }
 
-    function check_permissions ($path) {
+    function check_permissions ($path, $dperm, $fperm) {
         $files = scandir($path);
 
         foreach ($files as $file) {
@@ -133,11 +136,11 @@
 
             $new_path = $path . DIRECTORY_SEPARATOR . $file;
             if (is_dir($new_path)) {
-                if (decoct(fileperms($new_path) & 0777) !== '755' || !check_permissions($new_path)) {
+                if (decoct(fileperms($new_path) & 0777) !== $dperm || !check_permissions($new_path, $dperm, $fperm)) {
                     return false;
                 }
             } elseif (is_file($new_path)) {
-                if (decoct(fileperms($new_path) & 0777) !== '644') {
+                if (decoct(fileperms($new_path) & 0777) !== $fperm) {
                     return false;
                 }
             }
@@ -148,9 +151,32 @@
 
     // Script Starts here
     if ($argv && $argv[0] && realpath($argv[0]) === __FILE__) {
+        $fperm = DEFAULT_FILE_PERMISSIONS;
+        $dperm = DEFAULT_DIR_PERMISSIONS;
+        $domain = "";
+
+        var_dump($argv);
+
+        for ($i=0; $i < count($argv); $i++) {
+            if ($argv[$i] === "--fileperm") {
+                $fperm = $argv[$i+1];
+            }
+
+            if ($argv[$i] === "--dirperm") {
+                $dperm = $argv[$i+1];
+            }
+
+            if ($argv[$i] === "--domain") {
+                $domain = $argv[$i+1];
+            }
+        }
+
+        echo $domain;
+
         try {
-            assert_user(count($argv) > 1, "Domain not provided", 5001);
-            $config_file = sprintf('/etc/wordpress/config-%s.php', $argv[1]);
+            assert_user($domain, "Domain not provided", 5001);
+
+            $config_file = sprintf('/etc/wordpress/config-%s.php', $domain);
             assert_user(@include $config_file, sprintf("Could not find %s", $config_file), 5002);
 
             assert_user(
@@ -187,20 +213,21 @@
             $items['users']['value'] = mysqli_fetch_assoc($user_count_rows)['count'];
             $items['users']['ts'] = time();
 
-            $http_response = explode(" ", get_headers(sprintf("http://%s/wp-admin/", $argv[1]))[0])[1];
+            $http_response = explode(" ", get_headers(sprintf("http://%s/wp-admin/", $domain))[0])[1];
 
             $items['wp_admin_accessible']['value'] = (int) ($http_response === '200');
             $items['wp_admin_accessible']['ts'] = time();
 
             assert_user(is_dir('/usr/share/wordpress'), 'Path to WordPress "/usr/share/wordpress" not found', 5006);
-            $items['permissions']['value'] = (int) check_permissions('/usr/share/wordpress');
+            $items['permissions']['value'] = (int) check_permissions('/usr/share/wordpress', $dperm, $fperm);
             $items['permissions']['ts'] = time();
+            $items['permissions']['dperm'] = $dperm;
+            $items['permissions']['fperm'] = $fperm;
 
-            fwrite(STDOUT, generate_json($argv[1], $items));
+            fwrite(STDOUT, generate_json($domain, $items));
         } catch (UserError $err) {
-            $domain = 'no-domain-provided';
-            if (count($argv) > 1) {
-                $domain = $argv[1];
+            if (!$domain) {
+                $domain = 'no-domain-provided';
             }
 
             fwrite(STDOUT, generate_error_json($domain, $err->getCode(), $err->getMessage()));
