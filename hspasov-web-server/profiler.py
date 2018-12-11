@@ -41,6 +41,8 @@ class Profiler:
         self._event_loop_iterations = []
         self._registering_temp_begin = None
         self._registering_time = timedelta(0)
+        self._registering_end_calls = 0
+        self._event_loop_end_calls = 0
         self._unsuccessful_locks = 0
 
     def mark_registering_begin(self):
@@ -48,9 +50,7 @@ class Profiler:
 
     def mark_registering_end(self):
         self._registering_time += datetime.now() - self._registering_temp_begin
-
-    def get_registering_time(self):
-        return self._registering_time.microseconds
+        self._registering_temp_begin = None
 
     def mark_event_loop_iteration(self, action_requests):
         self._event_loop_iterations.append(action_requests)
@@ -58,7 +58,7 @@ class Profiler:
     def mark_event_loop_begin_time(self):
         self._event_loop_begin_time = datetime.now()
 
-    def mark_event_loop_end_time(self):
+    def mark_event_loop_end(self):
         assert self._event_loop_begin_time is not None
 
         self._event_loop_time += datetime.now() - self._event_loop_begin_time
@@ -72,20 +72,8 @@ class Profiler:
 
         self._client_conn_monits.append(monit)
 
-    def get_monits_count(self):
-        return len(self._client_conn_monits)
-
-    def get_event_loop_time(self):
-        return self._event_loop_time.microseconds
-
-    def get_event_loop_iterations_amount(self):
-        return len(self._event_loop_iterations)
-
     def get_event_loop_iterations(self):
         return self._event_loop_iterations
-
-    def get_unsuccessful_locks(self):
-        return self._unsuccessful_locks
 
     def get_averages(self):
         if len(self._client_conn_monits) == 0:

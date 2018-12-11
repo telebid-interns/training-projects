@@ -31,25 +31,30 @@ class Worker:
         self.register_activity(self._socket, select.POLLIN, accept_iter)
 
         next(accept_iter)
-        self._profiler.mark_event_loop_begin_time()
+        # self._profiler.mark_event_loop_begin_time()
+        # self._profiler.mark_registering_begin()
 
         while True:
-            self._profiler.mark_event_loop_end_time()
+            # self._profiler.mark_event_loop_end()
+            # self._profiler.mark_registering_end()
             action_requests = self._poll.poll()
-            self._profiler.mark_event_loop_begin_time()
+            # self._profiler.mark_event_loop_begin_time()
+            # self._profiler.mark_registering_begin()
 
             for fd, event in action_requests:
                 assert fd in self._activity_iterators
 
                 activity_iter = self._activity_iterators[fd]
 
-                self._profiler.mark_event_loop_end_time()
+                # self._profiler.mark_event_loop_end()
+                # self._profiler.mark_registering_end()
                 result = next(activity_iter, None)
-                self._profiler.mark_event_loop_begin_time()
+                # self._profiler.mark_event_loop_begin_time()
+                # self._profiler.mark_registering_begin()
 
                 assert result is None or isinstance(result, tuple)
 
-                self._profiler.mark_registering_begin()
+                #self._profiler.mark_registering_begin()
                 self.unregister_activity(fd)
 
                 if isinstance(result, tuple):
@@ -58,9 +63,9 @@ class Worker:
                     new_fd, new_event = result
                     self.register_activity(new_fd, new_event,
                                            activity_iter)
-                self._profiler.mark_registering_end()
+                # self._profiler.mark_registering_end()
 
-            self._profiler.mark_event_loop_iteration(action_requests)
+            # self._profiler.mark_event_loop_iteration(action_requests)
 
     def register_activity(self, fd, event, it):
         log.error(DEBUG)
@@ -129,26 +134,23 @@ class Worker:
                 client_conn.shutdown()
                 client_conn_monit = client_conn.close()
 
-                if self._profiler.get_monits_count() >= CONFIG['max_monits']:
+                if len(self._profiler._client_conn_monits) >= CONFIG['max_monits']:
                     log.error(ERROR,
                               var_name='averages',
                               var_value=self._profiler.get_averages())
                     # TODO it should be ERROR only for dev purposes
                     log.error(ERROR,
                               var_name='event_loop_time',
-                              var_value=self._profiler.get_event_loop_time())
+                              var_value=self._profiler._event_loop_time.microseconds)
                     log.error(ERROR,
                               var_name='event loop iterations length',
-                              var_value=self._profiler.get_event_loop_iterations_amount())
-                    #log.error(ERROR,
-                    #          var_name='event loop iterations',
-                    #          var_value=self._profiler.get_event_loop_iterations())
+                              var_value=len(self._profiler._event_loop_iterations))
                     log.error(ERROR,
                               var_name='unsuccessful locks',
-                              var_value=self._profiler.get_unsuccessful_locks())
+                              var_value=self._profiler._unsuccessful_locks)
                     log.error(ERROR,
                               var_name='registering time',
-                              var_value=self._profiler.get_registering_time())
+                              var_value=self._profiler._registering_time.microseconds)
 
                     self._profiler = Profiler()
 
