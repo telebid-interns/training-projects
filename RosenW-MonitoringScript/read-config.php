@@ -46,6 +46,20 @@
                         ],
                     ]
                 ],
+                "acao_header_not_asterisk" => [
+                    "name" => "WP Checklist: xmlrpc response header Access-Control-Allow-Origin not *",
+                    "type" => "bool",
+                    "value" => $items["acao_header_not_asterisk"]["value"],
+                    "timestamp" => $items["acao_header_not_asterisk"]["ts"],
+                    "triggers" => [
+                        "trig1" => [
+                            "descr" => "post response headers to /xmlrpc.php include Access-Control-Allow-Origin *",
+                            "prior" => "warn",
+                            "range" => [0, 0],
+                            "resol" => "Change Access-Control-Allow-Origin"
+                        ],
+                    ]
+                ],
                 // "wp_admin_accessible" => [
                 //     "name" => "WP Checklist: admin page accessible",
                 //     "type" => "bool",
@@ -120,22 +134,27 @@
         }
 
         if ($code === 5002) {
-            $resol = sprintf("Create config file %s", sprintf("/etc/wordpress/config-%s.php", $domain));
+            $resol = sprintf("Create config file /etc/wordpress/config-%s.php", $domain);
         }
 
         if ($code === 5003) {
-            $resol = sprintf("Define DB_HOST, DB_NAME, DB_PASSWORD and DB_USER in %s", sprintf("/etc/wordpress/config-%s.php", $domain));
+            $resol = sprintf("Define DB_HOST, DB_NAME, DB_PASSWORD and DB_USER in /etc/wordpress/config-%s.php", $domain);
         }
 
         if ($code === 5004) {
-            $resol = sprintf("Check if defined database credentials are correct in %s", sprintf("/etc/wordpress/config-%s.php", $domain));
+            $resol = sprintf("Check if defined database credentials are correct in /etc/wordpress/config-%s.php", $domain);
         }
 
         if ($code === 5005) {
             $resol = "Check if the table prefix is correct";
         }
 
+        if ($code === 5007) {
+            $resol = sprintf("Define WP_CONTENT_DIR in /etc/wordpress/config-%s.php", $domain);
+        }
+
         return json_encode([
+            "name" => sprintf("WP settings checklist for domain %s", $domain),
             "items" => [
                 "error" => [
                     "name" => "User Error",
@@ -178,31 +197,8 @@
         return true;
     }
 
-    function generate_script_err_json () {
-        fwrite(STDOUT, json_encode([
-            "items" => [
-                "error" => [
-                    "name" => "Script Error",
-                    "type" => "bool",
-                    "value" => 0,
-                    "timestamp" => time(),
-                    "triggers" => [
-                        "trig1" => [
-                            "descr" => "Script Error, check logs",
-                            "prior" => "warn",
-                            "range" => [0, 0],
-                            "resol" => "Check error log"
-                        ]
-                    ]
-                ]
-            ]
-        ]));
-    }
-
     // Script Starts here
     if ($argv && $argv[0] && realpath($argv[0]) === __FILE__) {
-        set_error_handler('generate_script_err_json');
-
         $fperm = DEFAULT_FILE_PERMISSIONS;
         $dperm = DEFAULT_DIR_PERMISSIONS;
         $domain = "";
@@ -270,10 +266,32 @@
             $items["users"]["value"] = mysqli_fetch_assoc($user_count_rows)["count"];
             $items["users"]["ts"] = time();
 
-            $http_response = explode(" ", get_headers(sprintf("http://%s/wp-admin", $domain))[0])[1];
+            // $http_response = explode(" ", get_headers(sprintf("http://%s/wp-admin", $domain))[0])[1];
 
             // $items["wp_admin_accessible"]["value"] = (int) ($http_response !== "200");
             // $items["wp_admin_accessible"]["ts"] = time();
+
+            $items["acao_header_not_asterisk"]["value"] = 1;
+            $items["acao_header_not_asterisk"]["ts"] = time();
+
+            $options = array(
+                'http' => array(
+                    'header'  => 
+                        "Content-type: application/x-www-form-urlencoded\r\n" . 
+                        "Origin: http://www.fake-domain.org\r\n",
+                    'method'  => 'POST',
+                    'content' => '<methodCall><methodName>pingback.ping</methodName><params><param><value><string>http://ros.bg</string></value></param></params></methodCall>'
+                )
+            );
+            $context  = stream_context_create($options);
+
+            $stream = fopen(sprintf("http://%s/xmlrpc.php", $domain), 'r', false, $context);
+            $headers = stream_get_meta_data($stream)['wrapper_data'];
+            foreach ($headers as $header) {
+                if ($header === "Access-Control-Allow-Origin: *") {
+                    $items["acao_header_not_asterisk"]["value"] = 0;
+                }
+            }
 
             $http_response = explode(" ", get_headers(sprintf("http://%s/wp-login.php", $domain))[0])[1];
 
@@ -304,4 +322,3 @@
         }
     }
 ?>
-

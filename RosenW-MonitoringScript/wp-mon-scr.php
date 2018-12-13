@@ -10,7 +10,9 @@
         foreach ($files as $file) {
             if (substr($file, -4) === '.php' && strpos($file, "config-") === 0) {
                 $domain = substr($file, 7, -4);
-                $apps->$domain = json_decode(exec(sprintf("php ./read-config.php --domain %s %s", $domain, $params)));
+                if (@fopen(sprintf("http://%s/", $domain), "r")) {
+                    $apps->$domain = json_decode(exec(sprintf("php ./read-config.php --domain %s %s", $domain, $params)));
+                }
             }
         }
 
