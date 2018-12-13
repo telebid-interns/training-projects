@@ -28,7 +28,6 @@ class Server:
     def run(self):
         log.error(DEBUG)
 
-        is_initialized = False
         pid = None
 
         signal.signal(signal.SIGTERM, self.stop)
@@ -43,35 +42,29 @@ class Server:
 
         while True:
             try:
-                i = 0
-                while ((is_initialized and i < 1) or
-                       (not is_initialized and i < CONFIG['workers'])):
-                    i += 1
+                pid = os.fork()
 
-                    pid = os.fork()
+                if pid == 0:  # child process
+                    try:
+                        signal.signal(signal.SIGTERM, signal.SIG_DFL)
+                        # TODO ask if init_access_log_file fails, we get
+                        # into an endless loop. But what could the
+                        # alternative be? Stop the server? Count how
+                        # often new worker is created and stop the server
+                        # only when new workers are created too often?
+                        log.init_access_log_file()
 
-                    if pid == 0:  # child process
-                        try:
-                            signal.signal(signal.SIGTERM, signal.SIG_DFL)
-                            # TODO ask if init_access_log_file fails, we get
-                            # into an endless loop. But what could the
-                            # alternative be? Stop the server? Count how
-                            # often new worker is created and stop the server
-                            # only when new workers are created too often?
-                            log.init_access_log_file()
+                        worker = Worker(self._socket, self._accept_lock_fd)
+                        worker.start()  # event loop
+                    except Exception as error:
+                        log.error(ERROR, msg=traceback.format_exc())
+                        log.error(ERROR, msg=error)
+                    finally:
+                        os._exit(os.EX_SOFTWARE)
+                else:  # parent process
+                    self._worker_pids.append(pid)
+                    log.error(DEBUG, msg='New worker created with pid {0}'.format(pid))  # noqa
 
-                            worker = Worker(self._socket, self._accept_lock_fd)
-                            worker.start()  # event loop
-                        except Exception as error:
-                            log.error(ERROR, msg=traceback.format_exc())
-                            log.error(ERROR, msg=error)
-                        finally:
-                            os._exit(os.EX_SOFTWARE)
-                    else:  # parent process
-                        self._worker_pids.append(pid)
-                        log.error(DEBUG, msg='New worker created with pid {0}'.format(pid))  # noqa
-
-                is_initialized = True
                 worker_pid, worker_exit_status = os.wait()
 
                 log.error(ERROR, msg='Worker with pid {0} exited with status code {1}'.format(worker_pid, os.WEXITSTATUS(worker_exit_status)))  # noqa
