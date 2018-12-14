@@ -1,7 +1,4 @@
 <?php
-    const DEFAULT_DIR_PERMISSIONS = "755";
-    const DEFAULT_FILE_PERMISSIONS = "644";
-
     class UserError extends Exception {
         public function __construct ($message, $code = 0, Exception $previous = null) {
             parent::__construct($message, $code, $previous);
@@ -14,7 +11,16 @@
         }
     }
 
-    function generate_json ($domain, $items) {
+    function replace_placeholders ($config, $values) {
+        $arr = json_decode(file_get_contents("./wp-mon-scr-config.json"), true);
+        $config = str_replace("<wp-prefix>", $values['prefix'], $config);
+        $config = str_replace("<wp-content-path>", $values['wp-content-path'], $config);
+        $config = str_replace("<fperm>", $arr['permissions']['file_perm'], $config);
+        $config = str_replace("<dperm>", $arr['permissions']['dir_perm'], $config);
+        return $config;
+    }
+
+    function generate_json ($domain, $items, $config) {
         return json_encode([
             "name" => sprintf("WP settings checklist for domain %s", $domain),
             "items" => [
@@ -23,98 +29,42 @@
                     "type" => "bool",
                     "value" => $items["registration_disabled"]["value"],
                     "timestamp" => $items["registration_disabled"]["ts"],
-                    "triggers" => [
-                        "trig1" => [
-                            "descr" => "WordPress Registration not disabled",
-                            "prior" => "warn",
-                            "range" => [0, 0],
-                            "resol" => "Turn off user registration from the WP admin panel or change in database table '<wp-prefix>options' set 'option_value' to 0 where 'option_name' is 'users_can_register'"
-                        ],
-                    ]
+                    "triggers" => $config["triggers"]["registration_disabled"]
                 ],
                 "comments_disabled" => [
                     "name" => "WP Checklist: Comments disabled",
                     "type" => "bool",
                     "value" => $items["comments_disabled"]["value"],
                     "timestamp" => $items["comments_disabled"]["ts"],
-                    "triggers" => [
-                        "trig1" => [
-                            "descr" => "WordPress Comments not disabled",
-                            "prior" => "warn",
-                            "range" => [0, 0],
-                            "resol" => "Turn off comments from the WP admin panel or change in database table '<wp-prefix>options' set 'option_value' to 'closed' where 'option_name' is 'default_comment_status'"
-                        ],
-                    ]
+                    "triggers" => $config["triggers"]["comments_disabled"]
                 ],
                 "acao_header_not_asterisk" => [
                     "name" => "WP Checklist: xmlrpc response header Access-Control-Allow-Origin not *",
                     "type" => "bool",
                     "value" => $items["acao_header_not_asterisk"]["value"],
                     "timestamp" => $items["acao_header_not_asterisk"]["ts"],
-                    "triggers" => [
-                        "trig1" => [
-                            "descr" => "post response headers to /xmlrpc.php include Access-Control-Allow-Origin *",
-                            "prior" => "warn",
-                            "range" => [0, 0],
-                            "resol" => "Change Access-Control-Allow-Origin"
-                        ],
-                    ]
+                    "triggers" => $config["triggers"]["acao_header_not_asterisk"]
                 ],
-                // "wp_admin_accessible" => [
-                //     "name" => "WP Checklist: admin page accessible",
-                //     "type" => "bool",
-                //     "value" => $items["wp_admin_accessible"]["value"],
-                //     "timestamp" => $items["wp_admin_accessible"]["ts"],
-                //     "triggers" => [
-                //         "trig1" => [
-                //             "descr" => "WordPress admin page not accessible",
-                //             "prior" => "warn",
-                //             "range" => [0, 0],
-                //             "resol" => "Provide access to /wp-admin"
-                //         ],
-                //     ]
-                // ],
-                "wp_directory_permissions" => [ // TODO make for content dir
+                "wp_directory_permissions" => [
                     "name" => sprintf("WP Checklist: Directory permissions in /usr/share/wordpress set (files: %s, dirs: %s)", $items["permissions"]["fperm"], $items["permissions"]["dperm"]),
                     "type" => "bool",
                     "value" => $items["permissions"]["value"],
                     "timestamp" => $items["permissions"]["ts"],
-                    "triggers" => [
-                        "trig1" => [
-                            "descr" => sprintf("WordPress permissions in /usr/share/wordpress not %s for dirs, %s for files", $items["permissions"]["dperm"], $items["permissions"]["fperm"]),
-                            "prior" => "warn",
-                            "range" => [0, 0],
-                            "resol" => sprintf("Fix files/dirs permissions in /usr/share/wordpress should be %s for dirs, %s for files", $items["permissions"]["dperm"], $items["permissions"]["fperm"])
-                        ],
-                    ]
+                    "triggers" => $config["triggers"]["wp_directory_permissions"]
                 ],
                 "content_directory_permissions" => [
                     "name" => sprintf("WP Checklist: Directory permissions in %s set (files: %s, dirs: %s)", $items["content_dir_permissions"]["path"], $items["content_dir_permissions"]["fperm"], $items["content_dir_permissions"]["dperm"]),
                     "type" => "bool",
                     "value" => $items["content_dir_permissions"]["value"],
                     "timestamp" => $items["content_dir_permissions"]["ts"],
-                    "triggers" => [
-                        "trig1" => [
-                            "descr" => sprintf("WordPress permissions in %s not %s for dirs, %s for files", $items["content_dir_permissions"]["path"], $items["content_dir_permissions"]["dperm"], $items["content_dir_permissions"]["fperm"]),
-                            "prior" => "warn",
-                            "range" => [0, 0],
-                            "resol" => sprintf("Fix files/dirs permissions in %s should be %s for dirs, %s for files", $items["content_dir_permissions"]["path"], $items["content_dir_permissions"]["dperm"], $items["content_dir_permissions"]["fperm"])
-                        ],
-                    ]
+                    "triggers" => $config["triggers"]["content_directory_permissions"]
                 ],
                 "login_basic_auth" => [
                     "name" => "WP Checklist: Additional basic auth enabled on /wp-login.php",
                     "type" => "bool",
                     "value" => $items["login_basic_auth_enabled"]["value"],
                     "timestamp" => $items["login_basic_auth_enabled"]["ts"],
-                    "triggers" => [
-                        "trig1" => [
-                            "descr" => "Basic authentication on /wp-login.php not enabled",
-                            "prior" => "warn",
-                            "range" => [0, 0],
-                            "resol" => "Add basic authentication to /wp-login.php"
-                        ],
-                    ]
+                    "triggers" => $config["triggers"]["login_basic_auth"]
                 ],
                 "users" => [
                     "name" => "User Count",
@@ -199,19 +149,9 @@
 
     // Script Starts here
     if ($argv && $argv[0] && realpath($argv[0]) === __FILE__) {
-        $fperm = DEFAULT_FILE_PERMISSIONS;
-        $dperm = DEFAULT_DIR_PERMISSIONS;
         $domain = "";
 
         for ($i=0; $i < count($argv); $i++) {
-            if ($argv[$i] === "--fileperm") {
-                $fperm = $argv[$i+1];
-            }
-
-            if ($argv[$i] === "--dirperm") {
-                $dperm = $argv[$i+1];
-            }
-
             if ($argv[$i] === "--domain") {
                 $domain = $argv[$i+1];
             }
@@ -233,6 +173,15 @@
             );
 
             isset($table_prefix) or $table_prefix = "wp_";
+
+            $placeholder_values = [
+                'prefix' => $table_prefix,
+                'wp-content-path' => WP_CONTENT_DIR
+            ];
+
+            $config = json_decode(replace_placeholders(file_get_contents("./wp-mon-scr-config.json"), $placeholder_values), true);
+            $fperm = $config['permissions']['file_perm'];
+            $dperm = $config['permissions']['dir_perm'];
 
             $conn = @new mysqli(DB_HOST, DB_USER, DB_PASSWORD, DB_NAME);
             assert_user(is_null($conn->connect_error), "Could not connect to Database", 5004);
@@ -265,11 +214,6 @@
             $user_count_rows = $conn->query(sprintf("SELECT COUNT(*) AS count FROM %susers", $table_prefix));
             $items["users"]["value"] = mysqli_fetch_assoc($user_count_rows)["count"];
             $items["users"]["ts"] = time();
-
-            // $http_response = explode(" ", get_headers(sprintf("http://%s/wp-admin", $domain))[0])[1];
-
-            // $items["wp_admin_accessible"]["value"] = (int) ($http_response !== "200");
-            // $items["wp_admin_accessible"]["ts"] = time();
 
             $items["acao_header_not_asterisk"]["value"] = 1;
             $items["acao_header_not_asterisk"]["ts"] = time();
@@ -312,7 +256,7 @@
             $items["content_dir_permissions"]["fperm"] = $fperm;
             $items["content_dir_permissions"]["path"] = WP_CONTENT_DIR;
 
-            fwrite(STDOUT, generate_json($domain, $items));
+            fwrite(STDOUT, generate_json($domain, $items, $config));
         } catch (UserError $err) {
             if (!$domain) {
                 $domain = "no-domain-provided";

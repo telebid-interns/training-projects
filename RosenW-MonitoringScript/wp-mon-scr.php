@@ -3,20 +3,18 @@
 
     // Script Starts here
     if ($argv && $argv[0] && realpath($argv[0]) === __FILE__) {
-        $params = implode(" ", array_slice($argv, 1));
-
         $files = scandir(CONFIG_PATH);
         $apps = new stdClass();
         foreach ($files as $file) {
             if (substr($file, -4) === '.php' && strpos($file, "config-") === 0) {
                 $domain = substr($file, 7, -4);
                 if (@fopen(sprintf("http://%s/", $domain), "r")) {
-                    $apps->$domain = json_decode(exec(sprintf("php ./read-config.php --domain %s %s", $domain, $params)));
+                    $apps->$domain = json_decode(exec(sprintf("php ./read-config.php --domain %s", $domain)));
                 }
             }
         }
 
-        fwrite(STDOUT, json_encode(generateMonJson($apps), JSON_PRETTY_PRINT));
+        fwrite(STDOUT, json_encode(generateMonJson($apps)));
     }
 
     function generateMonJson ($apps) {

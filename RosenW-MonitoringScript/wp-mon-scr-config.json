@@ -1,0 +1,56 @@
+{
+    "permissions": {
+        "file_perm": "644",
+        "dir_perm": "755"
+    },
+    "triggers": {
+        "registration_disabled": {
+            "trig1": {
+                "descr": "SUPP3 WordPress Registration not disabled",
+                "prior": "warn",
+                "range": [0, 0],
+                "resol": "Turn off user registration from the WP admin panel or change in database table '<wp-prefix>options' set 'option_value' to 0 where 'option_name' is 'users_can_register'"
+            }
+        },
+        "comments_disabled": {
+            "trig1": {
+                "descr": "SUPP3 WordPress Comments not disabled",
+                "prior": "warn",
+                "range": [0, 0],
+                "resol": "Turn off comments from the WP admin panel or change in database table '<wp-prefix>options' set 'option_value' to 'closed' where 'option_name' is 'default_comment_status'"
+            }
+        },
+        "acao_header_not_asterisk": {
+            "trig1": {
+                "descr": "SUPP3 Post response headers to /xmlrpc.php include Access-Control-Allow-Origin *",
+                "prior": "warn",
+                "range": [0, 0],
+                "resol": "Change Access-Control-Allow-Origin"
+            }
+        },
+        "wp_directory_permissions": {
+            "trig1": {
+                "descr": "SUPP3 WordPress permissions in /usr/share/wordpress not <dperm> for dirs, <fperm> for files",
+                "prior": "warn",
+                "range": [0, 0],
+                "resol": "Fix files/dirs permissions in /usr/share/wordpress should be <dperm> for dirs, <fperm> for files"
+            }
+        },
+        "content_directory_permissions": {
+            "trig1": {
+                "descr": "SUPP3 WordPress permissions in <wp-content-path> not <dperm> for dirs, <fperm> for files",
+                "prior": "warn",
+                "range": [0, 0],
+                "resol": "Fix files/dirs permissions in <wp-content-path> should be <dperm> for dirs, <fperm> for files"
+            }
+        },
+        "login_basic_auth": {
+            "trig1": {
+                "descr": "SUPP3 Basic authentication on /wp-login.php not enabled",
+                "prior": "warn",
+                "range": [0, 0],
+                "resol": "Add basic authentication to /wp-login.php"
+            }
+        }
+    }
+}
