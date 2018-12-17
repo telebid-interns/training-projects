@@ -22,7 +22,8 @@ class Server:
             self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self._accept_lock_fd = open('accept_lock', 'w')
+        self._socket.setblocking(False)
+
         self._worker_pids = []
 
     def run(self):
@@ -54,7 +55,7 @@ class Server:
                         # only when new workers are created too often?
                         log.init_access_log_file()
 
-                        worker = Worker(self._socket, self._accept_lock_fd)
+                        worker = Worker(self._socket)
                         worker.start()  # event loop
                     except Exception as error:
                         log.error(ERROR, msg=traceback.format_exc())

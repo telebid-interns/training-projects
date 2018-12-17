@@ -1,5 +1,4 @@
 import os
-import fcntl
 import socket
 import select
 import traceback
@@ -14,11 +13,10 @@ from web_server_utils import resolve_static_file_path
 
 
 class Worker:
-    def __init__(self, socket, accept_lock_fd):
+    def __init__(self, socket):
         log.error(DEBUG)
 
         self._socket = socket
-        self._accept_lock_fd = accept_lock_fd
         self._poll = select.poll()
         self._profiler = Profiler()
         self._activity_iterators = {}
@@ -187,32 +185,31 @@ class Worker:
 
         while True:
             try:
-                fcntl.lockf(self._accept_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-
                 yield (self._socket, select.POLLIN)
 
-                conn, addr = self._socket.accept()
-                log.error(DEBUG, msg='connection accepted')
-                log.error(DEBUG, var_name='conn', var_value=conn)
-                log.error(DEBUG, var_name='addr', var_value=addr)
+                try:
+                    accepted_connections = 0
 
-                fcntl.lockf(self._accept_lock_fd, fcntl.LOCK_UN)
+                    while True:
+                        conn, addr = self._socket.accept()
+                        accepted_connections += 1
 
-                self.register_activity(
-                    conn,
-                    select.POLLIN,
-                    self.req_handler(ClientConnection(conn, addr))
-                )
+                        log.error(DEBUG, msg='connection accepted')
+                        log.error(DEBUG, var_name='conn', var_value=conn)
+                        log.error(DEBUG, var_name='addr', var_value=addr)
+
+                        self.register_activity(
+                            conn,
+                            select.POLLIN,
+                            self.req_handler(ClientConnection(conn, addr))
+                        )
+                except OSError as error:
+                    assert error.errno == errno.EWOULDBLOCK
+                    log.error(DEBUG, msg='Accepted {0} connections'.format(accepted_connections))
+
             except OSError:
                 self._profiler.mark_unsuccessful_lock()
-                # There is a performance problem with this implementation:
-                # let's say that worker 1 locks,
-                # then a client wants to connect,
-                # then worker 1 doesnt accept the connection quickly enough.
-                # In this case the rest of the workers
-                # will loop until worker 1 accepts the connection.
-                # Though, that would not prevent them from serving
-                # any requests they have to serve, thanks to yield
+
                 yield (self._socket, select.POLLIN)
 
     def children_pid_wait(self):
