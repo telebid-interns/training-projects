@@ -40,6 +40,7 @@
   "error_log_field_sep": "  ",
   "access_log_empty_field": "-",
   "error_log_empty_field": "-",
-  "cgi_children_batch_size": 3,
+  "cgi_wait_batch_size": 3,
+  "accept_conn_limit": 100,
   "max_monits": 2000
 }

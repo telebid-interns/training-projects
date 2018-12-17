@@ -273,6 +273,8 @@ class ClientConnection:
             else:  # parent process
                 log.error(DEBUG, msg='New child created with pid {0}'.format(pid))
 
+                cgi_handler = None
+
                 try:
                     os.close(child_read)
                     os.close(child_write)
@@ -366,6 +368,10 @@ class ClientConnection:
                 finally:
                     self.cgi_script_pid = pid
                     signal.alarm(0)
+
+                    if cgi_handler is not None:
+                        cgi_handler.close()
+
                     log.error(DEBUG, msg='All CGI data received from child {0}'.format(self.cgi_script_pid))
         finally:
             self._monit.mark_end('serve_cgi')

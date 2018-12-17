@@ -113,3 +113,10 @@ class CGIHandler:
         log.error(DEBUG)
 
         os.kill(self._script_pid, signal.SIGTERM)
+        self.close()
+
+    def close(self):
+        log.error(DEBUG)
+
+        os.close(self._read_fd)
+        os.close(self._write_fd)

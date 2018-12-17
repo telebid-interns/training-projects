@@ -3,7 +3,6 @@ import socket
 import select
 import traceback
 import errno
-import time
 from profiler import Profiler
 from http_meta import RequestMeta
 from log import log, DEBUG, ERROR
@@ -53,7 +52,7 @@ class Worker:
 
                 assert result is None or isinstance(result, tuple)
 
-                #self._profiler.mark_registering_begin()
+                # self._profiler.mark_registering_begin()
                 self.unregister_activity(fd)
 
                 if isinstance(result, tuple):
@@ -122,7 +121,7 @@ class Worker:
                 if client_conn.cgi_script_pid is not None:
                     self._child_pids.append(client_conn.cgi_script_pid)
 
-                if len(self._child_pids) >= CONFIG['cgi_children_batch_size']:
+                if len(self._child_pids) >= CONFIG['cgi_wait_batch_size']:
                     self.children_pid_wait()
             else:
                 yield from client_conn.serve_static_file(
@@ -190,7 +189,7 @@ class Worker:
                 try:
                     accepted_connections = 0
 
-                    while True:
+                    while accepted_connections < CONFIG['accept_conn_limit']:
                         conn, addr = self._socket.accept()
                         accepted_connections += 1
 
