@@ -41,3 +41,8 @@ function checkBeforeSubmit () {
     }
     return false;
 } 
+
+function showHints () {
+    document.getElementById('hints-label').style.display = "inline-block";
+    document.getElementById('hints-textarea').valueAsDate = "block";
+}
