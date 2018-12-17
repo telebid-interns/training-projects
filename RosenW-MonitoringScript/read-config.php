@@ -1,4 +1,6 @@
 <?php
+    @include "./utils.php";
+
     class UserError extends Exception {
         public function __construct ($message, $code = 0, Exception $previous = null) {
             parent::__construct($message, $code, $previous);
@@ -9,15 +11,6 @@
         if (!$condition) {
             throw new UserError($msg, $code);
         }
-    }
-
-    function replace_placeholders ($config, $values) {
-        $arr = json_decode(file_get_contents("./wp-mon-scr-config.json"), true);
-        $config = str_replace("<wp-prefix>", $values['prefix'], $config);
-        $config = str_replace("<wp-content-path>", $values['wp-content-path'], $config);
-        $config = str_replace("<fperm>", $arr['permissions']['file_perm'], $config);
-        $config = str_replace("<dperm>", $arr['permissions']['dir_perm'], $config);
-        return $config;
     }
 
     function generate_json ($domain, $items, $config) {
@@ -44,13 +37,6 @@
                     "value" => $items["acao_header_not_asterisk"]["value"],
                     "timestamp" => $items["acao_header_not_asterisk"]["ts"],
                     "triggers" => $config["triggers"]["acao_header_not_asterisk"]
-                ],
-                "wp_directory_permissions" => [
-                    "name" => sprintf("WP Checklist: Directory permissions in /usr/share/wordpress set (files: %s, dirs: %s)", $items["permissions"]["fperm"], $items["permissions"]["dperm"]),
-                    "type" => "bool",
-                    "value" => $items["permissions"]["value"],
-                    "timestamp" => $items["permissions"]["ts"],
-                    "triggers" => $config["triggers"]["wp_directory_permissions"]
                 ],
                 "content_directory_permissions" => [
                     "name" => sprintf("WP Checklist: Directory permissions in %s set (files: %s, dirs: %s)", $items["content_dir_permissions"]["path"], $items["content_dir_permissions"]["fperm"], $items["content_dir_permissions"]["dperm"]),
@@ -122,29 +108,6 @@
                 ]
             ]
         ]);
-    }
-
-    function check_permissions ($path, $dperm, $fperm) {
-        $files = scandir($path);
-
-        foreach ($files as $file) {
-            if ($file === "." || $file === "..") {
-                continue;
-            }
-
-            $new_path = $path . DIRECTORY_SEPARATOR . $file;
-            if (is_dir($new_path)) {
-                if (decoct(fileperms($new_path) & 0777) !== $dperm || !check_permissions($new_path, $dperm, $fperm)) {
-                    return false;
-                }
-            } elseif (is_file($new_path)) {
-                if (decoct(fileperms($new_path) & 0777) !== $fperm) {
-                    return false;
-                }
-            }
-        }
-
-        return true;
     }
 
     // Script Starts here
@@ -241,12 +204,6 @@
 
             $items["login_basic_auth_enabled"]["value"] = (int) ($http_response === "401");
             $items["login_basic_auth_enabled"]["ts"] = time();
-
-            assert_user(is_dir("/usr/share/wordpress"), "Path to WordPress '/usr/share/wordpress' not found", 5006);
-            $items["permissions"]["value"] = (int) check_permissions("/usr/share/wordpress", $dperm, $fperm);
-            $items["permissions"]["ts"] = time();
-            $items["permissions"]["dperm"] = $dperm;
-            $items["permissions"]["fperm"] = $fperm;
 
             assert_user(defined("WP_CONTENT_DIR"), "WP_CONTENT_DIR not defined", 5007);
             assert_user(is_dir(WP_CONTENT_DIR), sprintf("%s not found", WP_CONTENT_DIR), 5008);
