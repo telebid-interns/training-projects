@@ -22,6 +22,7 @@ class Worker:
         self._poll = select.poll()
         self._profiler = Profiler()
         self._activity_iterators = {}
+        self._child_pids = []
 
     def start(self):
         log.error(DEBUG)
@@ -119,6 +120,12 @@ class Worker:
 
             if file_path.startswith(CONFIG['cgi_dir']):
                 yield from client_conn.serve_cgi_script(file_path)
+
+                if client_conn.cgi_script_pid is not None:
+                    self._child_pids.append(client_conn.cgi_script_pid)
+
+                if len(self._child_pids) >= CONFIG['cgi_children_batch_size']:
+                    self.children_pid_wait()
             else:
                 yield from client_conn.serve_static_file(
                     resolve_static_file_path(file_path)
@@ -207,6 +214,24 @@ class Worker:
                 # Though, that would not prevent them from serving
                 # any requests they have to serve, thanks to yield
                 yield (self._socket, select.POLLIN)
+
+    def children_pid_wait(self):
+        completed_process_ids = []
+
+        for child_pid in self._child_pids:
+            assert isinstance(child_pid, int)
+
+            pid, status = os.waitpid(child_pid, os.WNOHANG)
+
+            assert pid == child_pid or pid == 0
+
+            if pid == child_pid:
+                completed_process_ids.append(child_pid)
+                log.error(DEBUG, msg=('child {0} exited.'.format(pid) +
+                                      ' exit_status: {0}'.format(status)))
+
+        for completed_process_id in completed_process_ids:
+            self._child_pids.remove(completed_process_id)
 
     def stop(self):
         log.error(DEBUG)

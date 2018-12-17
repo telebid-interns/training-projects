@@ -47,6 +47,7 @@ class ClientConnection:
         self.state = ClientConnection.State.ESTABLISHED
         self.req_meta = None
         self.res_meta = ResponseMeta()
+        self.cgi_script_pid = None
 
         self._monit.mark_begin('connection')
 
@@ -363,14 +364,9 @@ class ClientConnection:
                     else:
                         raise error
                 finally:
-                    # TODO we block here
-                    # yield ....
-                    pid, exit_status = os.wait()
-
+                    self.cgi_script_pid = pid
                     signal.alarm(0)
-
-                    log.error(DEBUG, msg=('child {0} exited.'.format(pid) +
-                                    ' exit_status: {0}'.format(exit_status)))
+                    log.error(DEBUG, msg='All CGI data received from child {0}'.format(self.cgi_script_pid))
         finally:
             self._monit.mark_end('serve_cgi')
 
