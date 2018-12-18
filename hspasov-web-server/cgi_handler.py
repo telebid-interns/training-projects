@@ -6,6 +6,7 @@ from log import log, DEBUG
 from http_meta import RequestMeta
 
 
+# TODO ask is CGI too slow?
 class CGIMsgFormatter:
     @staticmethod
     def parse_cgi_res_meta(msg):
@@ -107,7 +108,7 @@ class CGIHandler:
                 break
         else:
             log.error(DEBUG, msg='cgi response meta too long')
-            self.cgi_res_meta_raw = None  # TODO refactor this
+            self.cgi_res_meta_raw = None
 
     def kill(self, signum, frame):
         log.error(DEBUG)

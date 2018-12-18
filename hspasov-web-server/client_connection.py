@@ -157,8 +157,8 @@ class ClientConnection:
             bytes_sent = self._conn.send(data_to_send)
 
             if bytes_sent == 0:
-                ...
                 # TODO error
+                log.error(DEBUG, var_name='bytes_sent', var_value=bytes_sent)
 
             total_bytes_sent += bytes_sent
             data_to_send = data[total_bytes_sent:]
@@ -237,8 +237,11 @@ class ClientConnection:
             cgi_env = CGIMsgFormatter.build_cgi_env(self.req_meta,
                                                     self.remote_addr)
 
-            child_read, parent_write = os.pipe2(os.O_NONBLOCK)
-            parent_read, child_write = os.pipe2(os.O_NONBLOCK)
+            # TODO ask is it ok to skip flag O_NONBLOCK?
+            # child_read, parent_write = os.pipe2(os.O_NONBLOCK)
+            # parent_read, child_write = os.pipe2(os.O_NONBLOCK)
+            child_read, parent_write = os.pipe()
+            parent_read, child_write = os.pipe()
 
             pid = os.fork()
 
@@ -323,7 +326,8 @@ class ClientConnection:
 
                     yield from cgi_handler.receive_meta()
 
-                    if cgi_handler.cgi_res_meta_raw is None:  # TODO refactor this
+                    if cgi_handler.cgi_res_meta_raw is None:
+                        log.error(DEBUG, msg='cgi_res_meta_raw is None')
                         yield from self.send_meta(b'502')
                         return
 
@@ -338,11 +342,17 @@ class ClientConnection:
                         yield from self.send_meta(b'502')
                         return
 
+                    excluded_cgi_headers = ['Status']
+                    http_headers = {}
+
+                    for header_name, header_val in res_headers.items():
+                        if header_name not in excluded_cgi_headers:
+                            http_headers[header_name] = header_val
+
                     if 'Status' in res_headers and res_headers['Status'] in HTTP1_1MsgFormatter.response_reason_phrases.keys():
-                        # TODO maybe status code should not be in headers
-                        yield from self.send_meta(res_headers['Status'], res_headers)
+                        yield from self.send_meta(res_headers['Status'], http_headers)
                     else:
-                        yield from self.send_meta(b'200', res_headers)
+                        yield from self.send_meta(b'200', http_headers)
 
                     if len(cgi_handler.msg_buffer) > 0:
                         yield from self.send(cgi_handler.msg_buffer)
@@ -361,7 +371,7 @@ class ClientConnection:
                 except OSError as error:
                     if error.errno == errno.EPIPE:
                         log.error(DEBUG, msg=error)
-
+                        log.error(DEBUG, msg=traceback.format_exc())
                         yield from self.send_meta(b'502')
                     else:
                         raise error

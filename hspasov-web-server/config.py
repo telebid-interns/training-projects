@@ -11,7 +11,6 @@ with open(sys.argv[1], mode='r') as config_file:
     config_file_content = config_file.read()
     CONFIG = json.loads(config_file_content)
 
-# TODO assert_user
 assert_user(isinstance(CONFIG['ssl'], bool))
 assert_user(isinstance(CONFIG['ssl_certificate'], str))
 assert_user(isinstance(CONFIG['socket_operation_timeout'], int))
