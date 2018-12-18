@@ -135,16 +135,22 @@
 
     // Script Starts here
     if ($argv && $argv[0] && realpath($argv[0]) === __FILE__) {
+        ini_set('default_socket_timeout', 5);
         $domain = "";
 
         for ($i=0; $i < count($argv); $i++) {
             if ($argv[$i] === "--domain") {
                 $domain = $argv[$i+1];
             }
+
+            if ($argv[$i] === "--scheme") {
+                $scheme = $argv[$i+1];
+            }
         }
 
         try {
             assert_user($domain, "Domain not provided", 5001);
+            assert_user($scheme, "Scheme not provided", 5010);
 
             $config_file = sprintf("/etc/wordpress/config-%s.php", $domain);
             assert_user(@include $config_file, sprintf("Could not find %s", $config_file), 5002);
@@ -212,12 +218,12 @@
                         "Content-type: application/x-www-form-urlencoded\r\n" . 
                         "Origin: http://www.fake-domain.org\r\n",
                     'method'  => 'POST',
-                    'content' => '<methodCall><methodName>pingback.ping</methodName><params><param><value><string>http://ros.bg</string></value></param></params></methodCall>'
+                    'content' => sprintf('<methodCall><methodName>pingback.ping</methodName><params><param><value><string>%s://%s</string></value></param></params></methodCall>', $scheme, $domain)
                 )
             );
             $context  = stream_context_create($options);
 
-            $stream = fopen(sprintf("http://%s/xmlrpc.php", $domain), 'r', false, $context);
+            $stream = fopen(sprintf("%s://%s/xmlrpc.php", $scheme, $domain), 'r', false, $context);
             $headers = stream_get_meta_data($stream)['wrapper_data'];
             foreach ($headers as $header) {
                 if ($header === "Access-Control-Allow-Origin: *") {
@@ -225,7 +231,7 @@
                 }
             }
 
-            $http_response = explode(" ", get_headers(sprintf("http://%s/wp-login.php", $domain))[0])[1];
+            $http_response = explode(" ", get_headers(sprintf("%s://%s/wp-login.php", $scheme, $domain))[0])[1];
 
             $items["login_basic_auth_enabled"]["value"] = (int) ($http_response === "401");
             $items["login_basic_auth_enabled"]["ts"] = time();

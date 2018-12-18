@@ -9,6 +9,7 @@
         $files = scandir(CONFIG_PATH);
         $apps = new stdClass();
         foreach ($files as $file) {
+            echo $file . PHP_EOL;
             if (substr($file, -4) === '.php' && strpos($file, "config-") === 0) {
                 $domain = substr($file, 7, -4);
 
