@@ -15,54 +15,75 @@
 
     function generate_json ($domain, $items, $config) {
         return json_encode([
-            "name" => sprintf("WP settings checklist for domain %s", $domain),
-            "items" => [
-                "registration_disabled" => [
-                    "name" => "WP Checklist: Registration disabled",
-                    "type" => "bool",
-                    "value" => $items["registration_disabled"]["value"],
-                    "timestamp" => $items["registration_disabled"]["ts"],
-                    "triggers" => $config["triggers"]["registration_disabled"]
-                ],
-                "comments_disabled" => [
-                    "name" => "WP Checklist: Comments disabled",
-                    "type" => "bool",
-                    "value" => $items["comments_disabled"]["value"],
-                    "timestamp" => $items["comments_disabled"]["ts"],
-                    "triggers" => $config["triggers"]["comments_disabled"]
-                ],
-                "acao_header_not_asterisk" => [
-                    "name" => "WP Checklist: xmlrpc response header Access-Control-Allow-Origin not *",
-                    "type" => "bool",
-                    "value" => $items["acao_header_not_asterisk"]["value"],
-                    "timestamp" => $items["acao_header_not_asterisk"]["ts"],
-                    "triggers" => $config["triggers"]["acao_header_not_asterisk"]
-                ],
-                "content_directory_permissions" => [
-                    "name" => sprintf("WP Checklist: Directory permissions in %s set (files: %s, dirs: %s)", $items["content_dir_permissions"]["path"], $items["content_dir_permissions"]["fperm"], $items["content_dir_permissions"]["dperm"]),
-                    "type" => "bool",
-                    "value" => $items["content_dir_permissions"]["value"],
-                    "timestamp" => $items["content_dir_permissions"]["ts"],
-                    "triggers" => $config["triggers"]["content_directory_permissions"]
-                ],
-                "login_basic_auth" => [
-                    "name" => "WP Checklist: Additional basic auth enabled on /wp-login.php",
-                    "type" => "bool",
-                    "value" => $items["login_basic_auth_enabled"]["value"],
-                    "timestamp" => $items["login_basic_auth_enabled"]["ts"],
-                    "triggers" => $config["triggers"]["login_basic_auth"]
-                ],
-                "users" => [
-                    "name" => "User Count",
-                    "type" => "int",
-                    "value" => $items["users"]["value"],
-                    "timestamp" => $items["users"]["ts"]
+            $domain => [
+                "name" => sprintf("WP settings checklist: domain %s", $domain),
+                "items" => [
+                    "registration_disabled" => [
+                        "name" => "WP Checklist: Registration disabled",
+                        "type" => "bool",
+                        "value" => $items["registration_disabled"]["value"],
+                        "timestamp" => $items["registration_disabled"]["ts"],
+                        "triggers" => $config["triggers"]["registration_disabled"]
+                    ],
+                    "comments_disabled" => [
+                        "name" => "WP Checklist: Comments disabled",
+                        "type" => "bool",
+                        "value" => $items["comments_disabled"]["value"],
+                        "timestamp" => $items["comments_disabled"]["ts"],
+                        "triggers" => $config["triggers"]["comments_disabled"]
+                    ],
+                    "acao_header_not_asterisk" => [
+                        "name" => "WP Checklist: xmlrpc response header Access-Control-Allow-Origin not *",
+                        "type" => "bool",
+                        "value" => $items["acao_header_not_asterisk"]["value"],
+                        "timestamp" => $items["acao_header_not_asterisk"]["ts"],
+                        "triggers" => $config["triggers"]["acao_header_not_asterisk"]
+                    ],
+                    "content_directory_permissions" => [
+                        "name" => sprintf("WP Checklist: Directory permissions in %s set (files: %s, dirs: %s)", $items["content_dir_permissions"]["path"], $items["content_dir_permissions"]["fperm"], $items["content_dir_permissions"]["dperm"]),
+                        "type" => "bool",
+                        "value" => $items["content_dir_permissions"]["value"],
+                        "timestamp" => $items["content_dir_permissions"]["ts"],
+                        "triggers" => $config["triggers"]["content_directory_permissions"]
+                    ],
+                    "content_directory_ownership" => [
+                        "name" => sprintf("WP Checklist: Directory owner in %s set to %s", $items["content_dir_ownership"]["path"], $items["content_dir_ownership"]["owner"]),
+                        "type" => "bool",
+                        "value" => $items["content_dir_ownership"]["value"],
+                        "timestamp" => $items["content_dir_ownership"]["ts"],
+                        "triggers" => $config["triggers"]["content_directory_ownership"]
+                    ],
+                    "content_directory_groups" => [
+                        "name" => sprintf("WP Checklist: Directory groups in %s set to %s", $items["content_dir_groups"]["path"], $items["content_dir_groups"]["group"]),
+                        "type" => "bool",
+                        "value" => $items["content_dir_groups"]["value"],
+                        "timestamp" => $items["content_dir_groups"]["ts"],
+                        "triggers" => $config["triggers"]["content_directory_groups"]
+                    ],
+                    "login_basic_auth" => [
+                        "name" => "WP Checklist: Additional basic auth enabled on /wp-login.php",
+                        "type" => "bool",
+                        "value" => $items["login_basic_auth_enabled"]["value"],
+                        "timestamp" => $items["login_basic_auth_enabled"]["ts"],
+                        "triggers" => $config["triggers"]["login_basic_auth"]
+                    ],
+                ]
+            ],
+            sprintf("general_%s", $domain) => [
+                "name" => sprintf("WP General statistics: domain %s", $domain),
+                "items" => [
+                    "users" => [
+                        "name" => "User Count",
+                        "type" => "int",
+                        "value" => $items["users"]["value"],
+                        "timestamp" => $items["users"]["ts"]
+                    ]
                 ]
             ]
         ]);
     }
 
-    function generate_user_error_json ($domain = "", $code, $msg) {
+    function generate_user_error_json ($domain, $code, $msg) {
         $resol = "No resol specified";
 
         if ($code === 5001) {
@@ -90,19 +111,21 @@
         }
 
         return json_encode([
-            "name" => sprintf("WP settings checklist for domain %s", $domain),
-            "items" => [
-                "error" => [
-                    "name" => "User Error",
-                    "type" => "bool",
-                    "value" => 0,
-                    "timestamp" => time(),
-                    "triggers" => [
-                        "trig1" => [
-                            "descr" => $msg,
-                            "prior" => "warn",
-                            "range" => [0, 0],
-                            "resol" => $resol
+            $domain => [
+                "name" => sprintf("WP User Error: domain %s", $domain),
+                "items" => [
+                    "error" => [
+                        "name" => "User Error",
+                        "type" => "bool",
+                        "value" => 0,
+                        "timestamp" => time(),
+                        "triggers" => [
+                            "trig1" => [
+                                "descr" => $msg,
+                                "prior" => "warn",
+                                "range" => [0, 0],
+                                "resol" => $resol
+                            ]
                         ]
                     ]
                 ]
@@ -143,8 +166,10 @@
             ];
 
             $config = json_decode(replace_placeholders(file_get_contents("./wp-mon-scr-config.json"), $placeholder_values), true);
-            $fperm = $config['permissions']['file_perm'];
-            $dperm = $config['permissions']['dir_perm'];
+            $fperm = $config['files']['permissions']['file_perm'];
+            $dperm = $config['files']['permissions']['dir_perm'];
+            $owner = $config['files']['owner'];
+            $group = $config['files']['group'];
 
             $conn = @new mysqli(DB_HOST, DB_USER, DB_PASSWORD, DB_NAME);
             assert_user(is_null($conn->connect_error), "Could not connect to Database", 5004);
@@ -212,6 +237,16 @@
             $items["content_dir_permissions"]["dperm"] = $dperm;
             $items["content_dir_permissions"]["fperm"] = $fperm;
             $items["content_dir_permissions"]["path"] = WP_CONTENT_DIR;
+
+            $items["content_dir_ownership"]["value"] = (int) check_ownership(WP_CONTENT_DIR, $owner);
+            $items["content_dir_ownership"]["ts"] = time();
+            $items["content_dir_ownership"]["owner"] = $owner;
+            $items["content_dir_ownership"]["path"] = WP_CONTENT_DIR;
+
+            $items["content_dir_groups"]["value"] = (int) check_groups(WP_CONTENT_DIR, $group);
+            $items["content_dir_groups"]["ts"] = time();
+            $items["content_dir_groups"]["group"] = $group;
+            $items["content_dir_groups"]["path"] = WP_CONTENT_DIR;
 
             fwrite(STDOUT, generate_json($domain, $items, $config));
         } catch (UserError $err) {

@@ -22,6 +22,52 @@
         return true;
     }
 
+    function check_ownership ($path, $owner) {
+        $files = scandir($path);
+
+        foreach ($files as $file) {
+            if ($file === "." || $file === "..") {
+                continue;
+            }
+
+            $new_path = $path . DIRECTORY_SEPARATOR . $file;
+            if (is_dir($new_path)) {
+                if (posix_getpwuid(fileowner($new_path))['name'] !== $owner || !check_ownership($new_path, $owner)) {
+                    return false;
+                }
+            } elseif (is_file($new_path)) {
+                if (posix_getpwuid(fileowner($new_path))['name'] !== $owner) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    function check_groups ($path, $group) {
+        $files = scandir($path);
+
+        foreach ($files as $file) {
+            if ($file === "." || $file === "..") {
+                continue;
+            }
+
+            $new_path = $path . DIRECTORY_SEPARATOR . $file;
+            if (is_dir($new_path)) {
+                if (posix_getpwuid(filegroup($new_path))['name'] !== $group || !check_ownership($new_path, $group)) {
+                    return false;
+                }
+            } elseif (is_file($new_path)) {
+                if (posix_getpwuid(filegroup($new_path))['name'] !== $group) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
     function generateMonJson ($apps) {
         return [
             'version' => '3.0',
@@ -40,8 +86,10 @@
 	    	$config = str_replace("<wp-content-path>", $values['wp-content-path'], $config);
         }
 
-        $config = str_replace("<fperm>", $arr['permissions']['file_perm'], $config);
-        $config = str_replace("<dperm>", $arr['permissions']['dir_perm'], $config);
+        $config = str_replace("<fperm>", $arr['files']['permissions']['file_perm'], $config);
+        $config = str_replace("<dperm>", $arr['files']['permissions']['dir_perm'], $config);
+        $config = str_replace("<owner>", $arr['files']['owner'], $config);
+        $config = str_replace("<group>", $arr['files']['group'], $config);
         return $config;
     }
 ?>

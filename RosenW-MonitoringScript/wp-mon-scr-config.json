@@ -1,7 +1,11 @@
 {
-    "permissions": {
-        "file_perm": "644",
-        "dir_perm": "755"
+    "files": {
+        "permissions": {
+            "file_perm": "644",
+            "dir_perm": "755"
+        },
+        "owner": "www-data",
+        "group": "www-data"
     },
     "triggers": {
         "registration_disabled": {
@@ -36,12 +40,44 @@
                 "resol": "Fix files/dirs permissions in /usr/share/wordpress should be <dperm> for dirs, <fperm> for files"
             }
         },
+        "wp_directory_ownership": {
+            "trig1": {
+                "descr": "SUPP3 WordPress owner in /usr/share/wordpress not <owner>",
+                "prior": "warn",
+                "range": [0, 0],
+                "resol": "Change files/dirs owner in /usr/share/wordpress should be <owner>"
+            }
+        },
+        "wp_directory_groups": {
+            "trig1": {
+                "descr": "SUPP3 WordPress groups in /usr/share/wordpress not <group>",
+                "prior": "warn",
+                "range": [0, 0],
+                "resol": "Change files/dirs groups in /usr/share/wordpress should be <group>"
+            }
+        },
         "content_directory_permissions": {
             "trig1": {
                 "descr": "SUPP3 WordPress permissions in <wp-content-path> not <dperm> for dirs, <fperm> for files",
                 "prior": "warn",
                 "range": [0, 0],
                 "resol": "Fix files/dirs permissions in <wp-content-path> should be <dperm> for dirs, <fperm> for files"
+            }
+        },
+        "content_directory_ownership": {
+            "trig1": {
+                "descr": "SUPP3 WordPress owner in <wp-content-path> not <owner>",
+                "prior": "warn",
+                "range": [0, 0],
+                "resol": "Change files/dirs owner in <wp-content-path> should be <owner>"
+            }
+        },
+        "content_directory_groups": {
+            "trig1": {
+                "descr": "SUPP3 WordPress groups in <wp-content-path> not <group>",
+                "prior": "warn",
+                "range": [0, 0],
+                "resol": "Change files/dirs groups in <wp-content-path> should be <group>"
             }
         },
         "login_basic_auth": {
