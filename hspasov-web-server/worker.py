@@ -24,11 +24,8 @@ class Worker:
     def start(self):
         log.error(DEBUG)
 
-        accept_iter = self.gen_accept()
+        self._poll.register(self._socket, select.POLLIN)
 
-        self.register_activity(self._socket, select.POLLIN, accept_iter)
-
-        next(accept_iter)
         # self._profiler.mark_event_loop_begin_time()
         # self._profiler.mark_registering_begin()
 
@@ -39,39 +36,68 @@ class Worker:
             # self._profiler.mark_event_loop_begin_time()
             # self._profiler.mark_registering_begin()
 
-            for fd, event in action_requests:
-                assert fd in self._activity_iterators
+            for fd, eventmask in action_requests:
+                if fd == self._socket.fileno():
+                    log.error(DEBUG, msg='accepting connections...')
 
-                activity_iter = self._activity_iterators[fd]
+                    try:
+                        accepted_connections = 0
 
-                # self._profiler.mark_event_loop_end()
-                # self._profiler.mark_registering_end()
-                result = next(activity_iter, None)
-                # self._profiler.mark_event_loop_begin_time()
-                # self._profiler.mark_registering_begin()
+                        while accepted_connections < CONFIG['accept_conn_limit']:
+                            conn, addr = self._socket.accept()
+                            accepted_connections += 1
 
-                assert result is None or isinstance(result, tuple)
+                            log.error(DEBUG, msg='connection accepted')
+                            log.error(DEBUG, var_name='conn', var_value=conn)
+                            log.error(DEBUG, var_name='addr', var_value=addr)
 
-                # self._profiler.mark_registering_begin()
-                self.unregister_activity(fd)
+                            self.register_activity(
+                                conn,
+                                select.POLLIN,
+                                self.req_handler(ClientConnection(conn, addr))
+                            )
+                    except OSError as error:
+                        assert error.errno == errno.EWOULDBLOCK
+                    finally:
+                        log.error(DEBUG, msg='Accepted {0} connections'.format(accepted_connections))
+                else:
+                    assert fd in self._activity_iterators
 
-                if isinstance(result, tuple):
-                    assert len(result) == 2
+                    activity_iter = self._activity_iterators[fd]
 
-                    new_fd, new_event = result
-                    self.register_activity(new_fd, new_event,
-                                           activity_iter)
+                    # self._profiler.mark_event_loop_end()
+                    # self._profiler.mark_registering_end()
+                    result = next(activity_iter, None)
+                    # self._profiler.mark_event_loop_begin_time()
+                    # self._profiler.mark_registering_begin()
+
+                    assert result is None or isinstance(result, tuple)
+
+                    # self._profiler.mark_registering_begin()
+
+                    if isinstance(result, tuple):
+                        assert len(result) == 2
+
+                        log.error(DEBUG, msg=result)
+                        new_fd, new_eventmask = result
+
+                        if (new_fd != fd or new_eventmask != eventmask):
+                            self.unregister_activity(fd)
+                            self.register_activity(new_fd, new_eventmask,
+                                                   activity_iter)
+                    else:
+                        self.unregister_activity(fd)
                 # self._profiler.mark_registering_end()
 
             # self._profiler.mark_event_loop_iteration(action_requests)
 
-    def register_activity(self, fd, event, it):
+    def register_activity(self, fd, eventmask, it):
         log.error(DEBUG)
 
         if isinstance(fd, socket.socket):
             fd = fd.fileno()
 
-        self._poll.register(fd, event)
+        self._poll.register(fd, eventmask)
         self._activity_iterators[fd] = it
 
     def unregister_activity(self, fd):
@@ -178,38 +204,6 @@ class Worker:
                 status_code=client_conn.res_meta.status_code,
                 content_length=client_conn.res_meta.headers.get(b'Content-Length'),
             )
-
-    def gen_accept(self):
-        log.error(DEBUG)
-
-        while True:
-            try:
-                yield (self._socket, select.POLLIN)
-
-                try:
-                    accepted_connections = 0
-
-                    while accepted_connections < CONFIG['accept_conn_limit']:
-                        conn, addr = self._socket.accept()
-                        accepted_connections += 1
-
-                        log.error(DEBUG, msg='connection accepted')
-                        log.error(DEBUG, var_name='conn', var_value=conn)
-                        log.error(DEBUG, var_name='addr', var_value=addr)
-
-                        self.register_activity(
-                            conn,
-                            select.POLLIN,
-                            self.req_handler(ClientConnection(conn, addr))
-                        )
-                except OSError as error:
-                    assert error.errno == errno.EWOULDBLOCK
-                    log.error(DEBUG, msg='Accepted {0} connections'.format(accepted_connections))
-
-            except OSError:
-                self._profiler.mark_unsuccessful_lock()
-
-                yield (self._socket, select.POLLIN)
 
     def children_pid_wait(self):
         completed_process_ids = []
