@@ -12,7 +12,6 @@ from log import log, DEBUG, ERROR
 from http_meta import ResponseMeta
 from http_msg_formatter import HTTP1_1MsgFormatter
 from cgi_handler import CGIHandler, CGIMsgFormatter
-from web_server_utils import resolve_web_server_path
 
 
 class ClientConnection:
@@ -170,9 +169,6 @@ class ClientConnection:
         try:
             assert self.state == ClientConnection.State.RECEIVING
 
-            # os.chroot(CONFIG['web_server_root'])
-            # os.setreuid(UID, UID)
-
             fd = None
 
             try:
@@ -257,10 +253,10 @@ class ClientConnection:
                         assert isinstance(value, str)
 
                     try:
-                        os.execve(resolve_web_server_path(file_path),
-                                [file_path], cgi_env)
+                        os.execve(file_path, [file_path], cgi_env)
                     except FileNotFoundError:
                         log.error(DEBUG, msg='CGI script not found')
+                        log.error(DEBUG, var_name='file_path', var_value=file_path)
                         os._exit(os.EX_NOINPUT)
                 except OSError as error:
                     log.error(ERROR, msg=error)

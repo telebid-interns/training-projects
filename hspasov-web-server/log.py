@@ -41,9 +41,10 @@ class Log:
                 fields.append(format(Log.resolve_log_lvl_name(lvl)))
             if 'context' in CONFIG['error_log_fields']:
                 current_frame = inspect.currentframe()
-                caller_frame = inspect.getouterframes(current_frame, 2)
-                caller_function = caller_frame[1][3]
-                fields.append(format(caller_function))
+                # TODO why does the following line cause the process to exit
+                # caller_frame = inspect.getouterframes(current_frame, 2)
+                # caller_function = caller_frame[1][3]
+                # fields.append(format(caller_function))
             if 'var_name' in CONFIG['error_log_fields']:
                 fields.append(
                     CONFIG['error_log_empty_field']

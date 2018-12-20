@@ -6,6 +6,7 @@ import errno
 from profiler import Profiler
 from http_meta import RequestMeta
 from log import log, DEBUG, ERROR
+from uid import UID
 from config import CONFIG
 from client_connection import ClientConnection
 from web_server_utils import resolve_static_file_path
@@ -23,6 +24,9 @@ class Worker:
 
     def start(self):
         log.error(DEBUG)
+
+        os.chroot(CONFIG['web_server_root'])
+        os.setreuid(UID, UID)
 
         self._poll.register(self._socket, select.POLLIN)
 
@@ -165,22 +169,22 @@ class Worker:
                 client_conn_monit = client_conn.close()
 
                 if len(self._profiler._client_conn_monits) >= CONFIG['max_monits']:
-                    log.error(ERROR,
-                              var_name='averages',
-                              var_value=self._profiler.get_averages())
+                    # log.error(ERROR,
+                    #          var_name='averages',
+                    #          var_value=self._profiler.get_averages())
                     # TODO it should be ERROR only for dev purposes
-                    log.error(ERROR,
-                              var_name='event_loop_time',
-                              var_value=self._profiler._event_loop_time.microseconds)
-                    log.error(ERROR,
-                              var_name='event loop iterations length',
-                              var_value=len(self._profiler._event_loop_iterations))
-                    log.error(ERROR,
-                              var_name='unsuccessful locks',
-                              var_value=self._profiler._unsuccessful_locks)
-                    log.error(ERROR,
-                              var_name='registering time',
-                              var_value=self._profiler._registering_time.microseconds)
+                    #log.error(ERROR,
+                    #          var_name='event_loop_time',
+                    #          var_value=self._profiler._event_loop_time.microseconds)
+                    #log.error(ERROR,
+                    #          var_name='event loop iterations length',
+                    #          var_value=len(self._profiler._event_loop_iterations))
+                    #log.error(ERROR,
+                    #          var_name='unsuccessful locks',
+                    #          var_value=self._profiler._unsuccessful_locks)
+                    #log.error(ERROR,
+                    #          var_name='registering time',
+                    #          var_value=self._profiler._registering_time.microseconds)
 
                     self._profiler = Profiler()
 
