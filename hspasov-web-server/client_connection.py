@@ -108,7 +108,7 @@ class ClientConnection:
 
         assert self.state == ClientConnection.State.RECEIVING
 
-        yield (self._conn, select.POLLIN)
+        yield (self._conn, select.EPOLLIN)
 
         self._msg_buffer = b''
 
@@ -171,7 +171,7 @@ class ClientConnection:
         data_to_send = data
 
         while total_bytes_sent < bytes_to_send:
-            yield (self._conn, select.POLLOUT)
+            yield (self._conn, select.EPOLLOUT)
             bytes_sent = self._conn.send(data_to_send)
 
             if bytes_sent == 0:

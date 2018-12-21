@@ -17,7 +17,7 @@ class Worker:
         log.error(DEBUG)
 
         self._socket = socket
-        self._poll = select.poll()
+        self._epoll = select.epoll()
         self._profiler = Profiler()
         self._activity_iterators = {}
         self._child_pids = []
@@ -28,7 +28,7 @@ class Worker:
         os.chroot(CONFIG['web_server_root'])
         os.setreuid(UID, UID)
 
-        self._poll.register(self._socket, select.POLLIN)
+        self._epoll.register(self._socket, select.EPOLLIN)
 
         # self._profiler.mark_event_loop_begin_time()
         # self._profiler.mark_registering_begin()
@@ -36,7 +36,7 @@ class Worker:
         while True:
             # self._profiler.mark_event_loop_end()
             # self._profiler.mark_registering_end()
-            action_requests = self._poll.poll()
+            action_requests = self._epoll.poll()
             # self._profiler.mark_event_loop_begin_time()
             # self._profiler.mark_registering_begin()
 
@@ -59,7 +59,7 @@ class Worker:
 
                             self.register_activity(
                                 conn,
-                                select.POLLIN,
+                                select.EPOLLIN,
                                 self.req_handler(ClientConnection(conn, addr))
                             )
                     except OSError as error:
@@ -103,13 +103,13 @@ class Worker:
         if isinstance(fd, socket.socket):
             fd = fd.fileno()
 
-        self._poll.register(fd, eventmask)
+        self._epoll.register(fd, eventmask)
         self._activity_iterators[fd] = it
 
     def unregister_activity(self, fd):
         log.error(DEBUG)
 
-        self._poll.unregister(fd)
+        self._epoll.unregister(fd)
         del self._activity_iterators[fd]
 
     def req_handler(self, client_conn):

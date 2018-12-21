@@ -75,7 +75,7 @@ class CGIHandler:
         data_to_write = data
 
         while bytes_written < bytes_to_write:
-            yield (self._write_fd, select.POLLOUT)
+            yield (self._write_fd, select.EPOLLOUT)
 
             try:
                 while bytes_written < bytes_to_write:
@@ -96,7 +96,7 @@ class CGIHandler:
     def receive(self):
         log.error(DEBUG)
 
-        yield (self._read_fd, select.POLLIN)
+        yield (self._read_fd, select.EPOLLIN)
 
         self.msg_buffer = b''
 
