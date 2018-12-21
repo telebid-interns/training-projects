@@ -13,6 +13,7 @@ from log import log, DEBUG, ERROR
 from http_meta import ResponseMeta
 from http_msg_formatter import HTTP1_1MsgFormatter
 from cgi_handler import CGIHandler, CGIMsgFormatter
+from web_server_utils import BufferLimitReachedError
 
 
 class ClientConnection:
@@ -64,6 +65,10 @@ class ClientConnection:
 
                 try:
                     yield from self.receive()
+                except BufferLimitReachedError as error:
+                    log.error(DEBUG, msg=error)
+                    yield from self.send_meta(b'503')
+                    return
                 except socket.timeout:
                     log.error(DEBUG, msg='timeout while receiving from client')
                     yield from self.send_meta(b'408')
@@ -124,6 +129,9 @@ class ClientConnection:
                 log.error(DEBUG, msg=data)
 
                 self._msg_buffer += data
+            else:
+                raise BufferLimitReachedError('msg_buffer_limit reached')
+
         except OSError as error:
             assert error.errno == errno.EWOULDBLOCK
             log.error(DEBUG, msg='recv would block')
@@ -321,6 +329,10 @@ class ClientConnection:
                         while cgi_handler.bytes_written < content_length:
                             try:
                                 yield from self.receive()
+                            except BufferLimitReachedError as error:
+                                log.error(DEBUG, msg=error)
+                                yield from self.send_meta(b'503')
+                                return
                             except socket.timeout:
                                 log.error(DEBUG,
                                         msg='timeout while receiving from client')
@@ -338,7 +350,12 @@ class ClientConnection:
 
                     log.error(DEBUG, msg='receiving CGI meta')
 
-                    yield from cgi_handler.receive_meta()
+                    try:
+                        yield from cgi_handler.receive_meta()
+                    except BufferLimitReachedError as error:
+                        log.error(DEBUG, msg=error)
+                        yield from self.send_meta(b'503')
+                        return
 
                     if cgi_handler.cgi_res_meta_raw is None:
                         log.error(DEBUG, msg='cgi_res_meta_raw is None')
@@ -372,7 +389,11 @@ class ClientConnection:
                         yield from self.send(cgi_handler.msg_buffer)
 
                     while True:
-                        yield from cgi_handler.receive()
+                        try:
+                            yield from cgi_handler.receive()
+                        except BufferLimitReachedError as error:
+                            log.error(DEBUG, msg=error)
+                            return
 
                         if len(cgi_handler.msg_buffer) <= 0:
                             log.error(DEBUG,

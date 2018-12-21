@@ -5,6 +5,7 @@ import signal
 from config import CONFIG
 from log import log, DEBUG
 from http_meta import RequestMeta
+from web_server_utils import BufferLimitReachedError
 
 
 class CGIMsgFormatter:
@@ -113,6 +114,8 @@ class CGIHandler:
 
                 log.error(DEBUG, var_name='data', var_value=data)
                 log.error(DEBUG, msg=data)
+            else:
+                raise BufferLimitReachedError('msg_buffer_limit reached')
         except OSError as error:
             assert error.errno in (errno.EWOULDBLOCK, errno.EBADF)
 
@@ -128,6 +131,7 @@ class CGIHandler:
             log.error(DEBUG, msg='collecting data from cgi...')
 
             yield from self.receive()
+
             self.cgi_res_meta_raw += self.msg_buffer
 
             if len(self.msg_buffer) <= 0:

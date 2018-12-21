@@ -28,7 +28,7 @@ class Worker:
         os.chroot(CONFIG['web_server_root'])
         os.setreuid(UID, UID)
 
-        self._epoll.register(self._socket, select.EPOLLIN)
+        self._epoll.register(self._socket, select.EPOLLIN | select.EPOLLET)
 
         # self._profiler.mark_event_loop_begin_time()
         # self._profiler.mark_registering_begin()
@@ -103,7 +103,7 @@ class Worker:
         if isinstance(fd, socket.socket):
             fd = fd.fileno()
 
-        self._epoll.register(fd, eventmask)
+        self._epoll.register(fd, eventmask | select.EPOLLET)
         self._activity_iterators[fd] = it
 
     def unregister_activity(self, fd):
