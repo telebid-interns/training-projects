@@ -69,7 +69,10 @@ class Worker:
                                 self.req_handler(ClientConnection(conn, addr))
                             )
                     except OSError as error:
-                        if error.errno != errno.EWOULDBLOCK:
+                        if error.errno == errno.EMFILE:
+                            log.error(ERROR, msg=error)
+                            os._exit(os.EX_UNAVAILABLE)
+                        elif error.errno != errno.EWOULDBLOCK:
                             log.error(DEBUG, msg='OSError thrown at accept')
                             log.error(ERROR, msg=error)
                     finally:
