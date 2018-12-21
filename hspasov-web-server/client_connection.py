@@ -7,6 +7,7 @@ import fcntl
 import traceback
 import errno
 import signal
+import ssl
 from profiler import ClientConnectionMonit
 from config import CONFIG
 from log import log, DEBUG, ERROR
@@ -120,7 +121,13 @@ class ClientConnection:
         try:
             while len(self._msg_buffer) <= CONFIG['msg_buffer_limit']:
                 log.error(DEBUG, msg='loop conn receive')
-                data = self._conn.recv(CONFIG['recv_buffer'], socket.MSG_DONTWAIT)
+
+                if CONFIG['ssl']:
+                    recv_flags = 0
+                else:
+                    recv_flags = socket.MSG_DONTWAIT
+
+                data = self._conn.recv(CONFIG['recv_buffer'], recv_flags)
 
                 if len(data) == 0:
                     break
@@ -132,8 +139,10 @@ class ClientConnection:
             else:
                 raise BufferLimitReachedError('msg_buffer_limit reached')
 
+        except ssl.SSLWantReadError:
+            log.error(DEBUG, msg='rcv would block')
         except OSError as error:
-            assert error.errno == errno.EWOULDBLOCK
+            assert error.errno==errno.EWOULDBLOCK
             log.error(DEBUG, msg='recv would block')
         finally:
             log.error(DEBUG, msg='End of receive')
