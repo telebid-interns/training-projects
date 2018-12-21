@@ -16,7 +16,7 @@ class HTTP1_1MsgFormatter:
 
     @staticmethod
     def parse_req_meta(msg):
-        log.error(DEBUG)
+        log.error(DEBUG, msg='parse_req_meta')
 
         assert type(msg) is bytes
 

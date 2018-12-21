@@ -13,7 +13,7 @@ from log import log, DEBUG, ERROR
 from http_meta import ResponseMeta
 from http_msg_formatter import HTTP1_1MsgFormatter
 from cgi_handler import CGIHandler, CGIMsgFormatter
-from web_server_utils import BufferLimitReachedError
+from error_handling import BufferLimitReachedError
 
 
 class ClientConnection:
@@ -24,7 +24,7 @@ class ClientConnection:
         CLOSED = enum.auto()
 
     def __init__(self, conn, addr):
-        log.error(DEBUG)
+        log.error(DEBUG, msg='conn __init__')
 
         assert isinstance(conn, socket.socket)
         assert isinstance(addr, tuple)
@@ -52,7 +52,7 @@ class ClientConnection:
         self._monit.mark_begin('connection')
 
     def receive_meta(self):
-        log.error(DEBUG)
+        log.error(DEBUG, msg='conn receive_meta')
         self._monit.mark_begin('receive_meta')
 
         try:
@@ -66,7 +66,7 @@ class ClientConnection:
                 try:
                     yield from self.receive()
                 except BufferLimitReachedError as error:
-                    log.error(DEBUG, msg=error)
+                    log.error(ERROR, msg=error)
                     yield from self.send_meta(b'503')
                     return
                 except socket.timeout:
@@ -75,7 +75,7 @@ class ClientConnection:
                     return
 
                 log.error(DEBUG, var_name='_msg_buffer',
-                        var_value=self._msg_buffer)
+                          var_value=self._msg_buffer)
 
                 self._req_meta_raw += self._msg_buffer
 
@@ -104,12 +104,12 @@ class ClientConnection:
                 return
 
             log.error(DEBUG, var_name='request meta',
-                    var_value=self.req_meta)
+                      var_value=self.req_meta)
         finally:
             self._monit.mark_end('receive_meta')
 
     def receive(self):
-        log.error(DEBUG)
+        log.error(DEBUG, msg='conn receive')
 
         assert self.state == ClientConnection.State.RECEIVING
 
@@ -139,7 +139,7 @@ class ClientConnection:
             log.error(DEBUG, msg='End of receive')
 
     def send_meta(self, status_code, headers={}):
-        log.error(DEBUG)
+        log.error(DEBUG, msg='conn send_meta')
         self._monit.mark_begin('send_meta')
 
         log.error(DEBUG, var_name='status_code', var_value=status_code)
@@ -167,7 +167,7 @@ class ClientConnection:
             self._monit.mark_end('send_meta')
 
     def send(self, data):
-        log.error(DEBUG)
+        log.error(DEBUG, msg='conn send')
 
         assert isinstance(data, bytes)
         assert self.state == ClientConnection.State.SENDING
@@ -190,7 +190,7 @@ class ClientConnection:
             data_to_send = data[total_bytes_sent:]
 
     def serve_static_file(self, file_path):
-        log.error(DEBUG)
+        log.error(DEBUG, msg='conn serve_static_file')
         self._monit.mark_begin('serve_static')
 
         try:
@@ -235,9 +235,9 @@ class ClientConnection:
                         break
 
                     log.error(DEBUG,
-                            msg=('sending response.. ' +
-                                'response_packages_sent: ' +
-                                '{0}'.format(self.res_meta.packages_sent)))
+                              msg=('sending response.. ' +
+                                   'response_packages_sent: ' +
+                                   '{0}'.format(self.res_meta.packages_sent)))
 
                     yield from self.send(response)
             finally:
@@ -250,7 +250,7 @@ class ClientConnection:
             self._monit.mark_end('serve_static')
 
     def serve_cgi_script(self, file_path):
-        log.error(DEBUG)
+        log.error(DEBUG, msg='conn serve_cgi_script')
         self._monit.mark_begin('serve_cgi')
 
         try:
@@ -285,6 +285,7 @@ class ClientConnection:
                         log.error(DEBUG, var_name='file_path', var_value=file_path)
                         os._exit(os.EX_NOINPUT)
                 except OSError as error:
+                    log.error(DEBUG, msg='OSError thrown at cgi')
                     log.error(ERROR, msg=error)
                     os._exit(os.EX_OSERR)
                 except Exception as error:
@@ -292,7 +293,7 @@ class ClientConnection:
                     os._exit(os.EX_SOFTWARE)
                 finally:  # this should never run
                     err_msg = ('Unexpected condition. exec* function did not ' +
-                            'run before finally.'),
+                               'run before finally.'),
                     log.error(ERROR, msg=(str(err_msg) + str(traceback.format_exc)))
                     os._exit(os.EX_SOFTWARE)
             else:  # parent process
@@ -324,23 +325,23 @@ class ClientConnection:
                         log.error(DEBUG, var_name='bytes_written',
                                   var_value=cgi_handler.bytes_written)
                         log.error(DEBUG, var_name='content_length',
-                                var_value=content_length)
+                                  var_value=content_length)
 
                         while cgi_handler.bytes_written < content_length:
                             try:
                                 yield from self.receive()
                             except BufferLimitReachedError as error:
-                                log.error(DEBUG, msg=error)
+                                log.error(ERROR, msg=error)
                                 yield from self.send_meta(b'503')
                                 return
                             except socket.timeout:
                                 log.error(DEBUG,
-                                        msg='timeout while receiving from client')
+                                          msg='timeout while receiving from client')
                                 yield from self.send_meta(b'408')
                                 return
 
                             log.error(DEBUG, var_name='_msg_buffer',
-                                    var_value=self._msg_buffer)
+                                      var_value=self._msg_buffer)
 
                             if len(self._msg_buffer) <= 0:
                                 log.error(DEBUG, msg='connection closed by peer')
@@ -353,7 +354,7 @@ class ClientConnection:
                     try:
                         yield from cgi_handler.receive_meta()
                     except BufferLimitReachedError as error:
-                        log.error(DEBUG, msg=error)
+                        log.error(ERROR, msg=error)
                         yield from self.send_meta(b'503')
                         return
 
@@ -392,12 +393,12 @@ class ClientConnection:
                         try:
                             yield from cgi_handler.receive()
                         except BufferLimitReachedError as error:
-                            log.error(DEBUG, msg=error)
+                            log.error(ERROR, msg=error)
                             return
 
                         if len(cgi_handler.msg_buffer) <= 0:
                             log.error(DEBUG,
-                                    msg='end of cgi response reached while reading')
+                                      msg='end of cgi response reached while reading')
                             break
 
                         log.error(DEBUG, msg='sending response..')
@@ -422,11 +423,11 @@ class ClientConnection:
             self._monit.mark_end('serve_cgi')
 
     def shutdown(self):
-        log.error(DEBUG)
+        log.error(DEBUG, msg='conn shutdown')
         self._conn.shutdown(socket.SHUT_RDWR)
 
     def close(self):
-        log.error(DEBUG)
+        log.error(DEBUG, msg='conn close')
 
         self._conn.close()
         self.state = ClientConnection.State.CLOSED

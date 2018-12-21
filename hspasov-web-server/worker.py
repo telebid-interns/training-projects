@@ -14,16 +14,17 @@ from web_server_utils import resolve_static_file_path
 
 class Worker:
     def __init__(self, socket):
-        log.error(DEBUG)
+        log.error(DEBUG, msg='worker __init__')
 
         self._socket = socket
         self._epoll = select.epoll()
         self._profiler = Profiler()
         self._activity_iterators = {}
         self._child_pids = []
+        self._client_conns = []
 
     def start(self):
-        log.error(DEBUG)
+        log.error(DEBUG, msg='worker start')
 
         os.chroot(CONFIG['web_server_root'])
         os.setreuid(UID, UID)
@@ -47,8 +48,13 @@ class Worker:
                     try:
                         accepted_connections = 0
 
-                        while accepted_connections < CONFIG['accept_conn_limit']:
+                        while True:
                             conn, addr = self._socket.accept()
+
+                            if accepted_connections > CONFIG['accept_conn_limit']:
+                                conn.close()
+                                continue
+
                             conn.setblocking(False)
 
                             accepted_connections += 1
@@ -63,7 +69,9 @@ class Worker:
                                 self.req_handler(ClientConnection(conn, addr))
                             )
                     except OSError as error:
-                        assert error.errno == errno.EWOULDBLOCK
+                        if error.errno != errno.EWOULDBLOCK:
+                            log.error(DEBUG, msg='OSError thrown at accept')
+                            log.error(ERROR, msg=error)
                     finally:
                         log.error(DEBUG, msg='Accepted {0} connections'.format(accepted_connections))
                 else:
@@ -87,10 +95,10 @@ class Worker:
                         log.error(DEBUG, msg=result)
                         new_fd, new_eventmask = result
 
-                        if (new_fd != fd or new_eventmask != eventmask):
-                            self.unregister_activity(fd)
-                            self.register_activity(new_fd, new_eventmask,
-                                                   activity_iter)
+                        # if (new_fd != fd or new_eventmask != eventmask):
+                        self.unregister_activity(fd)
+                        self.register_activity(new_fd, new_eventmask,
+                                               activity_iter)
                     else:
                         self.unregister_activity(fd)
                 # self._profiler.mark_registering_end()
@@ -98,7 +106,7 @@ class Worker:
             # self._profiler.mark_event_loop_iteration(action_requests)
 
     def register_activity(self, fd, eventmask, it):
-        log.error(DEBUG)
+        log.error(DEBUG, msg='register_activity')
 
         if isinstance(fd, socket.socket):
             fd = fd.fileno()
@@ -107,16 +115,21 @@ class Worker:
         self._activity_iterators[fd] = it
 
     def unregister_activity(self, fd):
-        log.error(DEBUG)
+        log.error(DEBUG, msg='unregister_activity')
 
         self._epoll.unregister(fd)
         del self._activity_iterators[fd]
 
     def req_handler(self, client_conn):
+        conn = None
+
         try:
-            log.error(DEBUG)
+            log.error(DEBUG, msg='req_handler')
 
             assert isinstance(client_conn, ClientConnection)
+
+            conn = client_conn
+            self._client_conns.append(conn)
 
             # may send response to client in case of invalid
             # request
@@ -160,40 +173,45 @@ class Worker:
                     resolve_static_file_path(file_path)
                 )
         except OSError as error:
+            log.error(DEBUG, msg='OSError thrown at req_handler')
+            log.error(DEBUG, msg=traceback.format_exc())
             log.error(DEBUG, msg=error)
-            yield from client_conn.send_meta(b'503')
         except Exception as error:
             log.error(ERROR, msg=str(error) + str(traceback.format_exc()))
             yield from client_conn.send_meta(b'500')
         finally:
+            if conn is not None:
+                self._client_conns.remove(conn)
+
             try:
                 client_conn.shutdown()
-                client_conn_monit = client_conn.close()
-
-                if len(self._profiler._client_conn_monits) >= CONFIG['max_monits']:
-                    # log.error(ERROR,
-                    #          var_name='averages',
-                    #          var_value=self._profiler.get_averages())
-                    # TODO it should be ERROR only for dev purposes
-                    #log.error(ERROR,
-                    #          var_name='event_loop_time',
-                    #          var_value=self._profiler._event_loop_time.microseconds)
-                    #log.error(ERROR,
-                    #          var_name='event loop iterations length',
-                    #          var_value=len(self._profiler._event_loop_iterations))
-                    #log.error(ERROR,
-                    #          var_name='unsuccessful locks',
-                    #          var_value=self._profiler._unsuccessful_locks)
-                    #log.error(ERROR,
-                    #          var_name='registering time',
-                    #          var_value=self._profiler._registering_time.microseconds)
-
-                    self._profiler = Profiler()
-
-                self._profiler.add_monit(client_conn_monit)
             except OSError as error:
                 if error.errno != errno.ENOTCONN:
                     raise error
+
+            client_conn_monit = client_conn.close()
+
+            if len(self._profiler._client_conn_monits) >= CONFIG['max_monits']:
+                # log.error(ERROR,
+                #          var_name='averages',
+                #          var_value=self._profiler.get_averages())
+                # TODO it should be ERROR only for dev purposes
+                #log.error(ERROR,
+                #          var_name='event_loop_time',
+                #          var_value=self._profiler._event_loop_time.microseconds)
+                #log.error(ERROR,
+                #          var_name='event loop iterations length',
+                #          var_value=len(self._profiler._event_loop_iterations))
+                #log.error(ERROR,
+                #          var_name='unsuccessful locks',
+                #          var_value=self._profiler._unsuccessful_locks)
+                #log.error(ERROR,
+                #          var_name='registering time',
+                #          var_value=self._profiler._registering_time.microseconds)
+
+                self._profiler = Profiler()
+
+            self._profiler.add_monit(client_conn_monit)
 
             if client_conn.req_meta is None:
                 req_line = None
@@ -230,6 +248,6 @@ class Worker:
             self._child_pids.remove(completed_process_id)
 
     def stop(self):
-        log.error(DEBUG)
+        log.error(DEBUG, 'worker stop')
         self._socket.close()
         self._accept_lock_fd.close()

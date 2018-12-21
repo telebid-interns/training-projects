@@ -10,7 +10,7 @@ from worker import Worker
 
 class Server:
     def __init__(self):
-        log.error(DEBUG)
+        log.error(DEBUG, msg='server __init__')
 
         if CONFIG['ssl']:
             self._socket = ssl.wrap_socket(
@@ -27,7 +27,7 @@ class Server:
         self._worker_pids = []
 
     def run(self):
-        log.error(DEBUG)
+        log.error(DEBUG, msg='server run')
 
         pid = None
 

@@ -5,13 +5,13 @@ import signal
 from config import CONFIG
 from log import log, DEBUG
 from http_meta import RequestMeta
-from web_server_utils import BufferLimitReachedError
+from error_handling import BufferLimitReachedError
 
 
 class CGIMsgFormatter:
     @staticmethod
     def parse_cgi_res_meta(msg):
-        log.error(DEBUG)
+        log.error(DEBUG, msg='parse_cgi_res_meta')
 
         headers_raw = msg.split(b'\n\n', 1)[0]
         header_lines = headers_raw.split(b'\n')
@@ -32,7 +32,7 @@ class CGIMsgFormatter:
 
     @staticmethod
     def build_cgi_env(req_meta, remote_addr):
-        log.error(DEBUG)
+        log.error(DEBUG, msg='build_cgi_env')
 
         assert isinstance(req_meta, RequestMeta)
         assert isinstance(req_meta.method, bytes)
@@ -69,7 +69,7 @@ class CGIHandler:
         self.cgi_res_meta_raw = b''
 
     def send(self, data):
-        log.error(DEBUG)
+        log.error(DEBUG, msg='CGIHandler send')
 
         bytes_written = 0
         bytes_to_write = len(data)
@@ -95,7 +95,7 @@ class CGIHandler:
         self.bytes_written += bytes_written
 
     def receive(self):
-        log.error(DEBUG)
+        log.error(DEBUG, msg='CGIHandler receive')
 
         yield (self._read_fd, select.EPOLLIN)
 
@@ -125,7 +125,7 @@ class CGIHandler:
             log.error(DEBUG, msg='End of receive')
 
     def receive_meta(self):
-        log.error(DEBUG)
+        log.error(DEBUG, msg='CGIHandler receive_meta')
 
         while len(self.cgi_res_meta_raw) <= CONFIG['cgi_res_meta_limit']:
             log.error(DEBUG, msg='collecting data from cgi...')
@@ -147,12 +147,12 @@ class CGIHandler:
             self.cgi_res_meta_raw = None
 
     def kill(self, signum, frame):
-        log.error(DEBUG)
+        log.error(DEBUG, msg='CGIHandler kill')
 
         os.kill(self._script_pid, signal.SIGTERM)
 
     def close(self):
-        log.error(DEBUG)
+        log.error(DEBUG, msg='CGIHandler close')
 
         os.close(self._read_fd)
         os.close(self._write_fd)

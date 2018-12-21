@@ -9,6 +9,11 @@ class UserError(BaseError):
         super().__init__(msg)
 
 
+class BufferLimitReachedError(Exception):
+    def __init__(self, msg):
+        super().__init__(msg)
+
+
 def assert_user(condition, msg=''):
     assert isinstance(condition, bool)
 
