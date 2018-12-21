@@ -49,6 +49,8 @@ class Worker:
 
                         while accepted_connections < CONFIG['accept_conn_limit']:
                             conn, addr = self._socket.accept()
+                            conn.setblocking(False)
+
                             accepted_connections += 1
 
                             log.error(DEBUG, msg='connection accepted')

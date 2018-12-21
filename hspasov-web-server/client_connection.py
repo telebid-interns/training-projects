@@ -3,6 +3,7 @@ import enum
 import socket
 import os
 import sys
+import fcntl
 import traceback
 import errno
 import signal
@@ -40,7 +41,6 @@ class ClientConnection:
         ])
         self.remote_addr = addr[0]
         self.remote_port = addr[1]
-        self._conn.settimeout(CONFIG['socket_operation_timeout'])
         self._req_meta_raw = b''
         self._msg_buffer = None
         self.state = ClientConnection.State.ESTABLISHED
@@ -109,7 +109,26 @@ class ClientConnection:
         assert self.state == ClientConnection.State.RECEIVING
 
         yield (self._conn, select.POLLIN)
-        self._msg_buffer = self._conn.recv(CONFIG['recv_buffer'])
+
+        self._msg_buffer = b''
+
+        try:
+            while len(self._msg_buffer) <= CONFIG['msg_buffer_limit']:
+                log.error(DEBUG, msg='loop conn receive')
+                data = self._conn.recv(CONFIG['recv_buffer'], socket.MSG_DONTWAIT)
+
+                if len(data) == 0:
+                    break
+
+                log.error(DEBUG, msg='Received data loop conn:')
+                log.error(DEBUG, msg=data)
+
+                self._msg_buffer += data
+        except OSError as error:
+            assert error.errno == errno.EWOULDBLOCK
+            log.error(DEBUG, msg='recv would block')
+        finally:
+            log.error(DEBUG, msg='End of receive')
 
     def send_meta(self, status_code, headers={}):
         log.error(DEBUG)
@@ -200,7 +219,6 @@ class ClientConnection:
                 self.res_meta.packages_sent = 1
 
                 while True:
-                    yield (fd, select.POLLIN)
                     response = os.read(fd, CONFIG['read_buffer'])
                     log.error(DEBUG, var_name='response', var_value=response)
 
@@ -233,11 +251,11 @@ class ClientConnection:
             cgi_env = CGIMsgFormatter.build_cgi_env(self.req_meta,
                                                     self.remote_addr)
 
-            # TODO ask is it ok to skip flag O_NONBLOCK?
-            # child_read, parent_write = os.pipe2(os.O_NONBLOCK)
-            # parent_read, child_write = os.pipe2(os.O_NONBLOCK)
             child_read, parent_write = os.pipe()
             parent_read, child_write = os.pipe()
+
+            fcntl.fcntl(parent_read, fcntl.F_SETFL, os.O_NONBLOCK)
+            fcntl.fcntl(parent_write, fcntl.F_SETFL, os.O_NONBLOCK)
 
             pid = os.fork()
 
@@ -296,7 +314,7 @@ class ClientConnection:
 
                         log.error(DEBUG, msg='before write to cgi loop')
                         log.error(DEBUG, var_name='bytes_written',
-                                var_value=cgi_handler.bytes_written)
+                                  var_value=cgi_handler.bytes_written)
                         log.error(DEBUG, var_name='content_length',
                                 var_value=content_length)
 

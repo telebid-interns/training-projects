@@ -6,6 +6,7 @@
   "recv_buffer": 1024,
   "cgi_res_meta_limit": 8192,
   "req_meta_limit": 8192,
+  "msg_buffer_limit": 32768,
   "backlog": 100000,
   "protocol": "HTTP/1.1",
   "host": "localhost",
@@ -14,9 +15,9 @@
   "web_server_root": "/home/hristo/Documents/training-projects/hspasov-web-server/content",
   "document_root": "/html",
   "cgi_dir": "/cgi-bin",
-  "cgi_timeout": 5,
+  "cgi_timeout": 10,
   "access_log": "/home/hristo/Documents/training-projects/hspasov-web-server/logs/access.log",
-  "error_log_level": 3,
+  "error_log_level": 1,
   "error_log_fields": [
     "pid",
     "timestamp",
@@ -40,7 +41,7 @@
   "error_log_field_sep": "  ",
   "access_log_empty_field": "-",
   "error_log_empty_field": "-",
-  "cgi_wait_batch_size": 3,
-  "accept_conn_limit": 100,
+  "cgi_wait_batch_size": 50,
+  "accept_conn_limit": 50,
   "max_monits": 2000
 }

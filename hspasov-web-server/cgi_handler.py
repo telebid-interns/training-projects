@@ -1,4 +1,5 @@
 import os
+import errno
 import select
 import signal
 from config import CONFIG
@@ -6,7 +7,6 @@ from log import log, DEBUG
 from http_meta import RequestMeta
 
 
-# TODO ask is CGI too slow?
 class CGIMsgFormatter:
     @staticmethod
     def parse_cgi_res_meta(msg):
@@ -74,12 +74,22 @@ class CGIHandler:
         bytes_to_write = len(data)
         data_to_write = data
 
-        # TODO ask whether this while loop is OK
-        # could the server get stuck in it and/or waste CPU?
         while bytes_written < bytes_to_write:
             yield (self._write_fd, select.POLLOUT)
-            bytes_written += os.write(self._write_fd, data_to_write)
-            data_to_write = data[bytes_written:]
+
+            try:
+                while bytes_written < bytes_to_write:
+                    log.error(DEBUG, msg='loop cgi send')
+
+                    bytes_written += os.write(self._write_fd, data_to_write)
+                    data_to_write = data[bytes_written:]
+            except OSError as error:
+                assert error.errno in (errno.EWOULDBLOCK, errno.EPIPE)
+
+                if error.errno == errno.EPIPE:
+                    raise error
+
+                log.error(DEBUG, msg='write to cgi would block')
 
         self.bytes_written += bytes_written
 
@@ -87,7 +97,29 @@ class CGIHandler:
         log.error(DEBUG)
 
         yield (self._read_fd, select.POLLIN)
-        self.msg_buffer = os.read(self._read_fd, CONFIG['read_buffer'])
+
+        self.msg_buffer = b''
+
+        try:
+            while len(self.msg_buffer) <= CONFIG['msg_buffer_limit']:
+                log.error(DEBUG, msg='loop cgi receive')
+
+                data = os.read(self._read_fd, CONFIG['read_buffer'])
+
+                if len(data) == 0:
+                    break
+
+                self.msg_buffer += data
+
+                log.error(DEBUG, var_name='data', var_value=data)
+                log.error(DEBUG, msg=data)
+        except OSError as error:
+            assert error.errno in (errno.EWOULDBLOCK, errno.EBADF)
+
+            if error.errno == errno.EWOULDBLOCK:
+                log.error(DEBUG, msg='read from cgi would block')
+        finally:
+            log.error(DEBUG, msg='End of receive')
 
     def receive_meta(self):
         log.error(DEBUG)
@@ -114,7 +146,6 @@ class CGIHandler:
         log.error(DEBUG)
 
         os.kill(self._script_pid, signal.SIGTERM)
-        self.close()
 
     def close(self):
         log.error(DEBUG)
