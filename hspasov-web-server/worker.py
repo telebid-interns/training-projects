@@ -3,6 +3,7 @@ import socket
 import select
 import traceback
 import errno
+import ssl
 from profiler import Profiler
 from http_meta import RequestMeta
 from log import log, DEBUG, ERROR
@@ -22,6 +23,7 @@ class Worker:
         self._activity_iterators = {}
         self._child_pids = []
         self._client_conns = []
+        self._socket.setblocking(False)
 
     def start(self):
         log.error(DEBUG, msg='worker start')
@@ -37,6 +39,7 @@ class Worker:
         while True:
             # self._profiler.mark_event_loop_end()
             # self._profiler.mark_registering_end()
+            log.error(DEBUG, msg='going to poll...')
             action_requests = self._epoll.poll()
             # self._profiler.mark_event_loop_begin_time()
             # self._profiler.mark_registering_begin()
@@ -49,7 +52,24 @@ class Worker:
                         accepted_connections = 0
 
                         while True:
-                            conn, addr = self._socket.accept()
+                            try:
+                                log.error(DEBUG, msg='going to accept...')
+                                # TODO fix when SSL enabled, when client
+                                # connects with http from browser, accept
+                                # blocks
+                                conn, addr = self._socket.accept()
+                                log.error(DEBUG, msg='conn accepted')
+                            except OSError as error:
+                                if error.errno == 0:
+                                    # https://bugs.python.org/issue31122
+                                    log.error(DEBUG, msg='ERRNO 0')
+                                    continue
+                                else:
+                                    raise error
+                            except ssl.SSLError as error:
+                                log.error(DEBUG, msg='SSL error thrown at accept')
+                                log.error(DEBUG, msg=error)
+                                continue
 
                             if accepted_connections > CONFIG['accept_conn_limit']:
                                 conn.close()
@@ -72,8 +92,11 @@ class Worker:
                         if error.errno == errno.EMFILE:
                             log.error(ERROR, msg=error)
                             os._exit(os.EX_UNAVAILABLE)
-                        elif error.errno != errno.EWOULDBLOCK:
+                        elif error.errno == errno.EWOULDBLOCK:
+                            log.error(DEBUG, msg='accept going to block')
+                        else:
                             log.error(DEBUG, msg='OSError thrown at accept')
+                            log.error(DEBUG, msg=traceback.format_exc())
                             log.error(ERROR, msg=error)
                     finally:
                         log.error(DEBUG, msg='Accepted {0} connections'.format(accepted_connections))
