@@ -10,7 +10,7 @@ from log import log, DEBUG, ERROR
 from uid import UID
 from config import CONFIG
 from client_connection import ClientConnection
-from web_server_utils import resolve_static_file_path
+from web_server_utils import resolve_static_file_path, resolve_cgi_file_path
 
 
 class Worker:
@@ -28,7 +28,9 @@ class Worker:
     def start(self):
         log.error(DEBUG, msg='worker start')
 
-        os.chroot(CONFIG['web_server_root'])
+        if CONFIG['chroot']:
+            os.chroot(CONFIG['web_server_root'])
+
         os.setreuid(UID, UID)
 
         self._epoll.register(self._socket, select.EPOLLIN | select.EPOLLET)
@@ -187,7 +189,9 @@ class Worker:
             # TODO make cgi-bin not accessible
 
             if file_path.startswith(CONFIG['cgi_dir']):
-                yield from client_conn.serve_cgi_script(file_path)
+                yield from client_conn.serve_cgi_script(
+                    resolve_cgi_file_path(file_path)
+                )
 
                 if client_conn.cgi_script_pid is not None:
                     self._child_pids.append(client_conn.cgi_script_pid)
