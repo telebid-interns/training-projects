@@ -9,10 +9,10 @@
   "host": "localhost",
   "port": 8081,
   "user": "www-data",
-  "web_server_root": "/home/hristo/Documents/training-projects/hspasov-web-server/content",
+  "web_server_root": "/home/hristo/Documents/training-projects/hspasov-web-server-perl/content",
   "document_root": "/html",
   "cgi_dir": "/cgi-bin",
-  "access_log": "/home/hristo/Documents/training-projects/hspasov-web-server/logs/access.log",
+  "access_log": "/home/hristo/Documents/training-projects/hspasov-web-server-perl/logs/access.log",
   "error_log_level": 3,
   "error_log_fields": [
     "pid",
@@ -23,7 +23,7 @@
     "var_value",
     "msg"
   ],
-  "access_log_level": 1,
+  "access_log_enabled": true,
   "access_log_fields": [
     "pid",
     "timestamp",

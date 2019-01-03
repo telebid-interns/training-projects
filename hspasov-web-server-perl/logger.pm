@@ -5,9 +5,10 @@ use config;
 use Time::Format;
 use Time::HiRes;
 
-our $INFO = 1;
-our $TRACE = 2;
+our $ERROR = 1;
+our $WARNING = 2;
 our $DEBUG = 3;
+our $INFO = 4;
 
 our $log;
 our %CONFIG;
@@ -73,13 +74,74 @@ sub error {
         }
 
         print join($CONFIG{error_log_field_sep}, @fields);
+        print "\n";
+    }
+}
+
+sub access {
+    my $self = shift;
+    my %params = @_;
+
+    if ($CONFIG{access_log_enabled}) {
+        if (!$self->access_log_file) {
+            $self->error($ERROR, msg => "Attempt to write in uninitialized access log file");
+        } else {
+            my @fields = ();
+
+            if (grep {$_ eq 'pid'} @{$CONFIG{access_log_fields}}) {
+                push @fields, $$;
+            }
+            if (grep {$_ eq 'timestamp'} @{$CONFIG{access_log_fields}}) {
+                my $time = Time::HiRes::gettimeofday;
+                # TODO check HOW does %time get two scalars for keys?
+                push @fields, $Time::Format::time{"yyyy-mm-dd hh:mm:ss.mmm", $time};
+            }
+            if (grep {$_ eq 'remote_addr'} @{$CONFIG{access_log_fields}}) {
+                if ($params{remote_addr}) {
+                    push @fields, $params{remote_addr};
+                } else {
+                    push @fields, $CONFIG{access_log_empty_field};
+                }
+            }
+            if (grep {$_ eq 'req_line'} @{$CONFIG{access_log_fields}}) {
+                if ($params{req_line}) {
+                    push @fields, $params{req_line};
+                } else {
+                    push @fields, $CONFIG{access_log_empty_field};
+                }
+            }
+            if (grep {$_ eq 'user_agent'} @{$CONFIG{access_log_fields}}) {
+                if ($params{user_agent}) {
+                    push @fields, $params{user_agent};
+                } else {
+                    push @fields, $CONFIG{access_log_empty_field};
+                }
+            }
+            if (grep {$_ eq 'status_code'} @{$CONFIG{access_log_fields}}) {
+                if ($params{status_code}) {
+                    push @fields, $params{status_code};
+                } else {
+                    push @fields, $CONFIG{access_log_empty_field};
+                }
+            }
+            if (grep {$_ eq 'content_length'} @{$CONFIG{access_log_fields}}) {
+                if ($params{content_length}) {
+                    push @fields, $params{content_length};
+                } else {
+                    push @fields, $CONFIG{access_log_empty_field};
+                }
+            }
+
+            print $self->access_log_file, join($CONFIG{access_log_field_sep}, @fields);
+            print "\n";
+        }
     }
 }
 
 sub init_access_log_file {
     my $self = shift;
 
-    open my $fh, ">", $CONFIG{access_log} or die "Can't open > '$CONFIG{access_log}'";
+    open my $fh, ">>", $CONFIG{access_log} or die "Can't open > '$CONFIG{access_log}'";
 
     $self->access_log_file = $fh;
 }
