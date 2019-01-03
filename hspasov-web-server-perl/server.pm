@@ -2,9 +2,11 @@ use strict;
 use warnings;
 use diagnostics;
 use Socket;
+use logger;
 use config;
 
-my %CONFIG = config;
+our %CONFIG;
+our ($log, $INFO, $TRACE, $DEBUG);
 
 package Server;
 
@@ -27,7 +29,11 @@ sub new {
 sub run {
     my $self = shift;
 
-    bind $self->{_conn}, Socket::pack_sockaddr_in($CONFIG{port}, Socket::inet_pton(Socket::PF_INET, $CONFIG{host})) or die "bind: $!";
+    bind $self->{_conn}, Socket::pack_sockaddr_in($CONFIG{port}, Socket::inet_aton($CONFIG{host})) or die "bind: $!";
 
-    print "bound";
+    $log->error($DEBUG, msg => "bound\n");
+
+    listen $self->{_conn}, $CONFIG{backlog};
+
+    $log->error($DEBUG, msg => "listening on $CONFIG{port}\n");
 }

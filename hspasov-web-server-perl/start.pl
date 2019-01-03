@@ -6,11 +6,9 @@ use lib './';
 use server;
 use config;
 
-my %CONFIG = config;
+our %CONFIG;
 
 sub start {
-    print $CONFIG{port};
-
     my $server = new Server;
 
     $server->run
