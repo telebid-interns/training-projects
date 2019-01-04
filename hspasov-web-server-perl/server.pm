@@ -59,5 +59,5 @@ sub accept {
     $log->error($DEBUG, var_name => "port", var_value => $port);
     $log->error($DEBUG, var_name => "addr", var_value => $addr);
 
-    return new ClientConnection($client_conn, $packed_addr);
+    return new ClientConnection($client_conn, $port, $addr);
 }
