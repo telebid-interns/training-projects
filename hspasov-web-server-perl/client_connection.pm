@@ -169,7 +169,14 @@ sub serve_static_file {
 
     my $fh;
 
-    sysopen($fh, $file_path, Fcntl::O_RDONLY) or die("sysopen: $!");
+    my $sysopen_call_result = sysopen($fh, $file_path, Fcntl::O_RDONLY);
+
+    if (!defined($sysopen_call_result)) {
+      print $!;
+      print "\n";
+
+      die("sysopen: $!");
+    }
 
     $log->error($DEBUG, msg => 'requested file opened');
 
@@ -182,7 +189,11 @@ sub serve_static_file {
     $self->{res_meta}->{packages_sent} = 1;
 
     while (1) {
-        my $data_length = sysread($fh, my $data, $CONFIG{read_buffer}) or die("sysread: $!");
+        my $data_length = sysread($fh, my $data, $CONFIG{read_buffer});
+
+        if (!defined($data_length)) {
+          die ("sysread: $!");
+        }
 
         $log->error($DEBUG, var_name => 'data', var_value => $data);
 
