@@ -9,11 +9,11 @@ use config;
 our %CONFIG;
 
 sub start {
-    my $server = new Server;
+    my $server = new Server();
 
-    $server->run
+    $server->run();
 }
 
 # TODO make a daemon
 
-start()
+start();

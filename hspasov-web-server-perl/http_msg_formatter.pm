@@ -1,6 +1,8 @@
 use strict;
 use warnings;
 use diagnostics;
+use Exporter;
+use URI::Escape;
 use logger;
 
 our ($log, $ERROR, $WARNING, $DEBUG, $INFO);
@@ -15,28 +17,124 @@ my %response_reason_phrases = (
     503 => 'Service Unavailable',
 );
 
+package http_msg_formatter;
+
 sub parse_req_meta {
     my $msg = shift;
 
+    $log->error($DEBUG);
+
     # TODO assert
 
-    
+    my $max_fields_split = 2;
+    my @msg_parts = split /\r\n\r\n/, $msg, $max_fields_split;
 
-    $log->error($DEBUG);
+    $log->error($DEBUG, var_name => 'msg_parts', var_value => \@msg_parts);
+
+    if (@msg_parts != 2) {
+        return undef;
+    }
+
+    my @request_line_and_headers = split /\r\n/, $msg_parts[0];
+    $log->error($DEBUG, var_name => 'request_line_and_headers', var_value => \@request_line_and_headers);
+
+    my $request_line = $request_line_and_headers[0];
+    $log->error($DEBUG, var_name => 'request_line', var_value => $request_line);
+
+    my @req_line_tokens = split / /, $request_line;
+    $log->error($DEBUG, var_name => 'req_line_tokens', var_value => \@req_line_tokens);
+
+    if (@req_line_tokens != 3) {
+        return undef;
+    }
+
+    my @allowed_methods = ('GET', 'POST');
+
+    my $method = $req_line_tokens[0];
+
+    if (!grep {$_ eq $method} @allowed_methods) {
+        return undef;
+    }
+
+    my $target = URI::Escape::uri_unescape($req_line_tokens[1]);
+
+    my $query_string;
+
+    if (index($target, '?') != -1) {
+        my $max_fields_split = 2;
+        my @target_split = split(/\?/, $target, $max_fields_split);
+        my $target_query_part = $target_split[1];
+
+        if (length($target_query_part) > 0) {
+            $query_string = $target_query_part;
+        } else {
+            $query_string = undef;
+        }
+    } else {
+        $query_string = undef;
+    }
+
+    my %headers = ();
+
+    my @headers_not_parsed = @request_line_and_headers[1..$#request_line_and_headers];
+
+    $log->error($DEBUG, var_name => 'headers_not_parsed', var_value => \@headers_not_parsed);
+
+    foreach (@headers_not_parsed) {
+        my $max_fields_split = 2;
+        my @header_field_split = split /:/, $_, $max_fields_split;
+        my $field_name = $header_field_split[0];
+
+        if (length $field_name != length web_server_utils::trim($field_name)) {
+            return undef;
+        }
+
+        my $field_value = web_server_utils::trim($header_field_split[1]);
+
+        $headers{$field_name} = $field_value;
+    }
+
+    $log->error($DEBUG, var_name => 'headers', var_value => \%headers);
+
+    my $body = $msg_parts[1];
+    $log->error($DEBUG, var_name => 'body', var_value => $body);
+
+    my $user_agent;
+
+    if (grep {$_ eq 'User-Agent'} keys %headers) {
+        $user_agent = $headers{'User-Agent'};
+    } else {
+        $user_agent = undef;
+    }
+
+    my %result = (
+        req_line_raw => $request_line,
+        method => $method,
+        target => $target,
+        query_string => $query_string,
+        http_version => $req_line_tokens[2],
+        headers => \%headers,
+        user_agent => $user_agent,
+    );
+
+    $log->error($DEBUG, var_name => 'result', var_value => \%result);
+
+    return \%result;
 }
 
 sub build_res_meta {
-    my $status_code = shift;
-    my %headers = %(shift) or {};
-    my $body = shift or '';
+    my %params = @_;
+    my $status_code = $params{status_code};
+    my %headers = %{$params{headers}} or ();
+    my $body = $params{body} || '';
 
     $log->error($DEBUG);
 
     # TODO asserts
 
-    $result = "HTTP/1.1 $status_code $response_reason_phrases{$status_code}";
+    my $result = "HTTP/1.1 $status_code $response_reason_phrases{$status_code}";
 
-    foreach $field_name (keys $headers) {
+    foreach my $field_name (keys %headers) {
         $result .= "\r\n$field_name: $headers{$field_name}";
     }
 
