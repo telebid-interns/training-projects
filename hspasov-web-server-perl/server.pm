@@ -113,7 +113,6 @@ sub run {
             $client_conn->close();
 
             $log->access(
-                remote_addr => "$client_conn->{remote_addr}:$client_conn->{remote_port}",
                 req_line => $client_conn->{req_meta}->{req_line_raw},
                 user_agent => $client_conn->{req_meta}->{user_agent},
                 status_code => $client_conn->{res_meta}->{status_code},

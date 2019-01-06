@@ -13,6 +13,7 @@ package Logger;
 use strict;
 use warnings;
 use diagnostics;
+use Encode qw();
 use Fcntl qw();
 use Time::Format qw();
 use Time::HiRes qw();
@@ -98,13 +99,6 @@ sub access {
                 # TODO check HOW does %time get two scalars for keys?
                 push(@fields, $Time::Format::time{"yyyy-mm-dd hh:mm:ss.mmm", $time});
             }
-            if (grep {$_ eq 'remote_addr'} @{$CONFIG{access_log_fields}}) {
-                if ($params{remote_addr}) {
-                    push(@fields, $params{remote_addr});
-                } else {
-                    push(@fields, $CONFIG{access_log_empty_field});
-                }
-            }
             if (grep {$_ eq 'req_line'} @{$CONFIG{access_log_fields}}) {
                 if ($params{req_line}) {
                     push(@fields, $params{req_line});
@@ -134,8 +128,9 @@ sub access {
                 }
             }
 
-            print($self->{access_log_file}, join($CONFIG{access_log_field_sep}, @fields));
-            print("\n");
+            my $data_to_log = join($CONFIG{access_log_field_sep}, @fields);
+
+            syswrite($self->{access_log_file}, Encode::encode_utf8("$data_to_log\n"));
         }
     }
 }

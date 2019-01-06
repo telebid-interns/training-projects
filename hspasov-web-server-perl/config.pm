@@ -14,7 +14,7 @@ if (@ARGV != 1) {
 sysopen(my $config_file, $ARGV[0], Fcntl::O_RDONLY) or die("Could not open config file: $!");
 
 my $config_str = do { local $/; <$config_file> };
-my $config_parsed = JSON::decode_json $config_str; # TODO check what happens when file not JSON
+my $config_parsed = JSON::decode_json $config_str;
 
 close($config_file) or warn("Config file close failed: $!");
 
