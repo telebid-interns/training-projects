@@ -1,6 +1,7 @@
 use strict;
 use warnings;
 use diagnostics;
+use POSIX;
 use Socket;
 use Cwd;
 use client_connection;
@@ -11,11 +12,22 @@ use web_server_utils;
 our %CONFIG;
 our %CLIENT_CONN_STATES;
 our ($log, $ERROR, $WARNING, $DEBUG, $INFO);
+my $EX_OK = 0;
+my $EX_SOFTWARE = 70;
+my $EX_OSERR = 71;
 
 package Server;
 
 sub new {
     my $class = shift;
+
+    $SIG{CHLD} = sub {
+        my $wait_any_child_indicator = -1;
+
+        while ((my $child_pid = waitpid($wait_any_child_indicator, POSIX::WNOHANG)) > 0) {
+            $log->error($DEBUG, msg => "Child with pid $child_pid reaped. Exit status: $?");
+        }
+    };
 
     my $conn;
 
@@ -47,48 +59,65 @@ sub run {
     while (1) {
         $client_conn = $self->accept();
 
-        # TODO fork
+        $pid = fork();
 
-        $log->init_access_log_file();
-
-        # may send response to client in case of invalid request
-        $client_conn->receive_meta();
-
-        if ($client_conn->{state} ne $CLIENT_CONN_STATES{RECEIVING}) {
-            last;
+        if (!defined($pid)) {
+            die("fork: $!");
         }
 
-        $log->error($DEBUG, msg => 'resolving file path...');
+        if ($pid == 0) { # child process
+            my $process_status = $EX_OK;
 
-        # TODO assert
+            # SIGCHLD signals should only be handled by parent, discarding reaping
+            $SIG{CHLD} = "DEFAULT";
 
-        # ignoring query params
-        my $max_fields_split = 2;
-        my @req_target_split = split (/\?/, $client_conn->{req_meta}->{target}, $max_fields_split);
-        my $req_target_path = $req_target_split[0];
-        $log->error($DEBUG, var_name => 'req_target_path', var_value => $req_target_path);
+            $self->stop();
 
-        my $file_path = Cwd::abs_path($req_target_path);
-        $log->error($DEBUG, var_name => 'file_path', var_value => $file_path);
+            $log->init_access_log_file();
 
-        $log->error($DEBUG, msg => 'requested file in web server document root');
+            # may send response to client in case of invalid request
+            $client_conn->receive_meta();
 
-        # TODO CGI
+            if ($client_conn->{state} ne $CLIENT_CONN_STATES{RECEIVING}) {
+                last;
+            }
 
-        $client_conn->serve_static_file(web_server_utils::resolve_static_file_path($file_path));
+            $log->error($DEBUG, msg => 'resolving file path...');
 
-        $client_conn->shutdown();
-        $client_conn->close();
+            # TODO assert
 
-        $log->access(
-            remote_addr => "$client_conn->{remote_addr}:$client_conn->{remote_port}",
-            req_line => $client_conn->{req_meta}->{req_line_raw},
-            user_agent => $client_conn->{req_meta}->{user_agent},
-            status_code => $client_conn->{res_meta}->{status_code},
-            content_length => $client_conn->{res_meta}->{content_length},
-        );
+            # ignoring query params
+            my $max_fields_split = 2;
+            my @req_target_split = split (/\?/, $client_conn->{req_meta}->{target}, $max_fields_split);
+            my $req_target_path = $req_target_split[0];
+            $log->error($DEBUG, var_name => 'req_target_path', var_value => $req_target_path);
 
-        $log->close_access_log_file();
+            my $file_path = Cwd::abs_path($req_target_path);
+            $log->error($DEBUG, var_name => 'file_path', var_value => $file_path);
+
+            $log->error($DEBUG, msg => 'requested file in web server document root');
+
+            # TODO CGI
+
+            $client_conn->serve_static_file(web_server_utils::resolve_static_file_path($file_path));
+
+            $client_conn->shutdown();
+            $client_conn->close();
+
+            $log->access(
+                remote_addr => "$client_conn->{remote_addr}:$client_conn->{remote_port}",
+                req_line => $client_conn->{req_meta}->{req_line_raw},
+                user_agent => $client_conn->{req_meta}->{user_agent},
+                status_code => $client_conn->{res_meta}->{status_code},
+                content_length => $client_conn->{res_meta}->{content_length},
+            );
+
+            $log->close_access_log_file();
+
+            exit($process_status);
+        } else { # parent process
+            $log->error($DEBUG, msg => "New child created with pid $pid");
+        }
     }
 }
 
@@ -106,4 +135,11 @@ sub accept {
     $log->error($DEBUG, var_name => "addr", var_value => $addr);
 
     return new ClientConnection($client_conn, $port, $addr);
+}
+
+sub stop {
+    my $self = shift;
+
+    $log->error($DEBUG);
+    close($self->{_conn}) or die("close: $!");
 }

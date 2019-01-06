@@ -84,7 +84,7 @@ sub access {
     my %params = @_;
 
     if ($CONFIG{access_log_enabled}) {
-        if (!$self->access_log_file) {
+        if (!$self->{access_log_file}) {
             $self->error($ERROR, msg => "Attempt to write in uninitialized access log file");
         } else {
             my @fields = ();
@@ -133,7 +133,7 @@ sub access {
                 }
             }
 
-            print($self->access_log_file, join($CONFIG{access_log_field_sep}, @fields));
+            print($self->{access_log_file}, join($CONFIG{access_log_field_sep}, @fields));
             print("\n");
         }
     }
@@ -150,8 +150,8 @@ sub init_access_log_file {
 sub close_access_log_file {
     my $self = shift;
 
-    close($self->access_log_file);
-    $self->access_log_file = undef;
+    close($self->{access_log_file});
+    $self->{access_log_file} = undef;
 }
 
 $log = new Logger();
