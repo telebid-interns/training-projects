@@ -3,7 +3,7 @@ use warnings;
 use sigtrap;
 use diagnostics;
 use lib './';
-use server;
+use server 'Server';
 use config;
 
 our %CONFIG;

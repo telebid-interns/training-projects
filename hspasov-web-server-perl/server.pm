@@ -1,27 +1,32 @@
-use strict;
-use warnings;
-use diagnostics;
-use POSIX;
-use Socket;
-use Cwd;
-use client_connection;
 use logger;
 use config;
-use web_server_utils;
+use client_connection;
 
 our %CONFIG;
 our %CLIENT_CONN_STATES;
 our ($log, $ERROR, $WARNING, $DEBUG, $INFO);
+
+package Server;
+
+use strict;
+use warnings;
+use diagnostics;
+use POSIX qw();
+use Socket qw();
+use Cwd qw();
+use web_server_utils qw();
+use error_handling qw(assert);
+use Scalar::Util qw(openhandle blessed);
+
 my $EX_OK = 0;
 my $EX_SOFTWARE = 70;
 my $EX_OSERR = 71;
-
-package Server;
 
 sub new {
     my $class = shift;
 
     $SIG{CHLD} = sub {
+        local $!; # if signal interrupts a system call, preserve the system call's EINTR
         my $wait_any_child_indicator = -1;
 
         while ((my $child_pid = waitpid($wait_any_child_indicator, POSIX::WNOHANG)) > 0) {
@@ -45,11 +50,13 @@ sub new {
 sub run {
     my $self = shift;
 
+    assert(openhandle($self->{_conn}));
+
     bind($self->{_conn}, Socket::pack_sockaddr_in($CONFIG{port}, Socket::inet_aton($CONFIG{host}))) or die("bind: $!");
 
     $log->error($DEBUG, msg => "bound");
 
-    listen($self->{_conn}, $CONFIG{backlog});
+    listen($self->{_conn}, $CONFIG{backlog}) or die("listen: $!");
 
     $log->error($DEBUG, msg => "listening on $CONFIG{port}");
 
@@ -57,7 +64,9 @@ sub run {
     my $pid;
 
     while (1) {
-        $client_conn = $self->accept();
+        $client_conn = $self->accept() or next;
+
+        assert(blessed($client_conn) eq 'ClientConnection');
 
         $pid = fork();
 
@@ -84,7 +93,8 @@ sub run {
 
             $log->error($DEBUG, msg => 'resolving file path...');
 
-            # TODO assert
+            # TODO check waht happens if req_meta is undef
+            assert(!ref($client_conn->{req_meta}->{target}));
 
             # ignoring query params
             my $max_fields_split = 2;
@@ -96,8 +106,6 @@ sub run {
             $log->error($DEBUG, var_name => 'file_path', var_value => $file_path);
 
             $log->error($DEBUG, msg => 'requested file in web server document root');
-
-            # TODO CGI
 
             $client_conn->serve_static_file(web_server_utils::resolve_static_file_path($file_path));
 
@@ -126,8 +134,17 @@ sub accept {
 
     $log->error($DEBUG, msg => "going to accept..");
 
+    assert(openhandle($self->{_conn}));
+
     my $client_conn;
-    my $packed_addr = accept($client_conn, $self->{_conn}) or die("Accept failed: $!");
+    my $packed_addr = accept($client_conn, $self->{_conn}) or do {
+        if ($!{EINTR}) {
+            $log->error($DEBUG, msg => 'accept interrupted by signal');
+            return undef;
+        }
+
+        die("Accept failed: $!");
+    };
     my ($port, $addr) = Socket::unpack_sockaddr_in($packed_addr);
 
     $log->error($DEBUG, msg => "Connection accepted");
@@ -141,5 +158,10 @@ sub stop {
     my $self = shift;
 
     $log->error($DEBUG);
+
+    assert(openhandle($self->{_conn}));
+
     close($self->{_conn}) or die("close: $!");
 }
+
+1;

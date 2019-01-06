@@ -1,10 +1,4 @@
-use strict;
-use warnings;
-use diagnostics;
-use Fcntl;
 use config;
-use Time::Format;
-use Time::HiRes;
 
 our $ERROR = 1;
 our $WARNING = 2;
@@ -15,6 +9,13 @@ our $log;
 our %CONFIG;
 
 package Logger;
+
+use strict;
+use warnings;
+use diagnostics;
+use Fcntl qw();
+use Time::Format qw();
+use Time::HiRes qw();
 
 sub new {
     my $class = shift;
@@ -49,7 +50,7 @@ sub error {
             push(@fields, $level);
         }
         if (grep {$_ eq 'context'} @{$CONFIG{error_log_fields}}) {
-            my ($package, $filename, $line) = caller;
+            my ($package, $filename, $line) = caller();
             push(@fields, "<$filename>$package(L$line)");
         }
         if (grep {$_ eq 'var_name'} @{$CONFIG{error_log_fields}}) {
@@ -155,3 +156,5 @@ sub close_access_log_file {
 }
 
 $log = new Logger();
+
+1;

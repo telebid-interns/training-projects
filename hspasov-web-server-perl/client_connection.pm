@@ -1,10 +1,5 @@
-use strict;
-use warnings;
-use diagnostics;
-use Fcntl;
 use logger;
 use config;
-use http_msg_formatter;
 
 our %CONFIG;
 our ($log, $ERROR, $WARNING, $DEBUG, $INFO);
@@ -18,11 +13,22 @@ our %CLIENT_CONN_STATES = (
 
 package ClientConnection;
 
+use strict;
+use warnings;
+use diagnostics;
+use Fcntl qw();
+use Scalar::Util qw(looks_like_number openhandle blessed);
+use http_msg_formatter qw(parse_req_meta);
+use error_handling qw(assert);
+
 sub new {
     my $class = shift;
     my $conn = shift;
     my $port = shift;
     my $addr = shift;
+
+    assert(openhandle($conn));
+    assert(looks_like_number($port));
 
     my $self = {
         _conn => $conn,
@@ -83,13 +89,15 @@ sub receive_meta {
 
     $log->error($DEBUG, msg => 'parsing request message...');
 
-    $self->{req_meta} = http_msg_formatter::parse_req_meta($self->{_req_meta_raw});
+    $self->{req_meta} = parse_req_meta($self->{_req_meta_raw});
 
     if (!$self->{req_meta}) {
         $log->error($DEBUG, msg => 'invalid request');
         $self->send_meta(400);
         return;
     }
+
+    assert(ref($self->{req_meta}) eq 'HASH');
 
     $log->error($DEBUG, var_name => 'req_meta', var_value => $self->{req_meta});
 }
@@ -99,8 +107,10 @@ sub receive {
 
     $log->error($DEBUG);
 
-    my $no_flags = 0;
+    assert(openhandle($self->{_conn}));
+    assert($self->{state} eq $CLIENT_CONN_STATES{RECEIVING});
 
+    my $no_flags = 0;
     my $recv_result = recv($self->{_conn}, $self->{_msg_buffer}, $CONFIG{recv_buffer}, $no_flags);
 
     if (!defined($recv_result)) {
@@ -117,7 +127,7 @@ sub send_meta {
     $log->error($DEBUG, var_name => 'status_code', var_value => $status_code);
     $log->error($DEBUG, var_name => 'headers', var_value => \%headers);
 
-    # TODO asserts
+    assert(looks_like_number($status_code));
 
     $self->{state} = $CLIENT_CONN_STATES{SENDING};
     $self->{res_meta}->{status_code} = $status_code;
@@ -129,6 +139,8 @@ sub send_meta {
 
     $log->error($DEBUG, var_name => 'result', var_value => $result);
 
+    assert(!ref($result));
+
     $self->send($result);
 }
 
@@ -138,7 +150,8 @@ sub send {
 
     $log->error($DEBUG);
 
-    # TODO asserts
+    assert(!ref($data));
+    assert($self->{state} eq $CLIENT_CONN_STATES{SENDING});
 
     my $total_data_sent_length = 0;
     my $data_to_send_length = length($data);
@@ -147,6 +160,10 @@ sub send {
     while ($total_data_sent_length  < $data_to_send_length) {
         my $no_flags = 0;
         my $data_sent_length = send($self->{_conn}, $data_to_send, $no_flags);
+
+        if (!defined($data_sent_length)) {
+            die("send: $!");
+        }
 
         if ($data_sent_length == 0) {
             # TODO error
@@ -165,18 +182,17 @@ sub serve_static_file {
     my $file_path = shift;
     $log->error($DEBUG, var_name => 'file_path', var_value => $file_path);
 
-    # TODO chroot
+    assert(!ref($file_path));
 
     my $fh;
 
     my $sysopen_call_result = sysopen($fh, $file_path, Fcntl::O_RDONLY);
 
     if (!defined($sysopen_call_result)) {
-      print $!;
-      print "\n";
-
       die("sysopen: $!");
     }
+
+    assert(openhandle($fh));
 
     $log->error($DEBUG, msg => 'requested file opened');
 
@@ -224,3 +240,5 @@ sub close {
 
     $self->{state} = $CLIENT_CONN_STATES{CLOSED};
 }
+
+1;

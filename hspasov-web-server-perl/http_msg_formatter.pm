@@ -1,11 +1,20 @@
-use strict;
-use warnings;
-use diagnostics;
-use Exporter;
-use URI::Escape;
 use logger;
 
 our ($log, $ERROR, $WARNING, $DEBUG, $INFO);
+
+package http_msg_formatter;
+
+use strict;
+use warnings;
+use diagnostics;
+use Exporter qw(import);
+use URI::Escape qw();
+use Scalar::Util qw(looks_like_number);
+use web_server_utils qw();
+use error_handling qw(assert);
+
+our @EXPORT = ();
+our @EXPORT_OK = qw(parse_req_meta build_res_meta);
 
 my %response_reason_phrases = (
     200 => 'OK',
@@ -17,32 +26,30 @@ my %response_reason_phrases = (
     503 => 'Service Unavailable',
 );
 
-package http_msg_formatter;
-
 sub parse_req_meta {
     my $msg = shift;
 
-    $log->error($DEBUG);
+    $::log->error($::DEBUG);
 
-    # TODO assert
+    assert(!ref($msg));
 
     my $max_fields_split = 2;
     my @msg_parts = split /\r\n\r\n/, $msg, $max_fields_split;
 
-    $log->error($DEBUG, var_name => 'msg_parts', var_value => \@msg_parts);
+    $::log->error($::DEBUG, var_name => 'msg_parts', var_value => \@msg_parts);
 
     if (@msg_parts != 2) {
         return undef;
     }
 
     my @request_line_and_headers = split /\r\n/, $msg_parts[0];
-    $log->error($DEBUG, var_name => 'request_line_and_headers', var_value => \@request_line_and_headers);
+    $::log->error($::DEBUG, var_name => 'request_line_and_headers', var_value => \@request_line_and_headers);
 
     my $request_line = $request_line_and_headers[0];
-    $log->error($DEBUG, var_name => 'request_line', var_value => $request_line);
+    $::log->error($::DEBUG, var_name => 'request_line', var_value => $request_line);
 
     my @req_line_tokens = split / /, $request_line;
-    $log->error($DEBUG, var_name => 'req_line_tokens', var_value => \@req_line_tokens);
+    $::log->error($::DEBUG, var_name => 'req_line_tokens', var_value => \@req_line_tokens);
 
     if (@req_line_tokens != 3) {
         return undef;
@@ -78,14 +85,14 @@ sub parse_req_meta {
 
     my @headers_not_parsed = @request_line_and_headers[1..$#request_line_and_headers];
 
-    $log->error($DEBUG, var_name => 'headers_not_parsed', var_value => \@headers_not_parsed);
+    $::log->error($::DEBUG, var_name => 'headers_not_parsed', var_value => \@headers_not_parsed);
 
     foreach (@headers_not_parsed) {
         my $max_fields_split = 2;
         my @header_field_split = split /:/, $_, $max_fields_split;
         my $field_name = $header_field_split[0];
 
-        if (length $field_name != length web_server_utils::trim($field_name)) {
+        if (length($field_name) != length(web_server_utils::trim($field_name))) {
             return undef;
         }
 
@@ -94,14 +101,14 @@ sub parse_req_meta {
         $headers{$field_name} = $field_value;
     }
 
-    $log->error($DEBUG, var_name => 'headers', var_value => \%headers);
+    $::log->error($::DEBUG, var_name => 'headers', var_value => \%headers);
 
     my $body = $msg_parts[1];
-    $log->error($DEBUG, var_name => 'body', var_value => $body);
+    $::log->error($::DEBUG, var_name => 'body', var_value => $body);
 
     my $user_agent;
 
-    if (grep {$_ eq 'User-Agent'} keys %headers) {
+    if (exists($headers{'User-Agent'})) {
         $user_agent = $headers{'User-Agent'};
     } else {
         $user_agent = undef;
@@ -117,7 +124,7 @@ sub parse_req_meta {
         user_agent => $user_agent,
     );
 
-    $log->error($DEBUG, var_name => 'result', var_value => \%result);
+    $::log->error($::DEBUG, var_name => 'result', var_value => \%result);
 
     return \%result;
 }
@@ -128,9 +135,11 @@ sub build_res_meta {
     my %headers = %{$params{headers}} or ();
     my $body = $params{body} || '';
 
-    $log->error($DEBUG);
+    $::log->error($::DEBUG);
 
-    # TODO asserts
+    assert(looks_like_number($status_code));
+    assert(exists($response_reason_phrases{$status_code}));
+    assert(!ref($body));
 
     my $result = "HTTP/1.1 $status_code $response_reason_phrases{$status_code}";
 
@@ -143,3 +152,4 @@ sub build_res_meta {
     return $result;
 }
 
+1;
