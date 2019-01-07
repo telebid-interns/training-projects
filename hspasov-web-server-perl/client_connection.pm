@@ -55,7 +55,7 @@ sub new {
     #
     # time_t is defined as an arithmetic type, exact type not specified, but 'long' works
     # l! means use native signed long (32-bit) value
-    setsockopt($self->{_conn}, Socket::SOL_SOCKET, Socket::SO_RCVTIMEO, pack('l!l!', 0, 1)) or die("setsockopt: $!");
+    setsockopt($self->{_conn}, Socket::SOL_SOCKET, Socket::SO_RCVTIMEO, pack('l!l!', $CONFIG{socket_operation_timeout}, 0)) or die(new Error("setsockopt: $!", \%!));
 
     bless($self, $class);
     return $self;
@@ -136,14 +136,14 @@ sub receive {
     my $recv_result = recv($self->{_conn}, $self->{_msg_buffer}, $CONFIG{recv_buffer}, $no_flags);
 
     if (!defined($recv_result)) {
-        die new Error("recv: $!", \%!);
+        die(new Error("recv: $!", \%!));
     }
 }
 
 sub send_meta {
     my $self = shift;
     my $status_code = shift;
-    my $headers_ref = shift;
+    my $headers_ref = shift || {};
     my %headers = %$headers_ref;
 
     $log->error($DEBUG, var_name => 'status_code', var_value => $status_code);
@@ -184,7 +184,7 @@ sub send {
         my $data_sent_length = send($self->{_conn}, $data_to_send, $no_flags);
 
         if (!defined($data_sent_length)) {
-            die("send: $!");
+            die(new Error("send: $!", \%!));
         }
 
         if ($data_sent_length == 0) {
@@ -211,7 +211,7 @@ sub serve_static_file {
     my $sysopen_call_result = sysopen($fh, $file_path, Fcntl::O_RDONLY);
 
     if (!defined($sysopen_call_result)) {
-      die("sysopen: $!");
+      die(new Error("sysopen: $!", \%!));
     }
 
     assert(openhandle($fh));
@@ -230,7 +230,7 @@ sub serve_static_file {
         my $data_length = sysread($fh, my $data, $CONFIG{read_buffer});
 
         if (!defined($data_length)) {
-          die ("sysread: $!");
+          die(new Error("sysread: $!", \%!));
         }
 
         $log->error($DEBUG, var_name => 'data', var_value => $data);
@@ -243,7 +243,7 @@ sub serve_static_file {
         $self->send($data);
     }
 
-    close($fh) or die("close: $!");
+    close($fh) or die(new Error("close: $!", \%!));
 }
 
 sub shutdown {
@@ -251,14 +251,14 @@ sub shutdown {
     $log->error($DEBUG);
 
     my $shut_rdwr = 2;
-    shutdown($self->{_conn}, $shut_rdwr) or die("shutdown: $!");
+    shutdown($self->{_conn}, $shut_rdwr) or die(new Error("shutdown: $!", \%!));
 }
 
 sub close {
     my $self = shift;
     $log->error($DEBUG);
 
-    close($self->{_conn}) or die("close: $!");
+    close($self->{_conn}) or die(new Error("close: $!", \%!));
 
     $self->{state} = $CLIENT_CONN_STATES{CLOSED};
 }

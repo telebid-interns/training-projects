@@ -7,7 +7,7 @@ package Error;
 sub new {
     my $class = shift;
     my $msg = shift;
-    my $origin = shift;
+    my $origin = shift || {};
 
     my $self = {
         msg => $msg,

@@ -17,6 +17,7 @@ use Encode qw();
 use Fcntl qw();
 use Time::Format qw();
 use Time::HiRes qw();
+use error qw();
 
 sub new {
     my $class = shift;
@@ -133,7 +134,7 @@ sub access {
             my $bytes_written_amount = syswrite($self->{access_log_file}, Encode::encode_utf8("$data_to_log\n"));
 
             if (!defined($bytes_written_amount)) {
-                die("syswrite: $!");
+                die(new Error("syswrite: $!", \%!));
             }
         }
     }
@@ -142,7 +143,7 @@ sub access {
 sub init_access_log_file {
     my $self = shift;
 
-    sysopen(my $fh, $CONFIG{access_log}, Fcntl::O_WRONLY | Fcntl::O_CREAT | Fcntl::O_APPEND) or die("sysopen '$CONFIG{access_log}': $!");
+    sysopen(my $fh, $CONFIG{access_log}, Fcntl::O_WRONLY | Fcntl::O_CREAT | Fcntl::O_APPEND) or die(new Error("sysopen '$CONFIG{access_log}': $!", \%!));
 
     $self->{access_log_file} = $fh;
 }
@@ -150,7 +151,7 @@ sub init_access_log_file {
 sub close_access_log_file {
     my $self = shift;
 
-    close($self->{access_log_file}) or die("close: $!");
+    close($self->{access_log_file}) or die(new Error("close: $!", \%!));
     $self->{access_log_file} = undef;
 }
 

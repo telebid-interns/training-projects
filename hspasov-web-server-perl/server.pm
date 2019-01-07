@@ -11,6 +11,7 @@ package Server;
 use strict;
 use warnings;
 use diagnostics;
+use error qw(Error);
 use POSIX qw();
 use Socket qw();
 use Cwd qw();
@@ -36,8 +37,8 @@ sub new {
 
     my $conn;
 
-    socket($conn, Socket::PF_INET, Socket::SOCK_STREAM, getprotobyname('tcp')) or die("socket: $!");
-    setsockopt($conn, Socket::SOL_SOCKET, Socket::SO_REUSEADDR, 1) or die("setsockopt: $!");
+    socket($conn, Socket::PF_INET, Socket::SOCK_STREAM, getprotobyname('tcp')) or die(new Error("socket: $!", \%!));
+    setsockopt($conn, Socket::SOL_SOCKET, Socket::SO_REUSEADDR, 1) or die(new Error("setsockopt: $!", \%!));
 
     my $self = {
         _conn => $conn
@@ -52,11 +53,11 @@ sub run {
 
     assert(openhandle($self->{_conn}));
 
-    bind($self->{_conn}, Socket::pack_sockaddr_in($CONFIG{port}, Socket::inet_aton($CONFIG{host}))) or die("bind: $!");
+    bind($self->{_conn}, Socket::pack_sockaddr_in($CONFIG{port}, Socket::inet_aton($CONFIG{host}))) or die(new Error("bind: $!", \%!));
 
     $log->error($DEBUG, msg => "bound");
 
-    listen($self->{_conn}, $CONFIG{backlog}) or die("listen: $!");
+    listen($self->{_conn}, $CONFIG{backlog}) or die(new Error("listen: $!", \%!));
 
     $log->error($DEBUG, msg => "listening on $CONFIG{port}");
 
@@ -64,66 +65,134 @@ sub run {
     my $pid;
 
     while (1) {
-        $client_conn = $self->accept() or next;
+        my $process_status = $EX_OK;
 
-        assert(blessed($client_conn) eq 'ClientConnection');
+        eval {
+            $client_conn = $self->accept() or next;
 
-        $pid = fork();
+            assert(blessed($client_conn) eq 'ClientConnection');
 
-        if (!defined($pid)) {
-            die("fork: $!");
-        }
+            $pid = fork();
 
-        if ($pid == 0) { # child process
-            my $process_status = $EX_OK;
-
-            # SIGCHLD signals should only be handled by parent, discarding reaping
-            $SIG{CHLD} = "DEFAULT";
-
-            $self->stop();
-
-            $log->init_access_log_file();
-
-            # may send response to client in case of invalid request
-            $client_conn->receive_meta();
-
-            if ($client_conn->{state} ne $CLIENT_CONN_STATES{RECEIVING}) {
-                last;
+            if (!defined($pid)) {
+                die(new Error("fork: $!", \%!));
             }
 
-            $log->error($DEBUG, msg => 'resolving file path...');
+            if ($pid == 0) { # child process
+                $process_status = $EX_OK;
 
-            # TODO check waht happens if req_meta is undef
-            assert(!ref($client_conn->{req_meta}->{target}));
+                # SIGCHLD signals should only be handled by parent, discarding reaping
+                $SIG{CHLD} = "DEFAULT";
 
-            # ignoring query params
-            my $max_fields_split = 2;
-            my @req_target_split = split (/\?/, $client_conn->{req_meta}->{target}, $max_fields_split);
-            my $req_target_path = $req_target_split[0];
-            $log->error($DEBUG, var_name => 'req_target_path', var_value => $req_target_path);
+                $self->stop();
 
-            my $file_path = Cwd::abs_path($req_target_path);
-            $log->error($DEBUG, var_name => 'file_path', var_value => $file_path);
+                eval {
+                    $log->init_access_log_file();
 
-            $log->error($DEBUG, msg => 'requested file in web server document root');
+                    # may send response to client in case of invalid request
+                    $client_conn->receive_meta();
 
-            $client_conn->serve_static_file(web_server_utils::resolve_static_file_path($file_path));
+                    if ($client_conn->{state} ne $CLIENT_CONN_STATES{RECEIVING}) {
+                        last;
+                    }
 
-            $client_conn->shutdown();
-            $client_conn->close();
+                    $log->error($DEBUG, msg => 'resolving file path...');
 
-            $log->access(
-                req_line => $client_conn->{req_meta}->{req_line_raw},
-                user_agent => $client_conn->{req_meta}->{user_agent},
-                status_code => $client_conn->{res_meta}->{status_code},
-                content_length => $client_conn->{res_meta}->{content_length},
-            );
+                    # TODO check waht happens if req_meta is undef
+                    assert(!ref($client_conn->{req_meta}->{target}));
+
+                    # ignoring query params
+                    my $max_fields_split = 2;
+                    my @req_target_split = split (/\?/, $client_conn->{req_meta}->{target}, $max_fields_split);
+                    my $req_target_path = $req_target_split[0];
+                    $log->error($DEBUG, var_name => 'req_target_path', var_value => $req_target_path);
+
+                    my $file_path = Cwd::abs_path($req_target_path);
+                    $log->error($DEBUG, var_name => 'file_path', var_value => $file_path);
+
+                    $log->error($DEBUG, msg => 'requested file in web server document root');
+
+                    $client_conn->serve_static_file(web_server_utils::resolve_static_file_path($file_path));
+                    1;
+                } or do {
+                    assert(blessed($@) eq 'Error');
+
+                    if ($@->{origin}->{ENOENT}) {
+                        $log->error($DEBUG, msg => 'ENOENT');
+                        $log->error($DEBUG, msg => $@->{msg});
+
+                        if (grep {$_ eq $client_conn->{state}} ('ESTABLISHED', 'RECEIVING')) {
+                            $client_conn->send_meta(404);
+                        }
+                    } elsif ($@->{origin}->{EISDIR}) {
+                        $log->error($DEBUG, msg => 'EISDIR');
+                        $log->error($DEBUG, msg => $@->{msg});
+
+                        if (grep {$_ eq $client_conn->{state}} ('ESTABLISHED', 'RECEIVING')) {
+                            $client_conn->send_meta(404);
+                        }
+                    } else {
+                        $log->error($ERROR, msg => $@->{msg});
+                        $process_status = $EX_SOFTWARE;
+
+                        if (grep {$_ eq $client_conn->{state}} ('ESTABLISHED', 'RECEIVING')) {
+                            $client_conn->send_meta(500);
+                        }
+                    }
+                };
+
+                eval {
+                    $client_conn->shutdown();
+                    1;
+                } or do {
+                    assert(blessed($@) eq 'Error');
+
+                    if (!$@->{origin}->{ENOTCONN}) {
+                        $process_status = $EX_OSERR;
+                        die($@);
+                    }
+                };
+            } else { # parent process
+                $log->error($DEBUG, msg => "New child created with pid $pid");
+            }
+            1;
+        } or do {
+            assert(blessed($@) eq 'Error');
+
+            $log->error($DEBUG, msg => $@->{msg});
+        };
+
+        if (defined($client_conn) and $client_conn->{state} ne 'CLOSED') {
+            eval {
+                $client_conn->close();
+                1;
+            } or do {
+                assert(blessed($@) eq 'Error');
+
+                $log->error($DEBUG, msg => $@->{msg});
+            };
+        }
+
+        if (defined($pid) and $pid == 0) { # child
+            if (defined($client_conn)) {
+                my $req_line;
+                my $user_agent;
+
+                if (defined($client_conn->{req_meta})) {
+                    $req_line = $client_conn->{req_meta}->{req_line_raw};
+                    $user_agent = $client_conn->{req_meta}->{user_agent};
+                }
+
+                $log->access(
+                    req_line => $req_line,
+                    user_agent => $user_agent,
+                    status_code => $client_conn->{res_meta}->{status_code},
+                    content_length => $client_conn->{res_meta}->{content_length},
+                );
+            }
 
             $log->close_access_log_file();
-
             exit($process_status);
-        } else { # parent process
-            $log->error($DEBUG, msg => "New child created with pid $pid");
         }
     }
 }
@@ -142,7 +211,7 @@ sub accept {
             return undef;
         }
 
-        die("Accept failed: $!");
+        die(new Error("Accept failed: $!", \%!));
     };
     my ($port, $addr) = Socket::unpack_sockaddr_in($packed_addr);
 
@@ -160,7 +229,7 @@ sub stop {
 
     assert(openhandle($self->{_conn}));
 
-    close($self->{_conn}) or die("close: $!");
+    close($self->{_conn}) or die(new Error("close: $!", \%!));
 }
 
 1;

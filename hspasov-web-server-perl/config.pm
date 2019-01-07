@@ -4,21 +4,22 @@ use diagnostics;
 use Scalar::Util qw(looks_like_number);
 use Fcntl qw();
 use JSON qw();
+use error qw(Error);
 use error_handling qw(assert);
 
 if (@ARGV != 1) {
     my $arr_len = scalar(@ARGV);
-    die('Expected 1 arg: config file!');
+    die(new Error('Expected 1 arg: config file!'));
 }
 
-sysopen(my $config_file, $ARGV[0], Fcntl::O_RDONLY) or die("Could not open config file: $!");
+sysopen(my $config_file, $ARGV[0], Fcntl::O_RDONLY) or die(new Error("Could not open config file: $!", \%!));
 
 my $config_str = do {
     local $/;
     my $data = readline($config_file);
 
     if (!defined($data)) {
-        die("readline: $!");
+        die(new Error("readline: $!", \%!));
     }
 
     $data;
