@@ -130,7 +130,11 @@ sub access {
 
             my $data_to_log = join($CONFIG{access_log_field_sep}, @fields);
 
-            syswrite($self->{access_log_file}, Encode::encode_utf8("$data_to_log\n"));
+            my $bytes_written_amount = syswrite($self->{access_log_file}, Encode::encode_utf8("$data_to_log\n"));
+
+            if (!defined($bytes_written_amount)) {
+                die("syswrite: $!");
+            }
         }
     }
 }
@@ -138,7 +142,7 @@ sub access {
 sub init_access_log_file {
     my $self = shift;
 
-    sysopen(my $fh, $CONFIG{access_log}, Fcntl::O_WRONLY | Fcntl::O_CREAT | Fcntl::O_APPEND) or die("sysopen '$CONFIG{access_log}':");
+    sysopen(my $fh, $CONFIG{access_log}, Fcntl::O_WRONLY | Fcntl::O_CREAT | Fcntl::O_APPEND) or die("sysopen '$CONFIG{access_log}': $!");
 
     $self->{access_log_file} = $fh;
 }
@@ -146,7 +150,7 @@ sub init_access_log_file {
 sub close_access_log_file {
     my $self = shift;
 
-    close($self->{access_log_file});
+    close($self->{access_log_file}) or die("close: $!");
     $self->{access_log_file} = undef;
 }
 

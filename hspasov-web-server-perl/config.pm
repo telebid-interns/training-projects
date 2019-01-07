@@ -13,8 +13,18 @@ if (@ARGV != 1) {
 
 sysopen(my $config_file, $ARGV[0], Fcntl::O_RDONLY) or die("Could not open config file: $!");
 
-my $config_str = do { local $/; <$config_file> };
-my $config_parsed = JSON::decode_json $config_str;
+my $config_str = do {
+    local $/;
+    my $data = readline($config_file);
+
+    if (!defined($data)) {
+        die("readline: $!");
+    }
+
+    $data;
+};
+
+my $config_parsed = JSON::decode_json($config_str);
 
 close($config_file) or warn("Config file close failed: $!");
 

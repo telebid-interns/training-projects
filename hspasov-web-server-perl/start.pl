@@ -4,6 +4,7 @@ use sigtrap;
 use diagnostics;
 use lib './';
 use server 'Server';
+use error 'Error';
 use config;
 
 our %CONFIG;

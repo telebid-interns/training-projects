@@ -34,7 +34,7 @@ sub parse_req_meta {
     assert(!ref($msg));
 
     my $max_fields_split = 2;
-    my @msg_parts = split /\r\n\r\n/, $msg, $max_fields_split;
+    my @msg_parts = split(/\r\n\r\n/, $msg, $max_fields_split);
 
     $::log->error($::DEBUG, var_name => 'msg_parts', var_value => \@msg_parts);
 
@@ -42,13 +42,13 @@ sub parse_req_meta {
         return undef;
     }
 
-    my @request_line_and_headers = split /\r\n/, $msg_parts[0];
+    my @request_line_and_headers = split(/\r\n/, $msg_parts[0]);
     $::log->error($::DEBUG, var_name => 'request_line_and_headers', var_value => \@request_line_and_headers);
 
     my $request_line = $request_line_and_headers[0];
     $::log->error($::DEBUG, var_name => 'request_line', var_value => $request_line);
 
-    my @req_line_tokens = split / /, $request_line;
+    my @req_line_tokens = split(/ /, $request_line);
     $::log->error($::DEBUG, var_name => 'req_line_tokens', var_value => \@req_line_tokens);
 
     if (@req_line_tokens != 3) {
@@ -89,7 +89,7 @@ sub parse_req_meta {
 
     foreach (@headers_not_parsed) {
         my $max_fields_split = 2;
-        my @header_field_split = split /:/, $_, $max_fields_split;
+        my @header_field_split = split(/:/, $_, $max_fields_split);
         my $field_name = $header_field_split[0];
 
         if (length($field_name) != length(web_server_utils::trim($field_name))) {
@@ -143,7 +143,7 @@ sub build_res_meta {
 
     my $result = "HTTP/1.1 $status_code $response_reason_phrases{$status_code}";
 
-    foreach my $field_name (keys %headers) {
+    foreach my $field_name (keys(%headers)) {
         $result .= "\r\n$field_name: $headers{$field_name}";
     }
 

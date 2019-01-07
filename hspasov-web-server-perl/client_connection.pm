@@ -16,6 +16,8 @@ package ClientConnection;
 use strict;
 use warnings;
 use diagnostics;
+use error qw(Error);
+use Socket qw(SOL_SOCKET SO_RCVTIMEO);
 use Fcntl qw();
 use Scalar::Util qw(looks_like_number openhandle blessed);
 use http_msg_formatter qw(parse_req_meta);
@@ -46,6 +48,15 @@ sub new {
         },
     };
 
+    # the argument for SO_RCVTIMEO is struct timeval
+    # struct timeval:
+    #   time_t tv_sec
+    #   long int tv_usec
+    #
+    # time_t is defined as an arithmetic type, exact type not specified, but 'long' works
+    # l! means use native signed long (32-bit) value
+    setsockopt($self->{_conn}, Socket::SOL_SOCKET, Socket::SO_RCVTIMEO, pack('l!l!', 0, 1)) or die("setsockopt: $!");
+
     bless($self, $class);
     return $self;
 }
@@ -60,8 +71,19 @@ sub receive_meta {
     while (length($self->{_req_meta_raw}) <= $CONFIG{req_meta_limit}) {
         $log->error($DEBUG, msg => 'receiving data...');
 
-        # TODO error handling
-        $self->receive();
+        eval {
+            $self->receive();
+            1;
+        } or do {
+            assert(blessed($@) eq 'Error');
+
+            if ($@->{origin}->{EWOULDBLOCK}) {
+                $log->error($DEBUG, msg => 'timeout while receiving from client');
+                $self->send_meta(408);
+                return;
+            }
+            # TODO finish
+        };
 
         $log->error($DEBUG, var_name => '_msg_buffer', var_value => $self->{_msg_buffer});
 
@@ -114,7 +136,7 @@ sub receive {
     my $recv_result = recv($self->{_conn}, $self->{_msg_buffer}, $CONFIG{recv_buffer}, $no_flags);
 
     if (!defined($recv_result)) {
-        die("recv: $!");
+        die new Error("recv: $!", \%!);
     }
 }
 
