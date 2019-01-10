@@ -68,6 +68,7 @@ sub run {
         my $process_status = $EX_OK;
 
         eval {
+            # TODO fix warning "You are exiting an eval by unconventional means"
             $client_conn = $self->accept() or next;
 
             assert(blessed($client_conn) eq 'ClientConnection');

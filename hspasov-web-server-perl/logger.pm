@@ -15,8 +15,8 @@ use warnings;
 use diagnostics;
 use Encode qw();
 use Fcntl qw();
-use Time::Format qw();
 use Time::HiRes qw();
+use POSIX qw();
 use error qw();
 
 sub new {
@@ -44,9 +44,11 @@ sub error {
             push(@fields, $$);
         }
         if (grep {$_ eq 'timestamp'} @{$CONFIG{error_log_fields}}) {
-            my $time = Time::HiRes::gettimeofday();
-            # TODO check HOW does %time get two scalars for keys?
-            push(@fields, $Time::Format::time{"yyyy-mm-dd hh:mm:ss.mmm", $time});
+            my $time = Time::HiRes::time();
+            my ($ss, $mm, $hh, $DD, $MM, $Y) = localtime($time);
+            my $us = int(($time - int($time)) * 1_000_000);
+            my $time_str = POSIX::strftime("%Y-%m-%d %H:%M:%S", $ss, $mm, $hh, $DD, $MM, $Y) . ".$us";
+            push(@fields, $time_str);
         }
         if (grep {$_ eq 'level'} @{$CONFIG{error_log_fields}}) {
             push(@fields, $level);
@@ -96,9 +98,11 @@ sub access {
                 push(@fields, $$);
             }
             if (grep {$_ eq 'timestamp'} @{$CONFIG{access_log_fields}}) {
-                my $time = Time::HiRes::gettimeofday();
-                # TODO check HOW does %time get two scalars for keys?
-                push(@fields, $Time::Format::time{"yyyy-mm-dd hh:mm:ss.mmm", $time});
+                my $time = Time::HiRes::time();
+                my ($ss, $mm, $hh, $DD, $MM, $Y) = localtime($time);
+                my $us = int(($time - int($time)) * 1_000_000);
+                my $time_str = POSIX::strftime("%Y-%m-%d %H:%M:%S", $ss, $mm, $hh, $DD, $MM, $Y) . ".$us";
+                push(@fields, $time_str);
             }
             if (grep {$_ eq 'req_line'} @{$CONFIG{access_log_fields}}) {
                 if ($params{req_line}) {
