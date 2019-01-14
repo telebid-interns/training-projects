@@ -217,6 +217,11 @@ sub serve_static_file {
 
     $log->error($DEBUG, msg => 'requested file opened');
 
+    if (-d $fh) {
+        # TODO don't use syscall error names
+        die(new Error('Requested file is directory', { EISDIR => 1 }));
+    }
+
     $self->{res_meta}->{content_length} = -s $fh;
 
     $log->error($DEBUG, var_name => 'content_length', var_value => $self->{res_meta}->{content_length});
