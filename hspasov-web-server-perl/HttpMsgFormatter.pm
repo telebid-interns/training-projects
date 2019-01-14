@@ -1,8 +1,8 @@
-use logger;
+use Logger;
 
 our ($log, $ERROR, $WARNING, $DEBUG, $INFO);
 
-package http_msg_formatter;
+package HttpMsgFormatter;
 
 use strict;
 use warnings;
@@ -10,8 +10,8 @@ use diagnostics;
 use Exporter qw(import);
 use URI::Escape qw();
 use Scalar::Util qw(looks_like_number);
-use web_server_utils qw();
-use error_handling qw(assert);
+use WebServerUtils qw();
+use ErrorHandling qw(assert);
 
 our @EXPORT = ();
 our @EXPORT_OK = qw(parse_req_meta build_res_meta);
@@ -92,11 +92,11 @@ sub parse_req_meta {
         my @header_field_split = split(/:/, $_, $max_fields_split);
         my $field_name = $header_field_split[0];
 
-        if (length($field_name) != length(web_server_utils::trim($field_name))) {
+        if (length($field_name) != length(WebServerUtils::trim($field_name))) {
             return undef;
         }
 
-        my $field_value = web_server_utils::trim($header_field_split[1]);
+        my $field_value = WebServerUtils::trim($header_field_split[1]);
 
         $headers{$field_name} = $field_value;
     }

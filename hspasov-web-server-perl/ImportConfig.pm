@@ -4,8 +4,8 @@ use diagnostics;
 use Scalar::Util qw(looks_like_number);
 use Fcntl qw();
 use JSON qw();
-use error qw(Error);
-use error_handling qw(assert);
+use Error qw(Error);
+use ErrorHandling qw(assert);
 
 if (@ARGV != 1) {
     my $arr_len = scalar(@ARGV);
@@ -39,7 +39,7 @@ assert(!ref($config_parsed->{host}));
 assert(looks_like_number($config_parsed->{port}));
 assert(looks_like_number($config_parsed->{error_log_level}));
 assert(ref($config_parsed->{error_log_fields}) eq 'ARRAY');
-assert(looks_like_number($config_parsed->{access_log_enabled})); # TODO check if this works properly
+assert(looks_like_number($config_parsed->{access_log_enabled}));
 assert(ref($config_parsed->{access_log_fields}) eq 'ARRAY');
 assert(!ref($config_parsed->{access_log_field_sep}));
 assert(!ref($config_parsed->{error_log_field_sep}));

@@ -1,5 +1,5 @@
-use logger;
-use config;
+use Logger;
+use ImportConfig;
 
 our %CONFIG;
 our ($log, $ERROR, $WARNING, $DEBUG, $INFO);
@@ -16,12 +16,12 @@ package ClientConnection;
 use strict;
 use warnings;
 use diagnostics;
-use error qw(Error);
+use Error qw(Error);
 use Socket qw(SOL_SOCKET SO_RCVTIMEO);
 use Fcntl qw();
 use Scalar::Util qw(looks_like_number openhandle blessed);
-use http_msg_formatter qw(parse_req_meta);
-use error_handling qw(assert);
+use HttpMsgFormatter qw(parse_req_meta);
+use ErrorHandling qw(assert);
 
 sub new {
     my $class = shift;
@@ -82,7 +82,6 @@ sub receive_meta {
                 $self->send_meta(408);
                 return;
             }
-            # TODO finish
         };
 
         $log->error($DEBUG, var_name => '_msg_buffer', var_value => $self->{_msg_buffer});
@@ -154,7 +153,7 @@ sub send_meta {
     $self->{state} = $CLIENT_CONN_STATES{SENDING};
     $self->{res_meta}->{status_code} = $status_code;
 
-    my $result = http_msg_formatter::build_res_meta(
+    my $result = HttpMsgFormatter::build_res_meta(
         status_code => $status_code, 
         headers => \%headers,
     );

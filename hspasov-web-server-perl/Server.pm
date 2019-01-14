@@ -1,6 +1,6 @@
-use logger;
-use config;
-use client_connection;
+use Logger;
+use ImportConfig;
+use ClientConnection;
 
 our %CONFIG;
 our %CLIENT_CONN_STATES;
@@ -11,12 +11,12 @@ package Server;
 use strict;
 use warnings;
 use diagnostics;
-use error qw(Error);
+use Error qw(Error);
 use POSIX qw();
 use Socket qw();
 use Cwd qw();
-use web_server_utils qw();
-use error_handling qw(assert);
+use WebServerUtils qw();
+use ErrorHandling qw(assert);
 use Scalar::Util qw(openhandle blessed);
 
 my $EX_OK = 0;
@@ -94,12 +94,11 @@ sub run {
                     $client_conn->receive_meta();
 
                     if ($client_conn->{state} ne $CLIENT_CONN_STATES{RECEIVING}) {
-                        last;
+                        die new Error('Client error', { CLIENT_ERR => 1 });
                     }
 
                     $log->error($DEBUG, msg => 'resolving file path...');
 
-                    # TODO check waht happens if req_meta is undef
                     assert(!ref($client_conn->{req_meta}->{target}));
 
                     # ignoring query params
@@ -113,7 +112,7 @@ sub run {
 
                     $log->error($DEBUG, msg => 'requested file in web server document root');
 
-                    $client_conn->serve_static_file(web_server_utils::resolve_static_file_path($file_path));
+                    $client_conn->serve_static_file(WebServerUtils::resolve_static_file_path($file_path));
                     1;
                 } or do {
                     assert(blessed($@) eq 'Error');
@@ -132,7 +131,7 @@ sub run {
                         if (grep {$_ eq $client_conn->{state}} ('ESTABLISHED', 'RECEIVING')) {
                             $client_conn->send_meta(404);
                         }
-                    } else {
+                    } elsif (!$@->{origin}->{CLIENT_ERR}) {
                         $log->error($ERROR, msg => $@->{msg});
                         $process_status = $EX_SOFTWARE;
 

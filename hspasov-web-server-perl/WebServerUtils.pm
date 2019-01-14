@@ -1,17 +1,17 @@
-use logger;
-use config;
+use Logger;
+use ImportConfig;
 
 our %CONFIG;
 our ($log, $ERROR, $WARNING, $DEBUG, $INFO);
 
-package web_server_utils;
+package WebServerUtils;
 
 use strict;
 use warnings;
 use diagnostics;
 use File::Spec qw();
 use Cwd qw();
-use error_handling qw(assert);
+use ErrorHandling qw(assert);
 
 # TODO ask why do I have to explicitly use main :: namespace?
 

@@ -1,4 +1,4 @@
-use config;
+use ImportConfig;
 
 our $ERROR = 1;
 our $WARNING = 2;
@@ -17,7 +17,7 @@ use Encode qw();
 use Fcntl qw();
 use Time::HiRes qw();
 use POSIX qw();
-use error qw();
+use Error qw();
 
 sub new {
     my $class = shift;

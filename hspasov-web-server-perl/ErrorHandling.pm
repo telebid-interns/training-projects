@@ -1,10 +1,10 @@
-package error_handling;
+package ErrorHandling;
 
 use strict;
 use warnings;
 use diagnostics;
 use Exporter qw(import);
-use error qw(Error);
+use Error qw(Error);
 
 our @EXPORT = ();
 our @EXPORT_OK = qw(assert);
