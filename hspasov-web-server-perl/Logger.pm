@@ -38,7 +38,7 @@ sub error {
     my %params = @_;
 
     if ($level <= $CONFIG{error_log_level}) {
-        my @fields = ();
+        my @fields;
 
         if (grep {$_ eq 'pid'} @{$CONFIG{error_log_fields}}) {
             push(@fields, $$);
@@ -79,8 +79,8 @@ sub error {
             }
         }
 
-        print(join($CONFIG{error_log_field_sep}, @fields));
-        print("\n");
+        print(STDERR join($CONFIG{error_log_field_sep}, @fields));
+        print(STDERR "\n");
     }
 }
 
@@ -92,7 +92,7 @@ sub access {
         if (!$self->{access_log_file}) {
             $self->error($ERROR, msg => "Attempt to write in uninitialized access log file");
         } else {
-            my @fields = ();
+            my @fields;
 
             if (grep {$_ eq 'pid'} @{$CONFIG{access_log_fields}}) {
                 push(@fields, $$);

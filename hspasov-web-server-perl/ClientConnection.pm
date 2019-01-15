@@ -205,13 +205,7 @@ sub serve_static_file {
 
     assert(!ref($file_path));
 
-    my $fh;
-
-    my $sysopen_call_result = sysopen($fh, $file_path, Fcntl::O_RDONLY);
-
-    if (!defined($sysopen_call_result)) {
-      die(new Error("sysopen: $!", \%!));
-    }
+    sysopen(my $fh, $file_path, Fcntl::O_RDONLY) or die(new Error("sysopen: $!", \%!));
 
     assert(openhandle($fh));
 
