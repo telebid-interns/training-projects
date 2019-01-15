@@ -32,6 +32,8 @@ sub new {
     assert(openhandle($conn));
     assert(looks_like_number($port));
 
+    # TODO lock hashes
+
     my $self = {
         _conn => $conn,
         remote_addr => $addr,
@@ -142,11 +144,10 @@ sub receive {
 sub send_meta {
     my $self = shift;
     my $status_code = shift;
-    my $headers_ref = shift || {};
-    my %headers = %$headers_ref;
+    my $headers = shift || {};
 
     $log->error($DEBUG, var_name => 'status_code', var_value => $status_code);
-    $log->error($DEBUG, var_name => 'headers', var_value => \%headers);
+    $log->error($DEBUG, var_name => 'headers', var_value => $headers);
 
     assert(looks_like_number($status_code));
 
@@ -155,7 +156,7 @@ sub send_meta {
 
     my $result = HttpMsgFormatter::build_res_meta(
         status_code => $status_code, 
-        headers => \%headers,
+        headers => $headers,
     );
 
     $log->error($DEBUG, var_name => 'result', var_value => $result);

@@ -17,7 +17,10 @@ use Encode qw();
 use Fcntl qw();
 use Time::HiRes qw();
 use POSIX qw();
+use Data::Dumper qw();
 use Error qw();
+
+$Data::Dumper::Terse = 1;
 
 sub new {
     my $class = shift;
@@ -40,38 +43,38 @@ sub error {
     if ($level <= $CONFIG{error_log_level}) {
         my @fields;
 
-        if (grep {$_ eq 'pid'} @{$CONFIG{error_log_fields}}) {
+        if (grep {$_ eq 'pid'} @{ $CONFIG{error_log_fields} }) {
             push(@fields, $$);
         }
-        if (grep {$_ eq 'timestamp'} @{$CONFIG{error_log_fields}}) {
+        if (grep {$_ eq 'timestamp'} @{ $CONFIG{error_log_fields} }) {
             my $time = Time::HiRes::time();
             my ($ss, $mm, $hh, $DD, $MM, $Y) = localtime($time);
             my $us = int(($time - int($time)) * 1_000_000);
             my $time_str = POSIX::strftime("%Y-%m-%d %H:%M:%S", $ss, $mm, $hh, $DD, $MM, $Y) . ".$us";
             push(@fields, $time_str);
         }
-        if (grep {$_ eq 'level'} @{$CONFIG{error_log_fields}}) {
+        if (grep {$_ eq 'level'} @{ $CONFIG{error_log_fields} }) {
             push(@fields, $level);
         }
-        if (grep {$_ eq 'context'} @{$CONFIG{error_log_fields}}) {
+        if (grep {$_ eq 'context'} @{ $CONFIG{error_log_fields} }) {
             my ($package, $filename, $line) = caller();
             push(@fields, "<$filename>$package(L$line)");
         }
-        if (grep {$_ eq 'var_name'} @{$CONFIG{error_log_fields}}) {
+        if (grep {$_ eq 'var_name'} @{ $CONFIG{error_log_fields} }) {
             if ($params{var_name}) {
                 push(@fields, $params{var_name});
             } else {
                 push(@fields, $CONFIG{error_log_empty_field});
             }
         }
-        if (grep {$_ eq 'var_value'} @{$CONFIG{error_log_fields}}) {
+        if (grep {$_ eq 'var_value'} @{ $CONFIG{error_log_fields} }) {
             if ($params{var_value}) {
-                push(@fields, $params{var_value});
+                push(@fields, Data::Dumper::Dumper($params{var_value}));
             } else {
                 push(@fields, $CONFIG{error_log_empty_field});
             }
         }
-        if (grep {$_ eq 'msg'} @{$CONFIG{error_log_fields}}) {
+        if (grep {$_ eq 'msg'} @{ $CONFIG{error_log_fields} }) {
             if ($params{msg}) {
                 push(@fields, $params{msg});
             } else {
@@ -94,38 +97,38 @@ sub access {
         } else {
             my @fields;
 
-            if (grep {$_ eq 'pid'} @{$CONFIG{access_log_fields}}) {
+            if (grep {$_ eq 'pid'} @{ $CONFIG{access_log_fields} }) {
                 push(@fields, $$);
             }
-            if (grep {$_ eq 'timestamp'} @{$CONFIG{access_log_fields}}) {
+            if (grep {$_ eq 'timestamp'} @{ $CONFIG{access_log_fields} }) {
                 my $time = Time::HiRes::time();
                 my ($ss, $mm, $hh, $DD, $MM, $Y) = localtime($time);
                 my $us = int(($time - int($time)) * 1_000_000);
                 my $time_str = POSIX::strftime("%Y-%m-%d %H:%M:%S", $ss, $mm, $hh, $DD, $MM, $Y) . ".$us";
                 push(@fields, $time_str);
             }
-            if (grep {$_ eq 'req_line'} @{$CONFIG{access_log_fields}}) {
+            if (grep {$_ eq 'req_line'} @{ $CONFIG{access_log_fields} }) {
                 if ($params{req_line}) {
                     push(@fields, $params{req_line});
                 } else {
                     push(@fields, $CONFIG{access_log_empty_field});
                 }
             }
-            if (grep {$_ eq 'user_agent'} @{$CONFIG{access_log_fields}}) {
+            if (grep {$_ eq 'user_agent'} @{ $CONFIG{access_log_fields} }) {
                 if ($params{user_agent}) {
                     push(@fields, $params{user_agent});
                 } else {
                     push(@fields, $CONFIG{access_log_empty_field});
                 }
             }
-            if (grep {$_ eq 'status_code'} @{$CONFIG{access_log_fields}}) {
+            if (grep {$_ eq 'status_code'} @{ $CONFIG{access_log_fields} }) {
                 if ($params{status_code}) {
                     push(@fields, $params{status_code});
                 } else {
                     push(@fields, $CONFIG{access_log_empty_field});
                 }
             }
-            if (grep {$_ eq 'content_length'} @{$CONFIG{access_log_fields}}) {
+            if (grep {$_ eq 'content_length'} @{ $CONFIG{access_log_fields} }) {
                 if ($params{content_length}) {
                     push(@fields, $params{content_length});
                 } else {

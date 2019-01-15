@@ -81,7 +81,7 @@ sub parse_req_meta {
         $query_string = undef;
     }
 
-    my %headers = ();
+    my %headers;
 
     my @headers_not_parsed = @request_line_and_headers[1..$#request_line_and_headers];
 
@@ -132,7 +132,7 @@ sub parse_req_meta {
 sub build_res_meta {
     my %params = @_;
     my $status_code = $params{status_code};
-    my %headers = %{$params{headers}} or ();
+    my %headers = %{ $params{headers} } or ();
     my $body = $params{body} || '';
 
     $::log->error($::DEBUG);
@@ -143,8 +143,8 @@ sub build_res_meta {
 
     my $result = "HTTP/1.1 $status_code $response_reason_phrases{$status_code}";
 
-    foreach my $field_name (keys(%headers)) {
-        $result .= "\r\n$field_name: $headers{$field_name}";
+    while (my ($field_name, $field_value) = each %headers) {
+        $result .= "\r\n$field_name: $field_value";
     }
 
     $result .= "\r\n\r\n$body";
