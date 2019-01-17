@@ -38,7 +38,7 @@ sub resolve_static_file_path {
     my @document_root_path_split = split(/\//, $::CONFIG{document_root});
     my @path_split = split(/\//, $path);
 
-    my $resolved_path = Cwd::abs_path(File::Spec->catfile((@web_server_root_path_split, @document_root_path_split, @path_split)));
+    my $resolved_path = Cwd::abs_path(File::Spec::->catfile((@web_server_root_path_split, @document_root_path_split, @path_split)));
 
     $::log->error($::DEBUG, var_name => 'resolved_path', var_value => $resolved_path);
 

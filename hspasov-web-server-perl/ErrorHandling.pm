@@ -16,13 +16,13 @@ sub assert {
     my ($package, $filename, $line) = caller();
 
     if ($arg_length != 1) {
-        die(new Error("assert at <$filename>(L$line) called with $arg_length args. Expected 1 arg.\n"));
+        die(Error::->new("assert at <$filename>(L$line) called with $arg_length args. Expected 1 arg.\n"));
     }
 
     if ($condition) {
         return 1;
     } else {
-        die(new Error("assert at <$filename>(L$line) failed\n"));
+        die(Error::->new("assert at <$filename>(L$line) failed\n"));
     }
 }
 

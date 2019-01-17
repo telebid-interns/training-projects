@@ -9,17 +9,17 @@ use ErrorHandling qw(assert);
 
 if (@ARGV != 1) {
     my $arr_len = scalar(@ARGV);
-    die(new Error('Expected 1 arg: config file!'));
+    die(Error::->new('Expected 1 arg: config file!'));
 }
 
-sysopen(my $config_file, $ARGV[0], Fcntl::O_RDONLY) or die(new Error("Could not open config file: $!", \%!));
+sysopen(my $config_file, $ARGV[0], Fcntl::O_RDONLY) or die(Error::->new("Could not open config file: $!", \%!));
 
 my $config_str = do {
     local $/;
     my $data = readline($config_file);
 
     if (!defined($data)) {
-        die(new Error("readline: $!", \%!));
+        die(Error::->new("readline: $!", \%!));
     }
 
     $data;

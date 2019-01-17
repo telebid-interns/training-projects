@@ -12,11 +12,7 @@ use URI::Escape qw();
 use Scalar::Util qw(looks_like_number);
 use WebServerUtils qw();
 use ErrorHandling qw(assert);
-
-our @EXPORT = ();
-our @EXPORT_OK = qw(parse_req_meta build_res_meta);
-
-my %response_reason_phrases = (
+use constant RESPONSE_REASON_PHRASES => {
     200 => 'OK',
     400 => 'Bad Request',
     404 => 'Not Found',
@@ -24,7 +20,10 @@ my %response_reason_phrases = (
     500 => 'Internal Server Error',
     502 => 'Bad Gateway',
     503 => 'Service Unavailable',
-);
+};
+
+our @EXPORT = ();
+our @EXPORT_OK = qw(parse_req_meta build_res_meta);
 
 sub parse_req_meta {
     my $msg = shift;
@@ -133,15 +132,15 @@ sub build_res_meta {
     my %params = @_;
     my $status_code = $params{status_code};
     my %headers = %{ $params{headers} } or ();
-    my $body = $params{body} || '';
+    my $body = $params{body} // '';
 
     $::log->error($::DEBUG);
 
     assert(looks_like_number($status_code));
-    assert(exists($response_reason_phrases{$status_code}));
+    assert(exists(RESPONSE_REASON_PHRASES->{$status_code}));
     assert(!ref($body));
 
-    my $result = "HTTP/1.1 $status_code $response_reason_phrases{$status_code}";
+    my $result = "HTTP/1.1 $status_code " . RESPONSE_REASON_PHRASES->{$status_code};
 
     while (my ($field_name, $field_value) = each %headers) {
         $result .= "\r\n$field_name: $field_value";

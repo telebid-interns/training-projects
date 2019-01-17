@@ -18,10 +18,11 @@ use Cwd qw();
 use WebServerUtils qw();
 use ErrorHandling qw(assert);
 use Scalar::Util qw(openhandle blessed);
-
-my $EX_OK = 0;
-my $EX_SOFTWARE = 70;
-my $EX_OSERR = 71;
+use constant {
+    EX_OK => 0,
+    EX_SOFTWARE => 70,
+    EX_OSERR => 71,
+};
 
 sub new {
     my $class = shift;
@@ -37,8 +38,8 @@ sub new {
 
     my $conn;
 
-    socket($conn, Socket::PF_INET, Socket::SOCK_STREAM, getprotobyname('tcp')) or die(new Error("socket: $!", \%!));
-    setsockopt($conn, Socket::SOL_SOCKET, Socket::SO_REUSEADDR, 1) or die(new Error("setsockopt: $!", \%!));
+    socket($conn, Socket::PF_INET, Socket::SOCK_STREAM, getprotobyname('tcp')) or die(Error::->new("socket: $!", \%!));
+    setsockopt($conn, Socket::SOL_SOCKET, Socket::SO_REUSEADDR, 1) or die(Error::->new("setsockopt: $!", \%!));
 
     my $self = {
         _conn => $conn
@@ -53,11 +54,11 @@ sub run {
 
     assert(openhandle($self->{_conn}));
 
-    bind($self->{_conn}, Socket::pack_sockaddr_in($CONFIG{port}, Socket::inet_aton($CONFIG{host}))) or die(new Error("bind: $!", \%!));
+    bind($self->{_conn}, Socket::pack_sockaddr_in($CONFIG{port}, Socket::inet_aton($CONFIG{host}))) or die(Error::->new("bind: $!", \%!));
 
     $log->error($DEBUG, msg => "bound");
 
-    listen($self->{_conn}, $CONFIG{backlog}) or die(new Error("listen: $!", \%!));
+    listen($self->{_conn}, $CONFIG{backlog}) or die(Error::->new("listen: $!", \%!));
 
     $log->error($DEBUG, msg => "listening on $CONFIG{port}");
 
@@ -65,8 +66,9 @@ sub run {
     my $pid;
 
     while (1) {
-        my $process_status = $EX_OK;
+        my $process_status = EX_OK;
 
+        local $@;
         eval {
             # TODO fix warning "You are exiting an eval by unconventional means"
             $client_conn = $self->accept() or next;
@@ -76,17 +78,18 @@ sub run {
             $pid = fork();
 
             if (!defined($pid)) {
-                die(new Error("fork: $!", \%!));
+                die(Error::->new("fork: $!", \%!));
             }
 
             if ($pid == 0) { # child process
-                $process_status = $EX_OK;
+                $process_status = EX_OK;
 
                 # SIGCHLD signals should only be handled by parent, discarding reaping
                 $SIG{CHLD} = "DEFAULT";
 
                 $self->stop();
 
+                local $@;
                 eval {
                     $log->init_access_log_file();
 
@@ -94,7 +97,7 @@ sub run {
                     $client_conn->receive_meta();
 
                     if ($client_conn->{state} ne $CLIENT_CONN_STATES{RECEIVING}) {
-                        die new Error('Client error', { CLIENT_ERR => 1 });
+                        die(Error::->new('Client error', { CLIENT_ERR => 1 }));
                     }
 
                     $log->error($DEBUG, msg => 'resolving file path...');
@@ -115,25 +118,26 @@ sub run {
                     $client_conn->serve_static_file(WebServerUtils::resolve_static_file_path($file_path));
                     1;
                 } or do {
-                    assert(blessed($@) eq 'Error');
+                    my $exc = $@;
+                    assert(blessed($exc) eq 'Error');
 
-                    if ($@->{origin}->{ENOENT}) {
+                    if ($exc->{origin}->{ENOENT}) {
                         $log->error($DEBUG, msg => 'ENOENT');
-                        $log->error($DEBUG, msg => $@->{msg});
+                        $log->error($DEBUG, msg => $exc->{msg});
 
                         if (grep {$_ eq $client_conn->{state}} ('ESTABLISHED', 'RECEIVING')) {
                             $client_conn->send_meta(404);
                         }
-                    } elsif ($@->{origin}->{EISDIR}) {
+                    } elsif ($exc->{origin}->{EISDIR}) {
                         $log->error($DEBUG, msg => 'EISDIR');
-                        $log->error($DEBUG, msg => $@->{msg});
+                        $log->error($DEBUG, msg => $exc->{msg});
 
                         if (grep {$_ eq $client_conn->{state}} ('ESTABLISHED', 'RECEIVING')) {
                             $client_conn->send_meta(404);
                         }
-                    } elsif (!$@->{origin}->{CLIENT_ERR}) {
-                        $log->error($ERROR, msg => $@->{msg});
-                        $process_status = $EX_SOFTWARE;
+                    } elsif (!$exc->{origin}->{CLIENT_ERR}) {
+                        $log->error($ERROR, msg => $exc->{msg});
+                        $process_status = EX_SOFTWARE;
 
                         if (grep {$_ eq $client_conn->{state}} ('ESTABLISHED', 'RECEIVING')) {
                             $client_conn->send_meta(500);
@@ -145,11 +149,12 @@ sub run {
                     $client_conn->shutdown();
                     1;
                 } or do {
-                    assert(blessed($@) eq 'Error');
+                    my $exc = $@;
+                    assert(blessed($exc) eq 'Error');
 
-                    if (!$@->{origin}->{ENOTCONN}) {
-                        $process_status = $EX_OSERR;
-                        die($@);
+                    if (!$exc->{origin}->{ENOTCONN}) {
+                        $process_status = EX_OSERR;
+                        die($exc);
                     }
                 };
             } else { # parent process
@@ -157,19 +162,22 @@ sub run {
             }
             1;
         } or do {
-            assert(blessed($@) eq 'Error');
+            my $exc = $@;
+            assert(blessed($exc) eq 'Error');
 
-            $log->error($DEBUG, msg => $@->{msg});
+            $log->error($DEBUG, msg => $exc->{msg});
         };
 
         if (defined($client_conn) and $client_conn->{state} ne 'CLOSED') {
+            local $@;
             eval {
                 $client_conn->close();
                 1;
             } or do {
-                assert(blessed($@) eq 'Error');
+                my $exc = $@;
+                assert(blessed($exc) eq 'Error');
 
-                $log->error($DEBUG, msg => $@->{msg});
+                $log->error($DEBUG, msg => $exc->{msg});
             };
         }
 
@@ -211,7 +219,7 @@ sub accept {
             return undef;
         }
 
-        die(new Error("Accept failed: $!", \%!));
+        die(Error::->new("Accept failed: $!", \%!));
     };
     my ($port, $addr) = Socket::unpack_sockaddr_in($packed_addr);
 
@@ -219,7 +227,7 @@ sub accept {
     $log->error($DEBUG, var_name => "port", var_value => $port);
     $log->error($DEBUG, var_name => "addr", var_value => $addr);
 
-    return new ClientConnection($client_conn, $port, $addr);
+    return ClientConnection::->new($client_conn, $port, $addr);
 }
 
 sub stop {
@@ -229,7 +237,7 @@ sub stop {
 
     assert(openhandle($self->{_conn}));
 
-    close($self->{_conn}) or die(new Error("close: $!", \%!));
+    close($self->{_conn}) or die(Error::->new("close: $!", \%!));
 }
 
 1;

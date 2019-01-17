@@ -5,9 +5,8 @@ use diagnostics;
 package Error;
 
 sub new {
-    my $class = shift;
-    my $msg = shift;
-    my $origin = shift || {};
+    my ($class, $msg, $origin) = @_;
+    $origin //= {};
 
     my $self = {
         msg => $msg,

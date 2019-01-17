@@ -36,9 +36,7 @@ sub new {
 }
 
 sub error {
-    my $self = shift;
-    my $level = shift;
-    my %params = @_;
+    my ($self, $level, %params) = @_;
 
     if ($level <= $CONFIG{error_log_level}) {
         my @fields;
@@ -88,8 +86,7 @@ sub error {
 }
 
 sub access {
-    my $self = shift;
-    my %params = @_;
+    my ($self, %params) = @_;
 
     if ($CONFIG{access_log_enabled}) {
         if (!$self->{access_log_file}) {
@@ -141,7 +138,7 @@ sub access {
             my $bytes_written_amount = syswrite($self->{access_log_file}, Encode::encode_utf8("$data_to_log\n"));
 
             if (!defined($bytes_written_amount)) {
-                die(new Error("syswrite: $!", \%!));
+                die(Error::->new("syswrite: $!", \%!));
             }
         }
     }
@@ -150,7 +147,7 @@ sub access {
 sub init_access_log_file {
     my $self = shift;
 
-    sysopen(my $fh, $CONFIG{access_log}, Fcntl::O_WRONLY | Fcntl::O_CREAT | Fcntl::O_APPEND) or die(new Error("sysopen '$CONFIG{access_log}': $!", \%!));
+    sysopen(my $fh, $CONFIG{access_log}, Fcntl::O_WRONLY | Fcntl::O_CREAT | Fcntl::O_APPEND) or die(Error::->new("sysopen '$CONFIG{access_log}': $!", \%!));
 
     $self->{access_log_file} = $fh;
 }
@@ -158,10 +155,10 @@ sub init_access_log_file {
 sub close_access_log_file {
     my $self = shift;
 
-    close($self->{access_log_file}) or die(new Error("close: $!", \%!));
+    close($self->{access_log_file}) or die(Error::->new("close: $!", \%!));
     $self->{access_log_file} = undef;
 }
 
-$log = new Logger();
+$log = Logger::->new();
 
 1;

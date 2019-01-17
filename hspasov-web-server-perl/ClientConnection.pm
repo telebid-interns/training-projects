@@ -24,10 +24,7 @@ use HttpMsgFormatter qw(parse_req_meta);
 use ErrorHandling qw(assert);
 
 sub new {
-    my $class = shift;
-    my $conn = shift;
-    my $port = shift;
-    my $addr = shift;
+    my ($class, $conn, $port, $addr) = @_;
 
     assert(openhandle($conn));
     assert(looks_like_number($port));
@@ -57,7 +54,7 @@ sub new {
     #
     # time_t is defined as an arithmetic type, exact type not specified, but 'long' works
     # l! means use native signed long (32-bit) value
-    setsockopt($self->{_conn}, Socket::SOL_SOCKET, Socket::SO_RCVTIMEO, pack('l!l!', $CONFIG{socket_operation_timeout}, 0)) or die(new Error("setsockopt: $!", \%!));
+    setsockopt($self->{_conn}, Socket::SOL_SOCKET, Socket::SO_RCVTIMEO, pack('l!l!', $CONFIG{socket_operation_timeout}, 0)) or die(Error::->new("setsockopt: $!", \%!));
 
     bless($self, $class);
     return $self;
@@ -73,13 +70,15 @@ sub receive_meta {
     while (length($self->{_req_meta_raw}) <= $CONFIG{req_meta_limit}) {
         $log->error($DEBUG, msg => 'receiving data...');
 
+        local $@;
         eval {
             $self->receive();
             1;
         } or do {
-            assert(blessed($@) eq 'Error');
+            my $exc = $@;
+            assert(blessed($exc) eq 'Error');
 
-            if ($@->{origin}->{EWOULDBLOCK}) {
+            if ($exc->{origin}->{EWOULDBLOCK}) {
                 $log->error($DEBUG, msg => 'timeout while receiving from client');
                 $self->send_meta(408);
                 return;
@@ -137,14 +136,13 @@ sub receive {
     my $recv_result = recv($self->{_conn}, $self->{_msg_buffer}, $CONFIG{recv_buffer}, $no_flags);
 
     if (!defined($recv_result)) {
-        die(new Error("recv: $!", \%!));
+        die(Error::->new("recv: $!", \%!));
     }
 }
 
 sub send_meta {
-    my $self = shift;
-    my $status_code = shift;
-    my $headers = shift || {};
+    my ($self, $status_code, $headers) = @_;
+    $headers //= {};
 
     $log->error($DEBUG, var_name => 'status_code', var_value => $status_code);
     $log->error($DEBUG, var_name => 'headers', var_value => $headers);
@@ -167,8 +165,7 @@ sub send_meta {
 }
 
 sub send {
-    my $self = shift;
-    my $data = shift;
+    my ($self, $data) = @_;
 
     $log->error($DEBUG);
 
@@ -184,7 +181,7 @@ sub send {
         my $data_sent_length = send($self->{_conn}, $data_to_send, $no_flags);
 
         if (!defined($data_sent_length)) {
-            die(new Error("send: $!", \%!));
+            die(Error::->new("send: $!", \%!));
         }
 
         if ($data_sent_length == 0) {
@@ -200,13 +197,13 @@ sub send {
 }
 
 sub serve_static_file {
-    my $self = shift;
-    my $file_path = shift;
+    my ($self, $file_path) = @_;
+
     $log->error($DEBUG, var_name => 'file_path', var_value => $file_path);
 
     assert(!ref($file_path));
 
-    sysopen(my $fh, $file_path, Fcntl::O_RDONLY) or die(new Error("sysopen: $!", \%!));
+    sysopen(my $fh, $file_path, Fcntl::O_RDONLY) or die(Error::->new("sysopen: $!", \%!));
 
     assert(openhandle($fh));
 
@@ -214,7 +211,7 @@ sub serve_static_file {
 
     if (-d $fh) {
         # TODO don't use syscall error names
-        die(new Error('Requested file is directory', { EISDIR => 1 }));
+        die(Error::->new('Requested file is directory', { EISDIR => 1 }));
     }
 
     $self->{res_meta}->{content_length} = -s $fh;
@@ -229,7 +226,7 @@ sub serve_static_file {
         my $data_length = sysread($fh, my $data, $CONFIG{read_buffer});
 
         if (!defined($data_length)) {
-          die(new Error("sysread: $!", \%!));
+          die(Error::->new("sysread: $!", \%!));
         }
 
         $log->error($DEBUG, var_name => 'data', var_value => $data);
@@ -242,7 +239,7 @@ sub serve_static_file {
         $self->send($data);
     }
 
-    close($fh) or die(new Error("close: $!", \%!));
+    close($fh) or die(Error::->new("close: $!", \%!));
 }
 
 sub shutdown {
@@ -250,14 +247,14 @@ sub shutdown {
     $log->error($DEBUG);
 
     my $shut_rdwr = 2;
-    shutdown($self->{_conn}, $shut_rdwr) or die(new Error("shutdown: $!", \%!));
+    shutdown($self->{_conn}, $shut_rdwr) or die(Error::->new("shutdown: $!", \%!));
 }
 
 sub close {
     my $self = shift;
     $log->error($DEBUG);
 
-    close($self->{_conn}) or die(new Error("close: $!", \%!));
+    close($self->{_conn}) or die(Error::->new("close: $!", \%!));
 
     $self->{state} = $CLIENT_CONN_STATES{CLOSED};
 }
