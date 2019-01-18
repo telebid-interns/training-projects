@@ -1,18 +1,12 @@
-use ImportConfig;
-
-our $ERROR = 1;
-our $WARNING = 2;
-our $DEBUG = 3;
-our $INFO = 4;
-
-our $log;
-our %CONFIG;
-
 package Logger;
 
 use strict;
 use warnings;
 use diagnostics;
+
+use ImportConfig qw();
+use Exporter qw();
+use Hash::Util qw();
 use Encode qw();
 use Fcntl qw();
 use Time::HiRes qw();
@@ -20,7 +14,26 @@ use POSIX qw();
 use Data::Dumper qw();
 use Error qw();
 
+our %CONFIG = ImportConfig::import_config();
+
+our $ERROR = 1;
+our $INFO = 1;
+our $WARNING = 2;
+our $DEBUG = 3;
+our $log = Logger::->new();
+
+our @EXPORT = ();
+our @EXPORT_OK = qw(log_levels log);
+
 $Data::Dumper::Terse = 1;
+
+sub log_levels {
+    return ($ERROR, $INFO, $WARNING, $DEBUG);
+}
+
+sub log {
+    return $log;
+}
 
 sub new {
     my $class = shift;
@@ -32,6 +45,7 @@ sub new {
     };
 
     bless($self, $class);
+    Hash::Util::lock_ref_keys($self);
     return $self;
 }
 
@@ -59,25 +73,17 @@ sub error {
             push(@fields, "<$filename>$package(L$line)");
         }
         if (grep {$_ eq 'var_name'} @{ $CONFIG{error_log_fields} }) {
-            if ($params{var_name}) {
-                push(@fields, $params{var_name});
-            } else {
-                push(@fields, $CONFIG{error_log_empty_field});
-            }
+            push(@fields, $params{var_name} // $CONFIG{error_log_empty_field});
         }
         if (grep {$_ eq 'var_value'} @{ $CONFIG{error_log_fields} }) {
-            if ($params{var_value}) {
+            if (defined($params{var_value})) {
                 push(@fields, Data::Dumper::Dumper($params{var_value}));
             } else {
                 push(@fields, $CONFIG{error_log_empty_field});
             }
         }
         if (grep {$_ eq 'msg'} @{ $CONFIG{error_log_fields} }) {
-            if ($params{msg}) {
-                push(@fields, $params{msg});
-            } else {
-                push(@fields, $CONFIG{error_log_empty_field});
-            }
+            push(@fields, $params{msg} // $CONFIG{error_log_empty_field});
         }
 
         print(STDERR join($CONFIG{error_log_field_sep}, @fields));
@@ -112,25 +118,13 @@ sub access {
                 }
             }
             if (grep {$_ eq 'user_agent'} @{ $CONFIG{access_log_fields} }) {
-                if ($params{user_agent}) {
-                    push(@fields, $params{user_agent});
-                } else {
-                    push(@fields, $CONFIG{access_log_empty_field});
-                }
+                push(@fields, $params{user_agent} // $CONFIG{access_log_empty_field});
             }
             if (grep {$_ eq 'status_code'} @{ $CONFIG{access_log_fields} }) {
-                if ($params{status_code}) {
-                    push(@fields, $params{status_code});
-                } else {
-                    push(@fields, $CONFIG{access_log_empty_field});
-                }
+                push(@fields, $params{status_code} // $CONFIG{access_log_empty_field});
             }
             if (grep {$_ eq 'content_length'} @{ $CONFIG{access_log_fields} }) {
-                if ($params{content_length}) {
-                    push(@fields, $params{content_length});
-                } else {
-                    push(@fields, $CONFIG{access_log_empty_field});
-                }
+                push(@fields, $params{content_length} // $CONFIG{access_log_empty_field});
             }
 
             my $data_to_log = join($CONFIG{access_log_field_sep}, @fields);
@@ -147,7 +141,10 @@ sub access {
 sub init_access_log_file {
     my $self = shift;
 
+    $log->error($DEBUG);
+
     sysopen(my $fh, $CONFIG{access_log}, Fcntl::O_WRONLY | Fcntl::O_CREAT | Fcntl::O_APPEND) or die(Error::->new("sysopen '$CONFIG{access_log}': $!", \%!));
+    binmode($fh, ':bytes') or die(Error::->new("binmode: $!", \%!));
 
     $self->{access_log_file} = $fh;
 }
@@ -155,10 +152,10 @@ sub init_access_log_file {
 sub close_access_log_file {
     my $self = shift;
 
+    $log->error($DEBUG);
+
     close($self->{access_log_file}) or die(Error::->new("close: $!", \%!));
     $self->{access_log_file} = undef;
 }
-
-$log = Logger::->new();
 
 1;

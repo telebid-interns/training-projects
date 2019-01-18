@@ -1,8 +1,9 @@
+package Error;
+
 use strict;
 use warnings;
 use diagnostics;
-
-package Error;
+use Hash::Util qw();
 
 sub new {
     my ($class, $msg, $origin) = @_;
@@ -14,6 +15,7 @@ sub new {
     };
 
     bless($self, $class);
+    Hash::Util::lock_hashref($self);
     return $self;
 }
 

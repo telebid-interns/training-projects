@@ -1,20 +1,17 @@
-use Logger;
-use ImportConfig;
-use ClientConnection;
-
-our %CONFIG;
-our %CLIENT_CONN_STATES;
-our ($log, $ERROR, $WARNING, $DEBUG, $INFO);
-
 package Server;
 
 use strict;
 use warnings;
 use diagnostics;
-use Error qw(Error);
+use Try::Tiny;
+use Hash::Util qw();
 use POSIX qw();
 use Socket qw();
 use Cwd qw();
+use Logger qw();
+use ImportConfig qw();
+use ClientConnection qw();
+use Error qw(Error);
 use WebServerUtils qw();
 use ErrorHandling qw(assert);
 use Scalar::Util qw(openhandle blessed);
@@ -23,6 +20,11 @@ use constant {
     EX_SOFTWARE => 70,
     EX_OSERR => 71,
 };
+
+our $log = Logger::log();
+our ($ERROR, $INFO, $WARNING, $DEBUG) = Logger::log_levels();
+our %CONFIG = ImportConfig::import_config();
+our %CLIENT_CONN_STATES = ClientConnection::import_client_conn_states();
 
 sub new {
     my $class = shift;
@@ -46,6 +48,7 @@ sub new {
     };
 
     bless($self, $class);
+    Hash::Util::lock_hashref($self);
     return $self;
 }
 
@@ -60,7 +63,7 @@ sub run {
 
     listen($self->{_conn}, $CONFIG{backlog}) or die(Error::->new("listen: $!", \%!));
 
-    $log->error($DEBUG, msg => "listening on $CONFIG{port}");
+    $log->error($INFO, msg => "listening on $CONFIG{port}");
 
     my $client_conn;
     my $pid;
@@ -68,9 +71,10 @@ sub run {
     while (1) {
         my $process_status = EX_OK;
 
-        local $@;
-        eval {
-            # TODO fix warning "You are exiting an eval by unconventional means"
+        try {
+            # fix warning "You are exiting an eval by unconventional means", caused by the "next"
+            no warnings 'exiting';
+
             $client_conn = $self->accept() or next;
 
             assert(blessed($client_conn) eq 'ClientConnection');
@@ -89,8 +93,7 @@ sub run {
 
                 $self->stop();
 
-                local $@;
-                eval {
+                try {
                     $log->init_access_log_file();
 
                     # may send response to client in case of invalid request
@@ -110,15 +113,12 @@ sub run {
                     my $req_target_path = $req_target_split[0];
                     $log->error($DEBUG, var_name => 'req_target_path', var_value => $req_target_path);
 
-                    my $file_path = Cwd::abs_path($req_target_path);
-                    $log->error($DEBUG, var_name => 'file_path', var_value => $file_path);
-
                     $log->error($DEBUG, msg => 'requested file in web server document root');
 
-                    $client_conn->serve_static_file(WebServerUtils::resolve_static_file_path($file_path));
+                    $client_conn->serve_static_file(WebServerUtils::resolve_static_file_path($req_target_path));
                     1;
-                } or do {
-                    my $exc = $@;
+                } catch {
+                    my $exc = $_;
                     assert(blessed($exc) eq 'Error');
 
                     if ($exc->{origin}->{ENOENT}) {
@@ -128,7 +128,7 @@ sub run {
                         if (grep {$_ eq $client_conn->{state}} ('ESTABLISHED', 'RECEIVING')) {
                             $client_conn->send_meta(404);
                         }
-                    } elsif ($exc->{origin}->{EISDIR}) {
+                    } elsif ($exc->{origin}->{EISDIR} or $exc->{origin}->{DIR_REQUEST}) {
                         $log->error($DEBUG, msg => 'EISDIR');
                         $log->error($DEBUG, msg => $exc->{msg});
 
@@ -145,36 +145,40 @@ sub run {
                     }
                 };
 
-                eval {
+                try {
                     $client_conn->shutdown();
                     1;
-                } or do {
-                    my $exc = $@;
+                } catch {
+                    my $exc = $_;
+
                     assert(blessed($exc) eq 'Error');
 
                     if (!$exc->{origin}->{ENOTCONN}) {
-                        $process_status = EX_OSERR;
-                        die($exc);
+                        $log->error($ERROR, msg => $exc->{msg});
+                        exit(EX_OSERR);
                     }
                 };
             } else { # parent process
                 $log->error($DEBUG, msg => "New child created with pid $pid");
             }
             1;
-        } or do {
-            my $exc = $@;
+        } catch {
+            my $exc = $_;
+
+            $log->error($DEBUG, var_name => 'Exception', var_value => $exc);
+
             assert(blessed($exc) eq 'Error');
 
             $log->error($DEBUG, msg => $exc->{msg});
         };
 
         if (defined($client_conn) and $client_conn->{state} ne 'CLOSED') {
-            local $@;
-            eval {
+            try {
                 $client_conn->close();
                 1;
-            } or do {
-                my $exc = $@;
+            } catch {
+                my $exc = $_;
+
                 assert(blessed($exc) eq 'Error');
 
                 $log->error($DEBUG, msg => $exc->{msg});
@@ -225,9 +229,9 @@ sub accept {
 
     $log->error($DEBUG, msg => "Connection accepted");
     $log->error($DEBUG, var_name => "port", var_value => $port);
-    $log->error($DEBUG, var_name => "addr", var_value => $addr);
+    $log->error($DEBUG, var_name => "addr", var_value => Socket::inet_ntoa($addr));
 
-    return ClientConnection::->new($client_conn, $port, $addr);
+    return new ClientConnection($client_conn, $port, $addr);
 }
 
 sub stop {

@@ -3,26 +3,27 @@ use warnings;
 use sigtrap;
 use diagnostics;
 use lib './';
+use Try::Tiny;
 use POSIX qw();
 use Fcntl qw();
 use Scalar::Util qw(blessed);
 use Server qw(Server);
 use ErrorHandling qw(assert);
-use ImportConfig;
-use Logger;
+use ImportConfig qw();
+use Logger qw();
 
-our %CONFIG;
-our ($log, $ERROR, $WARNING, $DEBUG, $INFO);
+our $log = Logger::log();
+our ($ERROR, $INFO, $WARNING, $DEBUG) = Logger::log_levels();
+our %CONFIG = ImportConfig::import_config();
 
 sub start {
     my $server = Server::->new();
 
-    local $@;
-    eval {
+    try {
         $server->run();
         1;
-    } or do {
-        my $exc = $@;
+    } catch {
+        my $exc = $_;
         assert(blessed($exc) eq 'Error');
 
         $log->error($ERROR, msg => $exc->{msg});

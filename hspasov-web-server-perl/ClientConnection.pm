@@ -1,8 +1,23 @@
-use Logger;
-use ImportConfig;
+package ClientConnection;
 
-our %CONFIG;
-our ($log, $ERROR, $WARNING, $DEBUG, $INFO);
+use strict;
+use warnings;
+use diagnostics;
+use Exporter qw();
+use Try::Tiny;
+use Hash::Util qw();
+use Socket qw(SOL_SOCKET SO_RCVTIMEO);
+use Fcntl qw();
+use Scalar::Util qw(looks_like_number openhandle blessed);
+use Logger qw();
+use ImportConfig qw();
+use HttpMsgFormatter qw();
+use ErrorHandling qw(assert);
+use Error qw(Error);
+
+our $log = Logger::log();
+our ($ERROR, $INFO, $WARNING, $DEBUG) = Logger::log_levels();
+our %CONFIG = ImportConfig::import_config();
 
 our %CLIENT_CONN_STATES = (
     ESTABLISHED => 'ESTABLISHED',
@@ -11,25 +26,18 @@ our %CLIENT_CONN_STATES = (
     CLOSED => 'CLOSED',
 );
 
-package ClientConnection;
+our @EXPORT = ();
+our @EXPORT_OK = qw(import_client_conn_states);
 
-use strict;
-use warnings;
-use diagnostics;
-use Error qw(Error);
-use Socket qw(SOL_SOCKET SO_RCVTIMEO);
-use Fcntl qw();
-use Scalar::Util qw(looks_like_number openhandle blessed);
-use HttpMsgFormatter qw(parse_req_meta);
-use ErrorHandling qw(assert);
+sub import_client_conn_states {
+    return %CLIENT_CONN_STATES;
+}
 
 sub new {
     my ($class, $conn, $port, $addr) = @_;
 
     assert(openhandle($conn));
     assert(looks_like_number($port));
-
-    # TODO lock hashes
 
     my $self = {
         _conn => $conn,
@@ -47,6 +55,8 @@ sub new {
         },
     };
 
+    binmode($self->{_conn}, ':bytes') or die(Error::->new("binmode: $!", \%!));
+
     # the argument for SO_RCVTIMEO is struct timeval
     # struct timeval:
     #   time_t tv_sec
@@ -57,6 +67,7 @@ sub new {
     setsockopt($self->{_conn}, Socket::SOL_SOCKET, Socket::SO_RCVTIMEO, pack('l!l!', $CONFIG{socket_operation_timeout}, 0)) or die(Error::->new("setsockopt: $!", \%!));
 
     bless($self, $class);
+    Hash::Util::lock_ref_keys($self);
     return $self;
 }
 
@@ -70,12 +81,11 @@ sub receive_meta {
     while (length($self->{_req_meta_raw}) <= $CONFIG{req_meta_limit}) {
         $log->error($DEBUG, msg => 'receiving data...');
 
-        local $@;
-        eval {
+        try {
             $self->receive();
             1;
-        } or do {
-            my $exc = $@;
+        } catch {
+            my $exc = $_;
             assert(blessed($exc) eq 'Error');
 
             if ($exc->{origin}->{EWOULDBLOCK}) {
@@ -111,7 +121,7 @@ sub receive_meta {
 
     $log->error($DEBUG, msg => 'parsing request message...');
 
-    $self->{req_meta} = parse_req_meta($self->{_req_meta_raw});
+    $self->{req_meta} = HttpMsgFormatter::parse_req_meta($self->{_req_meta_raw});
 
     if (!$self->{req_meta}) {
         $log->error($DEBUG, msg => 'invalid request');
@@ -204,14 +214,14 @@ sub serve_static_file {
     assert(!ref($file_path));
 
     sysopen(my $fh, $file_path, Fcntl::O_RDONLY) or die(Error::->new("sysopen: $!", \%!));
+    binmode($fh, ':bytes') or die(Error::->new("binmode: $!", \%!));
 
     assert(openhandle($fh));
 
     $log->error($DEBUG, msg => 'requested file opened');
 
     if (-d $fh) {
-        # TODO don't use syscall error names
-        die(Error::->new('Requested file is directory', { EISDIR => 1 }));
+        die(Error::->new('Requested file is directory', { DIR_REQUEST => 1 }));
     }
 
     $self->{res_meta}->{content_length} = -s $fh;
