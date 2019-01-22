@@ -21,6 +21,7 @@ namespace web_server_utils {
       fields.msg = "open errno: " + errno;
       Logger::error(fields);
       exit(-1);
+      // TODO throw
     }
 
     std::string file_content;
@@ -46,6 +47,7 @@ namespace web_server_utils {
       error_log_fields fields = { ERROR };
       fields.msg = "close errno: " + errno;
       Logger::error(fields);
+      // TODO throw
     }
 
     return file_content;

@@ -93,6 +93,7 @@ void Logger::close_access_log () {
     error_log_fields fields = { ERROR };
     fields.msg = "close errno: " + errno;
     Logger::error(fields);
+      // TODO throw
   }
 
   Logger::access_log_fd = -1;
@@ -173,6 +174,7 @@ void Logger::access (const access_log_fields& fields) {
       struct error_log_fields f = { ERROR };
       f.msg = "Attempt to write in uninitialized access log file";
       Logger::error(f);
+      // TODO throw
     } else {
       std::list<const std::string> fields_list;
 
