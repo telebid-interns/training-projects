@@ -9,9 +9,9 @@
 
 namespace web_server_utils {
 
-  std::string read_text_file (const char* const file_path);
-  bool is_fd_open (const int fd);
-
+  std::string read_text_file (const char* const);
+  void text_file_write (const int, const std::string);
+  bool is_fd_open (const int);
   std::string get_current_time ();
 }
 

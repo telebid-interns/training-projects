@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <execinfo.h>
+#include <fcntl.h>
 #include "rapidjson/document.h"
 #include "logger.hh"
 #include "error_log_fields.hh"
@@ -12,8 +13,14 @@
 #include "err_log_lvl.hh"
 
 int Logger::access_log_fd = -1;
-std::map<std::string, bool> Logger::selected_error_log_fields;
-std::map<std::string, bool> Logger::selected_access_log_fields;
+std::map<const std::string, bool> Logger::selected_error_log_fields;
+std::map<const std::string, bool> Logger::selected_access_log_fields;
+std::map<const err_log_lvl, const std::string> Logger::err_log_lvl_str = {
+  { ERROR, "ERROR" },
+  { INFO, "INFO" },
+  { WARNING, "WARNING" },
+  { DEBUG, "DEBUG" },
+};
 
 void Logger::init_logger () {
   const std::list<std::string> allowed_error_log_fields = {
@@ -70,16 +77,30 @@ void Logger::init_logger () {
 }
 
 void Logger::init_access_log () {
+  Logger::access_log_fd = open(Config::config["access_log"].GetString(), O_WRONLY | O_CREAT | O_APPEND);
 
+  if (Logger::access_log_fd < 0) {
+    error_log_fields fields = { ERROR };
+    fields.msg = "open errno: " + errno;
+    Logger::error(fields);
+
+    // TODO error handling, maybe throw
+  }
 }
 
 void Logger::close_access_log () {
+  if (close(Logger::access_log_fd) < 0) {
+    error_log_fields fields = { ERROR };
+    fields.msg = "close errno: " + errno;
+    Logger::error(fields);
+  }
 
+  Logger::access_log_fd = -1;
 }
 
 void Logger::error (const error_log_fields& fields) {
   if (fields.level <= Config::config["error_log_level"].GetInt()) {
-    std::list<std::string> fields_list;
+    std::list<const std::string> fields_list;
 
     if (Logger::selected_error_log_fields.at("pid")) {
       fields_list.push_back(std::to_string(getpid()));
@@ -90,20 +111,13 @@ void Logger::error (const error_log_fields& fields) {
     }
 
     if (Logger::selected_error_log_fields.at("level")) {
-      std::map<err_log_lvl, std::string> err_log_lvl_str = {
-        { ERROR, "ERROR" },
-        { INFO, "INFO" },
-        { WARNING, "WARNING" },
-        { DEBUG, "DEBUG" },
-      };
-
-      fields_list.push_back(err_log_lvl_str[fields.level]);
+      fields_list.push_back(Logger::err_log_lvl_str[fields.level]);
     }
 
     if (Logger::selected_error_log_fields.at("context")) {
       void* backtrace_points[2];
-      int entries = backtrace(backtrace_points, 2);
-      char** backtrace_readables = backtrace_symbols(backtrace_points, entries);
+      const int entries = backtrace(backtrace_points, 2);
+      char** const backtrace_readables = backtrace_symbols(backtrace_points, entries);
 
       // 0 is current function, 1 is caller function
       std::string result(backtrace_readables[1]);
@@ -138,7 +152,7 @@ void Logger::error (const error_log_fields& fields) {
     }
 
     for (
-      std::list<std::string>::iterator it = fields_list.begin();
+      std::list<const std::string>::iterator it = fields_list.begin();
       it != fields_list.end();
       ++it) {
 
@@ -160,7 +174,7 @@ void Logger::access (const access_log_fields& fields) {
       f.msg = "Attempt to write in uninitialized access log file";
       Logger::error(f);
     } else {
-      std::list<std::string> fields_list;
+      std::list<const std::string> fields_list;
 
       if (Logger::selected_access_log_fields.at("pid")) {
         fields_list.push_back(std::to_string(getpid()));
@@ -209,6 +223,24 @@ void Logger::access (const access_log_fields& fields) {
           fields_list.push_back(Config::config["access_log_empty_field"].GetString());
         }
       }
+
+      std::string access_log_row;
+
+      for (
+        std::list<const std::string>::iterator it = fields_list.begin();
+        it != fields_list.end();
+        ++it) {
+
+        if (it != fields_list.begin()) {
+          access_log_row.append(Config::config["error_log_field_sep"].GetString());
+        }
+
+        access_log_row.append(*it);
+      }
+
+      access_log_row.append("\n");
+
+      web_server_utils::text_file_write(Logger::access_log_fd, access_log_row);
     }
   }
 }
