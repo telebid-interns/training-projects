@@ -4,10 +4,11 @@
 #include <string>
 
 struct access_log_fields {
-  const std::string req_line;
-  const std::string user_agent;
-  const std::string status_code;
-  const std::string content_length;
+  std::string remote_addr;
+  std::string req_line;
+  std::string user_agent;
+  std::string status_code;
+  std::string content_length;
 };
 
 #endif
