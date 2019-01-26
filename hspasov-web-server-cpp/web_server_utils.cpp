@@ -6,6 +6,8 @@
 #include <cstring>
 #include <iostream>
 #include <sys/time.h>
+#include <vector>
+#include <cctype>
 #include "logger.hh"
 #include "error_log_fields.hh"
 #include "error.hh"
@@ -97,6 +99,47 @@ namespace web_server_utils {
     result_str.append(std::to_string(time.tv_usec));
 
     return result_str;
+  }
+
+  std::vector<std::string> split(const std::string str, const std::string delimiter) {
+    std::vector<std::string> result;
+    std::string str_copy(str);
+
+    while (!str_copy.empty()) {
+      const size_t del_occur_pos = str_copy.find(delimiter);
+
+      if (del_occur_pos == std::string::npos) {
+        result.push_back(str_copy);
+
+        break;
+      }
+
+      const std::string part = str_copy.substr(0, del_occur_pos);
+
+      result.push_back(part);
+      str_copy.erase(0, delimiter.length());
+    }
+
+    return result;
+  }
+
+  std::string to_upper (const std::string str) {
+    std::string result;
+
+    for (std::string::const_iterator it = str.begin(); it != str.end(); it++) {
+      // TODO check if it works without char
+      result += (char)toupper(*it);
+    }
+
+    return result;
+  }
+
+  std::string trim (const std::string str) {
+    // TODO check if it handles diffrent cases
+    const int start_pos = str.find_first_not_of(" \t");
+    const int end_pos = str.find_last_not_of(" \t");
+
+    return str.substr(start_pos, end_pos + 1);
   }
 
 }

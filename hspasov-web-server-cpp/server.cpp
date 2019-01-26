@@ -64,6 +64,7 @@ void Server::run () {
 
   int inet_pton_result = inet_pton(AF_INET, Config::config["host"].GetString(), &host);
 
+  // TODO resolve host to ip address using getaddrinfo
   if (inet_pton_result < 0) {
     error_log_fields fields = { ERROR };
     fields.msg = "inet_pton: " + errno;
@@ -96,15 +97,17 @@ void Server::run () {
   }
 
   error_log_fields fields = { DEBUG };
-  fields.msg = "Listening on " + Config::config["port"].GetInt();
+  fields.msg = "Listening on " + std::to_string(Config::config["port"].GetInt());
   Logger::error(fields);
 
   while (true) {
     ClientConnection client_conn = this->accept();
 
     error_log_fields fields = { DEBUG };
-    fields.msg = "Accepted!";
+    fields.msg = "connection accepted";
     Logger::error(fields);
+
+    client_conn.receive_meta();
   }
 }
 

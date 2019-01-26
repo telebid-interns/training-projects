@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <cerrno>
 #include <iostream>
+#include <vector>
 
 namespace web_server_utils {
 
@@ -13,6 +14,10 @@ namespace web_server_utils {
   void text_file_write (const int, const std::string);
   bool is_fd_open (const int);
   std::string get_current_time ();
+  std::vector<std::string> split (const std::string, const std::string);
+  std::string to_upper (const std::string);
+  std::string trim (const std::string);
+
 }
 
 #endif

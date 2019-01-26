@@ -8,7 +8,7 @@ class Socket {
     const int _fd;
 
   public:
-    char* buffer;
+    char* const buffer;
     ssize_t bytes_received_amount;
 
     Socket(const int);

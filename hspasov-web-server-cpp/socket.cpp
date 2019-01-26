@@ -6,15 +6,16 @@
 #include "error_log_fields.hh"
 #include <sys/socket.h>
 #include <unistd.h>
+#include <iostream>
 
 Socket::Socket (const int fd)
-  : _fd(fd), bytes_received_amount(0) {
-
-  this->buffer = new char[Config::config["socket_buffer"].GetInt()];
-}
+  : _fd(fd),
+    buffer(new char[Config::config["socket_buffer"].GetInt()]),
+    bytes_received_amount(0) {}
 
 Socket::~Socket () {
-  delete[] this->buffer;
+  std::cerr << "deallocated" << std::endl;
+  delete this->buffer;
 
   if (close(this->_fd) < 0) {
     error_log_fields fields = { ERROR };
@@ -47,7 +48,7 @@ void Socket::receive () {
 
   const int no_flags = 0;
 
-  this->bytes_received_amount = recv(this->_fd, &(this->buffer), Config::config["socket_buffer"].GetInt(), no_flags);
+  this->bytes_received_amount = recv(this->_fd, this->buffer, Config::config["socket_buffer"].GetInt(), no_flags);
 
   if (this->bytes_received_amount < 0) {
     error_log_fields fields = { ERROR };
