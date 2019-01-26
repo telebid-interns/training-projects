@@ -11,6 +11,7 @@
 #include "config.hh"
 #include "web_server_utils.hh"
 #include "err_log_lvl.hh"
+#include "error.hh"
 
 int Logger::access_log_fd = -1;
 std::map<const std::string, bool> Logger::selected_error_log_fields;
@@ -84,7 +85,7 @@ void Logger::init_access_log () {
     fields.msg = "open errno: " + errno;
     Logger::error(fields);
 
-    // TODO error handling, maybe throw
+    throw Error("open: " + errno);
   }
 }
 
@@ -93,7 +94,8 @@ void Logger::close_access_log () {
     error_log_fields fields = { ERROR };
     fields.msg = "close errno: " + errno;
     Logger::error(fields);
-      // TODO throw
+
+    throw Error("close: " + errno);
   }
 
   Logger::access_log_fd = -1;
@@ -174,7 +176,8 @@ void Logger::access (const access_log_fields& fields) {
       struct error_log_fields f = { ERROR };
       f.msg = "Attempt to write in uninitialized access log file";
       Logger::error(f);
-      // TODO throw
+
+      throw Error("Attempt to write in uninitialized access log file");
     } else {
       std::list<const std::string> fields_list;
 

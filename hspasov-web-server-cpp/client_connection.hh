@@ -1,11 +1,13 @@
 #ifndef CLIENT_CONNECTION_HH
 #define CLIENT_CONNECTION_HH
 
+#include "socket.hh"
+
 class ClientConnection {
   private:
     int fd;
   public:
-    ClientConnection();
+    ClientConnection(Socket);
     ~ClientConnection();
     void receive_meta();
     void receive();

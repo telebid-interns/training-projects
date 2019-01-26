@@ -1,7 +1,7 @@
 {
   "socket_operation_timeout": 5,
   "read_buffer": 4096,
-  "recv_buffer": 1024,
+  "socket_buffer": 1024,
   "req_meta_limit": 8192,
   "backlog": 2000,
   "protocol": "HTTP/1.1",

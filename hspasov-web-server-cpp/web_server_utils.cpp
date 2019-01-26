@@ -8,6 +8,7 @@
 #include <sys/time.h>
 #include "logger.hh"
 #include "error_log_fields.hh"
+#include "error.hh"
 
 namespace web_server_utils {
 
@@ -20,8 +21,8 @@ namespace web_server_utils {
       error_log_fields fields = { ERROR };
       fields.msg = "open errno: " + errno;
       Logger::error(fields);
-      exit(-1);
-      // TODO throw
+
+      throw Error("open: " + errno);
     }
 
     std::string file_content;
@@ -37,7 +38,8 @@ namespace web_server_utils {
         error_log_fields fields = { ERROR };
         fields.msg = "read errno: " + errno;
         Logger::error(fields);
-        exit(-1); // TODO maybe throw?
+
+        throw Error("read: " + errno);
       } else {
         file_content.append(buffer, bytes_read_amount);
       }
@@ -47,7 +49,8 @@ namespace web_server_utils {
       error_log_fields fields = { ERROR };
       fields.msg = "close errno: " + errno;
       Logger::error(fields);
-      // TODO throw
+
+      throw Error("close: " + errno);
     }
 
     return file_content;
@@ -67,7 +70,8 @@ namespace web_server_utils {
         error_log_fields fields = { ERROR };
         fields.msg = "write errno: " + errno;
         Logger::error(fields);
-        // TODO throw
+
+        throw Error("write: " + errno);
       }
 
       total_amount_bytes_written += bytes_written_amount;

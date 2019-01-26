@@ -6,12 +6,12 @@
 
 class Server {
   private:
-    Socket socket;
+    int socket_fd;
   public:
     Server();
     ~Server();
     void run();
-    ClientConnection* accept();
+    ClientConnection accept();
 };
 
 #endif
