@@ -5,13 +5,13 @@
 
 class Socket {
   private:
-    int fd;
+    const int _fd;
 
   public:
     char* buffer;
     ssize_t bytes_received_amount;
 
-    Socket(int);
+    Socket(const int);
     ~Socket();
     void shutdown();
     void send();

@@ -5,14 +5,12 @@
 
 class ClientConnection {
   private:
-    int fd;
+    Socket conn;
   public:
-    ClientConnection(Socket);
-    ~ClientConnection();
+    ClientConnection(const int);
+    // TODO ~ClientConnection();
     void receive_meta();
-    void receive();
     void send_meta();
-    void send();
     void serve_static_file();
 };
 

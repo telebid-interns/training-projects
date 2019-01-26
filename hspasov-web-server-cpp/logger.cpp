@@ -85,7 +85,7 @@ void Logger::init_access_log () {
     fields.msg = "open errno: " + errno;
     Logger::error(fields);
 
-    throw Error("open: " + errno);
+    std::cerr << "open: " << errno << std::endl;
   }
 }
 
@@ -95,7 +95,7 @@ void Logger::close_access_log () {
     fields.msg = "close errno: " + errno;
     Logger::error(fields);
 
-    throw Error("close: " + errno);
+    std::cerr << "close: " << errno << std::endl;
   }
 
   Logger::access_log_fd = -1;
@@ -177,7 +177,7 @@ void Logger::access (const access_log_fields& fields) {
       f.msg = "Attempt to write in uninitialized access log file";
       Logger::error(f);
 
-      throw Error("Attempt to write in uninitialized access log file");
+      std::cerr << "Attempt to write in uninitialized access log file" << std::endl;
     } else {
       std::list<const std::string> fields_list;
 

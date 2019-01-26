@@ -16,5 +16,9 @@ int main (int argc, char** argv) {
 
   Logger::error(f);
 
+  Server server = Server();
+
+  server.run();
+
   return 0;
 }

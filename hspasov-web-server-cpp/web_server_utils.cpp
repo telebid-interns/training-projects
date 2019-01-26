@@ -22,7 +22,7 @@ namespace web_server_utils {
       fields.msg = "open errno: " + errno;
       Logger::error(fields);
 
-      throw Error("open: " + errno);
+      throw Error(DEBUG, "open: " + errno);
     }
 
     std::string file_content;
@@ -39,7 +39,7 @@ namespace web_server_utils {
         fields.msg = "read errno: " + errno;
         Logger::error(fields);
 
-        throw Error("read: " + errno);
+        throw Error(DEBUG, "read: " + errno);
       } else {
         file_content.append(buffer, bytes_read_amount);
       }
@@ -50,7 +50,7 @@ namespace web_server_utils {
       fields.msg = "close errno: " + errno;
       Logger::error(fields);
 
-      throw Error("close: " + errno);
+      throw Error(DEBUG, "close: " + errno);
     }
 
     return file_content;
@@ -71,7 +71,7 @@ namespace web_server_utils {
         fields.msg = "write errno: " + errno;
         Logger::error(fields);
 
-        throw Error("write: " + errno);
+        throw Error(ERROR, "write: " + errno);
       }
 
       total_amount_bytes_written += bytes_written_amount;

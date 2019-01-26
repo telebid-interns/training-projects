@@ -5,6 +5,9 @@
 #include "error.hh"
 #include <sys/socket.h>
 #include <cerrno>
+#include <arpa/inet.h>
+#include "config.hh"
+#include <unistd.h>
 
 Server::Server () {
   // 0 is for protocol: "only a single protocol exists to support a particular socket type within a given protocol family, in which case protocol can be specified as 0" - from man page
@@ -15,7 +18,7 @@ Server::Server () {
     fields.msg = "socket: " + errno;
     Logger::error(fields);
 
-    throw Error("socket: " + errno);
+    throw Error(ERROR, "socket: " + errno);
   }
 
   // setting socket options:
@@ -27,7 +30,7 @@ Server::Server () {
     fields.msg = "setsockopt: " + errno;
     Logger::error(fields);
 
-    throw Error("setsockopt: " + errno);
+    throw Error(ERROR, "setsockopt: " + errno);
   }
 }
 
@@ -45,12 +48,70 @@ ClientConnection Server::accept () {
     fields.msg = "accept: " + errno;
     Logger::error(fields);
 
-    throw Error("accept: " + errno);
+    throw Error(DEBUG, "accept: " + errno);
 
     // TODO: " For  reliable operation the application should detect the network errors defined for the protocol after accept() and treat them like EAGAIN by retrying.  In the case of TCP/IP, these are ENETDOWN, EPROTO, ENOPROTOOPT, EHOSTDOWN, ENONET, EHOSTUNREACH, EOPNOTSUPP, and ENETUNREACH."
   }
 
   // TODO put addr in ClientConnection
 
-  return ClientConnection(Socket(client_conn_fd));
+  return ClientConnection(client_conn_fd);
+}
+
+void Server::run () {
+  // https://en.wikipedia.org/wiki/Type_punning#Sockets_example
+  in_addr host;
+
+  int inet_pton_result = inet_pton(AF_INET, Config::config["host"].GetString(), &host);
+
+  if (inet_pton_result < 0) {
+    error_log_fields fields = { ERROR };
+    fields.msg = "inet_pton: " + errno;
+    Logger::error(fields);
+
+    throw Error(ERROR, "inet_pton: " + errno);
+  } else if (inet_pton_result == 0) {
+    throw Error(ERROR, "inet_pton got invalid network address");
+  }
+
+  sockaddr_in sa;
+  sa.sin_family = AF_INET;
+  sa.sin_port = htons(Config::config["port"].GetInt()); // host-to-network short. Makes sure number is stored in network byte order in memory, that means big-endian format (most significant byte comes first)
+  sa.sin_addr = host;
+
+  if (bind(this->socket_fd, (sockaddr*)&sa, sizeof(sa)) < 0) {
+    error_log_fields fields = { ERROR };
+    fields.msg = "bind: " + errno;
+    Logger::error(fields);
+
+    throw Error(ERROR, "bind: " + errno);
+  }
+
+  if (listen(this->socket_fd, Config::config["backlog"].GetInt()) < 0) {
+    error_log_fields fields = { ERROR };
+    fields.msg = "listen: " + errno;
+    Logger::error(fields);
+
+    throw Error(ERROR, "listen: " + errno);
+  }
+
+  error_log_fields fields = { DEBUG };
+  fields.msg = "Listening on " + Config::config["port"].GetInt();
+  Logger::error(fields);
+
+  while (true) {
+    ClientConnection client_conn = this->accept();
+
+    error_log_fields fields = { DEBUG };
+    fields.msg = "Accepted!";
+    Logger::error(fields);
+  }
+}
+
+Server::~Server () {
+  if (close(this->socket_fd) < 0) {
+    error_log_fields fields = { ERROR };
+    fields.msg = "close: " + errno;
+    Logger::error(fields);
+  }
 }
