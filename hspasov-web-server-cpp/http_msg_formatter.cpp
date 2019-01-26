@@ -46,7 +46,7 @@ namespace http_msg_formatter {
 
     std::string headers_str = req_meta.substr(first_crlf_pos);
     const int crlf_length = 2;
-    headers_str.erase(crlf_length);
+    headers_str.erase(0, crlf_length);
 
     const std::vector<std::string> headers_split = web_server_utils::split(headers_str, "\r\n");
 

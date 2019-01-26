@@ -117,7 +117,7 @@ namespace web_server_utils {
       const std::string part = str_copy.substr(0, del_occur_pos);
 
       result.push_back(part);
-      str_copy.erase(0, delimiter.length());
+      str_copy.erase(0, del_occur_pos + delimiter.length());
     }
 
     return result;
@@ -136,8 +136,12 @@ namespace web_server_utils {
 
   std::string trim (const std::string str) {
     // TODO check if it handles diffrent cases
-    const int start_pos = str.find_first_not_of(" \t");
-    const int end_pos = str.find_last_not_of(" \t");
+    const size_t start_pos = str.find_first_not_of(" \t");
+    const size_t end_pos = str.find_last_not_of(" \t");
+
+    if (start_pos == std::string::npos || end_pos == std::string::npos) {
+      return "";
+    }
 
     return str.substr(start_pos, end_pos + 1);
   }
