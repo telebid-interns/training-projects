@@ -1,14 +1,20 @@
 #ifndef CLIENT_CONNECTION_HPP
 #define CLIENT_CONNECTION_HPP
 
-#include "socket.hpp"
-#include "client_conn_state.hpp"
 #include <string>
+#include <iostream>
+#include "socket.hpp"
 #include "logger.hpp"
-#include "error_log_fields.hpp"
 #include "config.hpp"
 #include "http_msg_formatter.hpp"
-#include <iostream>
+
+enum client_conn_state {
+  ESTABLISHED,
+  RECEIVING,
+  SENDING,
+  SHUTDOWN,
+  CLOSED
+};
 
 class ClientConnection {
   protected:

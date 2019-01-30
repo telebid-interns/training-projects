@@ -1,13 +1,10 @@
 #ifndef CONFIG_HPP
 #define CONFIG_HPP
 
-#include "rapidjson/document.h"
-#include <cassert>
-#include <fcntl.h>
-#include <unistd.h>
-#include <cerrno>
-#include "rapidjson/schema.h"
 #include <iostream>
+#include <cerrno>
+#include "rapidjson/document.h"
+#include "rapidjson/schema.h"
 #include "web_server_utils.hpp"
 
 // TODO maybe it should not be global like this

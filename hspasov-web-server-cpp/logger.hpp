@@ -3,17 +3,30 @@
 
 #include <map>
 #include <string>
-#include "access_log_fields.hpp"
-#include "error_log_fields.hpp"
-#include "err_log_lvl.hpp"
 #include <list>
 #include <unistd.h>
 #include <stdlib.h>
 #include <execinfo.h>
 #include <fcntl.h>
 #include "rapidjson/document.h"
+#include "err_log_lvl.hpp"
 #include "config.hpp"
 #include "web_server_utils.hpp"
+
+struct access_log_fields {
+  std::string remote_addr;
+  std::string req_line;
+  std::string user_agent;
+  std::string status_code;
+  std::string content_length;
+};
+
+struct error_log_fields {
+  const err_log_lvl level;
+  std::string var_name;
+  std::string var_value;
+  std::string msg;
+};
 
 class Logger {
   protected:

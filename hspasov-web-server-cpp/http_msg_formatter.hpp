@@ -3,11 +3,11 @@
 
 #include <string>
 #include <map>
+#include <regex>
+#include <vector>
 #include "web_server_utils.hpp"
 #include "logger.hpp"
-#include "error_log_fields.hpp"
 #include "err_log_lvl.hpp"
-#include <vector>
 
 enum http_method {
   GET,
@@ -47,14 +47,14 @@ namespace http_msg_formatter {
 
     std::string req_line = req_meta.substr(0, first_crlf_pos);
 
-    const std::vector<std::string> req_line_split = web_server_utils::split(req_line, " ");
+    const std::vector<std::string> req_line_split = web_server_utils::split(req_line, std::regex(" "));
 
     if (req_line_split.size() != 3) {
       // TODO handle
       // return;
     }
 
-    const std::string method = web_server_utils::to_upper(req_line_split[0]);
+    const std::string method = req_line_split[0];
     const std::string target = req_line_split[1];
     const std::string http_version = req_line_split[2];
 
@@ -69,7 +69,7 @@ namespace http_msg_formatter {
     const int crlf_length = 2;
     headers_str.erase(0, crlf_length);
 
-    const std::vector<std::string> headers_split = web_server_utils::split(headers_str, "\r\n");
+    const std::vector<std::string> headers_split = web_server_utils::split(headers_str, std::regex("\r\n"));
 
     std::map<const std::string, const std::string> headers;
 

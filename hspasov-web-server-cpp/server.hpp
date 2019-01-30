@@ -1,16 +1,15 @@
 #ifndef SERVER_HPP
 #define SERVER_HPP
 
+#include <cerrno>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 #include "socket.hpp"
 #include "client_connection.hpp"
 #include "logger.hpp"
-#include "error_log_fields.hpp"
 #include "error.hpp"
-#include <sys/socket.h>
-#include <cerrno>
-#include <arpa/inet.h>
 #include "config.hpp"
-#include <unistd.h>
 
 class Server {
   protected:

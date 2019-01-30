@@ -1,10 +1,13 @@
 #ifndef ERROR_HPP
 #define ERROR_HPP
 
-#include "err_log_lvl.hpp"
 #include <string>
 #include <iostream>
-#include "error_log_fields.hpp"
+#include "err_log_lvl.hpp"
+
+enum error_type {
+  OSERR // TODO add more
+};
 
 class Error {
   protected:

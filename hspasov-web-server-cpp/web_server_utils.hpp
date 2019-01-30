@@ -2,16 +2,15 @@
 #define WEB_SERVER_UTILS_HPP
 
 #include <string>
-#include <fcntl.h>
-#include <unistd.h>
+#include <regex>
+#include <vector>
 #include <cerrno>
 #include <ctime>
 #include <cstring>
 #include <iostream>
+#include <unistd.h>
+#include <fcntl.h>
 #include <sys/time.h>
-#include <vector>
-#include <cctype>
-#include "error_log_fields.hpp"
 #include "error.hpp"
 
 namespace web_server_utils {
@@ -87,49 +86,42 @@ namespace web_server_utils {
     return result_str;
   }
 
-  inline std::vector<std::string> split(const std::string str, const std::string delimiter) {
+  inline std::vector<std::string> split(std::string str, std::regex delimiter_pattern) {
     std::vector<std::string> result;
-    std::string str_copy(str);
 
-    while (!str_copy.empty()) {
-      const size_t del_occur_pos = str_copy.find(delimiter);
+    std::regex_token_iterator<std::string::iterator> token_iter(str.begin(), str.end(), delimiter_pattern, -1);
+    std::regex_token_iterator<std::string::iterator> end;
 
-      if (del_occur_pos == std::string::npos) {
-        result.push_back(str_copy);
-
-        break;
-      }
-
-      const std::string part = str_copy.substr(0, del_occur_pos);
-
-      result.push_back(part);
-      str_copy.erase(0, del_occur_pos + delimiter.length());
+    while (token_iter != end) {
+      result.push_back(*token_iter);
+      token_iter++;
     }
 
     return result;
   }
 
-  inline std::string to_upper (const std::string str) {
+  inline std::string ascii_letters_to_upper (const std::string str) {
+    const int ascci_letter_case_diff = 'a' - 'A';
     std::string result;
 
     for (std::string::const_iterator it = str.begin(); it != str.end(); it++) {
-      // TODO check if it works without char
-      result += (char)toupper(*it);
+      if (*it >= 'a' && *it <= 'z') {
+        result += *it - ascci_letter_case_diff;
+      } else {
+        result += *it;
+      }
     }
 
     return result;
   }
 
   inline std::string trim (const std::string str) {
-    // TODO check if it handles diffrent cases
-    const size_t start_pos = str.find_first_not_of(" \t");
-    const size_t end_pos = str.find_last_not_of(" \t");
+    const std::regex left_whitespace_pattern("^\\s*");
+    const std::regex right_whitespace_pattern("\\s*$");
 
-    if (start_pos == std::string::npos || end_pos == std::string::npos) {
-      return "";
-    }
+    std::string left_trimmed = std::regex_replace(str, left_whitespace_pattern, "");
 
-    return str.substr(start_pos, end_pos + 1);
+    return std::regex_replace(left_trimmed, right_whitespace_pattern, "");
   }
 
 }

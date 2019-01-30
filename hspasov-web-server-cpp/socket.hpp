@@ -1,14 +1,13 @@
 #ifndef SOCKET_HPP
 #define SOCKET_HPP
 
+#include <cerrno>
+#include <iostream>
+#include <unistd.h>
 #include <sys/socket.h>
 #include "config.hpp"
 #include "error.hpp"
-#include <cerrno>
 #include "logger.hpp"
-#include "error_log_fields.hpp"
-#include <unistd.h>
-#include <iostream>
 
 class Socket {
   protected:
