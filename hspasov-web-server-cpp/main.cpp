@@ -1,9 +1,9 @@
 #include <string>
-#include "server.hh"
+#include "server.hpp"
 #include <iostream>
-#include "config.hh"
-#include "logger.hh"
-#include "error_log_fields.hh"
+#include "config.hpp"
+#include "logger.hpp"
+#include "error_log_fields.hpp"
 
 int main (int argc, char** argv) {
   assert(argc == 2);

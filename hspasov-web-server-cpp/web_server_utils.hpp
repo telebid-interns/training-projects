@@ -1,3 +1,6 @@
+#ifndef WEB_SERVER_UTILS_HPP
+#define WEB_SERVER_UTILS_HPP
+
 #include <string>
 #include <fcntl.h>
 #include <unistd.h>
@@ -8,13 +11,13 @@
 #include <sys/time.h>
 #include <vector>
 #include <cctype>
-#include "logger.hh"
-#include "error_log_fields.hh"
-#include "error.hh"
+// #include "logger.hpp"
+#include "error_log_fields.hpp"
+#include "error.hpp"
 
 namespace web_server_utils {
 
-  std::string read_text_file (const char* const file_path) {
+  inline std::string read_text_file (const char* const file_path) {
     // TODO add file size limit assert
 
     const int fd = open(file_path, O_RDONLY);
@@ -22,7 +25,7 @@ namespace web_server_utils {
     if (fd < 0) {
       error_log_fields fields = { ERROR };
       fields.msg = "open errno: " + errno;
-      Logger::error(fields);
+      // Logger::error(fields);
 
       throw Error(DEBUG, "open: " + errno);
     }
@@ -39,7 +42,7 @@ namespace web_server_utils {
       } else if (bytes_read_amount < 0) {
         error_log_fields fields = { ERROR };
         fields.msg = "read errno: " + errno;
-        Logger::error(fields);
+        // Logger::error(fields);
 
         throw Error(DEBUG, "read: " + errno);
       } else {
@@ -50,7 +53,7 @@ namespace web_server_utils {
     if (close(fd) < 0) {
       error_log_fields fields = { ERROR };
       fields.msg = "close errno: " + errno;
-      Logger::error(fields);
+      // Logger::error(fields);
 
       throw Error(DEBUG, "close: " + errno);
     }
@@ -58,7 +61,7 @@ namespace web_server_utils {
     return file_content;
   }
 
-  void text_file_write (const int fd, const std::string content) {
+  inline void text_file_write (const int fd, const std::string content) {
     // TODO put buff size in config
     const int buff_size = 1024;
     unsigned total_amount_bytes_written = 0;
@@ -71,7 +74,7 @@ namespace web_server_utils {
       if (bytes_written_amount < 0) {
         error_log_fields fields = { ERROR };
         fields.msg = "write errno: " + errno;
-        Logger::error(fields);
+        // Logger::error(fields);
 
         throw Error(ERROR, "write: " + errno);
       }
@@ -80,11 +83,11 @@ namespace web_server_utils {
     }
   }
 
-  bool is_fd_open (const int fd) {
+  inline bool is_fd_open (const int fd) {
     return fcntl(fd, F_GETFD) != -1 || errno != EBADF;
   }
 
-  std::string get_current_time () {
+  inline std::string get_current_time () {
     const int time_str_max_chars = 20;
     char time_str[time_str_max_chars];
     timeval time;
@@ -101,7 +104,7 @@ namespace web_server_utils {
     return result_str;
   }
 
-  std::vector<std::string> split(const std::string str, const std::string delimiter) {
+  inline std::vector<std::string> split(const std::string str, const std::string delimiter) {
     std::vector<std::string> result;
     std::string str_copy(str);
 
@@ -117,13 +120,13 @@ namespace web_server_utils {
       const std::string part = str_copy.substr(0, del_occur_pos);
 
       result.push_back(part);
-      str_copy.erase(0, delimiter.length());
+      str_copy.erase(0, del_occur_pos + delimiter.length());
     }
 
     return result;
   }
 
-  std::string to_upper (const std::string str) {
+  inline std::string to_upper (const std::string str) {
     std::string result;
 
     for (std::string::const_iterator it = str.begin(); it != str.end(); it++) {
@@ -134,12 +137,18 @@ namespace web_server_utils {
     return result;
   }
 
-  std::string trim (const std::string str) {
+  inline std::string trim (const std::string str) {
     // TODO check if it handles diffrent cases
-    const int start_pos = str.find_first_not_of(" \t");
-    const int end_pos = str.find_last_not_of(" \t");
+    const size_t start_pos = str.find_first_not_of(" \t");
+    const size_t end_pos = str.find_last_not_of(" \t");
+
+    if (start_pos == std::string::npos || end_pos == std::string::npos) {
+      return "";
+    }
 
     return str.substr(start_pos, end_pos + 1);
   }
 
 }
+
+#endif

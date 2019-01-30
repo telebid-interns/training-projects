@@ -1,11 +1,33 @@
-#include "http_msg_formatter.hh"
-#include "web_server_utils.hh"
-#include "logger.hh"
-#include "error_log_fields.hh"
-#include "err_log_lvl.hh"
-#include <vector>
+#ifndef HTTP_MSG_FORMATTER_HPP
+#define HTTP_MSG_FORMATTER_HPP
+
 #include <string>
 #include <map>
+#include "http_msg_formatter.hpp"
+#include "web_server_utils.hpp"
+#include "logger.hpp"
+#include "error_log_fields.hpp"
+#include "err_log_lvl.hpp"
+#include <vector>
+
+enum http_method {
+  GET,
+};
+
+struct request_meta {
+  std::string req_line_raw;
+  http_method method;
+  std::string target;
+  std::string query_string;
+  std::string http_version;
+  std::map<const std::string, const std::string> headers;
+  std::string user_agent;
+};
+
+struct response_meta {
+  const std::map<const std::string, const std::string> headers;
+  const std::string status_code;
+};
 
 std::map<const std::string, const http_method> http_method_from_str = {
   { "GET", GET },
@@ -13,7 +35,7 @@ std::map<const std::string, const http_method> http_method_from_str = {
 
 namespace http_msg_formatter {
 
-  request_meta parse_req_meta (const std::string req_meta) {
+  inline request_meta parse_req_meta (const std::string req_meta) {
     error_log_fields fields = { DEBUG };
     Logger::error(fields);
 
@@ -46,7 +68,7 @@ namespace http_msg_formatter {
 
     std::string headers_str = req_meta.substr(first_crlf_pos);
     const int crlf_length = 2;
-    headers_str.erase(crlf_length);
+    headers_str.erase(0, crlf_length);
 
     const std::vector<std::string> headers_split = web_server_utils::split(headers_str, "\r\n");
 
@@ -90,8 +112,9 @@ namespace http_msg_formatter {
     return result;
   }
 
-  response_meta build_res_meta (const int status_code, const std::map<const std::string, const std::string> headers, const std::string body) {
+  inline response_meta build_res_meta (const int status_code, const std::map<const std::string, const std::string> headers, const std::string body) {
 
   }
-
 }
+
+#endif

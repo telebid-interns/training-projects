@@ -1,5 +1,5 @@
-#ifndef CLIENT_CONN_STATE_HH
-#define CLIENT_CONN_STATE_HH
+#ifndef CLIENT_CONN_STATE_HPP
+#define CLIENT_CONN_STATE_HPP
 
 enum client_conn_state {
   ESTABLISHED,

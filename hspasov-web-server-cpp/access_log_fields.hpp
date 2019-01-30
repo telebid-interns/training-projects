@@ -1,5 +1,5 @@
-#ifndef ACCESS_LOG_FIELDS_HH
-#define ACCESS_LOG_FIELDS_HH
+#ifndef ACCESS_LOG_FIELDS_HPP
+#define ACCESS_LOG_FIELDS_HPP
 
 #include <string>
 
