@@ -95,20 +95,20 @@ class Logger {
 
       if (Logger::access_log_fd < 0) {
         error_log_fields fields = { ERROR };
-        fields.msg = "open errno: " + errno;
+        fields.msg = "open: " + std::string(std::strerror(errno));
         Logger::error(fields);
 
-        std::cerr << "open: " << errno << std::endl;
+        std::cerr << "open: " << std::string(std::strerror(errno)) << std::endl;
       }
     }
 
     static void close_access_log () {
       if (close(Logger::access_log_fd) < 0) {
         error_log_fields fields = { ERROR };
-        fields.msg = "close errno: " + errno;
+        fields.msg = "close: " + std::string(std::strerror(errno));
         Logger::error(fields);
 
-        std::cerr << "close: " << errno << std::endl;
+        std::cerr << "close: " << std::string(std::strerror(errno)) << std::endl;
       }
 
       Logger::access_log_fd = -1;
@@ -258,8 +258,26 @@ class Logger {
 
           access_log_row.append("\n");
 
-          web_server_utils::text_file_write(Logger::access_log_fd, access_log_row);
+          Logger::text_file_write(Logger::access_log_fd, access_log_row);
         }
+      }
+    }
+
+    static void text_file_write (const int fd, const std::string content) {
+      // TODO put buff size in config
+      const int buff_size = 1024;
+      unsigned total_amount_bytes_written = 0;
+      std::string content_to_write(content);
+
+      while (total_amount_bytes_written < content.length()) {
+        const std::string content_to_write = content.substr(total_amount_bytes_written, buff_size);
+        const int bytes_written_amount = write(fd, content_to_write.c_str(), content_to_write.length());
+
+        if (bytes_written_amount < 0) {
+          throw Error(ERROR, "write: " + std::string(std::strerror(errno)));
+        }
+
+        total_amount_bytes_written += bytes_written_amount;
       }
     }
 };

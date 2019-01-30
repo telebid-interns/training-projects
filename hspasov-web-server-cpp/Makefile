@@ -1,11 +1,11 @@
-CXXFLAGS = -g -Wall -pedantic -g -rdynamic
+CXXFLAGS = -lcurl -g -Wall -pedantic -rdynamic
 
 OBJ = main.o
 
 OUT = server
 
 $(OUT): $(OBJ)
-	g++ $(CXXFLAGS) $(OBJ) -o $(OUT)
+	g++ $(CXXFLAGS) $(OBJ) -lcurl -o $(OUT)
 
 clean:
 	rm -f *~ $(OUT) *.o

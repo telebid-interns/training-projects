@@ -19,9 +19,10 @@ enum client_conn_state {
 class ClientConnection {
   protected:
     Socket conn;
-    client_conn_state state;
     std::string req_meta_raw;
   public:
+    request_meta req_meta;
+    client_conn_state state;
     ClientConnection (const int conn)
       : conn(Socket(conn)), state(ESTABLISHED) {
 
@@ -81,18 +82,50 @@ class ClientConnection {
       fields.msg = "Parsing request msg..";
       Logger::error(fields);
 
-      request_meta req_meta = http_msg_formatter::parse_req_meta(this->req_meta_raw);
+      this->req_meta = http_msg_formatter::parse_req_meta(this->req_meta_raw);
 
-      std::cerr << "method: " << req_meta.method << std::endl;
-      std::cerr << "target: " << req_meta.target << std::endl;
-      std::cerr << "path: " << req_meta.path << std::endl;
-      std::cerr << "query_string: " << req_meta.query_string << std::endl;
-      std::cerr << "http_version: " << req_meta.http_version << std::endl;
-      std::cerr << "user agent: " << req_meta.user_agent << std::endl;
+      // TODO refactor this
+      std::string req_meta_stringified = "method: ";
+      req_meta_stringified += this->req_meta.method;
+      req_meta_stringified += "; target: ";
+      req_meta_stringified += this->req_meta.target;
+      req_meta_stringified += "; path: ";
+      req_meta_stringified += this->req_meta.path;
+      req_meta_stringified += "; query_string: ";
+      req_meta_stringified += this->req_meta.query_string;
+      req_meta_stringified += "; http_version: ";
+      req_meta_stringified += this->req_meta.http_version;
+      req_meta_stringified += "; user agent: ";
+      req_meta_stringified += this->req_meta.user_agent;
+
+      fields.msg = req_meta_stringified;
+      Logger::error(fields);
+    }
+
+    void serve_static_file(const std::string path) {
+      // TODO add traces
+
+      error_log_fields fields = { DEBUG };
+      fields.var_name = "path";
+      fields.var_value = web_server_utils::resolve_static_file_path(path).c_str();
+      Logger::error(fields);
+
+      const int fd = open(web_server_utils::resolve_static_file_path(path).c_str(), O_RDONLY);
+
+      if (fd < 0) {
+        // TODO handle file does not exist, file is a dir...
+        throw Error(ERROR, "open: " + std::string(std::strerror(errno)));
+      }
+
+      fields.msg = "requested file opened";
+      Logger::error(fields);
+
+      if (close(fd) < 0) {
+        throw Error(ERROR, "close: " + std::string(std::strerror(errno)));
+      }
     }
 
     void send_meta();
-    void serve_static_file();
 };
 
 #endif

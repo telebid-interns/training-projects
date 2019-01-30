@@ -21,10 +21,10 @@ class Server {
 
       if (this->socket_fd < 0) {
         error_log_fields fields = { ERROR };
-        fields.msg = "socket: " + errno;
+        fields.msg = "socket: " + std::string(std::strerror(errno));
         Logger::error(fields);
 
-        throw Error(ERROR, "socket: " + errno);
+        throw Error(ERROR, "socket: " + std::string(std::strerror(errno)));
       }
 
       // setting socket options:
@@ -33,17 +33,17 @@ class Server {
 
       if (setsockopt(this->socket_fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0) {
         error_log_fields fields = { ERROR };
-        fields.msg = "setsockopt: " + errno;
+        fields.msg = "setsockopt: " + std::string(std::strerror(errno));
         Logger::error(fields);
 
         // because destructor would not be called after throw in constructor
         if (close(this->socket_fd) < 0) {
           error_log_fields fields = { ERROR };
-          fields.msg = "close: " + errno;
+          fields.msg = "close: " + std::string(std::strerror(errno));
           Logger::error(fields);
         }
 
-        throw Error(ERROR, "setsockopt: " + errno);
+        throw Error(ERROR, "setsockopt: " + std::string(std::strerror(errno)));
       }
     }
 
@@ -58,10 +58,10 @@ class Server {
 
       if (client_conn_fd < 0) {
         error_log_fields fields = { ERROR };
-        fields.msg = "accept: " + errno;
+        fields.msg = "accept: " + std::string(std::strerror(errno));
         Logger::error(fields);
 
-        throw Error(DEBUG, "accept: " + errno);
+        throw Error(DEBUG, "accept: " + std::string(std::strerror(errno)));
 
         // TODO: " For  reliable operation the application should detect the network errors defined for the protocol after accept() and treat them like EAGAIN by retrying.  In the case of TCP/IP, these are ENETDOWN, EPROTO, ENOPROTOOPT, EHOSTDOWN, ENONET, EHOSTUNREACH, EOPNOTSUPP, and ENETUNREACH."
       }
@@ -80,10 +80,10 @@ class Server {
       // TODO resolve host to ip address using getaddrinfo
       if (inet_pton_result < 0) {
         error_log_fields fields = { ERROR };
-        fields.msg = "inet_pton: " + errno;
+        fields.msg = "inet_pton: " + std::string(std::strerror(errno));
         Logger::error(fields);
 
-        throw Error(ERROR, "inet_pton: " + errno);
+        throw Error(ERROR, "inet_pton: " + std::string(std::strerror(errno)));
       } else if (inet_pton_result == 0) {
         throw Error(ERROR, "inet_pton got invalid network address");
       }
@@ -95,18 +95,18 @@ class Server {
 
       if (bind(this->socket_fd, (sockaddr*)&sa, sizeof(sa)) < 0) {
         error_log_fields fields = { ERROR };
-        fields.msg = "bind: " + errno;
+        fields.msg = "bind: " + std::string(std::strerror(errno));
         Logger::error(fields);
 
-        throw Error(ERROR, "bind: " + errno);
+        throw Error(ERROR, "bind: " + std::string(std::strerror(errno)));
       }
 
       if (listen(this->socket_fd, Config::config["backlog"].GetInt()) < 0) {
         error_log_fields fields = { ERROR };
-        fields.msg = "listen: " + errno;
+        fields.msg = "listen: " + std::string(std::strerror(errno));
         Logger::error(fields);
 
-        throw Error(ERROR, "listen: " + errno);
+        throw Error(ERROR, "listen: " + std::string(std::strerror(errno)));
       }
 
       error_log_fields fields = { DEBUG };
@@ -121,13 +121,19 @@ class Server {
         Logger::error(fields);
 
         client_conn.receive_meta();
+
+        if (client_conn.state != RECEIVING) {
+          // TODO handle error
+        }
+
+        client_conn.serve_static_file(client_conn.req_meta.path);
       }
     }
 
     ~Server () {
       if (close(this->socket_fd) < 0) {
         error_log_fields fields = { ERROR };
-        fields.msg = "close: " + errno;
+        fields.msg = "close: " + std::string(std::strerror(errno));
         Logger::error(fields);
       }
     }

@@ -39,7 +39,9 @@ namespace http_msg_formatter {
     error_log_fields fields = { DEBUG };
     Logger::error(fields);
 
-    std::vector<std::string> req_meta_lines = web_server_utils::split(req_meta, std::regex("\\r\\n"));
+    const bool split_excl_empty_tokens = true;
+
+    std::vector<std::string> req_meta_lines = web_server_utils::split(req_meta, std::regex("\\r\\n"), split_excl_empty_tokens);
 
     if (req_meta_lines.size() < 1) {
       // TODO handle
@@ -48,7 +50,7 @@ namespace http_msg_formatter {
 
     std::string req_line = req_meta_lines[0];
 
-    const std::vector<std::string> req_line_split = web_server_utils::split(req_line, std::regex(" "));
+    const std::vector<std::string> req_line_split = web_server_utils::split(req_line, std::regex(" "), split_excl_empty_tokens);
 
     if (req_line_split.size() != 3) {
       // TODO handle
@@ -56,12 +58,11 @@ namespace http_msg_formatter {
     }
 
     const std::string method = req_line_split[0];
-    // TODO url decode
-    const std::string target = req_line_split[1];
+    const std::string target = web_server_utils::url_unescape(req_line_split[1]);
     const std::string http_version = req_line_split[2];
 
     std::string query_string;
-    std::vector<std::string> target_split = web_server_utils::split(target, std::regex("\\?"));
+    std::vector<std::string> target_split = web_server_utils::split(target, std::regex("\\?"), split_excl_empty_tokens);
 
     if (target_split.size() == 1) {
       query_string = "";

@@ -5,65 +5,11 @@
 #include <regex>
 #include <vector>
 #include <cerrno>
-#include <ctime>
-#include <cstring>
-#include <iostream>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/time.h>
+#include <curl/curl.h>
 #include "error.hpp"
+#include "config.hpp"
 
 namespace web_server_utils {
-
-  inline std::string read_text_file (const char* const file_path) {
-    // TODO add file size limit assert
-
-    const int fd = open(file_path, O_RDONLY);
-
-    if (fd < 0) {
-      throw Error(DEBUG, "open: " + errno);
-    }
-
-    std::string file_content;
-
-    while (true) {
-      const int buff_size = 10;
-      char buffer[buff_size];
-      const ssize_t bytes_read_amount = read(fd, buffer, buff_size);
-
-      if (bytes_read_amount == 0) {
-        break;
-      } else if (bytes_read_amount < 0) {
-        throw Error(DEBUG, "read: " + errno);
-      } else {
-        file_content.append(buffer, bytes_read_amount);
-      }
-    }
-
-    if (close(fd) < 0) {
-      throw Error(DEBUG, "close: " + errno);
-    }
-
-    return file_content;
-  }
-
-  inline void text_file_write (const int fd, const std::string content) {
-    // TODO put buff size in config
-    const int buff_size = 1024;
-    unsigned total_amount_bytes_written = 0;
-    std::string content_to_write(content);
-
-    while (total_amount_bytes_written < content.length()) {
-      const std::string content_to_write = content.substr(total_amount_bytes_written, buff_size);
-      const int bytes_written_amount = write(fd, content_to_write.c_str(), content_to_write.length());
-
-      if (bytes_written_amount < 0) {
-        throw Error(ERROR, "write: " + errno);
-      }
-
-      total_amount_bytes_written += bytes_written_amount;
-    }
-  }
 
   inline bool is_fd_open (const int fd) {
     return fcntl(fd, F_GETFD) != -1 || errno != EBADF;
@@ -86,14 +32,21 @@ namespace web_server_utils {
     return result_str;
   }
 
-  inline std::vector<std::string> split(std::string str, std::regex delimiter_pattern) {
+  inline std::vector<std::string> split(std::string str, std::regex delimiter_pattern, bool excl_empty_tokens = false) {
+    if (!excl_empty_tokens) {
+      throw Error(DEBUG, "incl empty tokens NOT IMPLEMENTED");
+    }
+
     std::vector<std::string> result;
 
     std::regex_token_iterator<std::string::iterator> token_iter(str.begin(), str.end(), delimiter_pattern, -1);
     std::regex_token_iterator<std::string::iterator> end;
 
     while (token_iter != end) {
-      result.push_back(*token_iter);
+      if ((*token_iter).length() > 0) {
+        result.push_back(*token_iter);
+      }
+
       token_iter++;
     }
 
@@ -122,6 +75,63 @@ namespace web_server_utils {
     std::string leading_trimmed = std::regex_replace(str, leading_whitespace_pattern, "");
 
     return std::regex_replace(leading_trimmed, trailing_whitespace_pattern, "");
+  }
+
+  // TODO check for memory leaks
+  inline std::string url_unescape (const std::string str) {
+    CURL *handle = curl_easy_init();
+
+    int unescaped_length;
+    char* unescaped_raw = curl_easy_unescape(handle, str.c_str(), str.length(), &unescaped_length);
+
+    std::string unescaped(unescaped_raw, unescaped_length);
+
+    curl_free(unescaped_raw);
+    curl_easy_cleanup(handle);
+
+    return unescaped;
+  }
+
+  inline std::string join (const std::vector<std::string> tokens, const std::string separator) {
+    std::string result;
+
+    for (std::vector<std::string>::const_iterator it = tokens.begin(); it != tokens.end(); it++) {
+      if (it != tokens.begin()) {
+        result += separator;
+      }
+
+      result += *it;
+    }
+
+    return result;
+  }
+
+  inline std::string resolve_static_file_path (const std::string path) {
+    const bool split_excl_empty_tokens = true;
+    const std::regex forw_slash_regex("/");
+    const std::vector<std::string> root_path_split = web_server_utils::split(
+      Config::config["web_server_root"].GetString(),
+      forw_slash_regex,
+      split_excl_empty_tokens
+    );
+    const std::vector<std::string> document_root_path_split = web_server_utils::split (
+      Config::config["document_root"].GetString(),
+      forw_slash_regex,
+      split_excl_empty_tokens
+    );
+    const std::vector<std::string> path_split = web_server_utils::split(path, forw_slash_regex, split_excl_empty_tokens);
+
+    std::string result;
+
+    std::vector<std::string> resolved_split;
+    resolved_split.insert(resolved_split.end(), root_path_split.begin(), root_path_split.end());
+    resolved_split.insert(resolved_split.end(), document_root_path_split.begin(), document_root_path_split.end());
+    resolved_split.insert(resolved_split.end(), path_split.begin(), path_split.end());
+
+    result.append("/");
+    result.append(web_server_utils::join(resolved_split, "/"));
+
+    return result;
   }
 
 }

@@ -28,7 +28,7 @@ class Socket {
 
       if (close(this->_fd) < 0) {
         error_log_fields fields = { ERROR };
-        fields.msg = "close: " + errno;
+        fields.msg = "close: " + std::string(std::strerror(errno));
         Logger::error(fields);
       }
     }
@@ -39,10 +39,10 @@ class Socket {
 
       if (::shutdown(this->_fd, SHUT_RDWR) < 0) {
         error_log_fields fields = { ERROR };
-        fields.msg = "shutdown: " + errno;
+        fields.msg = "shutdown: " + std::string(std::strerror(errno));
         Logger::error(fields);
 
-        throw Error(DEBUG, "shutdown: " + errno);
+        throw Error(DEBUG, "shutdown: " + std::string(std::strerror(errno)));
         // TODO improve error handling
       }
     }
@@ -61,10 +61,10 @@ class Socket {
 
       if (this->bytes_received_amount < 0) {
         error_log_fields fields = { ERROR };
-        fields.msg = "recv: " + errno;
+        fields.msg = "recv: " + std::string(std::strerror(errno));
         Logger::error(fields);
 
-        throw Error(DEBUG, "recv: " + errno);
+        throw Error(DEBUG, "recv: " + std::string(std::strerror(errno)));
       }
     }
 };

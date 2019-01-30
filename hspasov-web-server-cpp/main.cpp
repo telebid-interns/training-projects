@@ -2,6 +2,9 @@
 #include "config.hpp"
 #include "logger.hpp"
 
+#include "web_server_utils.hpp"
+#include <curl/curl.h>
+
 int main (int argc, char** argv) {
   assert(argc == 2);
 
