@@ -12,7 +12,11 @@
       "type": "integer",
       "minimum": 1
     },
-    "socket_buffer": {
+    "recv_buffer": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "send_buffer": {
       "type": "integer",
       "minimum": 1
     },
@@ -81,7 +85,8 @@
   "required": [
     "socket_operation_timeout",
     "read_buffer",
-    "socket_buffer",
+    "recv_buffer",
+    "send_buffer",
     "req_meta_limit",
     "backlog",
     "protocol",

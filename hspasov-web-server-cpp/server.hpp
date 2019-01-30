@@ -116,6 +116,9 @@ class Server {
       while (true) {
         ClientConnection client_conn = this->accept();
 
+        // TODO fork
+        // TODO init access log
+
         error_log_fields fields = { DEBUG };
         fields.msg = "connection accepted";
         Logger::error(fields);
@@ -127,6 +130,9 @@ class Server {
         }
 
         client_conn.serve_static_file(client_conn.req_meta.path);
+        // TODO shutdown socket
+        // TODO close access log
+        // TODO exit child process
       }
     }
 

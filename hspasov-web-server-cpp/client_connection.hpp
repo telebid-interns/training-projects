@@ -51,7 +51,7 @@ class ClientConnection {
 
         this->conn.receive();
 
-        this->req_meta_raw.append(this->conn.buffer, this->conn.bytes_received_amount);
+        this->req_meta_raw.append(this->conn.recv_buffer, this->conn.bytes_received_amount);
 
         if (this->conn.bytes_received_amount == 0) {
           error_log_fields fields = { DEBUG };
@@ -69,7 +69,7 @@ class ClientConnection {
 
           std::string body_beg = this->req_meta_raw.substr(double_crlf_pos);
           body_beg.erase(0, 4); // remove CR-LF-CR-LF at the beginning
-          strcpy(this->conn.buffer, body_beg.c_str());
+          strcpy(this->conn.recv_buffer, body_beg.c_str());
           this->conn.bytes_received_amount = body_beg.length();
 
           this->req_meta_raw = this->req_meta_raw.substr(0, double_crlf_pos);
@@ -104,7 +104,7 @@ class ClientConnection {
       Logger::error(fields);
     }
 
-    void serve_static_file(const std::string path) {
+    void serve_static_file (const std::string path) {
       // TODO add traces
 
       error_log_fields fields = { DEBUG };
@@ -121,10 +121,6 @@ class ClientConnection {
 
       fields.msg = "requested file opened";
       Logger::error(fields);
-
-      if (close(fd) < 0) {
-        throw Error(ERROR, "close: " + std::string(std::strerror(errno)));
-      }
 
       struct stat statbuf;
 
@@ -145,9 +141,46 @@ class ClientConnection {
       };
 
       this->send_meta(200, headers);
+
+      // TODO make a file reader wrapper
+      char* const buffer = new char[Config::config["read_buffer"].GetInt()];
+
+      // TODO count packages sent
+
+      while (true) {
+        ssize_t bytes_read = read(fd, buffer, Config::config["read_buffer"].GetInt());
+
+        if (bytes_read < 0) {
+          // TODO check if all fds are being properly closed on errors
+          delete buffer;
+
+          if (close(fd) < 0) {
+            throw Error(ERROR, "close: " + std::string(std::strerror(errno)));
+          }
+        } else if (bytes_read == 0) {
+          error_log_fields fields = { DEBUG };
+          fields.msg = "end of file reached while reading";
+          Logger::error(fields);
+
+          break;
+        }
+
+        const std::string data(buffer, bytes_read);
+
+        // TODO maybe it is not a good idea to convert data from char* to std::string and then back to char*
+        this->conn.send(data);
+      }
+
+      this->conn.shutdown();
+
+      delete buffer;
+
+      if (close(fd) < 0) {
+        throw Error(ERROR, "close: " + std::string(std::strerror(errno)));
+      }
     }
 
-    void send_meta(int status_code, std::map<std::string, std::string> headers) {
+    void send_meta (int status_code, std::map<std::string, std::string> headers) {
       error_log_fields fields = { DEBUG };
       fields.var_name = "status_code";
       fields.var_value = status_code;
@@ -158,7 +191,15 @@ class ClientConnection {
 
       this->state = SENDING;
 
-      this->res_meta = http_msg_formatter::build_res_meta(status_code, headers);
+      response_meta res_meta;
+      res_meta.status_code = status_code;
+      res_meta.headers = headers;
+
+      this->res_meta = res_meta;
+
+      std::string res_meta_msg = http_msg_formatter::build_res_meta(status_code, headers);
+
+      this->conn.send(res_meta_msg);
     }
 };
 

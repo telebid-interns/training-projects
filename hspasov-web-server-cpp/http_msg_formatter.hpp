@@ -117,8 +117,23 @@ namespace http_msg_formatter {
     return result;
   }
 
-  inline response_meta build_res_meta (int status_code, std::map<std::string, std::string> headers, std::string body = "") {
-    response_meta result;
+  inline std::string build_res_meta (int status_code, std::map<std::string, std::string> headers, std::string body = "") {
+    std::string result;
+
+    result += "HTTP/1.1 ";
+    result += std::to_string(status_code);
+    result += " OK"; // TODO response reason phrases
+
+    for (std::map<std::string, std::string>::iterator it = headers.begin(); it != headers.end(); it++) {
+      result += "\r\n";
+      result += it->first;
+      result += ": ";
+      result += it->second;
+    }
+
+    result += "\r\n\r\n";
+    result += body;
+
     return result;
   }
 }
