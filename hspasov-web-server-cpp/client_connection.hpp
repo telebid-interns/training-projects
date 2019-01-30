@@ -85,6 +85,7 @@ class ClientConnection {
 
       std::cerr << "method: " << req_meta.method << std::endl;
       std::cerr << "target: " << req_meta.target << std::endl;
+      std::cerr << "path: " << req_meta.path << std::endl;
       std::cerr << "query_string: " << req_meta.query_string << std::endl;
       std::cerr << "http_version: " << req_meta.http_version << std::endl;
       std::cerr << "user agent: " << req_meta.user_agent << std::endl;

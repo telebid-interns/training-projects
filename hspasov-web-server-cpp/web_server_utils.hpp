@@ -116,12 +116,12 @@ namespace web_server_utils {
   }
 
   inline std::string trim (const std::string str) {
-    const std::regex left_whitespace_pattern("^\\s*");
-    const std::regex right_whitespace_pattern("\\s*$");
+    const std::regex leading_whitespace_pattern("^\\s*");
+    const std::regex trailing_whitespace_pattern("\\s*$");
 
-    std::string left_trimmed = std::regex_replace(str, left_whitespace_pattern, "");
+    std::string leading_trimmed = std::regex_replace(str, leading_whitespace_pattern, "");
 
-    return std::regex_replace(left_trimmed, right_whitespace_pattern, "");
+    return std::regex_replace(leading_trimmed, trailing_whitespace_pattern, "");
   }
 
 }

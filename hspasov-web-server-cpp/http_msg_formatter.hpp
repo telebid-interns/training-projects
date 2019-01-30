@@ -17,6 +17,7 @@ struct request_meta {
   std::string req_line_raw;
   http_method method;
   std::string target;
+  std::string path;
   std::string query_string;
   std::string http_version;
   std::map<const std::string, const std::string> headers;
@@ -38,14 +39,14 @@ namespace http_msg_formatter {
     error_log_fields fields = { DEBUG };
     Logger::error(fields);
 
-    size_t first_crlf_pos = req_meta.find("\r\n");
+    std::vector<std::string> req_meta_lines = web_server_utils::split(req_meta, std::regex("\\r\\n"));
 
-    if (first_crlf_pos == std::string::npos) {
+    if (req_meta_lines.size() < 1) {
       // TODO handle
-      // return;
+      // return
     }
 
-    std::string req_line = req_meta.substr(0, first_crlf_pos);
+    std::string req_line = req_meta_lines[0];
 
     const std::vector<std::string> req_line_split = web_server_utils::split(req_line, std::regex(" "));
 
@@ -55,25 +56,27 @@ namespace http_msg_formatter {
     }
 
     const std::string method = req_line_split[0];
+    // TODO url decode
     const std::string target = req_line_split[1];
     const std::string http_version = req_line_split[2];
 
-    std::string query_string = "";
-    const size_t query_params_pos = target.find("?");
+    std::string query_string;
+    std::vector<std::string> target_split = web_server_utils::split(target, std::regex("\\?"));
 
-    if (query_params_pos != std::string::npos) {
-      query_string = target.substr(query_params_pos + 1);
+    if (target_split.size() == 1) {
+      query_string = "";
+    } else if (target_split.size() == 2) {
+      query_string = target_split[1];
+    } else {
+      // TODO handle
+      // return;
     }
 
-    std::string headers_str = req_meta.substr(first_crlf_pos);
-    const int crlf_length = 2;
-    headers_str.erase(0, crlf_length);
-
-    const std::vector<std::string> headers_split = web_server_utils::split(headers_str, std::regex("\r\n"));
+    const std::string path = target_split[0];
 
     std::map<const std::string, const std::string> headers;
 
-    for (std::vector<std::string>::const_iterator it = headers_split.begin(); it != headers_split.end(); it++) {
+    for (std::vector<std::string>::const_iterator it = req_meta_lines.begin() + 1; it != req_meta_lines.end(); it++) {
       const size_t field_sep_pos = (*it).find(":");
 
       if (field_sep_pos == std::string::npos) {
@@ -88,7 +91,8 @@ namespace http_msg_formatter {
         // return;
       }
 
-      const std::string field_value = web_server_utils::trim((*it).substr(field_sep_pos + 1));
+      const std::string field_value_raw = (*it).substr(field_sep_pos + 1);
+      const std::string field_value = web_server_utils::trim(field_value_raw);
 
       headers.insert(std::pair<const std::string, const std::string>(field_name, field_value));
     }
@@ -103,6 +107,7 @@ namespace http_msg_formatter {
     result.req_line_raw = req_line;
     result.method = http_method_from_str[method];
     result.target = target;
+    result.path = path;
     result.query_string = query_string;
     result.http_version = http_version;
     result.headers = headers;
