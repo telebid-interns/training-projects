@@ -3,7 +3,6 @@
 
 #include <string>
 #include <map>
-#include "http_msg_formatter.hpp"
 #include "web_server_utils.hpp"
 #include "logger.hpp"
 #include "error_log_fields.hpp"
@@ -112,9 +111,9 @@ namespace http_msg_formatter {
     return result;
   }
 
-  inline response_meta build_res_meta (const int status_code, const std::map<const std::string, const std::string> headers, const std::string body) {
+  // inline response_meta build_res_meta (const int status_code, const std::map<const std::string, const std::string> headers, const std::string body) {
 
-  }
+  //}
 }
 
 #endif

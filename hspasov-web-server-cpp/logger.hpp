@@ -12,13 +12,11 @@
 #include <execinfo.h>
 #include <fcntl.h>
 #include "rapidjson/document.h"
-#include "logger.hpp"
 #include "config.hpp"
 #include "web_server_utils.hpp"
-#include "error.hpp"
 
 class Logger {
-  private:
+  protected:
     static int access_log_fd;
     static std::map<const err_log_lvl, const std::string> err_log_lvl_str;
     static std::map<const std::string, bool> selected_error_log_fields;

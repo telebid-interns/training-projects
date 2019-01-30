@@ -3,21 +3,18 @@
 
 #include "err_log_lvl.hpp"
 #include <string>
-#include "error.hpp"
 #include <iostream>
 #include "error_log_fields.hpp"
-// #include "logger.hpp"
 
 class Error {
-  private:
+  protected:
     std::string _msg;
   public:
     Error(err_log_lvl lvl, std::string msg)
       : _msg(msg) {
 
-      error_log_fields fields = { lvl };
-      fields.msg = msg;
-      // Logger::error(fields);
+      // TODO remove:
+      std::cerr << msg << std::endl;
     }
 
     std::ostream& operator<<(std::ostream& out) {

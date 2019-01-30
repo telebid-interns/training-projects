@@ -2,7 +2,6 @@
 #define SOCKET_HPP
 
 #include <sys/socket.h>
-#include "socket.hpp"
 #include "config.hpp"
 #include "error.hpp"
 #include <cerrno>
@@ -12,7 +11,7 @@
 #include <iostream>
 
 class Socket {
-  private:
+  protected:
     const int _fd;
 
   public:

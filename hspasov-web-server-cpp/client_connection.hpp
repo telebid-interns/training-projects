@@ -4,7 +4,6 @@
 #include "socket.hpp"
 #include "client_conn_state.hpp"
 #include <string>
-#include "client_connection.hpp"
 #include "logger.hpp"
 #include "error_log_fields.hpp"
 #include "config.hpp"
@@ -12,7 +11,7 @@
 #include <iostream>
 
 class ClientConnection {
-  private:
+  protected:
     Socket conn;
     client_conn_state state;
     std::string req_meta_raw;

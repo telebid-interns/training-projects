@@ -3,7 +3,6 @@
 
 #include "socket.hpp"
 #include "client_connection.hpp"
-#include "server.hpp"
 #include "logger.hpp"
 #include "error_log_fields.hpp"
 #include "error.hpp"
@@ -14,7 +13,7 @@
 #include <unistd.h>
 
 class Server {
-  private:
+  protected:
     int socket_fd;
   public:
     Server () {
@@ -37,6 +36,13 @@ class Server {
         error_log_fields fields = { ERROR };
         fields.msg = "setsockopt: " + errno;
         Logger::error(fields);
+
+        // because destructor would not be called after throw in constructor
+        if (close(this->socket_fd) < 0) {
+          error_log_fields fields = { ERROR };
+          fields.msg = "close: " + errno;
+          Logger::error(fields);
+        }
 
         throw Error(ERROR, "setsockopt: " + errno);
       }

@@ -8,7 +8,6 @@
 #include <cerrno>
 #include "rapidjson/schema.h"
 #include <iostream>
-#include "config.hpp"
 #include "web_server_utils.hpp"
 
 // TODO maybe it should not be global like this

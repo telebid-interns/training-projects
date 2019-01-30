@@ -11,7 +11,6 @@
 #include <sys/time.h>
 #include <vector>
 #include <cctype>
-// #include "logger.hpp"
 #include "error_log_fields.hpp"
 #include "error.hpp"
 
@@ -23,10 +22,6 @@ namespace web_server_utils {
     const int fd = open(file_path, O_RDONLY);
 
     if (fd < 0) {
-      error_log_fields fields = { ERROR };
-      fields.msg = "open errno: " + errno;
-      // Logger::error(fields);
-
       throw Error(DEBUG, "open: " + errno);
     }
 
@@ -40,10 +35,6 @@ namespace web_server_utils {
       if (bytes_read_amount == 0) {
         break;
       } else if (bytes_read_amount < 0) {
-        error_log_fields fields = { ERROR };
-        fields.msg = "read errno: " + errno;
-        // Logger::error(fields);
-
         throw Error(DEBUG, "read: " + errno);
       } else {
         file_content.append(buffer, bytes_read_amount);
@@ -51,10 +42,6 @@ namespace web_server_utils {
     }
 
     if (close(fd) < 0) {
-      error_log_fields fields = { ERROR };
-      fields.msg = "close errno: " + errno;
-      // Logger::error(fields);
-
       throw Error(DEBUG, "close: " + errno);
     }
 
@@ -72,10 +59,6 @@ namespace web_server_utils {
       const int bytes_written_amount = write(fd, content_to_write.c_str(), content_to_write.length());
 
       if (bytes_written_amount < 0) {
-        error_log_fields fields = { ERROR };
-        fields.msg = "write errno: " + errno;
-        // Logger::error(fields);
-
         throw Error(ERROR, "write: " + errno);
       }
 
