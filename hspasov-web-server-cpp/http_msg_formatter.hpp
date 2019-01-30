@@ -25,8 +25,8 @@ struct request_meta {
 };
 
 struct response_meta {
-  const std::map<const std::string, const std::string> headers;
-  const std::string status_code;
+  std::map<std::string, std::string> headers;
+  std::string status_code;
 };
 
 std::map<const std::string, const http_method> http_method_from_str = {
@@ -117,9 +117,10 @@ namespace http_msg_formatter {
     return result;
   }
 
-  // inline response_meta build_res_meta (const int status_code, const std::map<const std::string, const std::string> headers, const std::string body) {
-
-  //}
+  inline response_meta build_res_meta (int status_code, std::map<std::string, std::string> headers, std::string body = "") {
+    response_meta result;
+    return result;
+  }
 }
 
 #endif

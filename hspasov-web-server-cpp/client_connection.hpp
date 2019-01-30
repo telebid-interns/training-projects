@@ -3,6 +3,7 @@
 
 #include <string>
 #include <iostream>
+#include <sys/stat.h>
 #include "socket.hpp"
 #include "logger.hpp"
 #include "config.hpp"
@@ -22,6 +23,7 @@ class ClientConnection {
     std::string req_meta_raw;
   public:
     request_meta req_meta;
+    response_meta res_meta;
     client_conn_state state;
     ClientConnection (const int conn)
       : conn(Socket(conn)), state(ESTABLISHED) {
@@ -123,9 +125,41 @@ class ClientConnection {
       if (close(fd) < 0) {
         throw Error(ERROR, "close: " + std::string(std::strerror(errno)));
       }
+
+      struct stat statbuf;
+
+      if (fstat(fd, &statbuf) < 0) {
+        // TODO check different errnos if necessary
+        throw Error(ERROR, "fstat: " + std::string(std::strerror(errno)));
+      }
+
+      // check whether it is not regular file
+      if (!S_ISREG(statbuf.st_mode)) {
+        // TODO handle this case
+        throw Error(DEBUG, "requested file is not regular");
+      }
+
+      // TODO add consts
+      std::map<std::string, std::string> headers = {
+        { "Content-Length", std::to_string(statbuf.st_size) },
+      };
+
+      this->send_meta(200, headers);
     }
 
-    void send_meta();
+    void send_meta(int status_code, std::map<std::string, std::string> headers) {
+      error_log_fields fields = { DEBUG };
+      fields.var_name = "status_code";
+      fields.var_value = status_code;
+      Logger::error(fields);
+
+      // TODO print headers
+      // TODO assert status code valid
+
+      this->state = SENDING;
+
+      this->res_meta = http_msg_formatter::build_res_meta(status_code, headers);
+    }
 };
 
 #endif
