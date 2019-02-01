@@ -8,6 +8,7 @@
 #include "web_server_utils.hpp"
 #include "logger.hpp"
 #include "err_log_lvl.hpp"
+#include "error.hpp"
 
 enum http_method {
   GET,
@@ -29,11 +30,21 @@ struct response_meta {
   std::string status_code;
 };
 
-std::map<const std::string, const http_method> http_method_from_str = {
-  { "GET", GET },
-};
-
 namespace http_msg_formatter {
+
+  const std::map<const std::string, const http_method> http_method_from_str = {
+    { "GET", GET },
+  };
+
+  const std::map<const int, const std::string> response_reason_phrases = {
+    { 200, "OK" },
+    { 400, "Bad Request" },
+    { 404, "Not Found" },
+    { 408, "Request Timeout" },
+    { 500, "Internal Server Error" },
+    { 502, "Bad Gateway" },
+    { 503, "Service Unavailable" },
+  };
 
   inline request_meta parse_req_meta (const std::string req_meta) {
     error_log_fields fields = { DEBUG };
@@ -44,8 +55,7 @@ namespace http_msg_formatter {
     std::vector<std::string> req_meta_lines = web_server_utils::split(req_meta, std::regex("\\r\\n"), split_excl_empty_tokens);
 
     if (req_meta_lines.size() < 1) {
-      // TODO handle
-      // return
+      throw Error(CLIENTERR, "Invalid request");
     }
 
     std::string req_line = req_meta_lines[0];
@@ -53,8 +63,7 @@ namespace http_msg_formatter {
     const std::vector<std::string> req_line_split = web_server_utils::split(req_line, std::regex(" "), split_excl_empty_tokens);
 
     if (req_line_split.size() != 3) {
-      // TODO handle
-      // return;
+      throw Error(CLIENTERR, "Invalid request");
     }
 
     const std::string method = req_line_split[0];
@@ -69,8 +78,7 @@ namespace http_msg_formatter {
     } else if (target_split.size() == 2) {
       query_string = target_split[1];
     } else {
-      // TODO handle
-      // return;
+      throw Error(CLIENTERR, "Invalid request");
     }
 
     const std::string path = target_split[0];
@@ -81,15 +89,13 @@ namespace http_msg_formatter {
       const size_t field_sep_pos = (*it).find(":");
 
       if (field_sep_pos == std::string::npos) {
-        // TODO handle
-        // return;
+        throw Error(CLIENTERR, "Invalid request");
       }
 
       const std::string field_name = (*it).substr(0, field_sep_pos);
 
       if (field_name.size() != web_server_utils::trim(field_name).size()) {
-        // TODO handle
-        // return;
+        throw Error(CLIENTERR, "Invalid request");
       }
 
       const std::string field_value_raw = (*it).substr(field_sep_pos + 1);
@@ -101,12 +107,12 @@ namespace http_msg_formatter {
     std::string user_agent = "";
 
     if (headers.find("User-Agent") != headers.end()) {
-      user_agent = headers["User-Agent"];
+      user_agent = headers.at("User-Agent");
     }
 
     request_meta result;
     result.req_line_raw = req_line;
-    result.method = http_method_from_str[method];
+    result.method = http_method_from_str.at(method);
     result.target = target;
     result.path = path;
     result.query_string = query_string;
@@ -122,7 +128,8 @@ namespace http_msg_formatter {
 
     result += "HTTP/1.1 ";
     result += std::to_string(status_code);
-    result += " OK"; // TODO response reason phrases
+    result += " ";
+    result += response_reason_phrases.at(status_code);
 
     for (std::map<std::string, std::string>::iterator it = headers.begin(); it != headers.end(); it++) {
       result += "\r\n";

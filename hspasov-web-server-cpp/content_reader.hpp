@@ -33,20 +33,24 @@ class ContentReader {
       if (fd < 0) {
         // TODO handle file does not exist, file is a directory...
 
-        throw Error(OSERR, "open: " + std::string(std::strerror(errno)));
+        std::string err_msg = "open: " + std::string(std::strerror(errno));
+
+        if (errno == EISDIR || errno == ENOENT) {
+          throw Error(CLIENTERR, err_msg);
+        } else {
+          throw Error(OSERR, err_msg);
+        }
       }
 
       struct stat statbuf;
 
       if (fstat(fd, &statbuf) < 0) {
-        // TODO check different errnos if necessary
         this->close();
         throw Error(OSERR, "fstat: " + std::string(std::strerror(errno)));
       }
 
       // check whether it is not regular file
       if (!S_ISREG(statbuf.st_mode)) {
-        // TODO handle this case
         this->close();
         throw Error(CLIENTERR, "requested file is not regular");
       }

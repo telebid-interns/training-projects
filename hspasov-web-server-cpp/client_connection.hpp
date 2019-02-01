@@ -63,7 +63,7 @@ class ClientConnection {
 
       while (true) {
         if (this->req_meta_raw.size() > Config::config["req_meta_limit"].GetUint()) {
-          // TODO send 400
+          this->send_meta(400);
           return;
         }
 
@@ -71,6 +71,7 @@ class ClientConnection {
         fields.msg = "receiving data...";
         Logger::error(fields);
 
+        // TODO add timeout
         this->conn.receive();
 
         this->req_meta_raw.append(this->conn.recv_buffer, this->conn.bytes_received_amount);
@@ -79,7 +80,9 @@ class ClientConnection {
           error_log_fields fields = { DEBUG };
           fields.msg = "connection closed by peer";
           Logger::error(fields);
-          // TODO handle
+
+          this->state = CLOSED;
+          return;
         }
 
         size_t double_crlf_pos = this->req_meta_raw.find("\r\n\r\n");
@@ -106,7 +109,12 @@ class ClientConnection {
       fields.msg = "Parsing request msg..";
       Logger::error(fields);
 
-      this->req_meta = http_msg_formatter::parse_req_meta(this->req_meta_raw);
+      try {
+        this->req_meta = http_msg_formatter::parse_req_meta(this->req_meta_raw);
+      } catch (Error err) {
+        this->send_meta(400);
+        return;
+      }
 
       // TODO refactor this
       std::string req_meta_stringified = "method: ";
@@ -166,14 +174,14 @@ class ClientConnection {
       this->conn.shutdown();
     }
 
-    void send_meta (int status_code, std::map<std::string, std::string> headers) {
+    void send_meta (const int status_code, std::map<std::string, std::string> headers = std::map<std::string, std::string>()) {
       error_log_fields fields = { DEBUG };
       fields.var_name = "status_code";
       fields.var_value = status_code;
       Logger::error(fields);
 
       // TODO print headers
-      // TODO assert status code valid
+      assert(http_msg_formatter::response_reason_phrases.find(status_code) != http_msg_formatter::response_reason_phrases.end());
 
       this->state = SENDING;
 
@@ -186,6 +194,10 @@ class ClientConnection {
       std::string res_meta_msg = http_msg_formatter::build_res_meta(status_code, headers);
 
       this->conn.send(res_meta_msg);
+    }
+
+    void shutdown () {
+      this->conn.shutdown();
     }
 };
 

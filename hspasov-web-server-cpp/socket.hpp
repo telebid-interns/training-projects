@@ -40,12 +40,18 @@ class Socket {
       Logger::error(fields);
 
       if (::shutdown(this->_fd, SHUT_RDWR) < 0) {
-        error_log_fields fields = { ERROR };
-        fields.msg = "shutdown: " + std::string(std::strerror(errno));
-        Logger::error(fields);
+        std::string err_msg = "shutdown: " + std::string(std::strerror(errno));
 
-        throw Error(OSERR, "shutdown: " + std::string(std::strerror(errno)));
-        // TODO improve error handling
+        if (errno == ENOTCONN) {
+          throw Error(CLIENTERR, err_msg);
+        } else {
+          // TODO avoid duplicate logging
+          error_log_fields fields = { ERROR };
+          fields.msg = err_msg;
+          Logger::error(fields);
+
+          throw Error(OSERR, err_msg);
+        }
       }
     }
 

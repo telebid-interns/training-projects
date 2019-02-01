@@ -24,7 +24,7 @@ class Error {
       std::cerr << msg << std::endl;
     }
 
-    std::ostream& operator<<(std::ostream& out) {
+    std::ostream& operator<<(std::ostream& out) const {
       out << this->_msg;
       return out;
     }

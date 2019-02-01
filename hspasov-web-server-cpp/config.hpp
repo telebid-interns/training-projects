@@ -7,10 +7,9 @@
 #include <unistd.h>
 #include "rapidjson/document.h"
 #include "rapidjson/schema.h"
+#include "rapidjson/stringbuffer.h"
 #include "error.hpp"
 
-// TODO maybe it should not be global like this
-// TODO add minimum and maximum for config parameters
 // TODO check if host config option can also be ip addr
 
 class Config {
@@ -24,7 +23,7 @@ class Config {
       const std::string config_schema_raw = Config::read_config_file(config_file_schema_path);
 
       if (config_schema_document.Parse(config_schema_raw.c_str()).HasParseError()) {
-        std::cerr << "JSON parsing error: " << std::endl; // TODO show where the error is
+        std::cerr << config_file_schema_path << ": JSON parsing error" << std::endl;
         exit(-1);
       }
 
@@ -34,12 +33,13 @@ class Config {
       const std::string config_raw = Config::read_config_file(config_file);
 
       if (Config::config.Parse(config_raw.c_str()).HasParseError()) {
-        std::cerr << "JSON parsing error: " << std::endl; // TODO show where the error is
+        std::cerr << config_file << ": JSON parsing error" << std::endl;
         exit(-1);
       }
 
       if (!Config::config.Accept(config_schema_validator)) {
-        std::cerr << "JSON validation error: " << std::endl; // TODO show where the error is
+        std::cerr << "config validation error: " << Config::get_validation_error(&config_schema_validator) << std::endl;
+        exit(-1);
       }
     }
 
@@ -49,8 +49,11 @@ class Config {
       const int fd = open(file_path.c_str(), O_RDONLY);
 
       if (fd < 0) {
-        // TODO check if file not exists
-        throw Error(OSERR, "open: " + std::string(std::strerror(errno)));
+        if (errno == ENOENT) {
+          throw Error(SERVERERR, file_path + ": file not found");
+        } else {
+          throw Error(OSERR, "open: " + std::string(std::strerror(errno)));
+        }
       }
 
       std::string file_content;
@@ -75,8 +78,23 @@ class Config {
 
       return file_content;
     }
+
+    static std::string get_validation_error (rapidjson::SchemaValidator* validator) {
+      std::string result;
+      rapidjson::StringBuffer buffer;
+
+      validator->GetInvalidSchemaPointer().StringifyUriFragment(buffer);
+
+      result += buffer.GetString();
+      result += "/";
+      result += validator->GetInvalidSchemaKeyword();
+
+      buffer.Clear();
+      return result;
+    }
 };
 
+// TODO maybe it should not be global like this
 rapidjson::Document Config::config;
 
 #endif

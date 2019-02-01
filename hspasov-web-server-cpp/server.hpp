@@ -117,7 +117,6 @@ class Server {
         ClientConnection client_conn = this->accept();
 
         // TODO fork
-        // TODO init access log
 
         error_log_fields fields = { DEBUG };
         fields.msg = "connection accepted";
@@ -125,13 +124,22 @@ class Server {
 
         client_conn.receive_meta();
 
-        if (client_conn.state != RECEIVING) {
-          // TODO handle error
+        if (client_conn.state == RECEIVING) {
+          client_conn.serve_static_file(client_conn.req_meta.path);
         }
 
-        client_conn.serve_static_file(client_conn.req_meta.path);
-        // TODO shutdown socket
-        // TODO close access log
+        try {
+          client_conn.shutdown();
+        } catch (const Error err) {
+          if (err._type == CLIENTERR) {
+            error_log_fields fields = { DEBUG };
+            fields.msg = "client already disconnected";
+            Logger::error(fields);
+          } else {
+            throw err;
+          }
+        }
+
         // TODO exit child process
       }
     }
