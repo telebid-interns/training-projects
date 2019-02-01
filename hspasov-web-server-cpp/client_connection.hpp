@@ -26,11 +26,32 @@ class ClientConnection {
     request_meta req_meta;
     response_meta res_meta;
     client_conn_state state;
+
     ClientConnection (const int conn)
       : conn(Socket(conn)), state(ESTABLISHED) {
 
+      Logger::init_access_log();
     }
-    // TODO later ~ClientConnection();
+
+    ~ClientConnection() {
+      try {
+        // TODO check if undefined:
+        access_log_fields fields;
+        fields.remote_addr = "NOT IMPL"; // TODO
+        fields.req_line = this->req_meta.req_line_raw;
+        fields.user_agent = this->req_meta.user_agent;
+        fields.status_code = res_meta.status_code;
+        fields.content_length = "NOT IMPL"; // TODO
+
+        Logger::access(fields);
+      } catch (Error err) {
+        // TODO handle
+        // TODO refactor this:
+        err.operator<<(std::cerr) << std::endl;
+      }
+
+      Logger::close_access_log();
+    }
 
     // TODO check why Socket cant be passed by reference
 

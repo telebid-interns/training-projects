@@ -33,7 +33,7 @@ class ContentReader {
       if (fd < 0) {
         // TODO handle file does not exist, file is a directory...
 
-        throw Error(ERROR, "open: " + std::string(std::strerror(errno)));
+        throw Error(OSERR, "open: " + std::string(std::strerror(errno)));
       }
 
       struct stat statbuf;
@@ -41,14 +41,14 @@ class ContentReader {
       if (fstat(fd, &statbuf) < 0) {
         // TODO check different errnos if necessary
         this->close();
-        throw Error(ERROR, "fstat: " + std::string(std::strerror(errno)));
+        throw Error(OSERR, "fstat: " + std::string(std::strerror(errno)));
       }
 
       // check whether it is not regular file
       if (!S_ISREG(statbuf.st_mode)) {
         // TODO handle this case
         this->close();
-        throw Error(DEBUG, "requested file is not regular");
+        throw Error(CLIENTERR, "requested file is not regular");
       }
 
       this->_fd = fd;
@@ -68,7 +68,7 @@ class ContentReader {
       ssize_t bytes_read = ::read(this->_fd, this->buffer, Config::config["read_buffer"].GetInt());
 
       if (bytes_read < 0) {
-        throw Error(ERROR, "read: " + std::string(std::strerror(errno)));
+        throw Error(OSERR, "read: " + std::string(std::strerror(errno)));
       }
 
       return bytes_read;

@@ -34,7 +34,7 @@ namespace web_server_utils {
 
   inline std::vector<std::string> split(std::string str, std::regex delimiter_pattern, bool excl_empty_tokens = false) {
     if (!excl_empty_tokens) {
-      throw Error(DEBUG, "incl empty tokens NOT IMPLEMENTED");
+      throw Error(APPERR, "incl empty tokens NOT IMPLEMENTED");
     }
 
     std::vector<std::string> result;

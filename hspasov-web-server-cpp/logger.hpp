@@ -264,17 +264,15 @@ class Logger {
     }
 
     static void text_file_write (const int fd, const std::string content) {
-      // TODO put buff size in config
-      const int buff_size = 1024;
       unsigned total_amount_bytes_written = 0;
       std::string content_to_write(content);
 
       while (total_amount_bytes_written < content.size()) {
-        const std::string content_to_write = content.substr(total_amount_bytes_written, buff_size);
+        const std::string content_to_write = content.substr(total_amount_bytes_written, Config::config["access_log_write_buffer"].GetInt());
         const int bytes_written_amount = write(fd, content_to_write.c_str(), content_to_write.size());
 
         if (bytes_written_amount < 0) {
-          throw Error(ERROR, "write: " + std::string(std::strerror(errno)));
+          throw Error(OSERR, "write: " + std::string(std::strerror(errno)));
         }
 
         total_amount_bytes_written += bytes_written_amount;

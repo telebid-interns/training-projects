@@ -24,7 +24,7 @@ class Server {
         fields.msg = "socket: " + std::string(std::strerror(errno));
         Logger::error(fields);
 
-        throw Error(ERROR, "socket: " + std::string(std::strerror(errno)));
+        throw Error(OSERR, "socket: " + std::string(std::strerror(errno)));
       }
 
       // setting socket options:
@@ -43,7 +43,7 @@ class Server {
           Logger::error(fields);
         }
 
-        throw Error(ERROR, "setsockopt: " + std::string(std::strerror(errno)));
+        throw Error(OSERR, "setsockopt: " + std::string(std::strerror(errno)));
       }
     }
 
@@ -61,7 +61,7 @@ class Server {
         fields.msg = "accept: " + std::string(std::strerror(errno));
         Logger::error(fields);
 
-        throw Error(DEBUG, "accept: " + std::string(std::strerror(errno)));
+        throw Error(OSERR, "accept: " + std::string(std::strerror(errno)));
 
         // TODO: " For  reliable operation the application should detect the network errors defined for the protocol after accept() and treat them like EAGAIN by retrying.  In the case of TCP/IP, these are ENETDOWN, EPROTO, ENOPROTOOPT, EHOSTDOWN, ENONET, EHOSTUNREACH, EOPNOTSUPP, and ENETUNREACH."
       }
@@ -83,9 +83,9 @@ class Server {
         fields.msg = "inet_pton: " + std::string(std::strerror(errno));
         Logger::error(fields);
 
-        throw Error(ERROR, "inet_pton: " + std::string(std::strerror(errno)));
+        throw Error(OSERR, "inet_pton: " + std::string(std::strerror(errno)));
       } else if (inet_pton_result == 0) {
-        throw Error(ERROR, "inet_pton got invalid network address");
+        throw Error(SERVERERR, "inet_pton got invalid network address");
       }
 
       sockaddr_in sa;
@@ -98,7 +98,7 @@ class Server {
         fields.msg = "bind: " + std::string(std::strerror(errno));
         Logger::error(fields);
 
-        throw Error(ERROR, "bind: " + std::string(std::strerror(errno)));
+        throw Error(OSERR, "bind: " + std::string(std::strerror(errno)));
       }
 
       if (listen(this->socket_fd, Config::config["backlog"].GetInt()) < 0) {
@@ -106,7 +106,7 @@ class Server {
         fields.msg = "listen: " + std::string(std::strerror(errno));
         Logger::error(fields);
 
-        throw Error(ERROR, "listen: " + std::string(std::strerror(errno)));
+        throw Error(OSERR, "listen: " + std::string(std::strerror(errno)));
       }
 
       error_log_fields fields = { DEBUG };

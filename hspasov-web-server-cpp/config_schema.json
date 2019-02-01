@@ -69,6 +69,10 @@
         "type": "string"
       }
     },
+    "access_log_write_buffer": {
+      "type": "integer",
+      "minimum": 1
+    },
     "access_log_field_sep": {
       "type": "string"
     },
@@ -100,6 +104,7 @@
     "access_log_enabled",
     "access_log_fields",
     "access_log_field_sep",
+    "access_log_write_buffer",
     "error_log_field_sep",
     "access_log_empty_field",
     "error_log_empty_field"

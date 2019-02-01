@@ -31,6 +31,7 @@
     "status_code",
     "content_length"
   ],
+  "access_log_write_buffer": 1024,
   "access_log_field_sep": "  ",
   "error_log_field_sep": "  ",
   "access_log_empty_field": "-",

@@ -44,7 +44,7 @@ class Socket {
         fields.msg = "shutdown: " + std::string(std::strerror(errno));
         Logger::error(fields);
 
-        throw Error(DEBUG, "shutdown: " + std::string(std::strerror(errno)));
+        throw Error(OSERR, "shutdown: " + std::string(std::strerror(errno)));
         // TODO improve error handling
       }
     }
@@ -64,7 +64,7 @@ class Socket {
 
         if (bytes_sent < 0) {
           // TODO handle case
-          throw Error(DEBUG, "send: " + std::string(std::strerror(errno)));
+          throw Error(OSERR, "send: " + std::string(std::strerror(errno)));
         } else if (bytes_sent == 0) {
           error_log_fields fields = { DEBUG };
           fields.msg = "0 bytes sent after calling send";
@@ -95,7 +95,7 @@ class Socket {
         fields.msg = "recv: " + std::string(std::strerror(errno));
         Logger::error(fields);
 
-        throw Error(DEBUG, "recv: " + std::string(std::strerror(errno)));
+        throw Error(OSERR, "recv: " + std::string(std::strerror(errno)));
       }
     }
 };

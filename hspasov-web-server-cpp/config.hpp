@@ -49,7 +49,8 @@ class Config {
       const int fd = open(file_path.c_str(), O_RDONLY);
 
       if (fd < 0) {
-        throw Error(DEBUG, "open: " + std::string(std::strerror(errno)));
+        // TODO check if file not exists
+        throw Error(OSERR, "open: " + std::string(std::strerror(errno)));
       }
 
       std::string file_content;
@@ -62,14 +63,14 @@ class Config {
         if (bytes_read_amount == 0) {
           break;
         } else if (bytes_read_amount < 0) {
-          throw Error(DEBUG, "read: " + std::string(std::strerror(errno)));
+          throw Error(OSERR, "read: " + std::string(std::strerror(errno)));
         } else {
           file_content.append(buffer, bytes_read_amount);
         }
       }
 
       if (close(fd) < 0) {
-        throw Error(DEBUG, "close: " + std::string(std::strerror(errno)));
+        throw Error(OSERR, "close: " + std::string(std::strerror(errno)));
       }
 
       return file_content;
