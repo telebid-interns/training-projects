@@ -17,11 +17,11 @@ class Config {
   public:
     static rapidjson::Document config;
 
-    static void init_config (const char* const config_file) {
+    static void init_config (const std::string config_file) {
       const std::string config_file_schema_path = "./config_schema.json";
       rapidjson::Document config_schema_document;
 
-      const std::string config_schema_raw = Config::read_config_file(config_file_schema_path.c_str());
+      const std::string config_schema_raw = Config::read_config_file(config_file_schema_path);
 
       if (config_schema_document.Parse(config_schema_raw.c_str()).HasParseError()) {
         std::cerr << "JSON parsing error: " << std::endl; // TODO show where the error is
@@ -43,10 +43,10 @@ class Config {
       }
     }
 
-    static std::string read_config_file (const char* const file_path) {
+    static std::string read_config_file (const std::string file_path) {
       // TODO add file size limit assert
 
-      const int fd = open(file_path, O_RDONLY);
+      const int fd = open(file_path.c_str(), O_RDONLY);
 
       if (fd < 0) {
         throw Error(DEBUG, "open: " + std::string(std::strerror(errno)));

@@ -25,7 +25,6 @@ class Socket {
         bytes_received_amount(0) {}
 
     ~Socket () {
-      std::cerr << "deallocated" << std::endl;
       delete this->recv_buffer;
       delete this->send_buffer;
 
@@ -53,16 +52,15 @@ class Socket {
     void send (const std::string data) {
       const int no_flags = 0;
       unsigned total_bytes_sent = 0;
+
       std::string remaining_data(data);
 
-      while (total_bytes_sent < data.length()) {
+      while (total_bytes_sent < data.size()) {
         std::string data_to_send(remaining_data, 0, Config::config["send_buffer"].GetInt());
 
-        strcpy(this->send_buffer, data_to_send.c_str());
+        data_to_send.copy(this->send_buffer, data_to_send.size(), 0);
 
-        std::cerr << "data to send: " << data_to_send << std::endl;
-
-        ssize_t bytes_sent = ::send(this->_fd, this->send_buffer, data_to_send.length(), no_flags);
+        ssize_t bytes_sent = ::send(this->_fd, this->send_buffer, data_to_send.size(), no_flags);
 
         if (bytes_sent < 0) {
           // TODO handle case
@@ -78,7 +76,7 @@ class Socket {
       }
 
       error_log_fields fields = { DEBUG };
-      fields.msg = "successfully sent";
+      fields.msg = "successfully sent " + std::to_string(total_bytes_sent);
       fields.var_name = "data";
       fields.var_value = data;
       Logger::error(fields);

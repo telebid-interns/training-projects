@@ -82,7 +82,7 @@ namespace web_server_utils {
     CURL *handle = curl_easy_init();
 
     int unescaped_length;
-    char* unescaped_raw = curl_easy_unescape(handle, str.c_str(), str.length(), &unescaped_length);
+    char* unescaped_raw = curl_easy_unescape(handle, str.c_str(), str.size(), &unescaped_length);
 
     std::string unescaped(unescaped_raw, unescaped_length);
 

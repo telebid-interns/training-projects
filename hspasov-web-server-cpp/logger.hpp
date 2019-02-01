@@ -144,7 +144,7 @@ class Logger {
         }
 
         if (Logger::selected_error_log_fields.at("var_name")) {
-          if (fields.var_name.length() > 0) {
+          if (fields.var_name.size() > 0) {
             fields_list.push_back(fields.var_name);
           } else {
             fields_list.push_back(Config::config["error_log_empty_field"].GetString());
@@ -152,7 +152,7 @@ class Logger {
         }
 
         if (Logger::selected_error_log_fields.at("var_value")) {
-          if (fields.var_value.length() > 0) {
+          if (fields.var_value.size() > 0) {
             fields_list.push_back(fields.var_value);
           } else {
             fields_list.push_back(Config::config["error_log_empty_field"].GetString());
@@ -160,7 +160,7 @@ class Logger {
         }
 
         if (Logger::selected_error_log_fields.at("msg")) {
-          if (fields.msg.length() > 0) {
+          if (fields.msg.size() > 0) {
             fields_list.push_back(fields.msg);
           } else {
             fields_list.push_back(Config::config["error_log_empty_field"].GetString());
@@ -203,7 +203,7 @@ class Logger {
           }
 
           if (Logger::selected_access_log_fields.at("remote_addr")) {
-            if (fields.remote_addr.length() > 0) {
+            if (fields.remote_addr.size() > 0) {
               fields_list.push_back(fields.remote_addr);
             } else {
               fields_list.push_back(Config::config["access_log_empty_field"].GetString());
@@ -211,7 +211,7 @@ class Logger {
           }
 
           if (Logger::selected_access_log_fields.at("req_line")) {
-            if (fields.req_line.length() > 0) {
+            if (fields.req_line.size() > 0) {
               fields_list.push_back(fields.req_line);
             } else {
               fields_list.push_back(Config::config["access_log_empty_field"].GetString());
@@ -219,7 +219,7 @@ class Logger {
           }
 
           if (Logger::selected_access_log_fields.at("user_agent")) {
-            if (fields.user_agent.length() > 0) {
+            if (fields.user_agent.size() > 0) {
               fields_list.push_back(fields.user_agent);
             } else {
               fields_list.push_back(Config::config["access_log_empty_field"].GetString());
@@ -227,7 +227,7 @@ class Logger {
           }
 
           if (Logger::selected_access_log_fields.at("status_code")) {
-            if (fields.status_code.length() > 0) {
+            if (fields.status_code.size() > 0) {
               fields_list.push_back(fields.status_code);
             } else {
               fields_list.push_back(Config::config["access_log_empty_field"].GetString());
@@ -235,7 +235,7 @@ class Logger {
           }
 
           if (Logger::selected_access_log_fields.at("content_length")) {
-            if (fields.content_length.length() > 0) {
+            if (fields.content_length.size() > 0) {
               fields_list.push_back(fields.content_length);
             } else {
               fields_list.push_back(Config::config["access_log_empty_field"].GetString());
@@ -269,9 +269,9 @@ class Logger {
       unsigned total_amount_bytes_written = 0;
       std::string content_to_write(content);
 
-      while (total_amount_bytes_written < content.length()) {
+      while (total_amount_bytes_written < content.size()) {
         const std::string content_to_write = content.substr(total_amount_bytes_written, buff_size);
-        const int bytes_written_amount = write(fd, content_to_write.c_str(), content_to_write.length());
+        const int bytes_written_amount = write(fd, content_to_write.c_str(), content_to_write.size());
 
         if (bytes_written_amount < 0) {
           throw Error(ERROR, "write: " + std::string(std::strerror(errno)));

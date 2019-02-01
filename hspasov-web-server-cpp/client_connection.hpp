@@ -40,7 +40,7 @@ class ClientConnection {
       this->state = RECEIVING;
 
       while (true) {
-        if (this->req_meta_raw.length() > Config::config["req_meta_limit"].GetUint()) {
+        if (this->req_meta_raw.size() > Config::config["req_meta_limit"].GetUint()) {
           // TODO send 400
           return;
         }
@@ -69,8 +69,8 @@ class ClientConnection {
 
           std::string body_beg = this->req_meta_raw.substr(double_crlf_pos);
           body_beg.erase(0, 4); // remove CR-LF-CR-LF at the beginning
-          strcpy(this->conn.recv_buffer, body_beg.c_str());
-          this->conn.bytes_received_amount = body_beg.length();
+          body_beg.copy(this->conn.recv_buffer, body_beg.size(), 0);
+          this->conn.bytes_received_amount = body_beg.size();
 
           this->req_meta_raw = this->req_meta_raw.substr(0, double_crlf_pos);
 

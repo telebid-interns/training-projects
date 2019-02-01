@@ -87,7 +87,7 @@ namespace http_msg_formatter {
 
       const std::string field_name = (*it).substr(0, field_sep_pos);
 
-      if (field_name.length() != web_server_utils::trim(field_name).length()) {
+      if (field_name.size() != web_server_utils::trim(field_name).size()) {
         // TODO handle
         // return;
       }

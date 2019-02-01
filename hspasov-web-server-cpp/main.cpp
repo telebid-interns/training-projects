@@ -8,7 +8,7 @@
 int main (int argc, char** argv) {
   assert(argc == 2);
 
-  Config::init_config(argv[1]);
+  Config::init_config(std::string(argv[1]));
   Logger::init_logger();
 
   Server server = Server();
