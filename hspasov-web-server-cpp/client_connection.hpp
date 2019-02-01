@@ -142,36 +142,43 @@ class ClientConnection {
       fields.var_value = web_server_utils::resolve_static_file_path(path).c_str();
       Logger::error(fields);
 
-      ContentReader reader(path);
+      try {
+        ContentReader reader(path);
 
-      // TODO add consts
-      std::map<std::string, std::string> headers = {
-        { "Content-Length", std::to_string(reader.file_size()) },
-      };
+        // TODO add consts
+        std::map<std::string, std::string> headers = {
+          { "Content-Length", std::to_string(reader.file_size()) },
+        };
 
-      this->send_meta(200, headers);
+        this->send_meta(200, headers);
 
-      // TODO count packages sent
+        // TODO count packages sent
 
-      while (true) {
-        ssize_t bytes_read = reader.read();
+        while (true) {
+          ssize_t bytes_read = reader.read();
 
-          // TODO check if all fds are being properly closed on errors
-        if (bytes_read == 0) {
-          error_log_fields fields = { DEBUG };
-          fields.msg = "end of file reached while reading";
-          Logger::error(fields);
+            // TODO check if all fds are being properly closed on errors
+          if (bytes_read == 0) {
+            error_log_fields fields = { DEBUG };
+            fields.msg = "end of file reached while reading";
+            Logger::error(fields);
 
-          break;
+            break;
+          }
+
+          const std::string data(reader.buffer, bytes_read);
+
+          // TODO maybe it is not a good idea to convert data from char* to std::string and then back to char*
+          this->conn.send(data);
         }
-
-        const std::string data(reader.buffer, bytes_read);
-
-        // TODO maybe it is not a good idea to convert data from char* to std::string and then back to char*
-        this->conn.send(data);
+      } catch (const Error err) {
+        // TODO refactor error handling
+        if (err._type == CLIENTERR) {
+          this->send_meta(404);
+        } else {
+          throw err;
+        }
       }
-
-      this->conn.shutdown();
     }
 
     void send_meta (const int status_code, std::map<std::string, std::string> headers = std::map<std::string, std::string>()) {

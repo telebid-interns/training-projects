@@ -62,8 +62,6 @@ class Server {
         Logger::error(fields);
 
         throw Error(OSERR, "accept: " + std::string(std::strerror(errno)));
-
-        // TODO: " For  reliable operation the application should detect the network errors defined for the protocol after accept() and treat them like EAGAIN by retrying.  In the case of TCP/IP, these are ENETDOWN, EPROTO, ENOPROTOOPT, EHOSTDOWN, ENONET, EHOSTUNREACH, EOPNOTSUPP, and ENETUNREACH."
       }
 
       // TODO put addr in ClientConnection
@@ -118,28 +116,32 @@ class Server {
 
         // TODO fork
 
-        error_log_fields fields = { DEBUG };
-        fields.msg = "connection accepted";
-        Logger::error(fields);
-
-        client_conn.receive_meta();
-
-        if (client_conn.state == RECEIVING) {
-          client_conn.serve_static_file(client_conn.req_meta.path);
-        }
-
         try {
-          client_conn.shutdown();
-        } catch (const Error err) {
-          if (err._type == CLIENTERR) {
-            error_log_fields fields = { DEBUG };
-            fields.msg = "client already disconnected";
-            Logger::error(fields);
-          } else {
-            throw err;
-          }
-        }
+          error_log_fields fields = { DEBUG };
+          fields.msg = "connection accepted";
+          Logger::error(fields);
 
+          client_conn.receive_meta();
+
+          if (client_conn.state == RECEIVING) {
+            client_conn.serve_static_file(client_conn.req_meta.path);
+          }
+
+          try {
+            client_conn.shutdown();
+          } catch (const Error err) {
+            if (err._type == CLIENTERR) {
+              error_log_fields fields = { DEBUG };
+              fields.msg = "client already disconnected";
+              Logger::error(fields);
+            } else {
+              throw err;
+            }
+          }
+
+        } catch (const Error err) {
+          // TODO
+        }
         // TODO exit child process
       }
     }

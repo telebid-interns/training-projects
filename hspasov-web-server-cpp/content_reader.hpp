@@ -31,8 +31,6 @@ class ContentReader {
       const int fd = open(web_server_utils::resolve_static_file_path(file_path).c_str(), O_RDONLY);
 
       if (fd < 0) {
-        // TODO handle file does not exist, file is a directory...
-
         std::string err_msg = "open: " + std::string(std::strerror(errno));
 
         if (errno == EISDIR || errno == ENOENT) {
