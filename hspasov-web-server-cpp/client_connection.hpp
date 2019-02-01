@@ -8,6 +8,7 @@
 #include "logger.hpp"
 #include "config.hpp"
 #include "http_msg_formatter.hpp"
+#include "content_reader.hpp"
 
 enum client_conn_state {
   ESTABLISHED,
@@ -112,52 +113,22 @@ class ClientConnection {
       fields.var_value = web_server_utils::resolve_static_file_path(path).c_str();
       Logger::error(fields);
 
-      const int fd = open(web_server_utils::resolve_static_file_path(path).c_str(), O_RDONLY);
-
-      if (fd < 0) {
-        // TODO handle file does not exist, file is a dir...
-        throw Error(ERROR, "open: " + std::string(std::strerror(errno)));
-      }
-
-      fields.msg = "requested file opened";
-      Logger::error(fields);
-
-      struct stat statbuf;
-
-      if (fstat(fd, &statbuf) < 0) {
-        // TODO check different errnos if necessary
-        throw Error(ERROR, "fstat: " + std::string(std::strerror(errno)));
-      }
-
-      // check whether it is not regular file
-      if (!S_ISREG(statbuf.st_mode)) {
-        // TODO handle this case
-        throw Error(DEBUG, "requested file is not regular");
-      }
+      ContentReader reader(path);
 
       // TODO add consts
       std::map<std::string, std::string> headers = {
-        { "Content-Length", std::to_string(statbuf.st_size) },
+        { "Content-Length", std::to_string(reader.file_size()) },
       };
 
       this->send_meta(200, headers);
 
-      // TODO make a file reader wrapper
-      char* const buffer = new char[Config::config["read_buffer"].GetInt()];
-
       // TODO count packages sent
 
       while (true) {
-        ssize_t bytes_read = read(fd, buffer, Config::config["read_buffer"].GetInt());
+        ssize_t bytes_read = reader.read();
 
-        if (bytes_read < 0) {
           // TODO check if all fds are being properly closed on errors
-          delete buffer;
-
-          if (close(fd) < 0) {
-            throw Error(ERROR, "close: " + std::string(std::strerror(errno)));
-          }
-        } else if (bytes_read == 0) {
+        if (bytes_read == 0) {
           error_log_fields fields = { DEBUG };
           fields.msg = "end of file reached while reading";
           Logger::error(fields);
@@ -165,19 +136,13 @@ class ClientConnection {
           break;
         }
 
-        const std::string data(buffer, bytes_read);
+        const std::string data(reader.buffer, bytes_read);
 
         // TODO maybe it is not a good idea to convert data from char* to std::string and then back to char*
         this->conn.send(data);
       }
 
       this->conn.shutdown();
-
-      delete buffer;
-
-      if (close(fd) < 0) {
-        throw Error(ERROR, "close: " + std::string(std::strerror(errno)));
-      }
     }
 
     void send_meta (int status_code, std::map<std::string, std::string> headers) {
