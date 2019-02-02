@@ -44,10 +44,10 @@ class Server {
     ClientConnection accept () {
       Logger::error(DEBUG, {});
 
-      sockaddr addr;
+      sockaddr addr = {};
       socklen_t addrlen = sizeof(addr);
 
-      int client_conn_fd = ::accept(this->socket_fd, &addr, &addrlen);
+      int client_conn_fd = accept4(this->socket_fd, &addr, &addrlen, SOCK_CLOEXEC);
 
       if (client_conn_fd < 0) {
         Logger::error(ERROR, {{ "msg", "accept: " + std::string(std::strerror(errno)) }});
@@ -62,7 +62,7 @@ class Server {
 
     void run () {
       // https://en.wikipedia.org/wiki/Type_punning#Sockets_example
-      in_addr host;
+      in_addr host = {};
 
       int inet_pton_result = inet_pton(AF_INET, Config::config["host"].GetString(), &host);
 
@@ -75,12 +75,12 @@ class Server {
         throw Error(SERVERERR, "inet_pton got invalid network address");
       }
 
-      sockaddr_in sa;
+      sockaddr_in sa = {};
       sa.sin_family = AF_INET;
       sa.sin_port = htons(Config::config["port"].GetInt()); // host-to-network short. Makes sure number is stored in network byte order in memory, that means big-endian format (most significant byte comes first)
       sa.sin_addr = host;
 
-      if (bind(this->socket_fd, (sockaddr*)&sa, sizeof(sa)) < 0) {
+      if (bind(this->socket_fd, reinterpret_cast<sockaddr*>(&sa), sizeof(sa)) < 0) { // NOLINT
         Logger::error(ERROR, {{ "msg", "bind: " + std::string(std::strerror(errno)) }});
 
         throw Error(OSERR, "bind: " + std::string(std::strerror(errno)));

@@ -28,9 +28,9 @@ class ContentReader {
     explicit ContentReader (const std::string& file_path)
       : buffer(new char[Config::config["read_buffer"].GetInt()]) {
 
-      const int fd = open(web_server_utils::resolve_static_file_path(file_path).c_str(), O_RDONLY);
+      this->_fd = open(web_server_utils::resolve_static_file_path(file_path).c_str(), O_RDONLY | O_CLOEXEC, 0);
 
-      if (fd < 0) {
+      if (this->_fd < 0) {
         std::string err_msg = "open: " + std::string(std::strerror(errno));
 
         if (errno == EISDIR || errno == ENOENT) {
@@ -42,7 +42,7 @@ class ContentReader {
 
       struct stat statbuf = {};
 
-      if (fstat(fd, &statbuf) < 0) {
+      if (fstat(this->_fd, &statbuf) < 0) {
         this->destroy();
         throw Error(OSERR, "fstat: " + std::string(std::strerror(errno)));
       }
@@ -53,7 +53,6 @@ class ContentReader {
         throw Error(CLIENTERR, "requested file is not regular");
       }
 
-      this->_fd = fd;
       this->size = statbuf.st_size;
     }
 

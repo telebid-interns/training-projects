@@ -107,7 +107,7 @@ class ClientConnection {
 
       // TODO(hristo): refactor this
       std::string req_meta_stringified = "method: ";
-      req_meta_stringified += std::to_string(this->req_meta.method);
+      req_meta_stringified += this->req_meta.method;
       req_meta_stringified += "; target: ";
       req_meta_stringified += this->req_meta.target;
       req_meta_stringified += "; path: ";
@@ -151,7 +151,7 @@ class ClientConnection {
             break;
           }
 
-          const std::string data(reader.buffer, bytes_read, std::allocator<std::string>());
+          const std::string data(reader.buffer, bytes_read);
 
           // TODO(hristo): maybe it is not a good idea to convert data from char* to std::string and then back to char*
           this->conn.send(data);

@@ -133,6 +133,7 @@ namespace web_server_utils {
 
     return result;
   }
-}
+
+} // end namespace web_server_utils
 
 #endif

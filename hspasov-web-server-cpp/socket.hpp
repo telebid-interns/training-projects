@@ -1,13 +1,13 @@
 #ifndef SOCKET_HPP
 #define SOCKET_HPP
 
-#include <cerrno>
-#include <iostream>
-#include <unistd.h>
-#include <sys/socket.h>
 #include "config.hpp"
 #include "error.hpp"
 #include "logger.hpp"
+#include <cerrno>
+#include <iostream>
+#include <sys/socket.h>
+#include <unistd.h>
 
 class Socket {
   protected:
@@ -33,7 +33,7 @@ class Socket {
         send_buffer(new char[Config::config["send_buffer"].GetInt()]),
         bytes_received_amount(0) {
 
-      timeval recv_timeout;
+      timeval recv_timeout = {};
       recv_timeout.tv_sec = Config::config["socket_recv_timeout"].GetInt();
       recv_timeout.tv_usec = 0;
 
@@ -43,7 +43,7 @@ class Socket {
         throw Error(OSERR, "setsockopt: " + std::string(std::strerror(errno)));
       }
 
-      timeval send_timeout;
+      timeval send_timeout = {};
       send_timeout.tv_sec = Config::config["socket_send_timeout"].GetInt();
       send_timeout.tv_usec = 0;
 
@@ -113,12 +113,12 @@ class Socket {
 
         if (errno == ENOTCONN) {
           throw Error(CLIENTERR, err_msg);
-        } else {
-          // TODO avoid duplicate logging
-          Logger::error(ERROR, {{ "msg", err_msg }});
-
-          throw Error(OSERR, err_msg);
         }
+
+        // TODO avoid duplicate logging
+        Logger::error(ERROR, {{ "msg", err_msg }});
+
+        throw Error(OSERR, err_msg);
       }
     }
 
@@ -136,7 +136,7 @@ class Socket {
         ssize_t bytes_sent = ::send(this->_fd, this->send_buffer, data_to_send.size(), no_flags);
 
         if (bytes_sent < 0) {
-          // TODO handle case
+          // if send timeouts, end handling this request, nothing else can be done
           throw Error(OSERR, "send: " + std::string(std::strerror(errno)));
         }
 
@@ -163,9 +163,15 @@ class Socket {
       this->bytes_received_amount = recv(this->_fd, this->recv_buffer, Config::config["recv_buffer"].GetInt(), no_flags);
 
       if (this->bytes_received_amount < 0) {
-        Logger::error(ERROR, {{ "msg", "recv: " + std::string(std::strerror(errno)) }});
+        std::string err_msg = "recv: " + std::string(std::strerror(errno));
 
-        throw Error(OSERR, "recv: " + std::string(std::strerror(errno)));
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+          throw Error(CLIENTERR, err_msg);
+        }
+
+        Logger::error(ERROR, {{ "msg", err_msg }});
+
+        throw Error(OSERR, err_msg);
       }
     }
 };

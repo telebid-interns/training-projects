@@ -1,18 +1,18 @@
 #ifndef LOGGER_HPP
 #define LOGGER_HPP
 
+#include "rapidjson/document.h"
+#include "err_log_lvl.hpp"
+#include "config.hpp"
+#include "web_server_utils.hpp"
 #include <set>
 #include <map>
 #include <string>
 #include <list>
 #include <unistd.h>
-#include <stdlib.h>
+#include <cstdlib>
 #include <execinfo.h>
 #include <fcntl.h>
-#include "rapidjson/document.h"
-#include "err_log_lvl.hpp"
-#include "config.hpp"
-#include "web_server_utils.hpp"
 
 struct access_log_fields {
   std::string remote_addr;
@@ -33,8 +33,8 @@ class Logger {
   protected:
     static int access_log_fd;
     static std::map<const err_log_lvl, const std::string> err_log_lvl_str;
-    static std::set<const std::string> selected_error_log_fields;
-    static std::set<const std::string> selected_access_log_fields;
+    static std::set<std::string> selected_error_log_fields;
+    static std::set<std::string> selected_access_log_fields;
   public:
 
     static void init_logger () {
@@ -215,7 +215,6 @@ class Logger {
           std::string access_log_row;
 
           for (auto it = fields_list.begin(); it != fields_list.end(); ++it) {
-
             if (it != fields_list.begin()) {
               access_log_row.append(Config::config["error_log_field_sep"].GetString());
             }
@@ -244,16 +243,6 @@ class Logger {
         total_amount_bytes_written += bytes_written_amount;
       }
     }
-};
-
-int Logger::access_log_fd = -1;
-std::set<const std::string> Logger::selected_error_log_fields;
-std::set<const std::string> Logger::selected_access_log_fields;
-std::map<const err_log_lvl, const std::string> Logger::err_log_lvl_str = {
-  { ERROR, "ERROR" },
-  { INFO, "INFO" },
-  { WARNING, "WARNING" },
-  { DEBUG, "DEBUG" },
 };
 
 #endif

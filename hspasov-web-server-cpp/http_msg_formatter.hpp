@@ -29,7 +29,7 @@ struct response_meta {
 
 namespace http_msg_formatter {
 
-  const std::set<const std::string> allowed_http_methods = {
+  const std::set<std::string> allowed_http_methods = {
     "GET",
   };
 
@@ -85,7 +85,7 @@ namespace http_msg_formatter {
 
     std::map<const std::string, const std::string> headers;
 
-    for (std::vector<std::string>::const_iterator it = req_meta_lines.begin() + 1; it != req_meta_lines.end(); ++it) {
+    for (auto it = req_meta_lines.begin() + 1; it != req_meta_lines.end(); ++it) {
       const size_t field_sep_pos = (*it).find(":");
 
       if (field_sep_pos == std::string::npos) {
@@ -104,7 +104,7 @@ namespace http_msg_formatter {
       headers.insert(std::pair<const std::string, const std::string>(field_name, field_value));
     }
 
-    std::string user_agent = "";
+    std::string user_agent;
 
     if (headers.find("User-Agent") != headers.end()) {
       user_agent = headers.at("User-Agent");
@@ -143,6 +143,7 @@ namespace http_msg_formatter {
 
     return result;
   }
-}
+
+} // end namespace http_msg_formatter
 
 #endif

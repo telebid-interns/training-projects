@@ -2,8 +2,8 @@
 #define CONFIG_H
 
 #include "rapidjson/stringbuffer.h"
-#include "rapidjson/document.h"
 #include "rapidjson/schema.h"
+#include "rapidjson/document.h"
 #include "error.hpp"
 #include <iostream>
 #include <cerrno>
