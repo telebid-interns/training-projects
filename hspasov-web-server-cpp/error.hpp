@@ -1,8 +1,8 @@
 #ifndef ERROR_HPP
 #define ERROR_HPP
 
-#include <string>
 #include <iostream>
+#include <string>
 
 enum error_type {
   OSERR,
@@ -11,23 +11,22 @@ enum error_type {
   APPERR,
 };
 
-class Error {
-  protected:
-    const std::string _msg;
+class Error: public std::exception {
   public:
+    const std::string _msg;
     const error_type _type;
 
-    Error(error_type type, std::string msg)
+    Error(error_type type, const std::string& msg)
       : _msg(msg), _type(type) {
 
       // TODO remove:
       std::cerr << msg << std::endl;
     }
-
-    std::ostream& operator<<(std::ostream& out) const {
-      out << this->_msg;
-      return out;
-    }
 };
+
+inline std::ostream& operator<<(std::ostream& out, const Error& err) {
+  out << err._msg;
+  return out;
+}
 
 #endif

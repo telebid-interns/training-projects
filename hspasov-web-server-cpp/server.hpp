@@ -20,9 +20,7 @@ class Server {
       this->socket_fd = socket(AF_INET, SOCK_STREAM, 0);
 
       if (this->socket_fd < 0) {
-        error_log_fields fields = { ERROR };
-        fields.msg = "socket: " + std::string(std::strerror(errno));
-        Logger::error(fields);
+        Logger::error(DEBUG, {{ "msg", "socket: " + std::string(std::strerror(errno)) }});
 
         throw Error(OSERR, "socket: " + std::string(std::strerror(errno)));
       }
@@ -32,15 +30,11 @@ class Server {
       const int on = 1;
 
       if (setsockopt(this->socket_fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0) {
-        error_log_fields fields = { ERROR };
-        fields.msg = "setsockopt: " + std::string(std::strerror(errno));
-        Logger::error(fields);
+        Logger::error(ERROR, {{ "msg", std::string(std::strerror(errno)) }});
 
         // because destructor would not be called after throw in constructor
         if (close(this->socket_fd) < 0) {
-          error_log_fields fields = { ERROR };
-          fields.msg = "close: " + std::string(std::strerror(errno));
-          Logger::error(fields);
+          Logger::error(ERROR, {{ "msg", "close: " + std::string(std::strerror(errno)) }});
         }
 
         throw Error(OSERR, "setsockopt: " + std::string(std::strerror(errno)));
@@ -48,8 +42,7 @@ class Server {
     }
 
     ClientConnection accept () {
-      error_log_fields fields = { DEBUG };
-      Logger::error(fields);
+      Logger::error(DEBUG, {});
 
       sockaddr addr;
       socklen_t addrlen = sizeof(addr);
@@ -57,9 +50,7 @@ class Server {
       int client_conn_fd = ::accept(this->socket_fd, &addr, &addrlen);
 
       if (client_conn_fd < 0) {
-        error_log_fields fields = { ERROR };
-        fields.msg = "accept: " + std::string(std::strerror(errno));
-        Logger::error(fields);
+        Logger::error(ERROR, {{ "msg", "accept: " + std::string(std::strerror(errno)) }});
 
         throw Error(OSERR, "accept: " + std::string(std::strerror(errno)));
       }
@@ -77,9 +68,7 @@ class Server {
 
       // TODO resolve host to ip address using getaddrinfo
       if (inet_pton_result < 0) {
-        error_log_fields fields = { ERROR };
-        fields.msg = "inet_pton: " + std::string(std::strerror(errno));
-        Logger::error(fields);
+        Logger::error(ERROR, {{ "msg", "inet_pton: " + std::string(std::strerror(errno)) }});
 
         throw Error(OSERR, "inet_pton: " + std::string(std::strerror(errno)));
       } else if (inet_pton_result == 0) {
@@ -92,24 +81,18 @@ class Server {
       sa.sin_addr = host;
 
       if (bind(this->socket_fd, (sockaddr*)&sa, sizeof(sa)) < 0) {
-        error_log_fields fields = { ERROR };
-        fields.msg = "bind: " + std::string(std::strerror(errno));
-        Logger::error(fields);
+        Logger::error(ERROR, {{ "msg", "bind: " + std::string(std::strerror(errno)) }});
 
         throw Error(OSERR, "bind: " + std::string(std::strerror(errno)));
       }
 
       if (listen(this->socket_fd, Config::config["backlog"].GetInt()) < 0) {
-        error_log_fields fields = { ERROR };
-        fields.msg = "listen: " + std::string(std::strerror(errno));
-        Logger::error(fields);
+        Logger::error(ERROR, {{ "msg", "listen: " + std::string(std::strerror(errno)) }});
 
         throw Error(OSERR, "listen: " + std::string(std::strerror(errno)));
       }
 
-      error_log_fields fields = { DEBUG };
-      fields.msg = "Listening on " + std::to_string(Config::config["port"].GetInt());
-      Logger::error(fields);
+      Logger::error(DEBUG, {{ "msg", "Listening on " + std::to_string(Config::config["port"].GetInt()) }});
 
       while (true) {
         ClientConnection client_conn = this->accept();
@@ -117,9 +100,7 @@ class Server {
         // TODO fork
 
         try {
-          error_log_fields fields = { DEBUG };
-          fields.msg = "connection accepted";
-          Logger::error(fields);
+          Logger::error(DEBUG, {{ "msg", "connection accepted" }});
 
           client_conn.receive_meta();
 
@@ -129,17 +110,15 @@ class Server {
 
           try {
             client_conn.shutdown();
-          } catch (const Error err) {
+          } catch (const Error& err) {
             if (err._type == CLIENTERR) {
-              error_log_fields fields = { DEBUG };
-              fields.msg = "client already disconnected";
-              Logger::error(fields);
+              Logger::error(DEBUG, {{ "msg", "client already disconnected" }});
             } else {
-              throw err;
+              throw;
             }
           }
 
-        } catch (const Error err) {
+        } catch (const Error& err) {
           // TODO
         }
         // TODO exit child process
@@ -148,9 +127,7 @@ class Server {
 
     ~Server () {
       if (close(this->socket_fd) < 0) {
-        error_log_fields fields = { ERROR };
-        fields.msg = "close: " + std::string(std::strerror(errno));
-        Logger::error(fields);
+        Logger::error(ERROR, {{ "msg", "close: " + std::string(std::strerror(errno)) }});
       }
     }
 };

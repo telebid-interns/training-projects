@@ -1,14 +1,14 @@
-#ifndef CONFIG_HPP
-#define CONFIG_HPP
+#ifndef CONFIG_H
+#define CONFIG_H
 
+#include "rapidjson/stringbuffer.h"
+#include "rapidjson/document.h"
+#include "rapidjson/schema.h"
+#include "error.hpp"
 #include <iostream>
 #include <cerrno>
 #include <fcntl.h>
 #include <unistd.h>
-#include "rapidjson/document.h"
-#include "rapidjson/schema.h"
-#include "rapidjson/stringbuffer.h"
-#include "error.hpp"
 
 // TODO check if host config option can also be ip addr
 
@@ -16,7 +16,7 @@ class Config {
   public:
     static rapidjson::Document config;
 
-    static void init_config (const std::string config_file) {
+    static void init_config (const std::string& config_file) {
       const std::string config_file_schema_path = "./config_schema.json";
       rapidjson::Document config_schema_document;
 
@@ -43,17 +43,17 @@ class Config {
       }
     }
 
-    static std::string read_config_file (const std::string file_path) {
+    static std::string read_config_file (const std::string& file_path) {
       // TODO add file size limit assert
 
-      const int fd = open(file_path.c_str(), O_RDONLY);
+      const int fd = open(file_path.c_str(), O_RDONLY | O_CLOEXEC, 0);
 
       if (fd < 0) {
         if (errno == ENOENT) {
           throw Error(SERVERERR, file_path + ": file not found");
-        } else {
-          throw Error(OSERR, "open: " + std::string(std::strerror(errno)));
         }
+
+        throw Error(OSERR, "open: " + std::string(std::strerror(errno)));
       }
 
       std::string file_content;
@@ -61,15 +61,17 @@ class Config {
       while (true) {
         const int buff_size = 10;
         char buffer[buff_size];
-        const ssize_t bytes_read_amount = read(fd, buffer, buff_size);
+        const ssize_t bytes_read_amount = read(fd, static_cast<char*>(buffer), buff_size);
 
         if (bytes_read_amount == 0) {
           break;
-        } else if (bytes_read_amount < 0) {
-          throw Error(OSERR, "read: " + std::string(std::strerror(errno)));
-        } else {
-          file_content.append(buffer, bytes_read_amount);
         }
+
+        if (bytes_read_amount < 0) {
+          throw Error(OSERR, "read: " + std::string(std::strerror(errno)));
+        }
+
+        file_content.append(static_cast<char*>(buffer), bytes_read_amount);
       }
 
       if (close(fd) < 0) {
@@ -93,8 +95,5 @@ class Config {
       return result;
     }
 };
-
-// TODO maybe it should not be global like this
-rapidjson::Document Config::config;
 
 #endif

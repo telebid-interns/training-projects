@@ -12,27 +12,27 @@
 namespace web_server_utils {
 
   inline bool is_fd_open (const int fd) {
-    return fcntl(fd, F_GETFD) != -1 || errno != EBADF;
+    return fcntl(fd, F_GETFD, 0) != -1 || errno != EBADF;
   }
 
   inline std::string get_current_time () {
     const int time_str_max_chars = 20;
     char time_str[time_str_max_chars];
-    timeval time;
+    timeval time = {};
 
     gettimeofday(&time, nullptr);
 
     tm* timeinfo = std::localtime(&time.tv_sec);
-    strftime(time_str, time_str_max_chars, "%Y-%m-%d %H:%M:%S", timeinfo);
+    strftime(static_cast<char*>(time_str), time_str_max_chars, "%Y-%m-%d %H:%M:%S", timeinfo);
 
-    std::string result_str(time_str);
+    std::string result_str(static_cast<char*>(time_str));
     result_str.append(".");
     result_str.append(std::to_string(time.tv_usec));
 
     return result_str;
   }
 
-  inline std::vector<std::string> split(std::string str, std::regex delimiter_pattern, bool excl_empty_tokens = false) {
+  inline std::vector<std::string> split(std::string str, const std::regex& delimiter_pattern, const bool excl_empty_tokens = false) {
     if (!excl_empty_tokens) {
       throw Error(APPERR, "incl empty tokens NOT IMPLEMENTED");
     }
@@ -53,22 +53,22 @@ namespace web_server_utils {
     return result;
   }
 
-  inline std::string ascii_letters_to_upper (const std::string str) {
+  inline std::string ascii_letters_to_upper (const std::string& str) {
     const int ascci_letter_case_diff = 'a' - 'A';
     std::string result;
 
-    for (std::string::const_iterator it = str.begin(); it != str.end(); it++) {
-      if (*it >= 'a' && *it <= 'z') {
-        result += *it - ascci_letter_case_diff;
+    for (char character : str) {
+      if (character >= 'a' && character <= 'z') {
+        result += static_cast<char>(character - ascci_letter_case_diff);
       } else {
-        result += *it;
+        result += character;
       }
     }
 
     return result;
   }
 
-  inline std::string trim (const std::string str) {
+  inline std::string trim (const std::string& str) {
     const std::regex leading_whitespace_pattern("^\\s*");
     const std::regex trailing_whitespace_pattern("\\s*$");
 
@@ -78,7 +78,7 @@ namespace web_server_utils {
   }
 
   // TODO check for memory leaks
-  inline std::string url_unescape (const std::string str) {
+  inline std::string url_unescape (const std::string& str) {
     CURL *handle = curl_easy_init();
 
     int unescaped_length;
@@ -92,10 +92,10 @@ namespace web_server_utils {
     return unescaped;
   }
 
-  inline std::string join (const std::vector<std::string> tokens, const std::string separator) {
+  inline std::string join (const std::vector<std::string>& tokens, const std::string& separator) {
     std::string result;
 
-    for (std::vector<std::string>::const_iterator it = tokens.begin(); it != tokens.end(); it++) {
+    for (auto it = tokens.begin(); it != tokens.end(); ++it) {
       if (it != tokens.begin()) {
         result += separator;
       }
@@ -106,7 +106,7 @@ namespace web_server_utils {
     return result;
   }
 
-  inline std::string resolve_static_file_path (const std::string path) {
+  inline std::string resolve_static_file_path (const std::string& path) {
     const bool split_excl_empty_tokens = true;
     const std::regex forw_slash_regex("/");
     const std::vector<std::string> root_path_split = web_server_utils::split(
@@ -133,7 +133,6 @@ namespace web_server_utils {
 
     return result;
   }
-
 }
 
 #endif

@@ -6,20 +6,21 @@
 #include <curl/curl.h>
 #include <iostream>
 
+rapidjson::Document Config::config;
+
 int main (int argc, char** argv) {
   assert(argc == 2);
 
   try {
     Config::init_config(std::string(argv[1]));
     Logger::init_logger();
-  } catch (const Error err) {
+  } catch (const Error& err) {
     if (err._type == SERVERERR) {
-      // TODO refactor this:
-      err.operator<<(std::cerr) << std::endl;
+      std::cerr << err << std::endl;
       return -1;
-    } else {
-      throw err;
     }
+
+    throw;
   }
 
   Server server = Server();

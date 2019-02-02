@@ -1,14 +1,14 @@
 #ifndef CLIENT_CONNECTION_HPP
 #define CLIENT_CONNECTION_HPP
 
-#include <string>
-#include <iostream>
-#include <sys/stat.h>
-#include "socket.hpp"
-#include "logger.hpp"
 #include "config.hpp"
-#include "http_msg_formatter.hpp"
 #include "content_reader.hpp"
+#include "http_msg_formatter.hpp"
+#include "logger.hpp"
+#include "socket.hpp"
+#include <iostream>
+#include <string>
+#include <sys/stat.h>
 
 enum client_conn_state {
   ESTABLISHED,
@@ -27,7 +27,7 @@ class ClientConnection {
     response_meta res_meta;
     client_conn_state state;
 
-    ClientConnection (const int conn)
+    explicit ClientConnection (const int conn)
       : conn(Socket(conn)), state(ESTABLISHED) {
 
       Logger::init_access_log();
@@ -35,64 +35,56 @@ class ClientConnection {
 
     ~ClientConnection() {
       try {
-        // TODO check if undefined:
+        // TODO(hristo): check if undefined:
         access_log_fields fields;
-        fields.remote_addr = "NOT IMPL"; // TODO
+        fields.remote_addr = "NOT IMPL"; // TODO(hristo): 
         fields.req_line = this->req_meta.req_line_raw;
         fields.user_agent = this->req_meta.user_agent;
         fields.status_code = res_meta.status_code;
-        fields.content_length = "NOT IMPL"; // TODO
+        fields.content_length = "NOT IMPL"; // TODO(hristo): 
 
         Logger::access(fields);
-      } catch (Error err) {
-        // TODO handle
-        // TODO refactor this:
-        err.operator<<(std::cerr) << std::endl;
+      } catch (const Error& err) {
+        // TODO(hristo): handle
+        std::cerr << err << std::endl;
       }
 
       Logger::close_access_log();
     }
 
-    // TODO check why Socket cant be passed by reference
+    // TODO(hristo): check why Socket cant be passed by reference
 
     void receive_meta () {
-      error_log_fields fields = { DEBUG };
-      Logger::error(fields);
+      Logger::error(DEBUG, {});
 
       this->state = RECEIVING;
 
       while (true) {
         if (this->req_meta_raw.size() > Config::config["req_meta_limit"].GetUint()) {
-          this->send_meta(400);
+          this->send_meta(400, std::map<std::string, std::string>());
           return;
         }
 
-        error_log_fields fields = { DEBUG };
-        fields.msg = "receiving data...";
-        Logger::error(fields);
+        Logger::error(DEBUG, {{ "msg", "receiving data..." }});
 
-        // TODO add timeout
+        // TODO(hristo): add timeout
         this->conn.receive();
 
         this->req_meta_raw.append(this->conn.recv_buffer, this->conn.bytes_received_amount);
 
         if (this->conn.bytes_received_amount == 0) {
-          error_log_fields fields = { DEBUG };
-          fields.msg = "connection closed by peer";
-          Logger::error(fields);
+          Logger::error(DEBUG, {{ "msg", "connection closed by peer" }});
 
           this->state = CLOSED;
           return;
         }
 
-        size_t double_crlf_pos = this->req_meta_raw.find("\r\n\r\n");
+        size_t double_crlf_pos = this->req_meta_raw.find("\r\n\r\n", 0);
 
         if (double_crlf_pos != std::string::npos) {
-          error_log_fields fields = { DEBUG };
-          fields.msg = "reached end of request meta";
-          Logger::error(fields);
+          Logger::error(DEBUG, {{ "msg", "reached end of request meta" }});
 
-          std::string body_beg = this->req_meta_raw.substr(double_crlf_pos);
+          std::string body_beg = this->req_meta_raw.substr(double_crlf_pos, std::string::npos);
           body_beg.erase(0, 4); // remove CR-LF-CR-LF at the beginning
           body_beg.copy(this->conn.recv_buffer, body_beg.size(), 0);
           this->conn.bytes_received_amount = body_beg.size();
@@ -103,22 +95,19 @@ class ClientConnection {
         }
       }
 
-      fields.msg = this->req_meta_raw;
-      Logger::error(fields);
-
-      fields.msg = "Parsing request msg..";
-      Logger::error(fields);
+      Logger::error(DEBUG, {{ "msg", this->req_meta_raw }});
+      Logger::error(DEBUG, {{ "msg", "Parsing request msg.." }});
 
       try {
         this->req_meta = http_msg_formatter::parse_req_meta(this->req_meta_raw);
-      } catch (Error err) {
-        this->send_meta(400);
+      } catch (const Error& err) {
+        this->send_meta(400, std::map<std::string, std::string>());
         return;
       }
 
-      // TODO refactor this
+      // TODO(hristo): refactor this
       std::string req_meta_stringified = "method: ";
-      req_meta_stringified += this->req_meta.method;
+      req_meta_stringified += std::to_string(this->req_meta.method);
       req_meta_stringified += "; target: ";
       req_meta_stringified += this->req_meta.target;
       req_meta_stringified += "; path: ";
@@ -130,75 +119,72 @@ class ClientConnection {
       req_meta_stringified += "; user agent: ";
       req_meta_stringified += this->req_meta.user_agent;
 
-      fields.msg = req_meta_stringified;
-      Logger::error(fields);
+      Logger::error(DEBUG, {{ "msg", req_meta_stringified }});
     }
 
-    void serve_static_file (const std::string path) {
-      // TODO add traces
+    void serve_static_file (const std::string& path) {
+      // TODO(hristo): add traces
 
-      error_log_fields fields = { DEBUG };
-      fields.var_name = "path";
-      fields.var_value = web_server_utils::resolve_static_file_path(path).c_str();
-      Logger::error(fields);
+      Logger::error(DEBUG, {
+        { "var_name", "path" },
+        { "var_value", web_server_utils::resolve_static_file_path(path) }
+      });
 
       try {
         ContentReader reader(path);
 
-        // TODO add consts
-        std::map<std::string, std::string> headers = {
-          { "Content-Length", std::to_string(reader.file_size()) },
-        };
+        // TODO(hristo): add consts
+        std::map<std::string, std::string> headers;
+        headers.insert(std::pair<std::string, std::string>("Content-Length", std::to_string(reader.file_size())));
 
         this->send_meta(200, headers);
 
-        // TODO count packages sent
+        // TODO(hristo): count packages sent
 
         while (true) {
           ssize_t bytes_read = reader.read();
 
-            // TODO check if all fds are being properly closed on errors
+            // TODO(hristo): check if all fds are being properly closed on errors
           if (bytes_read == 0) {
-            error_log_fields fields = { DEBUG };
-            fields.msg = "end of file reached while reading";
-            Logger::error(fields);
+            Logger::error(DEBUG, {{ "msg", "end of file reached while reading" }});
 
             break;
           }
 
-          const std::string data(reader.buffer, bytes_read);
+          const std::string data(reader.buffer, bytes_read, std::allocator<std::string>());
 
-          // TODO maybe it is not a good idea to convert data from char* to std::string and then back to char*
+          // TODO(hristo): maybe it is not a good idea to convert data from char* to std::string and then back to char*
           this->conn.send(data);
         }
-      } catch (const Error err) {
-        // TODO refactor error handling
+      } catch (const Error& err) {
+        // TODO(hristo): refactor error handling
         if (err._type == CLIENTERR) {
-          this->send_meta(404);
-        } else {
-          throw err;
+          this->send_meta(404, std::map<std::string, std::string>());
+          return;
         }
+
+        throw;
       }
     }
 
-    void send_meta (const int status_code, std::map<std::string, std::string> headers = std::map<std::string, std::string>()) {
-      error_log_fields fields = { DEBUG };
-      fields.var_name = "status_code";
-      fields.var_value = status_code;
-      Logger::error(fields);
+    void send_meta (const int status_code, const std::map<std::string, std::string>& headers) {
+      Logger::error(DEBUG, {
+        { "var_name", "status_code" },
+        { "var_value", std::to_string(status_code) }
+      });
 
-      // TODO print headers
+      // TODO(hristo): print headers
       assert(http_msg_formatter::response_reason_phrases.find(status_code) != http_msg_formatter::response_reason_phrases.end());
 
       this->state = SENDING;
 
       response_meta res_meta;
-      res_meta.status_code = status_code;
+      res_meta.status_code = std::to_string(status_code);
       res_meta.headers = headers;
 
       this->res_meta = res_meta;
 
-      std::string res_meta_msg = http_msg_formatter::build_res_meta(status_code, headers);
+      std::string res_meta_msg = http_msg_formatter::build_res_meta(status_code, headers, "");
 
       this->conn.send(res_meta_msg);
     }

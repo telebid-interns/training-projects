@@ -1,4 +1,4 @@
-CXXFLAGS = -lcurl -g -Wall -pedantic -rdynamic
+CXXFLAGS = -g -Wall -pedantic -rdynamic
 
 OBJ = main.o
 

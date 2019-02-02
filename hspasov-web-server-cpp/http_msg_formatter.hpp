@@ -1,22 +1,19 @@
 #ifndef HTTP_MSG_FORMATTER_HPP
 #define HTTP_MSG_FORMATTER_HPP
 
-#include <string>
-#include <map>
-#include <regex>
-#include <vector>
 #include "web_server_utils.hpp"
 #include "logger.hpp"
 #include "err_log_lvl.hpp"
 #include "error.hpp"
-
-enum http_method {
-  GET,
-};
+#include <string>
+#include <map>
+#include <set>
+#include <regex>
+#include <vector>
 
 struct request_meta {
   std::string req_line_raw;
-  http_method method;
+  std::string method;
   std::string target;
   std::string path;
   std::string query_string;
@@ -32,8 +29,8 @@ struct response_meta {
 
 namespace http_msg_formatter {
 
-  const std::map<const std::string, const http_method> http_method_from_str = {
-    { "GET", GET },
+  const std::set<const std::string> allowed_http_methods = {
+    "GET",
   };
 
   const std::map<const int, const std::string> response_reason_phrases = {
@@ -46,15 +43,14 @@ namespace http_msg_formatter {
     { 503, "Service Unavailable" },
   };
 
-  inline request_meta parse_req_meta (const std::string req_meta) {
-    error_log_fields fields = { DEBUG };
-    Logger::error(fields);
+  inline request_meta parse_req_meta (const std::string& req_meta) {
+    Logger::error(DEBUG, {});
 
     const bool split_excl_empty_tokens = true;
 
     std::vector<std::string> req_meta_lines = web_server_utils::split(req_meta, std::regex("\\r\\n"), split_excl_empty_tokens);
 
-    if (req_meta_lines.size() < 1) {
+    if (req_meta_lines.empty()) {
       throw Error(CLIENTERR, "Invalid request");
     }
 
@@ -69,6 +65,10 @@ namespace http_msg_formatter {
     const std::string method = req_line_split[0];
     const std::string target = web_server_utils::url_unescape(req_line_split[1]);
     const std::string http_version = req_line_split[2];
+
+    if (allowed_http_methods.find(method) == allowed_http_methods.end()) {
+      throw Error(CLIENTERR, "Invalid request");
+    }
 
     std::string query_string;
     std::vector<std::string> target_split = web_server_utils::split(target, std::regex("\\?"), split_excl_empty_tokens);
@@ -85,7 +85,7 @@ namespace http_msg_formatter {
 
     std::map<const std::string, const std::string> headers;
 
-    for (std::vector<std::string>::const_iterator it = req_meta_lines.begin() + 1; it != req_meta_lines.end(); it++) {
+    for (std::vector<std::string>::const_iterator it = req_meta_lines.begin() + 1; it != req_meta_lines.end(); ++it) {
       const size_t field_sep_pos = (*it).find(":");
 
       if (field_sep_pos == std::string::npos) {
@@ -112,7 +112,7 @@ namespace http_msg_formatter {
 
     request_meta result;
     result.req_line_raw = req_line;
-    result.method = http_method_from_str.at(method);
+    result.method = method;
     result.target = target;
     result.path = path;
     result.query_string = query_string;
@@ -123,7 +123,7 @@ namespace http_msg_formatter {
     return result;
   }
 
-  inline std::string build_res_meta (int status_code, std::map<std::string, std::string> headers, std::string body = "") {
+  inline std::string build_res_meta (const int status_code, std::map<std::string, std::string> headers, const std::string& body = "") {
     std::string result;
 
     result += "HTTP/1.1 ";
@@ -131,11 +131,11 @@ namespace http_msg_formatter {
     result += " ";
     result += response_reason_phrases.at(status_code);
 
-    for (std::map<std::string, std::string>::iterator it = headers.begin(); it != headers.end(); it++) {
+    for (std::pair<std::string, std::string> header_content : headers) {
       result += "\r\n";
-      result += it->first;
+      result += header_content.first;
       result += ": ";
-      result += it->second;
+      result += header_content.second;
     }
 
     result += "\r\n\r\n";
