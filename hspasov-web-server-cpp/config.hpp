@@ -10,8 +10,6 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-// TODO check if host config option can also be ip addr
-
 class Config {
   public:
     static rapidjson::Document config;
@@ -44,8 +42,6 @@ class Config {
     }
 
     static std::string read_config_file (const std::string& file_path) {
-      // TODO add file size limit assert
-
       const int fd = open(file_path.c_str(), O_RDONLY | O_CLOEXEC, 0);
 
       if (fd < 0) {

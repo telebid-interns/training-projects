@@ -3,7 +3,6 @@
 
 #include "web_server_utils.hpp"
 #include "logger.hpp"
-#include "err_log_lvl.hpp"
 #include "error.hpp"
 #include <string>
 #include <map>
@@ -25,6 +24,7 @@ struct request_meta {
 struct response_meta {
   std::map<std::string, std::string> headers;
   std::string status_code;
+  int packages_sent;
 };
 
 namespace http_msg_formatter {
@@ -48,13 +48,13 @@ namespace http_msg_formatter {
 
     const bool split_excl_empty_tokens = true;
 
-    std::vector<std::string> req_meta_lines = web_server_utils::split(req_meta, std::regex("\\r\\n"), split_excl_empty_tokens);
+    const std::vector<std::string> req_meta_lines = web_server_utils::split(req_meta, std::regex("\\r\\n"), split_excl_empty_tokens);
 
     if (req_meta_lines.empty()) {
       throw Error(CLIENTERR, "Invalid request");
     }
 
-    std::string req_line = req_meta_lines[0];
+    const std::string req_line = req_meta_lines[0];
 
     const std::vector<std::string> req_line_split = web_server_utils::split(req_line, std::regex(" "), split_excl_empty_tokens);
 
@@ -71,7 +71,7 @@ namespace http_msg_formatter {
     }
 
     std::string query_string;
-    std::vector<std::string> target_split = web_server_utils::split(target, std::regex("\\?"), split_excl_empty_tokens);
+    const std::vector<std::string> target_split = web_server_utils::split(target, std::regex("\\?"), split_excl_empty_tokens);
 
     if (target_split.size() == 1) {
       query_string = "";
@@ -123,7 +123,7 @@ namespace http_msg_formatter {
     return result;
   }
 
-  inline std::string build_res_meta (const int status_code, std::map<std::string, std::string> headers, const std::string& body = "") {
+  inline std::string build_res_meta (const int status_code, const std::map<std::string, std::string>& headers, const std::string& body = "") {
     std::string result;
 
     result += "HTTP/1.1 ";

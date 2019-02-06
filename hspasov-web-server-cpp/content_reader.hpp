@@ -1,28 +1,28 @@
 #ifndef FILE_READER_HPP
 #define FILE_READER_HPP
 
-#include <cerrno>
-#include <sys/stat.h>
-#include <fcntl.h>
 #include "web_server_utils.hpp"
 #include "error.hpp"
 #include "logger.hpp"
 #include "config.hpp"
+#include <cerrno>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 class ContentReader {
   protected:
     int _fd;
-    size_t size;
 
     void destroy () {
       delete[] buffer;
 
       if (::close(this->_fd) < 0) {
-        Logger::error(ERROR, {{ "msg", "close: " + std::string(std::strerror(errno)) }});
+        Logger::error(ERROR, {{ MSG, "close: " + std::string(std::strerror(errno)) }});
       }
     }
 
   public:
+    size_t file_size;
     char* const buffer;
 
     explicit ContentReader (const std::string& file_path)
@@ -53,7 +53,7 @@ class ContentReader {
         throw Error(CLIENTERR, "requested file is not regular");
       }
 
-      this->size = statbuf.st_size;
+      this->file_size = statbuf.st_size;
     }
 
     ContentReader (const ContentReader& reader)
@@ -72,30 +72,26 @@ class ContentReader {
         this->buffer[i] = reader.buffer[i];
       }
 
-      this->size = reader.size;
+      this->file_size = reader.file_size;
     }
 
     ~ContentReader () {
       this->destroy();
     }
 
-    size_t file_size () {
-      return this->size;
-    }
-
     ContentReader& operator= (const ContentReader& reader) {
-      int new_fd = fcntl(reader._fd, F_DUPFD_CLOEXEC, 0);
+      const int new_fd = fcntl(reader._fd, F_DUPFD_CLOEXEC, 0);
 
       if (new_fd < 0) {
         throw Error(OSERR, "fcntl: " + std::string(std::strerror(errno)));
       }
 
       if (close(this->_fd) < 0) {
-        Logger::error(ERROR, {{ "msg", "close: " + std::string(std::strerror(errno)) }});
+        Logger::error(ERROR, {{ MSG, "close: " + std::string(std::strerror(errno)) }});
       }
 
       this->_fd = new_fd;
-      this->size = reader.size;
+      this->file_size = reader.file_size;
 
       for (int i = 0; i < Config::config["read_buffer"].GetInt(); i++) {
         this->buffer[i] = reader.buffer[i];
@@ -105,7 +101,7 @@ class ContentReader {
     }
 
     size_t read () {
-      ssize_t bytes_read = ::read(this->_fd, this->buffer, Config::config["read_buffer"].GetInt());
+      const ssize_t bytes_read = ::read(this->_fd, this->buffer, Config::config["read_buffer"].GetInt());
 
       if (bytes_read < 0) {
         throw Error(OSERR, "read: " + std::string(std::strerror(errno)));

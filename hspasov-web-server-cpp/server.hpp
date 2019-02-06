@@ -4,12 +4,14 @@
 #include <cerrno>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <netdb.h>
 #include <arpa/inet.h>
 #include "socket.hpp"
 #include "client_connection.hpp"
 #include "logger.hpp"
 #include "error.hpp"
 #include "config.hpp"
+#include "addrinfo_res.hpp"
 
 class Server {
   protected:
@@ -20,7 +22,7 @@ class Server {
       this->socket_fd = socket(AF_INET, SOCK_STREAM, 0);
 
       if (this->socket_fd < 0) {
-        Logger::error(DEBUG, {{ "msg", "socket: " + std::string(std::strerror(errno)) }});
+        Logger::error(DEBUG, {{ MSG, "socket: " + std::string(std::strerror(errno)) }});
 
         throw Error(OSERR, "socket: " + std::string(std::strerror(errno)));
       }
@@ -30,69 +32,68 @@ class Server {
       const int on = 1;
 
       if (setsockopt(this->socket_fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0) {
-        Logger::error(ERROR, {{ "msg", std::string(std::strerror(errno)) }});
+        Logger::error(ERROR, {{ MSG, std::string(std::strerror(errno)) }});
 
         // because destructor would not be called after throw in constructor
         if (close(this->socket_fd) < 0) {
-          Logger::error(ERROR, {{ "msg", "close: " + std::string(std::strerror(errno)) }});
+          Logger::error(ERROR, {{ MSG, "close: " + std::string(std::strerror(errno)) }});
         }
 
         throw Error(OSERR, "setsockopt: " + std::string(std::strerror(errno)));
       }
     }
 
-    ClientConnection accept () {
+    ClientConnection accept () const {
       Logger::error(DEBUG, {});
 
       sockaddr addr = {};
       socklen_t addrlen = sizeof(addr);
 
-      int client_conn_fd = accept4(this->socket_fd, &addr, &addrlen, SOCK_CLOEXEC);
+      const int client_conn_fd = accept4(this->socket_fd, &addr, &addrlen, SOCK_CLOEXEC);
 
       if (client_conn_fd < 0) {
-        Logger::error(ERROR, {{ "msg", "accept: " + std::string(std::strerror(errno)) }});
+        Logger::error(ERROR, {{ MSG, "accept: " + std::string(std::strerror(errno)) }});
 
         throw Error(OSERR, "accept: " + std::string(std::strerror(errno)));
       }
 
-      // TODO put addr in ClientConnection
+      char remote_addr_buffer[INET_ADDRSTRLEN];
 
-      return ClientConnection(client_conn_fd);
-    }
+      sockaddr_in* addr_in = reinterpret_cast<sockaddr_in*>(&addr);
 
-    void run () {
-      // https://en.wikipedia.org/wiki/Type_punning#Sockets_example
-      in_addr host = {};
-
-      int inet_pton_result = inet_pton(AF_INET, Config::config["host"].GetString(), &host);
-
-      // TODO resolve host to ip address using getaddrinfo
-      if (inet_pton_result < 0) {
-        Logger::error(ERROR, {{ "msg", "inet_pton: " + std::string(std::strerror(errno)) }});
-
-        throw Error(OSERR, "inet_pton: " + std::string(std::strerror(errno)));
-      } else if (inet_pton_result == 0) {
-        throw Error(SERVERERR, "inet_pton got invalid network address");
+      if (inet_ntop(AF_INET, &(addr_in->sin_addr), static_cast<char*>(remote_addr_buffer), INET_ADDRSTRLEN) == NULL) {
+        throw Error(OSERR, "inet_ntop: " + std::string(std::strerror(errno)));
       }
 
-      sockaddr_in sa = {};
-      sa.sin_family = AF_INET;
-      sa.sin_port = htons(Config::config["port"].GetInt()); // host-to-network short. Makes sure number is stored in network byte order in memory, that means big-endian format (most significant byte comes first)
-      sa.sin_addr = host;
+      const std::string remote_addr(static_cast<char*>(remote_addr_buffer));
+      unsigned short remote_port = htons(addr_in->sin_port);
 
-      if (bind(this->socket_fd, reinterpret_cast<sockaddr*>(&sa), sizeof(sa)) < 0) { // NOLINT
-        Logger::error(ERROR, {{ "msg", "bind: " + std::string(std::strerror(errno)) }});
+      return ClientConnection(client_conn_fd, remote_addr, remote_port);
+    }
 
-        throw Error(OSERR, "bind: " + std::string(std::strerror(errno)));
+    void run () const {
+      // https://en.wikipedia.org/wiki/Type_punning#Sockets_example
+
+      const AddrinfoRes addrinfo_results(Config::config["host"].GetString(), std::to_string(Config::config["port"].GetInt()));
+
+      for (addrinfo* res = addrinfo_results.addrinfo_res; res != NULL; res = res->ai_next) {
+        // TODO maybe should not throw on first failed bind
+        if (bind(this->socket_fd, res->ai_addr, res->ai_addrlen) < 0) { // NOLINT
+          Logger::error(ERROR, {{ MSG, "bind: " + std::string(std::strerror(errno)) }});
+
+          throw Error(OSERR, "bind: " + std::string(std::strerror(errno)));
+        }
+
+        break;
       }
 
       if (listen(this->socket_fd, Config::config["backlog"].GetInt()) < 0) {
-        Logger::error(ERROR, {{ "msg", "listen: " + std::string(std::strerror(errno)) }});
+        Logger::error(ERROR, {{ MSG, "listen: " + std::string(std::strerror(errno)) }});
 
         throw Error(OSERR, "listen: " + std::string(std::strerror(errno)));
       }
 
-      Logger::error(DEBUG, {{ "msg", "Listening on " + std::to_string(Config::config["port"].GetInt()) }});
+      Logger::error(DEBUG, {{ MSG, "Listening on " + std::to_string(Config::config["port"].GetInt()) }});
 
       while (true) {
         ClientConnection client_conn = this->accept();
@@ -100,7 +101,7 @@ class Server {
         // TODO fork
 
         try {
-          Logger::error(DEBUG, {{ "msg", "connection accepted" }});
+          Logger::error(DEBUG, {{ MSG, "connection accepted" }});
 
           client_conn.receive_meta();
 
@@ -112,7 +113,7 @@ class Server {
             client_conn.shutdown();
           } catch (const Error& err) {
             if (err._type == CLIENTERR) {
-              Logger::error(DEBUG, {{ "msg", "client already disconnected" }});
+              Logger::error(DEBUG, {{ MSG, "client already disconnected" }});
             } else {
               throw;
             }
@@ -127,7 +128,7 @@ class Server {
 
     ~Server () {
       if (close(this->socket_fd) < 0) {
-        Logger::error(ERROR, {{ "msg", "close: " + std::string(std::strerror(errno)) }});
+        Logger::error(ERROR, {{ MSG, "close: " + std::string(std::strerror(errno)) }});
       }
     }
 };

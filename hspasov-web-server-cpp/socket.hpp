@@ -18,7 +18,7 @@ class Socket {
       delete[] this->send_buffer;
 
       if (close(this->_fd) < 0) {
-        Logger::error(ERROR, {{ "msg", "close: " + std::string(std::strerror(errno)) }});
+        Logger::error(ERROR, {{ MSG, "close: " + std::string(std::strerror(errno)) }});
       }
     }
 
@@ -81,14 +81,14 @@ class Socket {
     }
 
     Socket& operator= (const Socket& socket) {
-      int new_fd = fcntl(socket._fd, F_DUPFD_CLOEXEC, 0);
+      const int new_fd = fcntl(socket._fd, F_DUPFD_CLOEXEC, 0);
 
       if (new_fd < 0) {
         throw Error(OSERR, "fcntl: " + std::string(std::strerror(errno)));
       }
 
       if (close(this->_fd) < 0) {
-        Logger::error(ERROR, {{ "msg", "close: " + std::string(std::strerror(errno)) }});
+        Logger::error(ERROR, {{ MSG, "close: " + std::string(std::strerror(errno)) }});
       }
 
       this->_fd = new_fd;
@@ -105,7 +105,7 @@ class Socket {
       return *this;
     }
 
-    void shutdown () {
+    void shutdown () const {
       Logger::error(DEBUG, {});
 
       if (::shutdown(this->_fd, SHUT_RDWR) < 0) {
@@ -116,24 +116,25 @@ class Socket {
         }
 
         // TODO avoid duplicate logging
-        Logger::error(ERROR, {{ "msg", err_msg }});
+        Logger::error(ERROR, {{ MSG, err_msg }});
 
         throw Error(OSERR, err_msg);
       }
     }
 
-    void send (const std::string& data) {
+    int send (const std::string& data) const {
+      int packages_sent = 0;
       const int no_flags = 0;
       unsigned total_bytes_sent = 0;
 
       std::string remaining_data(data);
 
       while (total_bytes_sent < data.size()) {
-        std::string data_to_send(remaining_data, 0, Config::config["send_buffer"].GetInt());
+        const std::string data_to_send(remaining_data, 0, Config::config["send_buffer"].GetInt());
 
         data_to_send.copy(this->send_buffer, data_to_send.size(), 0);
 
-        ssize_t bytes_sent = ::send(this->_fd, this->send_buffer, data_to_send.size(), no_flags);
+        const ssize_t bytes_sent = ::send(this->_fd, this->send_buffer, data_to_send.size(), no_flags);
 
         if (bytes_sent < 0) {
           // if send timeouts, end handling this request, nothing else can be done
@@ -141,18 +142,21 @@ class Socket {
         }
 
         if (bytes_sent == 0) {
-          Logger::error(DEBUG, {{ "msg", "0 bytes sent after calling send" }});
+          Logger::error(DEBUG, {{ MSG, "0 bytes sent after calling send" }});
         }
 
+        packages_sent++;
         total_bytes_sent += bytes_sent;
         remaining_data.erase(0, bytes_sent);
       }
 
       Logger::error(DEBUG, {
-        { "var_name", "data" },
-        { "var_value", data },
-        { "msg", "successfully sent " + std::to_string(total_bytes_sent) }
+        { VAR_NAME, "data" },
+        { VAR_VALUE, data },
+        { MSG, "successfully sent " + std::to_string(total_bytes_sent) }
       });
+
+      return packages_sent;
     }
 
     void receive () {
@@ -169,7 +173,7 @@ class Socket {
           throw Error(CLIENTERR, err_msg);
         }
 
-        Logger::error(ERROR, {{ "msg", err_msg }});
+        Logger::error(ERROR, {{ MSG, err_msg }});
 
         throw Error(OSERR, err_msg);
       }

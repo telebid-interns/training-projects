@@ -7,7 +7,7 @@
   "req_meta_limit": 8192,
   "backlog": 2000,
   "protocol": "HTTP/1.1",
-  "host": "127.0.0.1",
+  "host": "localhost",
   "port": 8081,
   "web_server_root": "/home/hristo/Documents/training-projects/hspasov-web-server-cpp/content",
   "document_root": "/html",

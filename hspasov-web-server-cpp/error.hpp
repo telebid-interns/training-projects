@@ -16,17 +16,12 @@ class Error: public std::exception {
     const std::string _msg;
     const error_type _type;
 
-    Error(error_type type, const std::string& msg)
+    Error(const error_type type, const std::string& msg)
       : _msg(msg), _type(type) {
 
       // TODO remove:
       std::cerr << msg << std::endl;
     }
 };
-
-inline std::ostream& operator<<(std::ostream& out, const Error& err) {
-  out << err._msg;
-  return out;
-}
 
 #endif

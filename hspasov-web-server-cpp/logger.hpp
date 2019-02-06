@@ -2,7 +2,6 @@
 #define LOGGER_HPP
 
 #include "rapidjson/document.h"
-#include "err_log_lvl.hpp"
 #include "config.hpp"
 #include "web_server_utils.hpp"
 #include <set>
@@ -13,6 +12,19 @@
 #include <cstdlib>
 #include <execinfo.h>
 #include <fcntl.h>
+
+enum error_log_params {
+  MSG,
+  VAR_NAME,
+  VAR_VALUE,
+};
+
+enum err_log_lvl {
+  ERROR,
+  INFO,
+  WARNING,
+  DEBUG,
+};
 
 struct access_log_fields {
   std::string remote_addr;
@@ -79,20 +91,19 @@ class Logger {
       Logger::access_log_fd = open(Config::config["access_log"].GetString(), O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0);
 
       if (Logger::access_log_fd < 0) {
-        Logger::error(ERROR, {{ "msg", "open: " + std::string(std::strerror(errno)) }});
+        Logger::error(ERROR, {{ MSG, "open: " + std::string(std::strerror(errno)) }});
       }
     }
 
     static void close_access_log () {
       if (close(Logger::access_log_fd) < 0) {
-        Logger::error(ERROR, {{ "msg", "close: " + std::string(std::strerror(errno)) }});
+        Logger::error(ERROR, {{ MSG, "close: " + std::string(std::strerror(errno)) }});
       }
 
       Logger::access_log_fd = -1;
     }
 
-    static void error (const err_log_lvl level, const std::map<std::string, std::string>& fields) {
-      // TODO check if invalid field option is passed
+    static void error (const err_log_lvl level, const std::map<error_log_params, std::string>& fields) {
       if (level <= Config::config["error_log_level"].GetInt()) {
         std::list<const std::string> fields_list;
 
@@ -122,24 +133,24 @@ class Logger {
         }
 
         if (Logger::selected_error_log_fields.find("var_name") != Logger::selected_error_log_fields.end()) {
-          if (fields.find("var_name") != fields.end()) {
-            fields_list.emplace_back(fields.at("var_name"));
+          if (fields.find(VAR_NAME) != fields.end()) {
+            fields_list.emplace_back(fields.at(VAR_NAME));
           } else {
             fields_list.emplace_back(Config::config["error_log_empty_field"].GetString());
           }
         }
 
         if (Logger::selected_error_log_fields.find("var_value") != Logger::selected_error_log_fields.end()) {
-          if (fields.find("var_value") != fields.end()) {
-            fields_list.emplace_back(fields.at("var_value"));
+          if (fields.find(VAR_VALUE) != fields.end()) {
+            fields_list.emplace_back(fields.at(VAR_VALUE));
           } else {
             fields_list.emplace_back(Config::config["error_log_empty_field"].GetString());
           }
         }
 
         if (Logger::selected_error_log_fields.find("msg") != Logger::selected_error_log_fields.end()) {
-          if (fields.find("msg") != fields.end()) {
-            fields_list.emplace_back(fields.at("msg"));
+          if (fields.find(MSG) != fields.end()) {
+            fields_list.emplace_back(fields.at(MSG));
           } else {
             fields_list.emplace_back(Config::config["error_log_empty_field"].GetString());
           }
@@ -160,7 +171,7 @@ class Logger {
     static void access (const access_log_fields& fields) {
       if (Config::config["access_log_enabled"].GetBool()) {
         if (!web_server_utils::is_fd_open(Logger::access_log_fd)) {
-          Logger::error(ERROR, {{ "msg", "Attempt to write in uninitialized access log file" }});
+          Logger::error(ERROR, {{ MSG, "Attempt to write in uninitialized access log file" }});
         } else {
           std::list<const std::string> fields_list;
 

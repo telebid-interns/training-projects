@@ -25,7 +25,7 @@ int main (int argc, char** argv) {
     Logger::init_logger();
   } catch (const Error& err) {
     if (err._type == SERVERERR) {
-      std::cerr << err << std::endl;
+      std::cerr << err._msg << std::endl;
       return -1;
     }
 
