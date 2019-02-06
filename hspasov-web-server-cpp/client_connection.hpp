@@ -6,6 +6,7 @@
 #include "http_msg_formatter.hpp"
 #include "logger.hpp"
 #include "socket.hpp"
+#include <numeric>
 #include <iostream>
 #include <string>
 #include <sys/stat.h>
@@ -23,8 +24,8 @@ class ClientConnection {
     Socket conn;
     std::string req_meta_raw;
   public:
-    const std::string remote_addr;
-    const unsigned short remote_port;
+    std::string remote_addr;
+    unsigned short remote_port;
     request_meta req_meta;
     response_meta res_meta;
     client_conn_state state;
@@ -32,10 +33,30 @@ class ClientConnection {
     explicit ClientConnection (const int conn, const std::string& addr, const unsigned short port)
       : conn(Socket(conn)), remote_addr(addr), remote_port(port), state(ESTABLISHED) {
 
+      Logger::error(DEBUG, {});
       Logger::init_access_log();
     }
 
-    ~ClientConnection() {
+    ClientConnection (const ClientConnection&) = delete;
+    ClientConnection operator= (const ClientConnection&) = delete;
+    ClientConnection& operator= (const ClientConnection&&) = delete;
+
+    ClientConnection (const ClientConnection&& client_conn)
+      : conn(std::move(client_conn.conn)),
+        req_meta_raw(std::move(client_conn.req_meta_raw)),
+        remote_addr(std::move(client_conn.remote_addr)),
+        remote_port(std::move(client_conn.remote_port)),
+        req_meta(std::move(client_conn.req_meta)),
+        res_meta(std::move(client_conn.res_meta)),
+        state(std::move(client_conn.state)) {
+
+      Logger::error(DEBUG, {});
+    }
+
+
+    ~ClientConnection () {
+      Logger::error(DEBUG, {});
+
       try {
         access_log_fields fields = {};
         fields.remote_addr = this->remote_addr;
@@ -43,7 +64,7 @@ class ClientConnection {
         fields.user_agent = this->req_meta.user_agent;
         fields.status_code = this->res_meta.status_code;
 
-        if (this->res_meta.headers.find("Content-Length") != this->res_meta.headers.end()) {
+        if (this->res_meta.headers.find("Content-Length") != this->res_meta.headers.cend()) {
           fields.content_length = this->res_meta.headers.at("Content-Length");
         }
 
@@ -64,7 +85,7 @@ class ClientConnection {
 
       while (true) {
         if (this->req_meta_raw.size() > Config::config["req_meta_limit"].GetUint()) {
-          this->send_meta(400, std::map<std::string, std::string>());
+          this->send_meta(400, std::map<const std::string, const std::string>());
           return;
         }
 
@@ -104,7 +125,7 @@ class ClientConnection {
       try {
         this->req_meta = http_msg_formatter::parse_req_meta(this->req_meta_raw);
       } catch (const Error& err) {
-        this->send_meta(400, std::map<std::string, std::string>());
+        this->send_meta(400, std::map<const std::string, const std::string>());
         return;
       }
 
@@ -126,8 +147,6 @@ class ClientConnection {
     }
 
     void serve_static_file (const std::string& path) {
-      // TODO(hristo): add traces
-
       Logger::error(DEBUG, {
         { VAR_NAME, "path" },
         { VAR_VALUE, web_server_utils::resolve_static_file_path(path) }
@@ -136,9 +155,8 @@ class ClientConnection {
       try {
         ContentReader reader(path);
 
-        // TODO(hristo): add consts
-        std::map<std::string, std::string> headers;
-        headers.insert(std::pair<std::string, std::string>("Content-Length", std::to_string(reader.file_size)));
+        std::map<const std::string, const std::string> headers;
+        headers.insert(std::pair<const std::string, const std::string>("Content-Length", std::to_string(reader.file_size)));
 
         this->send_meta(200, headers);
 
@@ -162,7 +180,7 @@ class ClientConnection {
       } catch (const Error& err) {
         // TODO(hristo): refactor error handling
         if (err._type == CLIENTERR) {
-          this->send_meta(404, std::map<std::string, std::string>());
+          this->send_meta(404, std::map<const std::string, const std::string>());
           return;
         }
 
@@ -170,14 +188,18 @@ class ClientConnection {
       }
     }
 
-    void send_meta (const int status_code, const std::map<std::string, std::string>& headers) {
+    void send_meta (const int status_code, const std::map<const std::string, const std::string>& headers) {
       Logger::error(DEBUG, {
         { VAR_NAME, "status_code" },
-        { VAR_VALUE, std::to_string(status_code) }
+        { VAR_VALUE, std::to_string(status_code) },
       });
 
-      // TODO(hristo): print headers
-      assert(http_msg_formatter::response_reason_phrases.find(status_code) != http_msg_formatter::response_reason_phrases.end());
+      Logger::error(DEBUG, {
+        { VAR_NAME, "headers" },
+        { VAR_VALUE, web_server_utils::stringify_headers(headers) },
+      });
+
+      assert(http_msg_formatter::response_reason_phrases.find(status_code) != http_msg_formatter::response_reason_phrases.cend());
 
       this->state = SENDING;
 

@@ -32,15 +32,15 @@ namespace web_server_utils {
     return result_str;
   }
 
-  inline std::vector<std::string> split(std::string str, const std::regex& delimiter_pattern, const bool excl_empty_tokens = false) {
+  inline std::vector<std::string> split(const std::string& str, const std::regex& delimiter_pattern, const bool excl_empty_tokens = false) {
     if (!excl_empty_tokens) {
       throw Error(APPERR, "incl empty tokens NOT IMPLEMENTED");
     }
 
     std::vector<std::string> result;
 
-    std::regex_token_iterator<std::string::iterator> token_iter(str.begin(), str.end(), delimiter_pattern, -1);
-    std::regex_token_iterator<std::string::iterator> end;
+    std::regex_token_iterator<std::string::const_iterator> token_iter(str.cbegin(), str.cend(), delimiter_pattern, -1);
+    std::regex_token_iterator<std::string::const_iterator> end;
 
     while (token_iter != end) {
       if ((*token_iter).length() > 0) {
@@ -95,8 +95,8 @@ namespace web_server_utils {
   inline std::string join (const std::vector<std::string>& tokens, const std::string& separator) {
     std::string result;
 
-    for (auto it = tokens.begin(); it != tokens.end(); ++it) {
-      if (it != tokens.begin()) {
+    for (auto it = tokens.cbegin(); it != tokens.cend(); ++it) {
+      if (it != tokens.cbegin()) {
         result += separator;
       }
 
@@ -124,14 +124,27 @@ namespace web_server_utils {
     std::string result;
 
     std::vector<std::string> resolved_split;
-    resolved_split.insert(resolved_split.end(), root_path_split.begin(), root_path_split.end());
-    resolved_split.insert(resolved_split.end(), document_root_path_split.begin(), document_root_path_split.end());
-    resolved_split.insert(resolved_split.end(), path_split.begin(), path_split.end());
+    resolved_split.insert(resolved_split.end(), root_path_split.cbegin(), root_path_split.cend());
+    resolved_split.insert(resolved_split.end(), document_root_path_split.cbegin(), document_root_path_split.cend());
+    resolved_split.insert(resolved_split.end(), path_split.cbegin(), path_split.cend());
 
     result.append("/");
     result.append(web_server_utils::join(resolved_split, "/"));
 
     return result;
+  }
+
+  inline std::string stringify_headers (const std::map<const std::string, const std::string>& headers) {
+    std::string stringified;
+
+    for (auto header_field : headers) {
+      stringified += header_field.first;
+      stringified += ": ";
+      stringified += header_field.second;
+      stringified += "; ";
+    }
+
+    return stringified;
   }
 
 } // end namespace web_server_utils

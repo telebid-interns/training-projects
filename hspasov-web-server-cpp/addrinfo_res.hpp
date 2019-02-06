@@ -2,6 +2,7 @@
 #define ADDRINFO_RES_HPP
 
 #include "error.hpp"
+#include "logger.hpp"
 #include <cerrno>
 #include <cstring>
 #include <string>
@@ -13,6 +14,8 @@ class AddrinfoRes {
     addrinfo* addrinfo_res;
 
     AddrinfoRes(const std::string& hostname, const std::string& service) {
+      Logger::error(DEBUG, {});
+
       addrinfo hints = {};
       hints.ai_family = AF_INET;
       hints.ai_socktype = SOCK_STREAM;
@@ -33,7 +36,12 @@ class AddrinfoRes {
       }
     }
 
+    AddrinfoRes (const AddrinfoRes&) = delete;
+    AddrinfoRes& operator= (const AddrinfoRes&) = delete;
+
     ~AddrinfoRes() {
+      Logger::error(DEBUG, {});
+
       freeaddrinfo(this->addrinfo_res);
     }
 };

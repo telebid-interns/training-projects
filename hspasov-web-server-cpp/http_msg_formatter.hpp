@@ -22,7 +22,7 @@ struct request_meta {
 };
 
 struct response_meta {
-  std::map<std::string, std::string> headers;
+  std::map<const std::string, const std::string> headers;
   std::string status_code;
   int packages_sent;
 };
@@ -66,7 +66,7 @@ namespace http_msg_formatter {
     const std::string target = web_server_utils::url_unescape(req_line_split[1]);
     const std::string http_version = req_line_split[2];
 
-    if (allowed_http_methods.find(method) == allowed_http_methods.end()) {
+    if (allowed_http_methods.find(method) == allowed_http_methods.cend()) {
       throw Error(CLIENTERR, "Invalid request");
     }
 
@@ -85,7 +85,7 @@ namespace http_msg_formatter {
 
     std::map<const std::string, const std::string> headers;
 
-    for (auto it = req_meta_lines.begin() + 1; it != req_meta_lines.end(); ++it) {
+    for (auto it = req_meta_lines.cbegin() + 1; it != req_meta_lines.cend(); ++it) {
       const size_t field_sep_pos = (*it).find(":");
 
       if (field_sep_pos == std::string::npos) {
@@ -123,7 +123,9 @@ namespace http_msg_formatter {
     return result;
   }
 
-  inline std::string build_res_meta (const int status_code, const std::map<std::string, std::string>& headers, const std::string& body = "") {
+  inline std::string build_res_meta (const int status_code, const std::map<const std::string, const std::string>& headers, const std::string& body = "") {
+    Logger::error(DEBUG, {});
+
     std::string result;
 
     result += "HTTP/1.1 ";

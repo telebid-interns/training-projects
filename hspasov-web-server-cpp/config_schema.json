@@ -61,7 +61,16 @@
     "error_log_fields": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "enum": [
+          "pid",
+          "timestamp",
+          "level",
+          "context",
+          "var_name",
+          "var_value",
+          "msg"
+        ]
       }
     },
     "access_log_enabled": {
@@ -70,7 +79,16 @@
     "access_log_fields": {
       "type": "array",
       "items": {
-        "type": "string"
+        "type": "string",
+        "enum": [
+          "pid",
+          "timestamp",
+          "remote_addr",
+          "req_line",
+          "user_agent",
+          "status_code",
+          "content_length"
+        ]
       }
     },
     "access_log_write_buffer": {

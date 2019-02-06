@@ -1,23 +1,25 @@
 #ifndef SERVER_HPP
 #define SERVER_HPP
 
-#include <cerrno>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <netdb.h>
-#include <arpa/inet.h>
 #include "socket.hpp"
 #include "client_connection.hpp"
 #include "logger.hpp"
 #include "error.hpp"
 #include "config.hpp"
 #include "addrinfo_res.hpp"
+#include <cerrno>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <arpa/inet.h>
 
 class Server {
   protected:
     int socket_fd;
   public:
     Server () {
+      Logger::error(DEBUG, {});
+
       // 0 is for protocol: "only a single protocol exists to support a particular socket type within a given protocol family, in which case protocol can be specified as 0" - from man page
       this->socket_fd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -40,6 +42,25 @@ class Server {
         }
 
         throw Error(OSERR, "setsockopt: " + std::string(std::strerror(errno)));
+      }
+    }
+
+    Server (const Server&) = delete;
+    Server& operator= (const Server&) = delete;
+    Server& operator= (const Server&&) = delete;
+
+    Server (const Server&& server)
+      : socket_fd(std::move(server.socket_fd)) {
+
+      Logger::error(DEBUG, {});
+    }
+
+
+    ~Server () {
+      Logger::error(DEBUG, {});
+
+      if (close(this->socket_fd) < 0) {
+        Logger::error(ERROR, {{ MSG, "close: " + std::string(std::strerror(errno)) }});
       }
     }
 
@@ -72,6 +93,8 @@ class Server {
     }
 
     void run () const {
+      Logger::error(DEBUG, {});
+
       // https://en.wikipedia.org/wiki/Type_punning#Sockets_example
 
       const AddrinfoRes addrinfo_results(Config::config["host"].GetString(), std::to_string(Config::config["port"].GetInt()));
@@ -123,12 +146,6 @@ class Server {
           // TODO
         }
         // TODO exit child process
-      }
-    }
-
-    ~Server () {
-      if (close(this->socket_fd) < 0) {
-        Logger::error(ERROR, {{ MSG, "close: " + std::string(std::strerror(errno)) }});
       }
     }
 };

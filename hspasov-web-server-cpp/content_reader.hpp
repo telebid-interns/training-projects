@@ -14,6 +14,8 @@ class ContentReader {
     int _fd;
 
     void destroy () {
+      Logger::error(DEBUG, {});
+
       delete[] buffer;
 
       if (::close(this->_fd) < 0) {
@@ -27,6 +29,8 @@ class ContentReader {
 
     explicit ContentReader (const std::string& file_path)
       : buffer(new char[Config::config["read_buffer"].GetInt()]) {
+
+      Logger::error(DEBUG, {});
 
       this->_fd = open(web_server_utils::resolve_static_file_path(file_path).c_str(), O_RDONLY | O_CLOEXEC, 0);
 
@@ -59,7 +63,9 @@ class ContentReader {
     ContentReader (const ContentReader& reader)
       : buffer(new char[Config::config["read_buffer"].GetInt()]) {
 
-      // TODO check if read position is preserved
+      Logger::error(DEBUG, {});
+
+      // read position is preserved
       this->_fd = fcntl(reader._fd, F_DUPFD_CLOEXEC, 0);
 
       if (this->_fd < 0) {
@@ -76,10 +82,14 @@ class ContentReader {
     }
 
     ~ContentReader () {
+      Logger::error(DEBUG, {});
+
       this->destroy();
     }
 
     ContentReader& operator= (const ContentReader& reader) {
+      Logger::error(DEBUG, {});
+
       const int new_fd = fcntl(reader._fd, F_DUPFD_CLOEXEC, 0);
 
       if (new_fd < 0) {
@@ -101,6 +111,8 @@ class ContentReader {
     }
 
     size_t read () {
+      Logger::error(DEBUG, {});
+
       const ssize_t bytes_read = ::read(this->_fd, this->buffer, Config::config["read_buffer"].GetInt());
 
       if (bytes_read < 0) {

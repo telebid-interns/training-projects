@@ -14,6 +14,8 @@ class Socket {
     int _fd;
 
     void destroy () {
+      Logger::error(DEBUG, {});
+
       delete[] this->recv_buffer;
       delete[] this->send_buffer;
 
@@ -32,6 +34,8 @@ class Socket {
         recv_buffer(new char[Config::config["recv_buffer"].GetInt()]),
         send_buffer(new char[Config::config["send_buffer"].GetInt()]),
         bytes_received_amount(0) {
+
+      Logger::error(DEBUG, {});
 
       timeval recv_timeout = {};
       recv_timeout.tv_sec = Config::config["socket_recv_timeout"].GetInt();
@@ -59,6 +63,8 @@ class Socket {
         send_buffer(new char[Config::config["send_buffer"].GetInt()]),
         bytes_received_amount(socket.bytes_received_amount) {
 
+      Logger::error(DEBUG, {});
+
       this->_fd = fcntl(socket._fd, F_DUPFD_CLOEXEC, 0);
 
       if (this->_fd < 0) {
@@ -77,10 +83,14 @@ class Socket {
     }
 
     ~Socket () {
+      Logger::error(DEBUG, {});
+
       this->destroy();
     }
 
     Socket& operator= (const Socket& socket) {
+      Logger::error(DEBUG, {});
+
       const int new_fd = fcntl(socket._fd, F_DUPFD_CLOEXEC, 0);
 
       if (new_fd < 0) {
@@ -123,6 +133,8 @@ class Socket {
     }
 
     int send (const std::string& data) const {
+      Logger::error(DEBUG, {});
+
       int packages_sent = 0;
       const int no_flags = 0;
       unsigned total_bytes_sent = 0;

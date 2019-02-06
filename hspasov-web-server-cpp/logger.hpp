@@ -50,26 +50,6 @@ class Logger {
   public:
 
     static void init_logger () {
-      const std::list<std::string> allowed_error_log_fields{
-          "pid",
-          "timestamp",
-          "level",
-          "context",
-          "var_name",
-          "var_value",
-          "msg",
-        };
-
-      const std::list<std::string> allowed_access_log_fields{
-        "pid",
-        "timestamp",
-        "remote_addr",
-        "req_line",
-        "user_agent",
-        "status_code",
-        "content_length",
-      };
-
       for (
         auto it = Config::config["error_log_fields"].GetArray().Begin();
         it != Config::config["error_log_fields"].GetArray().End();
@@ -103,7 +83,7 @@ class Logger {
       Logger::access_log_fd = -1;
     }
 
-    static void error (const err_log_lvl level, const std::map<error_log_params, std::string>& fields) {
+    static void error (const err_log_lvl level, const std::map<const error_log_params, const std::string>& fields) {
       if (level <= Config::config["error_log_level"].GetInt()) {
         std::list<const std::string> fields_list;
 
