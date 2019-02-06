@@ -49,7 +49,7 @@ class Config {
           throw Error(SERVERERR, file_path + ": file not found");
         }
 
-        throw Error(OSERR, "open: " + std::string(std::strerror(errno)));
+        throw Error(OSERR, "open: " + std::string(std::strerror(errno)), errno);
       }
 
       std::string file_content;
@@ -64,14 +64,14 @@ class Config {
         }
 
         if (bytes_read_amount < 0) {
-          throw Error(OSERR, "read: " + std::string(std::strerror(errno)));
+          throw Error(OSERR, "read: " + std::string(std::strerror(errno)), errno);
         }
 
         file_content.append(static_cast<char*>(buffer), bytes_read_amount);
       }
 
       if (close(fd) < 0) {
-        throw Error(OSERR, "close: " + std::string(std::strerror(errno)));
+        throw Error(OSERR, "close: " + std::string(std::strerror(errno)), errno);
       }
 
       return file_content;

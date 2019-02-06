@@ -15,9 +15,10 @@ class Error: public std::exception {
   public:
     const std::string _msg;
     const error_type _type;
+    int _errno;
 
-    Error(const error_type type, const std::string& msg)
-      : _msg(msg), _type(type) {
+    Error(const error_type type, const std::string& msg, const int e = 0)
+      : _msg(msg), _type(type), _errno(e) {
 
       // TODO remove:
       std::cerr << msg << std::endl;

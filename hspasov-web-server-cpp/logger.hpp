@@ -228,7 +228,7 @@ class Logger {
         const int bytes_written_amount = write(fd, content_to_write.c_str(), content_to_write.size());
 
         if (bytes_written_amount < 0) {
-          throw Error(OSERR, "write: " + std::string(std::strerror(errno)));
+          throw Error(OSERR, "write: " + std::string(std::strerror(errno)), errno);
         }
 
         total_amount_bytes_written += bytes_written_amount;

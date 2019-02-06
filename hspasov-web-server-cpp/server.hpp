@@ -26,7 +26,7 @@ class Server {
       if (this->socket_fd < 0) {
         Logger::error(DEBUG, {{ MSG, "socket: " + std::string(std::strerror(errno)) }});
 
-        throw Error(OSERR, "socket: " + std::string(std::strerror(errno)));
+        throw Error(OSERR, "socket: " + std::string(std::strerror(errno)), errno);
       }
 
       // setting socket options:
@@ -41,7 +41,7 @@ class Server {
           Logger::error(ERROR, {{ MSG, "close: " + std::string(std::strerror(errno)) }});
         }
 
-        throw Error(OSERR, "setsockopt: " + std::string(std::strerror(errno)));
+        throw Error(OSERR, "setsockopt: " + std::string(std::strerror(errno)), errno);
       }
     }
 
@@ -75,7 +75,7 @@ class Server {
       if (client_conn_fd < 0) {
         Logger::error(ERROR, {{ MSG, "accept: " + std::string(std::strerror(errno)) }});
 
-        throw Error(OSERR, "accept: " + std::string(std::strerror(errno)));
+        throw Error(OSERR, "accept: " + std::string(std::strerror(errno)), errno);
       }
 
       char remote_addr_buffer[INET_ADDRSTRLEN];
@@ -83,7 +83,7 @@ class Server {
       sockaddr_in* addr_in = reinterpret_cast<sockaddr_in*>(&addr);
 
       if (inet_ntop(AF_INET, &(addr_in->sin_addr), static_cast<char*>(remote_addr_buffer), INET_ADDRSTRLEN) == NULL) {
-        throw Error(OSERR, "inet_ntop: " + std::string(std::strerror(errno)));
+        throw Error(OSERR, "inet_ntop: " + std::string(std::strerror(errno)), errno);
       }
 
       const std::string remote_addr(static_cast<char*>(remote_addr_buffer));
@@ -104,7 +104,7 @@ class Server {
         if (bind(this->socket_fd, res->ai_addr, res->ai_addrlen) < 0) { // NOLINT
           Logger::error(ERROR, {{ MSG, "bind: " + std::string(std::strerror(errno)) }});
 
-          throw Error(OSERR, "bind: " + std::string(std::strerror(errno)));
+          throw Error(OSERR, "bind: " + std::string(std::strerror(errno)), errno);
         }
 
         break;
@@ -113,39 +113,47 @@ class Server {
       if (listen(this->socket_fd, Config::config["backlog"].GetInt()) < 0) {
         Logger::error(ERROR, {{ MSG, "listen: " + std::string(std::strerror(errno)) }});
 
-        throw Error(OSERR, "listen: " + std::string(std::strerror(errno)));
+        throw Error(OSERR, "listen: " + std::string(std::strerror(errno)), errno);
       }
 
       Logger::error(DEBUG, {{ MSG, "Listening on " + std::to_string(Config::config["port"].GetInt()) }});
 
       while (true) {
-        ClientConnection client_conn = this->accept();
-
-        // TODO fork
-
         try {
-          Logger::error(DEBUG, {{ MSG, "connection accepted" }});
+          ClientConnection client_conn = this->accept();
 
-          client_conn.receive_meta();
-
-          if (client_conn.state == RECEIVING) {
-            client_conn.serve_static_file(client_conn.req_meta.path);
-          }
+          // TODO fork
 
           try {
-            client_conn.shutdown();
-          } catch (const Error& err) {
-            if (err._type == CLIENTERR) {
-              Logger::error(DEBUG, {{ MSG, "client already disconnected" }});
-            } else {
-              throw;
-            }
-          }
+            Logger::error(DEBUG, {{ MSG, "connection accepted" }});
 
+            client_conn.receive_meta();
+
+            if (client_conn.state == RECEIVING) {
+              client_conn.serve_static_file(client_conn.req_meta.path);
+            }
+
+            try {
+              client_conn.shutdown();
+            } catch (const Error& err) {
+              if (err._type == CLIENTERR) {
+                Logger::error(DEBUG, {{ MSG, "client already disconnected" }});
+              } else {
+                throw;
+              }
+            }
+
+          } catch (const Error& err) {
+            throw;
+          }
+          // TODO exit child process
         } catch (const Error& err) {
-          // TODO
+          if (err._errno == EAGAIN || err._errno == EWOULDBLOCK) {
+            Logger::error(DEBUG, {{ MSG, err._msg }});
+          } else {
+            Logger::error(ERROR, {{ MSG, err._msg }});
+          }
         }
-        // TODO exit child process
       }
     }
 };

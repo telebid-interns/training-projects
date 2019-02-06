@@ -125,8 +125,12 @@ class ClientConnection {
       try {
         this->req_meta = http_msg_formatter::parse_req_meta(this->req_meta_raw);
       } catch (const Error& err) {
-        this->send_meta(400, std::map<const std::string, const std::string>());
-        return;
+        if (err._type == CLIENTERR) {
+          this->send_meta(400, std::map<const std::string, const std::string>());
+          return;
+        }
+
+        throw;
       }
 
       // TODO(hristo): refactor this

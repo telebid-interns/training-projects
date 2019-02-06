@@ -19,7 +19,7 @@ class ContentReader {
       delete[] buffer;
 
       if (::close(this->_fd) < 0) {
-        Logger::error(ERROR, {{ MSG, "close: " + std::string(std::strerror(errno)) }});
+        Logger::error(ERROR, {{ MSG, "close: " + std::string(std::strerror(errno), errno) }});
       }
     }
 
@@ -38,17 +38,17 @@ class ContentReader {
         std::string err_msg = "open: " + std::string(std::strerror(errno));
 
         if (errno == EISDIR || errno == ENOENT) {
-          throw Error(CLIENTERR, err_msg);
+          throw Error(CLIENTERR, err_msg, errno);
         }
 
-        throw Error(OSERR, err_msg);
+        throw Error(OSERR, err_msg, errno);
       }
 
       struct stat statbuf = {};
 
       if (fstat(this->_fd, &statbuf) < 0) {
         this->destroy();
-        throw Error(OSERR, "fstat: " + std::string(std::strerror(errno)));
+        throw Error(OSERR, "fstat: " + std::string(std::strerror(errno)), errno);
       }
 
       // check whether it is not regular file
@@ -71,7 +71,7 @@ class ContentReader {
       if (this->_fd < 0) {
         this->destroy();
 
-        throw Error(OSERR, "fcntl: " + std::string(std::strerror(errno)));
+        throw Error(OSERR, "fcntl: " + std::string(std::strerror(errno)), errno);
       }
 
       for (int i = 0; i < Config::config["read_buffer"].GetInt(); i++) {
@@ -93,7 +93,7 @@ class ContentReader {
       const int new_fd = fcntl(reader._fd, F_DUPFD_CLOEXEC, 0);
 
       if (new_fd < 0) {
-        throw Error(OSERR, "fcntl: " + std::string(std::strerror(errno)));
+        throw Error(OSERR, "fcntl: " + std::string(std::strerror(errno)), errno);
       }
 
       if (close(this->_fd) < 0) {
@@ -116,7 +116,7 @@ class ContentReader {
       const ssize_t bytes_read = ::read(this->_fd, this->buffer, Config::config["read_buffer"].GetInt());
 
       if (bytes_read < 0) {
-        throw Error(OSERR, "read: " + std::string(std::strerror(errno)));
+        throw Error(OSERR, "read: " + std::string(std::strerror(errno)), errno);
       }
 
       return bytes_read;

@@ -44,7 +44,7 @@ class Socket {
       if (setsockopt(this->_fd, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(recv_timeout)) < 0) {
         this->destroy();
 
-        throw Error(OSERR, "setsockopt: " + std::string(std::strerror(errno)));
+        throw Error(OSERR, "setsockopt: " + std::string(std::strerror(errno)), errno);
       }
 
       timeval send_timeout = {};
@@ -54,7 +54,7 @@ class Socket {
       if (setsockopt(this->_fd, SOL_SOCKET, SO_SNDTIMEO, &send_timeout, sizeof(send_timeout)) < 0) {
         this->destroy();
 
-        throw Error(OSERR, "setsockopt: " + std::string(std::strerror(errno)));
+        throw Error(OSERR, "setsockopt: " + std::string(std::strerror(errno)), errno);
       }
     }
 
@@ -70,7 +70,7 @@ class Socket {
       if (this->_fd < 0) {
         this->destroy();
 
-        throw Error(OSERR, "fcntl: " + std::string(std::strerror(errno)));
+        throw Error(OSERR, "fcntl: " + std::string(std::strerror(errno)), errno);
       }
 
       for (int i = 0; i < Config::config["recv_buffer"].GetInt(); i++) {
@@ -94,7 +94,7 @@ class Socket {
       const int new_fd = fcntl(socket._fd, F_DUPFD_CLOEXEC, 0);
 
       if (new_fd < 0) {
-        throw Error(OSERR, "fcntl: " + std::string(std::strerror(errno)));
+        throw Error(OSERR, "fcntl: " + std::string(std::strerror(errno)), errno);
       }
 
       if (close(this->_fd) < 0) {
@@ -150,7 +150,7 @@ class Socket {
 
         if (bytes_sent < 0) {
           // if send timeouts, end handling this request, nothing else can be done
-          throw Error(OSERR, "send: " + std::string(std::strerror(errno)));
+          throw Error(OSERR, "send: " + std::string(std::strerror(errno)), errno);
         }
 
         if (bytes_sent == 0) {
