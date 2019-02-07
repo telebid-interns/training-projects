@@ -221,14 +221,24 @@ class Logger {
     }
 
     static void text_file_write (const int fd, const std::string& content) {
+      const int max_consecutive_zero_writes = 20;
+      int zero_writes = 0;
       unsigned total_amount_bytes_written = 0;
 
       while (total_amount_bytes_written < content.size()) {
+        if (zero_writes >= max_consecutive_zero_writes) {
+          throw Error(OSERR, "max_consecutive_zero_writes reached", errno);
+        }
+
         const std::string content_to_write = content.substr(total_amount_bytes_written, Config::config["access_log_write_buffer"].GetInt());
         const int bytes_written_amount = write(fd, content_to_write.c_str(), content_to_write.size());
 
         if (bytes_written_amount < 0) {
           throw Error(OSERR, "write: " + std::string(std::strerror(errno)), errno);
+        } else if (bytes_written_amount == 0) {
+          zero_writes++;
+        } else {
+          zero_writes = 0;
         }
 
         total_amount_bytes_written += bytes_written_amount;

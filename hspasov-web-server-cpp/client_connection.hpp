@@ -10,6 +10,7 @@
 #include <iostream>
 #include <string>
 #include <sys/stat.h>
+#include <arpa/inet.h>
 
 enum client_conn_state {
   ESTABLISHED,
@@ -30,11 +31,22 @@ class ClientConnection {
     response_meta res_meta;
     client_conn_state state;
 
-    explicit ClientConnection (const int conn, const std::string& addr, const unsigned short port)
-      : conn(Socket(conn)), remote_addr(addr), remote_port(port), state(ESTABLISHED) {
+    explicit ClientConnection (const int conn, sockaddr& addr)
+      : conn(Socket(conn)), state(ESTABLISHED) {
 
       Logger::error(DEBUG, {});
-      // TODO fix this - this is happening in parent, should be in child
+
+      char remote_addr_buffer[INET_ADDRSTRLEN];
+
+      sockaddr_in* addr_in = reinterpret_cast<sockaddr_in*>(&addr);
+
+      if (inet_ntop(AF_INET, &(addr_in->sin_addr), static_cast<char*>(remote_addr_buffer), INET_ADDRSTRLEN) == nullptr) {
+        throw Error(OSERR, "inet_ntop: " + std::string(std::strerror(errno)), errno);
+      }
+
+      this->remote_addr = std::string(static_cast<char*>(remote_addr_buffer));
+      this->remote_port = htons(addr_in->sin_port);
+
       Logger::init_access_log();
     }
 

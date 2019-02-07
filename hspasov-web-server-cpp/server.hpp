@@ -13,7 +13,6 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netdb.h>
-#include <arpa/inet.h>
 #include <signal.h>
 #include <sys/wait.h>
 
@@ -26,21 +25,12 @@ void reap_child_proc (int sig_num) {
 
     const int child_pid = waitpid(any_pid, &exit_status, WNOHANG);
 
-    if (child_pid == 0) {
-      break;
-    } else if (child_pid < 0) {
-      Logger::error(DEBUG, {{ MSG, "waitpid: " + std::string(std::strerror(errno)) }});
+    if (child_pid <= 0) {
       break;
     }
 
     children_reaped++;
   }
-
-  Logger::error(DEBUG, {
-    { MSG, "child reaping finished" },
-    { VAR_NAME, "children_reaped" },
-    { VAR_VALUE, std::to_string(children_reaped) }
-  });
 }
 
 class Server {
@@ -90,31 +80,15 @@ class Server {
       Logger::error(DEBUG, {});
     }
 
-    ClientConnection accept () const {
+    void accept (int& client_conn_fd, sockaddr& addr) const {
       Logger::error(DEBUG, {{ MSG, "waiting for connection..." }});
 
-      sockaddr addr = {};
       socklen_t addrlen = sizeof(addr);
-
-      const int client_conn_fd = accept4(this->socket_fd._fd, &addr, &addrlen, SOCK_CLOEXEC);
+      client_conn_fd = accept4(this->socket_fd._fd, &addr, &addrlen, SOCK_CLOEXEC);
 
       if (client_conn_fd < 0) {
         throw Error(OSERR, "accept: " + std::string(std::strerror(errno)), errno);
       }
-
-      // TODO maybe all these operations can occur in child process:
-      char remote_addr_buffer[INET_ADDRSTRLEN];
-
-      sockaddr_in* addr_in = reinterpret_cast<sockaddr_in*>(&addr);
-
-      if (inet_ntop(AF_INET, &(addr_in->sin_addr), static_cast<char*>(remote_addr_buffer), INET_ADDRSTRLEN) == nullptr) {
-        throw Error(OSERR, "inet_ntop: " + std::string(std::strerror(errno)), errno);
-      }
-
-      const std::string remote_addr(static_cast<char*>(remote_addr_buffer));
-      unsigned short remote_port = htons(addr_in->sin_port);
-
-      return ClientConnection(client_conn_fd, remote_addr, remote_port);
     }
 
     void run () const {
@@ -139,9 +113,19 @@ class Server {
 
       Logger::error(INFO, {{ MSG, "Listening on " + std::to_string(Config::config["port"].GetInt()) }});
 
+      const int max_consecutive_failed = 20;
+      int failed = 0;
+
       while (true) {
+        if (failed >= max_consecutive_failed) {
+          throw Error(OSERR, "reached max consecutive failed accepts and forks", errno);
+        }
+
         try {
-          ClientConnection client_conn = this->accept();
+          int client_socket_fd = -1;
+          sockaddr addr = {};
+
+          this->accept(client_socket_fd, addr);
 
           const pid_t pid = fork();
 
@@ -149,6 +133,7 @@ class Server {
             try {
               Logger::error(DEBUG, {{ MSG, "connection accepted" }});
 
+              ClientConnection client_conn(client_socket_fd, addr);
               client_conn.receive_meta();
 
               if (client_conn.state == RECEIVING) {
@@ -176,6 +161,8 @@ class Server {
               { VAR_NAME, "pid" },
               { VAR_VALUE, std::to_string(pid) }
             });
+
+            failed = 0;
           } else {
             throw Error(OSERR, "fork: " + std::string(std::strerror(errno)), errno);
           }
@@ -187,6 +174,8 @@ class Server {
             // TODO try to send 500
             Logger::error(ERROR, {{ MSG, err._msg }});
           }
+
+          failed++;
         }
       }
     }

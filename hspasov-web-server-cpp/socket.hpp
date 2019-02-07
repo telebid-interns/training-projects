@@ -101,23 +101,28 @@ class Socket {
           throw Error(CLIENTERR, err_msg);
         }
 
-        // TODO avoid duplicate logging
-        Logger::error(ERROR, {{ MSG, err_msg }});
-
         throw Error(OSERR, err_msg);
       }
+
+      std::cerr << "shut down success" << std::endl;
     }
 
     int send (const std::string& data) const {
       Logger::error(DEBUG, {});
 
       int packages_sent = 0;
+      int zero_sends = 0;
+      const int max_consecutive_zero_sends = 20;
       const int no_flags = 0;
       unsigned total_bytes_sent = 0;
 
       std::string remaining_data(data);
 
       while (total_bytes_sent < data.size()) {
+        if (zero_sends >= max_consecutive_zero_sends) {
+          throw Error(OSERR, "max_consecutive_zero_sends reached", errno);
+        }
+
         const std::string data_to_send(remaining_data, 0, Config::config["send_buffer"].GetInt());
 
         data_to_send.copy(this->send_buffer.get(), data_to_send.size(), 0);
@@ -130,7 +135,9 @@ class Socket {
         }
 
         if (bytes_sent == 0) {
-          Logger::error(DEBUG, {{ MSG, "0 bytes sent after calling send" }});
+          zero_sends++;
+        } else {
+          zero_sends = 0;
         }
 
         packages_sent++;
