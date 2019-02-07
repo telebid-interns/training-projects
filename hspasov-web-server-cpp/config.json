@@ -9,10 +9,10 @@
   "protocol": "HTTP/1.1",
   "host": "localhost",
   "port": 8081,
-  "web_server_root": "/home/hristo/Documents/training-projects/hspasov-web-server-cpp/content",
+  "web_server_root": "/media/hspasov/Files/TelebidPro/training-projects/hspasov-web-server-cpp/content",
   "document_root": "/html",
-  "access_log": "/home/hristo/Documents/training-projects/hspasov-web-server-cpp/logs/access.log",
-  "error_log_level": 4,
+  "access_log": "/media/hspasov/Files/TelebidPro/training-projects/hspasov-web-server-cpp/logs/access.log",
+  "error_log_level": 2,
   "error_log_fields": [
     "pid",
     "timestamp",
@@ -22,7 +22,7 @@
     "var_value",
     "msg"
   ],
-  "access_log_enabled": true,
+  "access_log_enabled": false,
   "access_log_fields": [
     "pid",
     "timestamp",

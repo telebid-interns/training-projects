@@ -68,19 +68,23 @@ class Logger {
     }
 
     static void init_access_log () {
-      Logger::access_log_fd = open(Config::config["access_log"].GetString(), O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0);
+      if (Config::config["access_log_enabled"].GetBool()) {
+        Logger::access_log_fd = open(Config::config["access_log"].GetString(), O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0);
 
-      if (Logger::access_log_fd < 0) {
-        Logger::error(ERROR, {{ MSG, "open: " + std::string(std::strerror(errno)) }});
+        if (Logger::access_log_fd < 0) {
+          Logger::error(ERROR, {{ MSG, "open: " + std::string(std::strerror(errno)) }});
+        }
       }
     }
 
     static void close_access_log () {
-      if (close(Logger::access_log_fd) < 0) {
-        Logger::error(ERROR, {{ MSG, "close: " + std::string(std::strerror(errno)) }});
-      }
+      if (Config::config["access_log_enabled"].GetBool()) {
+        if (close(Logger::access_log_fd) < 0) {
+          Logger::error(ERROR, {{ MSG, "close: " + std::string(std::strerror(errno)) }});
+        }
 
-      Logger::access_log_fd = -1;
+        Logger::access_log_fd = -1;
+      }
     }
 
     static void error (const err_log_lvl level, const std::map<const error_log_params, const std::string>& fields) {

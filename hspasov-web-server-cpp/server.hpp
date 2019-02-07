@@ -55,14 +55,13 @@ class Server {
 
       if (setsockopt(this->socket_fd._fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0) {
         // because destructor would not be called after throw in constructor
-        // TODO check if FileDescriptor destructor is called
         throw Error(OSERR, "setsockopt: " + std::string(std::strerror(errno)), errno);
       }
 
       // setting child reaping:
 
-      struct sigaction action;
-      action.sa_handler = &reap_child_proc; // TODO is & necessary?
+      struct sigaction action = {};
+      action.sa_handler = &reap_child_proc;
       action.sa_flags = SA_NOCLDSTOP;
 
       if (sigaction(SIGCHLD, &action, nullptr) < 0) {
@@ -113,7 +112,7 @@ class Server {
 
       Logger::error(INFO, {{ MSG, "Listening on " + std::to_string(Config::config["port"].GetInt()) }});
 
-      const int max_consecutive_failed = 20;
+      const int max_consecutive_failed = 1000;
       int failed = 0;
 
       while (true) {
@@ -156,6 +155,10 @@ class Server {
 
             std::exit(EXIT_SUCCESS);
           } else if (pid > 0) { // parent process
+            if (close(client_socket_fd) < 0) {
+              Logger::error(ERROR, {{ MSG, "close: " + std::string(std::strerror(errno)) }});
+            }
+
             Logger::error(DEBUG, {
               { MSG, "child forked" },
               { VAR_NAME, "pid" },

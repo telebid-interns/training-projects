@@ -103,8 +103,6 @@ class Socket {
 
         throw Error(OSERR, err_msg);
       }
-
-      std::cerr << "shut down success" << std::endl;
     }
 
     int send (const std::string& data) const {

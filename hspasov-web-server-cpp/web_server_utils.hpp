@@ -76,7 +76,6 @@ namespace web_server_utils {
     return std::regex_replace(leading_trimmed, trailing_whitespace_pattern, "");
   }
 
-  // TODO check for memory leaks
   inline std::string url_unescape (const std::string& str) {
     CURL *handle = curl_easy_init();
 
