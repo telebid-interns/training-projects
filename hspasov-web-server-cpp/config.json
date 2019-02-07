@@ -12,7 +12,7 @@
   "web_server_root": "/home/hristo/Documents/training-projects/hspasov-web-server-cpp/content",
   "document_root": "/html",
   "access_log": "/home/hristo/Documents/training-projects/hspasov-web-server-cpp/logs/access.log",
-  "error_log_level": 3,
+  "error_log_level": 4,
   "error_log_fields": [
     "pid",
     "timestamp",

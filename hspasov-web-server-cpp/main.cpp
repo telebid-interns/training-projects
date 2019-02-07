@@ -32,9 +32,13 @@ int main (int argc, char** argv) {
     throw;
   }
 
-  Server server = Server();
-
-  server.run();
+  try {
+    Server server = Server();
+    server.run();
+  } catch (const Error& err) {
+    Logger::error(ERROR, {{ MSG, err._msg }});
+    return -1;
+  }
 
   return 0;
 }

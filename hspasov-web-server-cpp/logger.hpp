@@ -20,10 +20,10 @@ enum error_log_params {
 };
 
 enum err_log_lvl {
-  ERROR,
-  INFO,
-  WARNING,
-  DEBUG,
+  ERROR = 1,
+  INFO = 2,
+  WARNING = 3,
+  DEBUG = 4,
 };
 
 struct access_log_fields {

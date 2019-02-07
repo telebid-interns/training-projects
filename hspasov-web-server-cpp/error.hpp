@@ -18,11 +18,7 @@ class Error: public std::exception {
     int _errno;
 
     Error(const error_type type, const std::string& msg, const int e = 0)
-      : _msg(msg), _type(type), _errno(e) {
-
-      // TODO remove:
-      std::cerr << msg << std::endl;
-    }
+      : _msg(msg), _type(type), _errno(e) {}
 };
 
 #endif

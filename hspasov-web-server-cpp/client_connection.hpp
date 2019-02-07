@@ -34,6 +34,7 @@ class ClientConnection {
       : conn(Socket(conn)), remote_addr(addr), remote_port(port), state(ESTABLISHED) {
 
       Logger::error(DEBUG, {});
+      // TODO fix this - this is happening in parent, should be in child
       Logger::init_access_log();
     }
 
@@ -175,7 +176,6 @@ class ClientConnection {
         while (true) {
           const ssize_t bytes_read = reader.read();
 
-            // TODO(hristo): check if all fds are being properly closed on errors
           if (bytes_read == 0) {
             Logger::error(DEBUG, {{ MSG, "end of file reached while reading" }});
 
@@ -190,7 +190,6 @@ class ClientConnection {
           this->res_meta.packages_sent += packages_sent;
         }
       } catch (const Error& err) {
-        // TODO(hristo): refactor error handling
         if (err._type == CLIENTERR) {
           this->send_meta(404);
           return;

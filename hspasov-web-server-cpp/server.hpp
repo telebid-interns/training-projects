@@ -8,11 +8,40 @@
 #include "error.hpp"
 #include "config.hpp"
 #include "addrinfo_res.hpp"
+#include <cstdlib>
 #include <cerrno>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <signal.h>
+#include <sys/wait.h>
+
+void reap_child_proc (int sig_num) {
+  const int any_pid = -1;
+  int children_reaped = 0;
+
+  while (true) {
+    int exit_status = 0;
+
+    const int child_pid = waitpid(any_pid, &exit_status, WNOHANG);
+
+    if (child_pid == 0) {
+      break;
+    } else if (child_pid < 0) {
+      Logger::error(DEBUG, {{ MSG, "waitpid: " + std::string(std::strerror(errno)) }});
+      break;
+    }
+
+    children_reaped++;
+  }
+
+  Logger::error(DEBUG, {
+    { MSG, "child reaping finished" },
+    { VAR_NAME, "children_reaped" },
+    { VAR_VALUE, std::to_string(children_reaped) }
+  });
+}
 
 class Server {
   protected:
@@ -25,8 +54,6 @@ class Server {
       int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
 
       if (socket_fd < 0) {
-        Logger::error(DEBUG, {{ MSG, "socket: " + std::string(std::strerror(errno)) }});
-
         throw Error(OSERR, "socket: " + std::string(std::strerror(errno)), errno);
       }
 
@@ -37,11 +64,19 @@ class Server {
       const int on = 1;
 
       if (setsockopt(this->socket_fd._fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0) {
-        Logger::error(ERROR, {{ MSG, std::string(std::strerror(errno)) }});
-
         // because destructor would not be called after throw in constructor
         // TODO check if FileDescriptor destructor is called
         throw Error(OSERR, "setsockopt: " + std::string(std::strerror(errno)), errno);
+      }
+
+      // setting child reaping:
+
+      struct sigaction action;
+      action.sa_handler = &reap_child_proc; // TODO is & necessary?
+      action.sa_flags = SA_NOCLDSTOP;
+
+      if (sigaction(SIGCHLD, &action, nullptr) < 0) {
+        throw Error(OSERR, "sigaction: " + std::string(std::strerror(errno)), errno);
       }
     }
 
@@ -56,7 +91,7 @@ class Server {
     }
 
     ClientConnection accept () const {
-      Logger::error(DEBUG, {});
+      Logger::error(DEBUG, {{ MSG, "waiting for connection..." }});
 
       sockaddr addr = {};
       socklen_t addrlen = sizeof(addr);
@@ -64,11 +99,10 @@ class Server {
       const int client_conn_fd = accept4(this->socket_fd._fd, &addr, &addrlen, SOCK_CLOEXEC);
 
       if (client_conn_fd < 0) {
-        Logger::error(ERROR, {{ MSG, "accept: " + std::string(std::strerror(errno)) }});
-
         throw Error(OSERR, "accept: " + std::string(std::strerror(errno)), errno);
       }
 
+      // TODO maybe all these operations can occur in child process:
       char remote_addr_buffer[INET_ADDRSTRLEN];
 
       sockaddr_in* addr_in = reinterpret_cast<sockaddr_in*>(&addr);
@@ -93,8 +127,6 @@ class Server {
       for (addrinfo* res = addrinfo_results.addrinfo_res; res != nullptr; res = res->ai_next) {
         // TODO maybe should not throw on first failed bind
         if (bind(this->socket_fd._fd, res->ai_addr, res->ai_addrlen) < 0) { // NOLINT
-          Logger::error(ERROR, {{ MSG, "bind: " + std::string(std::strerror(errno)) }});
-
           throw Error(OSERR, "bind: " + std::string(std::strerror(errno)), errno);
         }
 
@@ -102,44 +134,54 @@ class Server {
       }
 
       if (listen(this->socket_fd._fd, Config::config["backlog"].GetInt()) < 0) {
-        Logger::error(ERROR, {{ MSG, "listen: " + std::string(std::strerror(errno)) }});
-
         throw Error(OSERR, "listen: " + std::string(std::strerror(errno)), errno);
       }
 
-      Logger::error(DEBUG, {{ MSG, "Listening on " + std::to_string(Config::config["port"].GetInt()) }});
+      Logger::error(INFO, {{ MSG, "Listening on " + std::to_string(Config::config["port"].GetInt()) }});
 
       while (true) {
         try {
           ClientConnection client_conn = this->accept();
 
-          // TODO fork
+          const pid_t pid = fork();
 
-          try {
-            Logger::error(DEBUG, {{ MSG, "connection accepted" }});
-
-            client_conn.receive_meta();
-
-            if (client_conn.state == RECEIVING) {
-              client_conn.serve_static_file(client_conn.req_meta.path);
-            }
-
+          if (pid == 0) { // child process
             try {
-              client_conn.shutdown();
-            } catch (const Error& err) {
-              if (err._type == CLIENTERR) {
-                Logger::error(DEBUG, {{ MSG, "client already disconnected" }});
-              } else {
-                throw;
+              Logger::error(DEBUG, {{ MSG, "connection accepted" }});
+
+              client_conn.receive_meta();
+
+              if (client_conn.state == RECEIVING) {
+                client_conn.serve_static_file(client_conn.req_meta.path);
               }
+
+              try {
+                client_conn.shutdown();
+              } catch (const Error& err) {
+                if (err._type == CLIENTERR) {
+                  Logger::error(DEBUG, {{ MSG, "client already disconnected" }});
+                } else {
+                  throw;
+                }
+              }
+            } catch (const Error& err) {
+              Logger::error(ERROR, {{ MSG, err._msg }});
+              std::exit(EXIT_FAILURE);
             }
 
-          } catch (const Error& err) {
-            throw;
+            std::exit(EXIT_SUCCESS);
+          } else if (pid > 0) { // parent process
+            Logger::error(DEBUG, {
+              { MSG, "child forked" },
+              { VAR_NAME, "pid" },
+              { VAR_VALUE, std::to_string(pid) }
+            });
+          } else {
+            throw Error(OSERR, "fork: " + std::string(std::strerror(errno)), errno);
           }
-          // TODO exit child process
         } catch (const Error& err) {
-          if (err._errno == EAGAIN || err._errno == EWOULDBLOCK) {
+          // TODO EAGAIN can be thrown by fork and we don't want it to be handled in the if part:
+          if (err._errno == EAGAIN || err._errno == EWOULDBLOCK || err._errno == EINTR) {
             Logger::error(DEBUG, {{ MSG, err._msg }});
           } else {
             // TODO try to send 500
