@@ -102,7 +102,7 @@ class ClientConnection {
           throw;
         }
 
-        this->req_meta_raw.append(this->conn.recv_buffer, this->conn.bytes_received_amount);
+        this->req_meta_raw.append(this->conn.recv_buffer.get(), this->conn.bytes_received_amount);
 
         if (this->conn.bytes_received_amount == 0) {
           Logger::error(DEBUG, {{ MSG, "connection closed by peer" }});
@@ -118,7 +118,7 @@ class ClientConnection {
 
           std::string body_beg = this->req_meta_raw.substr(double_crlf_pos, std::string::npos);
           body_beg.erase(0, 4); // remove CR-LF-CR-LF at the beginning
-          body_beg.copy(this->conn.recv_buffer, body_beg.size(), 0);
+          body_beg.copy(this->conn.recv_buffer.get(), body_beg.size(), 0);
           this->conn.bytes_received_amount = body_beg.size();
 
           this->req_meta_raw = this->req_meta_raw.substr(0, double_crlf_pos);
@@ -182,7 +182,7 @@ class ClientConnection {
             break;
           }
 
-          const std::string data(reader.buffer, bytes_read);
+          const std::string data(reader.buffer.get(), bytes_read);
 
           // TODO(hristo): maybe it is not a good idea to convert data from char* to std::string and then back to char*
           const int packages_sent = this->conn.send(data);

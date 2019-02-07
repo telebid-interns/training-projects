@@ -1,6 +1,7 @@
 #ifndef SERVER_HPP
 #define SERVER_HPP
 
+#include "file_descriptor.hpp"
 #include "socket.hpp"
 #include "client_connection.hpp"
 #include "logger.hpp"
@@ -15,32 +16,31 @@
 
 class Server {
   protected:
-    int socket_fd;
+    FileDescriptor socket_fd;
   public:
     Server () {
       Logger::error(DEBUG, {});
 
       // 0 is for protocol: "only a single protocol exists to support a particular socket type within a given protocol family, in which case protocol can be specified as 0" - from man page
-      this->socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+      int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
 
-      if (this->socket_fd < 0) {
+      if (socket_fd < 0) {
         Logger::error(DEBUG, {{ MSG, "socket: " + std::string(std::strerror(errno)) }});
 
         throw Error(OSERR, "socket: " + std::string(std::strerror(errno)), errno);
       }
 
+      this->socket_fd.assign_fd(socket_fd);
+
       // setting socket options:
 
       const int on = 1;
 
-      if (setsockopt(this->socket_fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0) {
+      if (setsockopt(this->socket_fd._fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0) {
         Logger::error(ERROR, {{ MSG, std::string(std::strerror(errno)) }});
 
         // because destructor would not be called after throw in constructor
-        if (close(this->socket_fd) < 0) {
-          Logger::error(ERROR, {{ MSG, "close: " + std::string(std::strerror(errno)) }});
-        }
-
+        // TODO check if FileDescriptor destructor is called
         throw Error(OSERR, "setsockopt: " + std::string(std::strerror(errno)), errno);
       }
     }
@@ -55,22 +55,13 @@ class Server {
       Logger::error(DEBUG, {});
     }
 
-
-    ~Server () {
-      Logger::error(DEBUG, {});
-
-      if (close(this->socket_fd) < 0) {
-        Logger::error(ERROR, {{ MSG, "close: " + std::string(std::strerror(errno)) }});
-      }
-    }
-
     ClientConnection accept () const {
       Logger::error(DEBUG, {});
 
       sockaddr addr = {};
       socklen_t addrlen = sizeof(addr);
 
-      const int client_conn_fd = accept4(this->socket_fd, &addr, &addrlen, SOCK_CLOEXEC);
+      const int client_conn_fd = accept4(this->socket_fd._fd, &addr, &addrlen, SOCK_CLOEXEC);
 
       if (client_conn_fd < 0) {
         Logger::error(ERROR, {{ MSG, "accept: " + std::string(std::strerror(errno)) }});
@@ -101,7 +92,7 @@ class Server {
 
       for (addrinfo* res = addrinfo_results.addrinfo_res; res != nullptr; res = res->ai_next) {
         // TODO maybe should not throw on first failed bind
-        if (bind(this->socket_fd, res->ai_addr, res->ai_addrlen) < 0) { // NOLINT
+        if (bind(this->socket_fd._fd, res->ai_addr, res->ai_addrlen) < 0) { // NOLINT
           Logger::error(ERROR, {{ MSG, "bind: " + std::string(std::strerror(errno)) }});
 
           throw Error(OSERR, "bind: " + std::string(std::strerror(errno)), errno);
@@ -110,7 +101,7 @@ class Server {
         break;
       }
 
-      if (listen(this->socket_fd, Config::config["backlog"].GetInt()) < 0) {
+      if (listen(this->socket_fd._fd, Config::config["backlog"].GetInt()) < 0) {
         Logger::error(ERROR, {{ MSG, "listen: " + std::string(std::strerror(errno)) }});
 
         throw Error(OSERR, "listen: " + std::string(std::strerror(errno)), errno);

@@ -22,8 +22,7 @@ namespace web_server_utils {
 
     gettimeofday(&time, nullptr);
 
-    tm* timeinfo = std::localtime(&time.tv_sec);
-    strftime(static_cast<char*>(time_str), time_str_max_chars, "%Y-%m-%d %H:%M:%S", timeinfo);
+    strftime(static_cast<char*>(time_str), time_str_max_chars, "%Y-%m-%d %H:%M:%S", std::localtime(&time.tv_sec));
 
     std::string result_str(static_cast<char*>(time_str));
     result_str.append(".");

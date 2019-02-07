@@ -1,6 +1,7 @@
 #ifndef FILE_READER_HPP
 #define FILE_READER_HPP
 
+#include "file_descriptor.hpp"
 #include "web_server_utils.hpp"
 #include "error.hpp"
 #include "logger.hpp"
@@ -11,30 +12,20 @@
 
 class ContentReader {
   protected:
-    int _fd;
-
-    void destroy () {
-      Logger::error(DEBUG, {});
-
-      delete[] buffer;
-
-      if (::close(this->_fd) < 0) {
-        Logger::error(ERROR, {{ MSG, "close: " + std::string(std::strerror(errno), errno) }});
-      }
-    }
+    FileDescriptor _fd;
 
   public:
     size_t file_size;
-    char* const buffer;
+    const std::unique_ptr<char[]> buffer;
 
     explicit ContentReader (const std::string& file_path)
-      : buffer(new char[Config::config["read_buffer"].GetInt()]) {
+      : buffer(std::make_unique<char[]>(Config::config["read_buffer"].GetInt())) {
 
       Logger::error(DEBUG, {});
 
-      this->_fd = open(web_server_utils::resolve_static_file_path(file_path).c_str(), O_RDONLY | O_CLOEXEC, 0);
+      const int fd = open(web_server_utils::resolve_static_file_path(file_path).c_str(), O_RDONLY | O_CLOEXEC, 0);
 
-      if (this->_fd < 0) {
+      if (fd < 0) {
         std::string err_msg = "open: " + std::string(std::strerror(errno));
 
         if (errno == EISDIR || errno == ENOENT) {
@@ -44,16 +35,16 @@ class ContentReader {
         throw Error(OSERR, err_msg, errno);
       }
 
+      this->_fd.assign_fd(fd);
+
       struct stat statbuf = {};
 
-      if (fstat(this->_fd, &statbuf) < 0) {
-        this->destroy();
+      if (fstat(this->_fd._fd, &statbuf) < 0) {
         throw Error(OSERR, "fstat: " + std::string(std::strerror(errno)), errno);
       }
 
       // check whether it is not regular file
       if (!S_ISREG(statbuf.st_mode)) {
-        this->destroy();
         throw Error(CLIENTERR, "requested file is not regular");
       }
 
@@ -61,18 +52,18 @@ class ContentReader {
     }
 
     ContentReader (const ContentReader& reader)
-      : buffer(new char[Config::config["read_buffer"].GetInt()]) {
+      : buffer(std::make_unique<char[]>(Config::config["read_buffer"].GetInt())) {
 
       Logger::error(DEBUG, {});
 
       // read position is preserved
-      this->_fd = fcntl(reader._fd, F_DUPFD_CLOEXEC, 0);
+      const int fd = fcntl(reader._fd._fd, F_DUPFD_CLOEXEC, 0);
 
-      if (this->_fd < 0) {
-        this->destroy();
-
+      if (fd < 0) {
         throw Error(OSERR, "fcntl: " + std::string(std::strerror(errno)), errno);
       }
+
+      this->_fd.assign_fd(fd);
 
       for (int i = 0; i < Config::config["read_buffer"].GetInt(); i++) {
         this->buffer[i] = reader.buffer[i];
@@ -81,26 +72,16 @@ class ContentReader {
       this->file_size = reader.file_size;
     }
 
-    ~ContentReader () {
-      Logger::error(DEBUG, {});
-
-      this->destroy();
-    }
-
     ContentReader& operator= (const ContentReader& reader) {
       Logger::error(DEBUG, {});
 
-      const int new_fd = fcntl(reader._fd, F_DUPFD_CLOEXEC, 0);
+      const int fd = fcntl(reader._fd._fd, F_DUPFD_CLOEXEC, 0);
 
-      if (new_fd < 0) {
+      if (fd < 0) {
         throw Error(OSERR, "fcntl: " + std::string(std::strerror(errno)), errno);
       }
 
-      if (close(this->_fd) < 0) {
-        Logger::error(ERROR, {{ MSG, "close: " + std::string(std::strerror(errno)) }});
-      }
-
-      this->_fd = new_fd;
+      this->_fd.assign_fd(fd);
       this->file_size = reader.file_size;
 
       for (int i = 0; i < Config::config["read_buffer"].GetInt(); i++) {
@@ -113,7 +94,7 @@ class ContentReader {
     size_t read () {
       Logger::error(DEBUG, {});
 
-      const ssize_t bytes_read = ::read(this->_fd, this->buffer, Config::config["read_buffer"].GetInt());
+      const ssize_t bytes_read = ::read(this->_fd._fd, this->buffer.get(), Config::config["read_buffer"].GetInt());
 
       if (bytes_read < 0) {
         throw Error(OSERR, "read: " + std::string(std::strerror(errno)), errno);

@@ -11,7 +11,6 @@
 
 class AddrinfoRes {
   public:
-    // TODO use smart pointers
     addrinfo* addrinfo_res;
 
     AddrinfoRes(const std::string& hostname, const std::string& service) {

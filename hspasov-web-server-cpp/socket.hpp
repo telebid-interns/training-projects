@@ -1,6 +1,7 @@
 #ifndef SOCKET_HPP
 #define SOCKET_HPP
 
+#include "file_descriptor.hpp"
 #include "config.hpp"
 #include "error.hpp"
 #include "logger.hpp"
@@ -11,28 +12,17 @@
 
 class Socket {
   protected:
-    int _fd;
-
-    void destroy () {
-      Logger::error(DEBUG, {});
-
-      delete[] this->recv_buffer;
-      delete[] this->send_buffer;
-
-      if (close(this->_fd) < 0) {
-        Logger::error(ERROR, {{ MSG, "close: " + std::string(std::strerror(errno)) }});
-      }
-    }
+    FileDescriptor _fd;
 
   public:
-    char* const recv_buffer;
-    char* const send_buffer;
+    const std::unique_ptr<char[]> recv_buffer;
+    const std::unique_ptr<char[]> send_buffer;
     ssize_t bytes_received_amount;
 
     explicit Socket (const int fd)
-      : _fd(fd),
-        recv_buffer(new char[Config::config["recv_buffer"].GetInt()]),
-        send_buffer(new char[Config::config["send_buffer"].GetInt()]),
+      : _fd(FileDescriptor(fd)),
+        recv_buffer(std::make_unique<char[]>(Config::config["recv_buffer"].GetInt())),
+        send_buffer(std::make_unique<char[]>(Config::config["send_buffer"].GetInt())),
         bytes_received_amount(0) {
 
       Logger::error(DEBUG, {});
@@ -41,9 +31,7 @@ class Socket {
       recv_timeout.tv_sec = Config::config["socket_recv_timeout"].GetInt();
       recv_timeout.tv_usec = 0;
 
-      if (setsockopt(this->_fd, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(recv_timeout)) < 0) {
-        this->destroy();
-
+      if (setsockopt(this->_fd._fd, SOL_SOCKET, SO_RCVTIMEO, &recv_timeout, sizeof(recv_timeout)) < 0) {
         throw Error(OSERR, "setsockopt: " + std::string(std::strerror(errno)), errno);
       }
 
@@ -51,27 +39,25 @@ class Socket {
       send_timeout.tv_sec = Config::config["socket_send_timeout"].GetInt();
       send_timeout.tv_usec = 0;
 
-      if (setsockopt(this->_fd, SOL_SOCKET, SO_SNDTIMEO, &send_timeout, sizeof(send_timeout)) < 0) {
-        this->destroy();
-
+      if (setsockopt(this->_fd._fd, SOL_SOCKET, SO_SNDTIMEO, &send_timeout, sizeof(send_timeout)) < 0) {
         throw Error(OSERR, "setsockopt: " + std::string(std::strerror(errno)), errno);
       }
     }
 
     Socket (const Socket& socket)
-      : recv_buffer(new char[Config::config["recv_buffer"].GetInt()]),
-        send_buffer(new char[Config::config["send_buffer"].GetInt()]),
+      : recv_buffer(std::make_unique<char[]>(Config::config["recv_buffer"].GetInt())),
+        send_buffer(std::make_unique<char[]>(Config::config["send_buffer"].GetInt())),
         bytes_received_amount(socket.bytes_received_amount) {
 
       Logger::error(DEBUG, {});
 
-      this->_fd = fcntl(socket._fd, F_DUPFD_CLOEXEC, 0);
+      const int fd = fcntl(socket._fd._fd, F_DUPFD_CLOEXEC, 0);
 
-      if (this->_fd < 0) {
-        this->destroy();
-
+      if (fd < 0) {
         throw Error(OSERR, "fcntl: " + std::string(std::strerror(errno)), errno);
       }
+
+      this->_fd.assign_fd(fd);
 
       for (int i = 0; i < Config::config["recv_buffer"].GetInt(); i++) {
         this->recv_buffer[i] = socket.recv_buffer[i];
@@ -82,26 +68,16 @@ class Socket {
       }
     }
 
-    ~Socket () {
-      Logger::error(DEBUG, {});
-
-      this->destroy();
-    }
-
     Socket& operator= (const Socket& socket) {
       Logger::error(DEBUG, {});
 
-      const int new_fd = fcntl(socket._fd, F_DUPFD_CLOEXEC, 0);
+      const int fd = fcntl(socket._fd._fd, F_DUPFD_CLOEXEC, 0);
 
-      if (new_fd < 0) {
+      if (fd < 0) {
         throw Error(OSERR, "fcntl: " + std::string(std::strerror(errno)), errno);
       }
 
-      if (close(this->_fd) < 0) {
-        Logger::error(ERROR, {{ MSG, "close: " + std::string(std::strerror(errno)) }});
-      }
-
-      this->_fd = new_fd;
+      this->_fd.assign_fd(fd);
       this->bytes_received_amount = socket.bytes_received_amount;
 
       for (int i = 0; i < Config::config["recv_buffer"].GetInt(); i++) {
@@ -118,7 +94,7 @@ class Socket {
     void shutdown () const {
       Logger::error(DEBUG, {});
 
-      if (::shutdown(this->_fd, SHUT_RDWR) < 0) {
+      if (::shutdown(this->_fd._fd, SHUT_RDWR) < 0) {
         std::string err_msg = "shutdown: " + std::string(std::strerror(errno));
 
         if (errno == ENOTCONN) {
@@ -144,9 +120,9 @@ class Socket {
       while (total_bytes_sent < data.size()) {
         const std::string data_to_send(remaining_data, 0, Config::config["send_buffer"].GetInt());
 
-        data_to_send.copy(this->send_buffer, data_to_send.size(), 0);
+        data_to_send.copy(this->send_buffer.get(), data_to_send.size(), 0);
 
-        const ssize_t bytes_sent = ::send(this->_fd, this->send_buffer, data_to_send.size(), no_flags);
+        const ssize_t bytes_sent = ::send(this->_fd._fd, this->send_buffer.get(), data_to_send.size(), no_flags);
 
         if (bytes_sent < 0) {
           // if send timeouts, end handling this request, nothing else can be done
@@ -176,7 +152,7 @@ class Socket {
 
       const int no_flags = 0;
 
-      this->bytes_received_amount = recv(this->_fd, this->recv_buffer, Config::config["recv_buffer"].GetInt(), no_flags);
+      this->bytes_received_amount = recv(this->_fd._fd, this->recv_buffer.get(), Config::config["recv_buffer"].GetInt(), no_flags);
 
       if (this->bytes_received_amount < 0) {
         std::string err_msg = "recv: " + std::string(std::strerror(errno));
