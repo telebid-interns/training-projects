@@ -82,7 +82,7 @@ class Server {
 
       sockaddr_in* addr_in = reinterpret_cast<sockaddr_in*>(&addr);
 
-      if (inet_ntop(AF_INET, &(addr_in->sin_addr), static_cast<char*>(remote_addr_buffer), INET_ADDRSTRLEN) == NULL) {
+      if (inet_ntop(AF_INET, &(addr_in->sin_addr), static_cast<char*>(remote_addr_buffer), INET_ADDRSTRLEN) == nullptr) {
         throw Error(OSERR, "inet_ntop: " + std::string(std::strerror(errno)), errno);
       }
 
@@ -99,7 +99,7 @@ class Server {
 
       const AddrinfoRes addrinfo_results(Config::config["host"].GetString(), std::to_string(Config::config["port"].GetInt()));
 
-      for (addrinfo* res = addrinfo_results.addrinfo_res; res != NULL; res = res->ai_next) {
+      for (addrinfo* res = addrinfo_results.addrinfo_res; res != nullptr; res = res->ai_next) {
         // TODO maybe should not throw on first failed bind
         if (bind(this->socket_fd, res->ai_addr, res->ai_addrlen) < 0) { // NOLINT
           Logger::error(ERROR, {{ MSG, "bind: " + std::string(std::strerror(errno)) }});
@@ -151,6 +151,7 @@ class Server {
           if (err._errno == EAGAIN || err._errno == EWOULDBLOCK) {
             Logger::error(DEBUG, {{ MSG, err._msg }});
           } else {
+            // TODO try to send 500
             Logger::error(ERROR, {{ MSG, err._msg }});
           }
         }

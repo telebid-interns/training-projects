@@ -85,14 +85,22 @@ class ClientConnection {
 
       while (true) {
         if (this->req_meta_raw.size() > Config::config["req_meta_limit"].GetUint()) {
-          this->send_meta(400, std::map<const std::string, const std::string>());
+          this->send_meta(400);
           return;
         }
 
         Logger::error(DEBUG, {{ MSG, "receiving data..." }});
 
-        // TODO(hristo): add timeout
-        this->conn.receive();
+        try {
+          this->conn.receive();
+        } catch (const Error& err) {
+          if (err._type == CLIENTERR) {
+            this->send_meta(408);
+            return;
+          }
+
+          throw;
+        }
 
         this->req_meta_raw.append(this->conn.recv_buffer, this->conn.bytes_received_amount);
 
@@ -126,7 +134,7 @@ class ClientConnection {
         this->req_meta = http_msg_formatter::parse_req_meta(this->req_meta_raw);
       } catch (const Error& err) {
         if (err._type == CLIENTERR) {
-          this->send_meta(400, std::map<const std::string, const std::string>());
+          this->send_meta(400);
           return;
         }
 
@@ -184,7 +192,7 @@ class ClientConnection {
       } catch (const Error& err) {
         // TODO(hristo): refactor error handling
         if (err._type == CLIENTERR) {
-          this->send_meta(404, std::map<const std::string, const std::string>());
+          this->send_meta(404);
           return;
         }
 
@@ -192,7 +200,7 @@ class ClientConnection {
       }
     }
 
-    void send_meta (const int status_code, const std::map<const std::string, const std::string>& headers) {
+    void send_meta (const int status_code, const std::map<const std::string, const std::string>& headers = std::map<const std::string, const std::string>()) {
       Logger::error(DEBUG, {
         { VAR_NAME, "status_code" },
         { VAR_VALUE, std::to_string(status_code) },
