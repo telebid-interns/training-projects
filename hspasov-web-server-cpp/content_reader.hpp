@@ -91,6 +91,7 @@ class ContentReader {
       return *this;
     }
 
+    // TODO fix warning
     ContentReader (ContentReader&&) = default;
     ContentReader& operator= (ContentReader&&) = default;
     ~ContentReader() = default;

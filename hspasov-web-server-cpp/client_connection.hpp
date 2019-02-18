@@ -40,7 +40,7 @@ class ClientConnection {
 
       // https://en.wikipedia.org/wiki/Type_punning#Sockets_example
 
-      sockaddr_in* addr_in = reinterpret_cast<sockaddr_in*>(&addr);
+      auto addr_in = reinterpret_cast<sockaddr_in*>(&addr);
 
       if (inet_ntop(AF_INET, &(addr_in->sin_addr), static_cast<char*>(remote_addr_buffer), INET_ADDRSTRLEN) == nullptr) {
         throw Error(OSERR, "inet_ntop: " + std::string(std::strerror(errno)), errno);

@@ -21,12 +21,12 @@ struct FileDescriptor {
   FileDescriptor ()
     : _fd(FileDescriptor::uninitialized) {}
 
-  FileDescriptor (FileDescriptor&& other) {
+  FileDescriptor (FileDescriptor&& other) noexcept {
     this->_fd = other._fd;
     other._fd = FileDescriptor::uninitialized;
   }
 
-  FileDescriptor& operator= (FileDescriptor&& other) {
+  FileDescriptor& operator= (FileDescriptor&& other) noexcept {
     this->_fd = other._fd;
     other._fd = FileDescriptor::uninitialized;
 
