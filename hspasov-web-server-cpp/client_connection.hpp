@@ -38,6 +38,8 @@ class ClientConnection {
 
       char remote_addr_buffer[INET_ADDRSTRLEN];
 
+      // https://en.wikipedia.org/wiki/Type_punning#Sockets_example
+
       sockaddr_in* addr_in = reinterpret_cast<sockaddr_in*>(&addr);
 
       if (inet_ntop(AF_INET, &(addr_in->sin_addr), static_cast<char*>(remote_addr_buffer), INET_ADDRSTRLEN) == nullptr) {
@@ -51,27 +53,15 @@ class ClientConnection {
     }
 
     ClientConnection (const ClientConnection&) = delete;
-    ClientConnection operator= (const ClientConnection&) = delete;
-    ClientConnection& operator= (const ClientConnection&&) = delete;
-
-    ClientConnection (const ClientConnection&& client_conn)
-      : conn(std::move(client_conn.conn)),
-        req_meta_raw(std::move(client_conn.req_meta_raw)),
-        remote_addr(std::move(client_conn.remote_addr)),
-        remote_port(std::move(client_conn.remote_port)),
-        req_meta(std::move(client_conn.req_meta)),
-        res_meta(std::move(client_conn.res_meta)),
-        state(std::move(client_conn.state)) {
-
-      Logger::error(DEBUG, {});
-    }
-
+    ClientConnection (ClientConnection&&) = delete;
+    ClientConnection& operator= (const ClientConnection&) = delete;
+    ClientConnection& operator= (ClientConnection&&) = delete;
 
     ~ClientConnection () {
       Logger::error(DEBUG, {});
 
       try {
-        access_log_fields fields = {};
+        access_log_fields fields {};
         fields.remote_addr = this->remote_addr;
         fields.req_line = this->req_meta.req_line_raw;
         fields.user_agent = this->req_meta.user_agent;
@@ -82,14 +72,12 @@ class ClientConnection {
         }
 
         Logger::access(fields);
-      } catch (const Error& err) {
-        Logger::error(ERROR, {{ MSG, err._msg }});
+      } catch (const std::exception& err) {
+        Logger::error(ERROR, {{ MSG, err.what() }});
       }
 
       Logger::close_access_log();
     }
-
-    // TODO(hristo): check why Socket cant be passed by reference
 
     void receive_meta () {
       Logger::error(DEBUG, {});
@@ -154,21 +142,7 @@ class ClientConnection {
         throw;
       }
 
-      // TODO(hristo): refactor this
-      std::string req_meta_stringified = "method: ";
-      req_meta_stringified += this->req_meta.method;
-      req_meta_stringified += "; target: ";
-      req_meta_stringified += this->req_meta.target;
-      req_meta_stringified += "; path: ";
-      req_meta_stringified += this->req_meta.path;
-      req_meta_stringified += "; query_string: ";
-      req_meta_stringified += this->req_meta.query_string;
-      req_meta_stringified += "; http_version: ";
-      req_meta_stringified += this->req_meta.http_version;
-      req_meta_stringified += "; user agent: ";
-      req_meta_stringified += this->req_meta.user_agent;
-
-      Logger::error(DEBUG, {{ MSG, req_meta_stringified }});
+      Logger::error(DEBUG, {{ MSG, this->req_meta.to_string() }});
     }
 
     void serve_static_file (const std::string& path) {
@@ -196,7 +170,6 @@ class ClientConnection {
 
           const std::string data(reader.buffer.get(), bytes_read);
 
-          // TODO(hristo): maybe it is not a good idea to convert data from char* to std::string and then back to char*
           const int packages_sent = this->conn.send(data);
 
           this->res_meta.packages_sent += packages_sent;
@@ -226,7 +199,7 @@ class ClientConnection {
 
       this->state = SENDING;
 
-      response_meta res_meta = {};
+      response_meta res_meta {};
       res_meta.status_code = std::to_string(status_code);
       res_meta.headers = headers;
       res_meta.packages_sent = 0;

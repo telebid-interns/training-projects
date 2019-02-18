@@ -16,9 +16,9 @@ namespace web_server_utils {
   }
 
   inline std::string get_current_time () {
-    const int time_str_max_chars = 20;
+    constexpr int time_str_max_chars = 20;
     char time_str[time_str_max_chars];
-    timeval time = {};
+    timeval time {};
 
     gettimeofday(&time, nullptr);
 
@@ -53,7 +53,7 @@ namespace web_server_utils {
   }
 
   inline std::string ascii_letters_to_upper (const std::string& str) {
-    const int ascci_letter_case_diff = 'a' - 'A';
+    constexpr int ascci_letter_case_diff = 'a' - 'A';
     std::string result;
 
     for (char character : str) {
@@ -105,7 +105,7 @@ namespace web_server_utils {
   }
 
   inline std::string resolve_static_file_path (const std::string& path) {
-    const bool split_excl_empty_tokens = true;
+    constexpr bool split_excl_empty_tokens = true;
     const std::regex forw_slash_regex("/");
     const std::vector<std::string> root_path_split = web_server_utils::split(
       Config::config["web_server_root"].GetString(),
@@ -122,6 +122,8 @@ namespace web_server_utils {
     std::string result;
 
     std::vector<std::string> resolved_split;
+    resolved_split.reserve(root_path_split.size() + document_root_path_split.size() + path_split.size());
+
     resolved_split.insert(resolved_split.end(), root_path_split.cbegin(), root_path_split.cend());
     resolved_split.insert(resolved_split.end(), document_root_path_split.cbegin(), document_root_path_split.cend());
     resolved_split.insert(resolved_split.end(), path_split.cbegin(), path_split.cend());

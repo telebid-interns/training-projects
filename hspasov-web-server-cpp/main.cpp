@@ -23,20 +23,11 @@ int main (int argc, char** argv) {
   try {
     Config::init_config(std::string(argv[1]));
     Logger::init_logger();
-  } catch (const Error& err) {
-    if (err._type == SERVERERR) {
-      std::cerr << err._msg << std::endl;
-      return -1;
-    }
 
-    throw;
-  }
-
-  try {
-    Server server = Server();
+    Server server {};
     server.run();
-  } catch (const Error& err) {
-    Logger::error(ERROR, {{ MSG, err._msg }});
+  } catch (const std::exception& err) {
+    Logger::error(ERROR, {{ MSG, err.what() }});
     return -1;
   }
 

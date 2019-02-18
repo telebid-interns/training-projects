@@ -225,7 +225,7 @@ class Logger {
     }
 
     static void text_file_write (const int fd, const std::string& content) {
-      const int max_consecutive_zero_writes = 20;
+      constexpr int max_consecutive_zero_writes = 20;
       int zero_writes = 0;
       unsigned total_amount_bytes_written = 0;
 

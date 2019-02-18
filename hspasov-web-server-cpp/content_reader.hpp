@@ -35,9 +35,9 @@ class ContentReader {
         throw Error(OSERR, err_msg, errno);
       }
 
-      this->_fd.assign_fd(fd);
+      this->_fd = FileDescriptor(fd);
 
-      struct stat statbuf = {};
+      struct stat statbuf {};
 
       if (fstat(this->_fd._fd, &statbuf) < 0) {
         throw Error(OSERR, "fstat: " + std::string(std::strerror(errno)), errno);
@@ -63,7 +63,7 @@ class ContentReader {
         throw Error(OSERR, "fcntl: " + std::string(std::strerror(errno)), errno);
       }
 
-      this->_fd.assign_fd(fd);
+      this->_fd = FileDescriptor(fd);
 
       for (int i = 0; i < Config::config["read_buffer"].GetInt(); i++) {
         this->buffer[i] = reader.buffer[i];
@@ -81,7 +81,7 @@ class ContentReader {
         throw Error(OSERR, "fcntl: " + std::string(std::strerror(errno)), errno);
       }
 
-      this->_fd.assign_fd(fd);
+      this->_fd = FileDescriptor(fd);
       this->file_size = reader.file_size;
 
       for (int i = 0; i < Config::config["read_buffer"].GetInt(); i++) {
@@ -90,6 +90,10 @@ class ContentReader {
 
       return *this;
     }
+
+    ContentReader (ContentReader&&) = default;
+    ContentReader& operator= (ContentReader&&) = default;
+    ~ContentReader() = default;
 
     size_t read () {
       Logger::error(DEBUG, {});

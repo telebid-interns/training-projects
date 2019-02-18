@@ -27,7 +27,7 @@ class Socket {
 
       Logger::error(DEBUG, {});
 
-      timeval recv_timeout = {};
+      timeval recv_timeout {};
       recv_timeout.tv_sec = Config::config["socket_recv_timeout"].GetInt();
       recv_timeout.tv_usec = 0;
 
@@ -35,7 +35,7 @@ class Socket {
         throw Error(OSERR, "setsockopt: " + std::string(std::strerror(errno)), errno);
       }
 
-      timeval send_timeout = {};
+      timeval send_timeout {};
       send_timeout.tv_sec = Config::config["socket_send_timeout"].GetInt();
       send_timeout.tv_usec = 0;
 
@@ -57,7 +57,7 @@ class Socket {
         throw Error(OSERR, "fcntl: " + std::string(std::strerror(errno)), errno);
       }
 
-      this->_fd.assign_fd(fd);
+      this->_fd = FileDescriptor(fd);
 
       for (int i = 0; i < Config::config["recv_buffer"].GetInt(); i++) {
         this->recv_buffer[i] = socket.recv_buffer[i];
@@ -77,7 +77,7 @@ class Socket {
         throw Error(OSERR, "fcntl: " + std::string(std::strerror(errno)), errno);
       }
 
-      this->_fd.assign_fd(fd);
+      this->_fd = FileDescriptor(fd);
       this->bytes_received_amount = socket.bytes_received_amount;
 
       for (int i = 0; i < Config::config["recv_buffer"].GetInt(); i++) {
@@ -90,6 +90,10 @@ class Socket {
 
       return *this;
     }
+
+    Socket (Socket&&) = default;
+    Socket& operator= (Socket&&) = default;
+    ~Socket() = default;
 
     void shutdown () const {
       Logger::error(DEBUG, {});
@@ -106,12 +110,13 @@ class Socket {
     }
 
     int send (const std::string& data) const {
+      // TODO optimize
       Logger::error(DEBUG, {});
 
       int packages_sent = 0;
       int zero_sends = 0;
-      const int max_consecutive_zero_sends = 20;
-      const int no_flags = 0;
+      constexpr int max_consecutive_zero_sends = 20;
+      constexpr int no_flags = 0;
       unsigned total_bytes_sent = 0;
 
       std::string remaining_data(data);
@@ -155,7 +160,7 @@ class Socket {
     void receive () {
       Logger::error(DEBUG, {});
 
-      const int no_flags = 0;
+      constexpr int no_flags = 0;
 
       this->bytes_received_amount = recv(this->_fd._fd, this->recv_buffer.get(), Config::config["recv_buffer"].GetInt(), no_flags);
 

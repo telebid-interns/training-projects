@@ -19,6 +19,37 @@ struct request_meta {
   std::string http_version;
   std::map<const std::string, const std::string> headers;
   std::string user_agent;
+
+  std::string to_string () const {
+    const std::map<const std::string, const std::string> fields = {
+      { "method", this->method },
+      { "target", this->target },
+      { "path", this->path },
+      { "query_string", this->query_string },
+      { "http_version", this->http_version },
+      { "user_agent", this->user_agent },
+    };
+
+    std::string result;
+
+    for (auto it = fields.cbegin(); it != fields.cend(); it++) {
+      if (it != fields.cbegin()) {
+        result += "; ";
+      }
+
+      result += it->first + ": ";
+      result += it->second;
+    }
+
+    result += "; headers: ";
+
+    for (auto it = this->headers.cbegin(); it != this->headers.cend(); it++) {
+      result += it->first + ": ";
+      result += it->second + "; ";
+    }
+
+    return result;
+  }
 };
 
 struct response_meta {
@@ -29,11 +60,11 @@ struct response_meta {
 
 namespace http_msg_formatter {
 
-  const std::set<std::string> allowed_http_methods = {
+  static const std::set<std::string> allowed_http_methods = {
     "GET",
   };
 
-  const std::map<const int, const std::string> response_reason_phrases = {
+  static const std::map<const int, const std::string> response_reason_phrases = {
     { 200, "OK" },
     { 400, "Bad Request" },
     { 404, "Not Found" },
@@ -46,7 +77,7 @@ namespace http_msg_formatter {
   inline request_meta parse_req_meta (const std::string& req_meta) {
     Logger::error(DEBUG, {});
 
-    const bool split_excl_empty_tokens = true;
+    constexpr bool split_excl_empty_tokens = true;
 
     const std::vector<std::string> req_meta_lines = web_server_utils::split(req_meta, std::regex("\\r\\n"), split_excl_empty_tokens);
 

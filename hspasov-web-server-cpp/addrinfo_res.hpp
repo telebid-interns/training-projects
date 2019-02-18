@@ -16,7 +16,7 @@ class AddrinfoRes {
     AddrinfoRes(const std::string& hostname, const std::string& service) {
       Logger::error(DEBUG, {});
 
-      addrinfo hints = {};
+      addrinfo hints {};
       hints.ai_family = AF_INET;
       hints.ai_socktype = SOCK_STREAM;
 
@@ -37,7 +37,9 @@ class AddrinfoRes {
     }
 
     AddrinfoRes (const AddrinfoRes&) = delete;
+    AddrinfoRes (AddrinfoRes&&) = delete;
     AddrinfoRes& operator= (const AddrinfoRes&) = delete;
+    AddrinfoRes& operator= (AddrinfoRes&&) = delete;
 
     ~AddrinfoRes() {
       Logger::error(DEBUG, {});

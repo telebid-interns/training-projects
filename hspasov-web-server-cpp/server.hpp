@@ -17,7 +17,7 @@
 #include <sys/wait.h>
 
 void reap_child_proc (int sig_num) {
-  const int any_pid = -1;
+  constexpr int any_pid = -1;
   int children_reaped = 0;
 
   while (true) {
@@ -47,11 +47,11 @@ class Server {
         throw Error(OSERR, "socket: " + std::string(std::strerror(errno)), errno);
       }
 
-      this->socket_fd.assign_fd(socket_fd);
+      this->socket_fd = FileDescriptor(socket_fd);
 
       // setting socket options:
 
-      const int on = 1;
+      constexpr int on = 1;
 
       if (setsockopt(this->socket_fd._fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0) {
         // because destructor would not be called after throw in constructor
@@ -60,7 +60,7 @@ class Server {
 
       // setting child reaping:
 
-      struct sigaction action = {};
+      struct sigaction action {};
       action.sa_handler = &reap_child_proc;
       action.sa_flags = SA_NOCLDSTOP;
 
@@ -69,15 +69,11 @@ class Server {
       }
     }
 
-    Server (const Server&) = delete;
-    Server& operator= (const Server&) = delete;
-    Server& operator= (const Server&&) = delete;
-
-    Server (const Server&& server)
-      : socket_fd(std::move(server.socket_fd)) {
-
-      Logger::error(DEBUG, {});
-    }
+    Server (Server&) = delete;
+    Server (Server&&) = default;
+    Server& operator= (Server&) = delete;
+    Server& operator= (Server&&) = default;
+    ~Server() = default;
 
     void accept (int& client_conn_fd, sockaddr& addr) const {
       Logger::error(DEBUG, {{ MSG, "waiting for connection..." }});
@@ -93,17 +89,20 @@ class Server {
     void run () const {
       Logger::error(DEBUG, {});
 
-      // https://en.wikipedia.org/wiki/Type_punning#Sockets_example
-
       const AddrinfoRes addrinfo_results(Config::config["host"].GetString(), std::to_string(Config::config["port"].GetInt()));
 
-      for (addrinfo* res = addrinfo_results.addrinfo_res; res != nullptr; res = res->ai_next) {
-        // TODO maybe should not throw on first failed bind
-        if (bind(this->socket_fd._fd, res->ai_addr, res->ai_addrlen) < 0) { // NOLINT
-          throw Error(OSERR, "bind: " + std::string(std::strerror(errno)), errno);
-        }
+      std::string bind_err_msgs = "bind: ";
 
-        break;
+      for (addrinfo* res = addrinfo_results.addrinfo_res; res != nullptr; res = res->ai_next) {
+        if (bind(this->socket_fd._fd, res->ai_addr, res->ai_addrlen) < 0) {
+          bind_err_msgs += std::string(std::strerror(errno)) + "; ";
+
+          if(res->ai_next == nullptr) {
+            throw Error(OSERR, bind_err_msgs, errno);
+          }
+        } else {
+          break;
+        }
       }
 
       if (listen(this->socket_fd._fd, Config::config["backlog"].GetInt()) < 0) {
@@ -112,7 +111,7 @@ class Server {
 
       Logger::error(INFO, {{ MSG, "Listening on " + std::to_string(Config::config["port"].GetInt()) }});
 
-      const int max_consecutive_failed = 1000;
+      constexpr int max_consecutive_failed = 1000;
       int failed = 0;
 
       while (true) {
@@ -122,7 +121,7 @@ class Server {
 
         try {
           int client_socket_fd = -1;
-          sockaddr addr = {};
+          sockaddr addr {};
 
           this->accept(client_socket_fd, addr);
 
@@ -148,8 +147,8 @@ class Server {
                   throw;
                 }
               }
-            } catch (const Error& err) {
-              Logger::error(ERROR, {{ MSG, err._msg }});
+            } catch (const std::exception& err) {
+              Logger::error(ERROR, {{ MSG, err.what() }});
               std::exit(EXIT_FAILURE);
             }
 
@@ -167,15 +166,16 @@ class Server {
 
             failed = 0;
           } else {
-            throw Error(OSERR, "fork: " + std::string(std::strerror(errno)), errno);
+            Logger::error(ERROR, {{ MSG, "fork: " + std::string(std::strerror(errno)) }});
+
+            failed++;
           }
         } catch (const Error& err) {
-          // TODO EAGAIN can be thrown by fork and we don't want it to be handled in the if part:
+          // if part handles common accept errors
           if (err._errno == EAGAIN || err._errno == EWOULDBLOCK || err._errno == EINTR) {
-            Logger::error(DEBUG, {{ MSG, err._msg }});
+            Logger::error(DEBUG, {{ MSG, err.what() }});
           } else {
-            // TODO try to send 500
-            Logger::error(ERROR, {{ MSG, err._msg }});
+            Logger::error(ERROR, {{ MSG, err.what() }});
           }
 
           failed++;

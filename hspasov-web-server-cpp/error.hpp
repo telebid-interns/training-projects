@@ -13,12 +13,16 @@ enum error_type {
 
 class Error: public std::exception {
   public:
-    const std::string _msg;
+    const std::string what_arg;
     const error_type _type;
     int _errno;
 
-    Error(const error_type type, const std::string& msg, const int e = 0)
-      : _msg(msg), _type(type), _errno(e) {}
+    Error(const error_type type, const std::string& msg, const int errno_code = 0)
+      : what_arg(msg), _type(type), _errno(errno_code) {}
+
+    const char* what() const throw() {
+      return this->what_arg.c_str();
+    }
 };
 
 #endif

@@ -55,7 +55,7 @@ class Config {
       std::string file_content;
 
       while (true) {
-        const int buff_size = 10;
+        constexpr int buff_size = 10;
         char buffer[buff_size];
         const ssize_t bytes_read_amount = read(fd, static_cast<char*>(buffer), buff_size);
 
