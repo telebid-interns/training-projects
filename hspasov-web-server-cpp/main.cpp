@@ -43,7 +43,7 @@ int main (int argc, char** argv) {
     }
 
     // change current working directory to a place that is guaranteed to be there
-    if (chdir("/")) {
+    if (chdir("/") < 0) {
       Logger::error(ERROR, {{ MSG, "chdir: " + std::string(std::strerror(errno)) }});
       return -1;
     }
@@ -52,7 +52,7 @@ int main (int argc, char** argv) {
     // so that all files that will be opened don't take STDIN and STDOUT's filehandle ids
     {
       constexpr char dev_null_path[] = "/dev/null";
-      const int fd = open(dev_null_path, O_RDWR | O_CLOEXEC, 0);
+      const int fd = open(static_cast<const char*>(dev_null_path), O_RDWR | O_CLOEXEC, 0);
 
       if (fd < 0) {
         Logger::error(ERROR, {{ MSG, "open: " + std::string(std::strerror(errno)) }});

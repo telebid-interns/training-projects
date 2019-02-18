@@ -242,7 +242,9 @@ class Logger {
 
         if (bytes_written_amount < 0) {
           throw Error(OSERR, "write: " + std::string(std::strerror(errno)), errno);
-        } else if (bytes_written_amount == 0) {
+        }
+
+        if (bytes_written_amount == 0) {
           zero_writes++;
         } else {
           zero_writes = 0;

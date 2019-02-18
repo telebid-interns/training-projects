@@ -43,9 +43,9 @@ struct request_meta {
 
     result += "; headers: ";
 
-    for (auto it = this->headers.cbegin(); it != this->headers.cend(); it++) {
-      result += it->first + ": ";
-      result += it->second + "; ";
+    for (auto header_field : headers) {
+      result += header_field.first + ": ";
+      result += header_field.second + "; ";
     }
 
     return result;

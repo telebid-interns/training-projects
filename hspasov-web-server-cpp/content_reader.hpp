@@ -16,7 +16,7 @@ class ContentReader {
 
   public:
     size_t file_size;
-    const std::unique_ptr<char[]> buffer;
+    std::unique_ptr<char[]> buffer;
 
     explicit ContentReader (const std::string& file_path)
       : buffer(std::make_unique<char[]>(Config::config["read_buffer"].GetInt())) {
@@ -91,7 +91,6 @@ class ContentReader {
       return *this;
     }
 
-    // TODO fix warning
     ContentReader (ContentReader&&) = default;
     ContentReader& operator= (ContentReader&&) = default;
     ~ContentReader() = default;

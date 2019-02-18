@@ -15,8 +15,8 @@ class Socket {
     FileDescriptor _fd;
 
   public:
-    const std::unique_ptr<char[]> recv_buffer;
-    const std::unique_ptr<char[]> send_buffer;
+    std::unique_ptr<char[]> recv_buffer;
+    std::unique_ptr<char[]> send_buffer;
     ssize_t bytes_received_amount;
 
     explicit Socket (const int fd)

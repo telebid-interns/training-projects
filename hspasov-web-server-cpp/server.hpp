@@ -13,7 +13,7 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netdb.h>
-#include <signal.h>
+#include <csignal>
 #include <sys/wait.h>
 
 void reap_child_proc (int sig_num) {
@@ -66,9 +66,9 @@ class Server {
       }
     }
 
-    Server (Server&) = delete;
+    Server (const Server&) = delete;
     Server (Server&&) = default;
-    Server& operator= (Server&) = delete;
+    Server& operator= (const Server&) = delete;
     Server& operator= (Server&&) = default;
     ~Server() = default;
 
