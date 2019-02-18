@@ -18,7 +18,6 @@
 
 void reap_child_proc (int sig_num) {
   constexpr int any_pid = -1;
-  int children_reaped = 0;
 
   while (true) {
     int exit_status = 0;
@@ -28,8 +27,6 @@ void reap_child_proc (int sig_num) {
     if (child_pid <= 0) {
       break;
     }
-
-    children_reaped++;
   }
 }
 

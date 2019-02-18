@@ -50,6 +50,9 @@ class Logger {
   public:
 
     static void init_logger () {
+      // TODO check exactly how this prevents cerr from stopping to work
+      std::ios::sync_with_stdio(false);
+
       for (
         auto it = Config::config["error_log_fields"].GetArray().Begin();
         it != Config::config["error_log_fields"].GetArray().End();
