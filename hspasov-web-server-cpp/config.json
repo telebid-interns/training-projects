@@ -22,7 +22,7 @@
     "var_value",
     "msg"
   ],
-  "access_log_enabled": false,
+  "access_log_enabled": true,
   "access_log_fields": [
     "pid",
     "timestamp",

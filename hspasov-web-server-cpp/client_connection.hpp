@@ -75,8 +75,6 @@ class ClientConnection {
       } catch (const std::exception& err) {
         Logger::error(ERROR, {{ MSG, err.what() }});
       }
-
-      Logger::close_access_log();
     }
 
     void receive_meta () {

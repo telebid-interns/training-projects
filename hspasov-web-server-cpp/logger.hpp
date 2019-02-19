@@ -4,6 +4,7 @@
 #include "rapidjson/document.h"
 #include "config.hpp"
 #include "web_server_utils.hpp"
+#include "file_descriptor.hpp"
 #include <set>
 #include <map>
 #include <string>
@@ -43,7 +44,7 @@ struct error_log_fields {
 
 class Logger {
   protected:
-    static int access_log_fd;
+    static FileDescriptor access_log_fd;
     static std::map<const err_log_lvl, const std::string> err_log_lvl_str;
     static std::set<std::string> selected_error_log_fields;
     static std::set<std::string> selected_access_log_fields;
@@ -72,21 +73,13 @@ class Logger {
 
     static void init_access_log () {
       if (Config::config["access_log_enabled"].GetBool()) {
-        Logger::access_log_fd = open(Config::config["access_log"].GetString(), O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0);
+        const int fd = open(Config::config["access_log"].GetString(), O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0);
 
-        if (Logger::access_log_fd < 0) {
+        if (fd < 0) {
           Logger::error(ERROR, {{ MSG, "open: " + std::string(std::strerror(errno)) }});
         }
-      }
-    }
 
-    static void close_access_log () {
-      if (Config::config["access_log_enabled"].GetBool()) {
-        if (close(Logger::access_log_fd) < 0) {
-          Logger::error(ERROR, {{ MSG, "close: " + std::string(std::strerror(errno)) }});
-        }
-
-        Logger::access_log_fd = -1;
+        Logger::access_log_fd = FileDescriptor(fd);
       }
     }
 
@@ -157,7 +150,7 @@ class Logger {
 
     static void access (const access_log_fields& fields) {
       if (Config::config["access_log_enabled"].GetBool()) {
-        if (!web_server_utils::is_fd_open(Logger::access_log_fd)) {
+        if (Logger::access_log_fd._fd == FileDescriptor::uninitialized) {
           Logger::error(ERROR, {{ MSG, "Attempt to write in uninitialized access log file" }});
         } else {
           std::list<const std::string> fields_list;
@@ -222,7 +215,7 @@ class Logger {
 
           access_log_row.append("\n");
 
-          Logger::text_file_write(Logger::access_log_fd, access_log_row);
+          Logger::text_file_write(Logger::access_log_fd._fd, access_log_row);
         }
       }
     }

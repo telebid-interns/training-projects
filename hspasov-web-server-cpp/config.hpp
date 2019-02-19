@@ -5,6 +5,7 @@
 #include "rapidjson/schema.h"
 #include "rapidjson/document.h"
 #include "error.hpp"
+#include "file_descriptor.hpp"
 #include <iostream>
 #include <cerrno>
 #include <fcntl.h>
@@ -52,12 +53,14 @@ class Config {
         throw Error(OSERR, "open: " + std::string(std::strerror(errno)), errno);
       }
 
+      FileDescriptor config_file_fd(fd);
+
       std::string file_content;
 
       while (true) {
         constexpr int buff_size = 10;
         char buffer[buff_size];
-        const ssize_t bytes_read_amount = read(fd, static_cast<char*>(buffer), buff_size);
+        const ssize_t bytes_read_amount = read(config_file_fd._fd, static_cast<char*>(buffer), buff_size);
 
         if (bytes_read_amount == 0) {
           break;
@@ -68,10 +71,6 @@ class Config {
         }
 
         file_content.append(static_cast<char*>(buffer), bytes_read_amount);
-      }
-
-      if (close(fd) < 0) {
-        throw Error(OSERR, "close: " + std::string(std::strerror(errno)), errno);
       }
 
       return file_content;

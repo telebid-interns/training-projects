@@ -51,7 +51,6 @@ class Server {
       constexpr int on = 1;
 
       if (setsockopt(this->socket_fd._fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0) {
-        // because destructor would not be called after throw in constructor
         throw Error(OSERR, "setsockopt: " + std::string(std::strerror(errno)), errno);
       }
 
@@ -83,7 +82,7 @@ class Server {
       }
     }
 
-    void run () const {
+    void run () {
       Logger::error(DEBUG, {});
 
       const AddrinfoRes addrinfo_results(Config::config["host"].GetString(), std::to_string(Config::config["port"].GetInt()));
@@ -127,6 +126,8 @@ class Server {
           if (pid == 0) { // child process
             try {
               Logger::error(DEBUG, {{ MSG, "connection accepted" }});
+
+              this->socket_fd = FileDescriptor {}; // closing parent socket
 
               ClientConnection client_conn(client_socket_fd, addr);
               client_conn.receive_meta();

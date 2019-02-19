@@ -11,10 +11,6 @@
 
 namespace web_server_utils {
 
-  inline bool is_fd_open (const int fd) {
-    return fcntl(fd, F_GETFD, 0) != -1 || errno != EBADF;
-  }
-
   inline std::string get_current_time () {
     constexpr int time_str_max_chars = 20;
     char time_str[time_str_max_chars];

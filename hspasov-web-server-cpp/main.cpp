@@ -7,7 +7,7 @@
 #include <iostream>
 
 rapidjson::Document Config::config;
-int Logger::access_log_fd = -1;
+FileDescriptor Logger::access_log_fd;
 std::set<std::string> Logger::selected_error_log_fields;
 std::set<std::string> Logger::selected_access_log_fields;
 std::map<const err_log_lvl, const std::string> Logger::err_log_lvl_str = {
