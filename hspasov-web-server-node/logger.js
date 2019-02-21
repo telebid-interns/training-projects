@@ -11,7 +11,7 @@ const errorLogLevels = {
   DEBUG: 4,
 };
 
-// TODO check what happens if openSync fails
+// TODO check what happens if createWriteStream fails
 // TODO close
 const accessLog = createWriteStream(CONFIG.access_log, {
   flags: 'a', // open for appending, create if not exists
