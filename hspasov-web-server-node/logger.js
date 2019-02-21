@@ -20,28 +20,12 @@ const accessLog = createWriteStream(CONFIG.access_log, {
   mode: 0o666,
 });
 
-accessLog.on('close', (...args) => {
-  error(errorLogLevels.DEBUG, {
-    msg: 'close',
-    var_name: 'args',
-    var_value: args,
-  });
+accessLog.on('close', () => {
+  error(errorLogLevels.DEBUG, { msg: 'closed access log' });
 });
 
-accessLog.on('error', (...args) => {
-  error(errorLogLevels.DEBUG, {
-    msg: 'error',
-    var_name: 'args',
-    var_value: args,
-  });
-});
-
-accessLog.on('close', (...args) => {
-  error(errorLogLevels.DEBUG, {
-    msg: 'close',
-    var_name: 'args',
-    var_value: args,
-  });
+accessLog.on('error', (e) => {
+  error(errorLogLevels.DEBUG, { msg: 'access log error', var_name: 'error', var_value: e });
 });
 
 const error = (level, fields) => {

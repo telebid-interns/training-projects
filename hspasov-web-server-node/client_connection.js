@@ -76,27 +76,38 @@ const clientConnection = (clientConnections, id, socket) => {
           // TODO can it throw?
           const readStream = fs.createReadStream(targetResolvedPath, {
             flags: 'r',
-            encoding: 'binary',
           });
 
           readStream.on('close', () => {
-            log.error(DEBUG, { msg: `${connData.id}: readStream closed` });
+            log.error(DEBUG, { msg: `${connData.id.toString()}: readStream closed` });
           });
 
-          // TODO prevent buffer overflow
           readStream.on('data', (data) => {
             socket.write(data, () => {
-              log.error(DEBUG, { msg: `${connData.id}: data sent to socket` });
+              log.error(DEBUG, { msg: `${connData.id.toString()}: data sent to socket` });
+              console.log(data);
             });
+
+            if (socket.bufferSize >= CONFIG.send_buffer) {
+              log.error(DEBUG, { msg: `${connData.id.toString()}: socket send buffer filled` });
+              readStream.pause();
+            }
           });
 
           readStream.on('end', () => {
-            log.error(DEBUG, { msg: `${connData.id}: all data from readStream consumed` });
+            log.error(DEBUG, { msg: `${connData.id.toString()}: all data from readStream consumed` });
+            socket.removeAllListeners('drain');
+            socket.end();
           });
 
           readStream.on('error', (error) => {
-            log.error(ERROR, { var_name: 'error', var_value: error, msg: `${connData.id}: readStream error` });
+            log.error(ERROR, { var_name: 'error', var_value: error, msg: `${connData.id.toString()}: readStream error` });
             // TODO sent error to client in some cases
+          });
+
+          socket.on('drain', () => {
+            log.error(DEBUG, { msg: `${connData.id.toString()} socket send buffer drained` });
+            readStream.resume();
           });
 
           // TODO do this in a separate function
@@ -106,8 +117,9 @@ const clientConnection = (clientConnections, id, socket) => {
           };
 
           const resMetaMsg = buildResMeta(connData.resMeta);
-          socket.write(resMetaMsg, 'utf-8', () => {
-            log.error(DEBUG, { msg: `${connData.id}: data sent to socket` });
+          socket.write(resMetaMsg, 'binary', () => {
+            log.error(DEBUG, { msg: `${connData.id.toString()}: data sent to socket` });
+            console.log(resMetaMsg);
           });
         });
       } else if (connData.reqMetaRaw.length > CONFIG.req_meta_limit) {
@@ -115,27 +127,27 @@ const clientConnection = (clientConnections, id, socket) => {
       }
     } else {
       socket.end();
-      log.error(DEBUG, { msg: `${connData.id}: data received while in SENDING or CLOSED state` });
+      log.error(DEBUG, { msg: `${connData.id.toString()}: data received while in SENDING or CLOSED state` });
     }
 
-    log.error(DEBUG, { msg: `${connData.id}: data received`, var_name: 'data', var_value: data });
+    log.error(DEBUG, { msg: `${connData.id.toString()}: data received`, var_name: 'data', var_value: data });
   });
 
   socket.on('timeout', () => {
-    log.error(DEBUG, { msg: `${connData.id}: timeout` });
+    log.error(DEBUG, { msg: `${connData.id.toString()}: timeout` });
   });
 
   socket.on('end', () => {
-    log.error(DEBUG, { msg: `${connData.id}: FIN sent by other side`, var_name: 'args', var_value: args });
+    log.error(DEBUG, { msg: `${connData.id.toString()}: FIN sent by other side` });
   });
 
   socket.on('error', (error) => {
-    log.error(ERROR, { msg: `${connData.id}: socket error`, var_name: 'error', var_value: error });
+    log.error(ERROR, { msg: `${connData.id.toString()}: socket error`, var_name: 'error', var_value: error });
   });
 
   socket.on('close', (hadError) => {
     clientConnections.delete(id);
-    log.error(DEBUG, { msg: `${connData.id}: close`, var_name: 'hadError', var_value: hadError });
+    log.error(DEBUG, { msg: `${connData.id.toString()}: close`, var_name: 'hadError', var_value: hadError });
   });
 
   return connData;

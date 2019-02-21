@@ -14,7 +14,10 @@ const { clientConnection } = require('./client_connection.js');
 const { idGenerator } = require('./web_server_utils.js');
 
 const start = () => {
-  const server = new Server();
+  const server = new Server({
+    allowHalfOpen: false,
+    pauseOnConnect: false,
+  });
   const clientConnections = new Map();
   const idGenIt = idGenerator();
 
