@@ -5,7 +5,7 @@ const Ajv = require('ajv');
 let CONFIG;
 
 if (!process.env.CONFIG) {
-  console.error('ERROR: expected env CONFIG');
+  console.error('ERROR: expected env CONFIG'); // eslint-disable-line no-console
   process.exit(1);
 }
 
@@ -17,7 +17,6 @@ try {
   CONFIG = JSON.parse(configFileContent);
 
   const configSchemaPath = './config_schema.json';
-
   const configFileSchemaContent = fs.readFileSync(configSchemaPath, {
     encoding: 'utf-8',
   });
@@ -25,15 +24,14 @@ try {
   const configFileSchemaParsed = JSON.parse(configFileSchemaContent);
 
   const ajv = new Ajv();
-
   const valid = ajv.validate(configFileSchemaParsed, CONFIG);
 
   if (!valid) {
     throw new Error(ajv.errors);
   }
 } catch (error) {
-  console.error('ERROR initalizing config:');
-  console.error(error);
+  console.error('ERROR initalizing config:'); // eslint-disable-line no-console
+  console.error(error); // eslint-disable-line no-console
   process.exit(1);
 }
 

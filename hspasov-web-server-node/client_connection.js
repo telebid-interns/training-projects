@@ -6,6 +6,7 @@ const { CONFIG } = require('./config.js');
 const {
   log,
   errorLogLevels: {
+    ERROR,
     DEBUG,
   },
 } = require('./logger.js');
@@ -78,27 +79,24 @@ const clientConnection = (clientConnections, id, socket) => {
             encoding: 'binary',
           });
 
-          readStream.on('close', (...args) => {
-            console.log('readStream close. args:');
-            console.log(args);
+          readStream.on('close', () => {
+            log.error(DEBUG, { msg: `${connData.id}: readStream closed` });
           });
 
           // TODO prevent buffer overflow
           readStream.on('data', (data) => {
-            socket.write(data, (...args) => {
-              console.log('socket write cb. args:');
-              console.log(args);
+            socket.write(data, () => {
+              log.error(DEBUG, { msg: `${connData.id}: data sent to socket` });
             });
           });
 
-          readStream.on('end', (...args) => {
-            console.log('readStream end. args:');
-            console.log(args);
+          readStream.on('end', () => {
+            log.error(DEBUG, { msg: `${connData.id}: all data from readStream consumed` });
           });
 
           readStream.on('error', (error) => {
-            console.log('readStream error:');
-            console.log(error);
+            log.error(ERROR, { var_name: 'error', var_value: error, msg: `${connData.id}: readStream error` });
+            // TODO sent error to client in some cases
           });
 
           // TODO do this in a separate function
@@ -108,35 +106,36 @@ const clientConnection = (clientConnections, id, socket) => {
           };
 
           const resMetaMsg = buildResMeta(connData.resMeta);
-          socket.write(resMetaMsg, 'utf-8', (...args) => {
-            console.log('inside write callback. args:');
+          socket.write(resMetaMsg, 'utf-8', () => {
+            log.error(DEBUG, { msg: `${connData.id}: data sent to socket` });
           });
         });
       } else if (connData.reqMetaRaw.length > CONFIG.req_meta_limit) {
         // TODO handle error
       }
     } else {
-      // TODO handle error
+      socket.end();
+      log.error(DEBUG, { msg: `${connData.id}: data received while in SENDING or CLOSED state` });
     }
 
-    log.error(DEBUG, { msg: 'data received', var_name: 'data', var_value: data });
+    log.error(DEBUG, { msg: `${connData.id}: data received`, var_name: 'data', var_value: data });
   });
 
-  socket.on('timeout', (...args) => {
-    log.error(DEBUG, { msg: 'timeout', var_name: 'args', var_value: args });
+  socket.on('timeout', () => {
+    log.error(DEBUG, { msg: `${connData.id}: timeout` });
   });
 
-  socket.on('end', (...args) => {
-    log.error(DEBUG, { msg: 'end', var_name: 'args', var_value: args });
+  socket.on('end', () => {
+    log.error(DEBUG, { msg: `${connData.id}: FIN sent by other side`, var_name: 'args', var_value: args });
   });
 
-  socket.on('error', (...args) => {
-    log.error(DEBUG, { msg: 'error', var_name: 'args', var_value: args });
+  socket.on('error', (error) => {
+    log.error(ERROR, { msg: `${connData.id}: socket error`, var_name: 'error', var_value: error });
   });
 
-  socket.on('close', (...args) => {
+  socket.on('close', (hadError) => {
     clientConnections.delete(id);
-    log.error(DEBUG, { msg: 'close', var_name: 'args', var_value: args });
+    log.error(DEBUG, { msg: `${connData.id}: close`, var_name: 'hadError', var_value: hadError });
   });
 
   return connData;

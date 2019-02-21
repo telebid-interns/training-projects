@@ -24,8 +24,23 @@ const stringifyObject = (obj) => {
   }
 };
 
+function * idGenerator () {
+  let id = 0;
+
+  while (true) {
+    if (id >= Number.MAX_SAFE_INTEGER) {
+      id = 0;
+    } else {
+      id++;
+    }
+
+    yield id;
+  }
+}
+
 module.exports = {
   assert,
   isObject,
   stringifyObject,
+  idGenerator,
 };
