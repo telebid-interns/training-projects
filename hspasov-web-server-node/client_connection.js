@@ -58,17 +58,48 @@ const clientConnection = (clientConnections, id, socket) => {
 
         const responseHeaders = Object.create(null);
 
-        fs.stat(path.join(
+        const targetResolvedPath = path.join(
           CONFIG.web_server_root,
           CONFIG.document_root,
           connData.reqMeta.path
-        ), (err, stats) => {
+        );
+
+        fs.stat(targetResolvedPath, (err, stats) => {
           if (err) {
             console.log(err);
             // TODO handle
           }
 
           responseHeaders['Content-Length'] = stats.size.toString();
+
+          // TODO can it throw?
+          const readStream = fs.createReadStream(targetResolvedPath, {
+            flags: 'r',
+            encoding: 'binary',
+          });
+
+          readStream.on('close', (...args) => {
+            console.log('readStream close. args:');
+            console.log(args);
+          });
+
+          // TODO prevent buffer overflow
+          readStream.on('data', (data) => {
+            socket.write(data, (...args) => {
+              console.log('socket write cb. args:');
+              console.log(args);
+            });
+          });
+
+          readStream.on('end', (...args) => {
+            console.log('readStream end. args:');
+            console.log(args);
+          });
+
+          readStream.on('error', (error) => {
+            console.log('readStream error:');
+            console.log(error);
+          });
 
           // TODO do this in a separate function
           connData.resMeta = {
@@ -79,7 +110,6 @@ const clientConnection = (clientConnections, id, socket) => {
           const resMetaMsg = buildResMeta(connData.resMeta);
           socket.write(resMetaMsg, 'utf-8', (...args) => {
             console.log('inside write callback. args:');
-            socket.end();
           });
         });
       } else if (connData.reqMetaRaw.length > CONFIG.req_meta_limit) {
