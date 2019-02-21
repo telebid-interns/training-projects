@@ -4,11 +4,7 @@
   "title": "Config file schema",
   "type": "object",
   "properties": {
-    "socket_recv_timeout": {
-      "type": "integer",
-      "minimum": 0
-    },
-    "socket_send_timeout": {
+    "socket_timeout": {
       "type": "integer",
       "minimum": 0
     },
@@ -109,8 +105,7 @@
     }
   },
   "required": [
-    "socket_recv_timeout",
-    "socket_send_timeout",
+    "socket_timeout",
     "read_buffer",
     "recv_buffer",
     "send_buffer",

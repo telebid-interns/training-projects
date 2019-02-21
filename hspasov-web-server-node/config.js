@@ -1,16 +1,11 @@
+'use strict';
+
 const fs = require('fs');
 const Ajv = require('ajv');
-const {
-  log,
-  errorLogLevels: {
-    ERROR,
-  },
-} = require('./logger.js');
 let CONFIG;
 
-// TODO use assert
 if (!process.env.CONFIG) {
-  log.error(ERROR, { msg: 'expected env CONFIG' });
+  console.error('ERROR: expected env CONFIG');
   process.exit(1);
 }
 
@@ -37,8 +32,11 @@ try {
     throw new Error(ajv.errors);
   }
 } catch (error) {
-  log.error(ERROR, { msg: error });
+  console.error('ERROR initalizing config:');
+  console.error(error);
   process.exit(1);
 }
 
-module.exports = CONFIG;
+module.exports = {
+  CONFIG: Object.freeze(CONFIG),
+};

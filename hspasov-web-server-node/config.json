@@ -1,6 +1,5 @@
 {
-  "socket_recv_timeout": 5,
-  "socket_send_timeout": 5,
+  "socket_timeout": 5000,
   "read_buffer": 4096,
   "recv_buffer": 1024,
   "send_buffer": 1024,
