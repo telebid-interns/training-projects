@@ -2,6 +2,7 @@
 
 const { unescape } = require('querystring');
 const { assert, isObject } = require('./web_server_utils.js');
+const { CONFIG } = require('./config.js');
 
 const allowedHTTPMethods = Object.freeze([
   'GET',
@@ -10,6 +11,9 @@ const allowedHTTPMethods = Object.freeze([
 const responseReasonPhrases = new Map([
   [ 200, 'OK' ],
   [ 400, 'Bad Request' ],
+  [ 403, 'Forbidden' ],
+  [ 404, 'Not Found' ],
+  [ 503, 'Service Unavailable' ],
 ]);
 
 const parseReqMeta = (reqMeta) => {
@@ -91,7 +95,7 @@ const buildResMeta = (statusCode, headers) => {
     .map(([name, val]) => `${name}: ${val}`)
     .join('\r\n');
 
-  return `HTTP/1.1 ${statusCode} ${responseReasonPhrases.get(statusCode)}\r\n${headersStringified}\r\n\r\n`;
+  return `${CONFIG.protocol} ${statusCode} ${responseReasonPhrases.get(statusCode)}\r\n${headersStringified}\r\n\r\n`;
 };
 
 module.exports = {

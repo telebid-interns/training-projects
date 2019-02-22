@@ -1,8 +1,6 @@
 {
   "socket_timeout": 5000,
-  "read_buffer": 4096,
-  "recv_buffer": 1024,
-  "send_buffer": 1024,
+  "read_buffer": 16384,
   "req_meta_limit": 8192,
   "backlog": 2000,
   "protocol": "HTTP/1.1",
@@ -31,7 +29,6 @@
     "status_code",
     "content_length"
   ],
-  "access_log_write_buffer": 1024,
   "access_log_field_sep": "  ",
   "error_log_field_sep": "  ",
   "access_log_empty_field": "-",

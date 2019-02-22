@@ -11,8 +11,6 @@ const errorLogLevels = {
   DEBUG: 4,
 };
 
-// TODO check what happens if createWriteStream fails
-// TODO close
 const accessLog = createWriteStream(CONFIG.access_log, {
   flags: 'a', // open for appending, create if not exists
   encoding: 'utf-8',
@@ -20,14 +18,21 @@ const accessLog = createWriteStream(CONFIG.access_log, {
   mode: 0o666,
 });
 
-let accessLogAvailable = true;
+let accessLogAvailable = false;
 
 accessLog.on('close', () => {
   error(errorLogLevels.DEBUG, { msg: 'closed access log' });
+  accessLogAvailable = false;
 });
 
 accessLog.on('error', (e) => {
   error(errorLogLevels.DEBUG, { msg: 'access log error', var_name: 'error', var_value: e });
+  accessLogAvailable = false;
+});
+
+accessLog.on('open', (fd) => {
+  error(errorLogLevels.INFO, { msg: 'access log opened', var_name: 'fd', var_value: fd });
+  accessLogAvailable = true;
 });
 
 const error = (level, fields) => {
@@ -50,7 +55,8 @@ const error = (level, fields) => {
   }
 
   if (CONFIG.error_log_fields.includes('context')) {
-    fieldsList.push(CONFIG.error_log_empty_field); // TODO
+    const callStackCallerFuncPos = 2;
+    fieldsList.push(new Error().stack.split('\n')[callStackCallerFuncPos]);
   }
 
   if (CONFIG.error_log_fields.includes('var_name')) {
@@ -70,7 +76,6 @@ const error = (level, fields) => {
 
 const access = (fields) => {
   if (CONFIG.access_log_enabled && accessLogAvailable) {
-    // TODO assert access log initialized
     const fieldsList = [];
 
     if (CONFIG.access_log_fields.includes('pid')) {
@@ -102,11 +107,12 @@ const access = (fields) => {
       fieldsList.push('content_length' in fields ? fields.content_length : CONFIG.access_log_empty_field);
     }
 
+    fieldsList.push('\n');
+
     const accessLogEntry = fieldsList.join(CONFIG.access_log_field_sep);
 
-    // TODO check what happens on error
     const canWriteMore = accessLog.write(accessLogEntry, 'utf-8', () => {
-      error(errorLogLevels.DEBUG, { msg: 'write to access log' });
+      error(errorLogLevels.DEBUG, { msg: 'line written to access log' });
     });
 
     if (!canWriteMore) {

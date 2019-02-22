@@ -27,7 +27,7 @@ try {
   const valid = ajv.validate(configFileSchemaParsed, CONFIG);
 
   if (!valid) {
-    throw new Error(ajv.errors);
+    throw new Error(ajv.errorsText());
   }
 } catch (error) {
   console.error('ERROR initalizing config:'); // eslint-disable-line no-console

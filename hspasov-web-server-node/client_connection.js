@@ -28,6 +28,7 @@ const clientConnection = (clientConnections, id, socket) => {
     id,
     socket,
     state: clientConnStates.ESTABLISHED,
+    addr: socket.address(),
     reqMetaRaw: '',
     reqMeta: {},
     resMeta: {},
@@ -95,6 +96,21 @@ const clientConnection = (clientConnections, id, socket) => {
 
   socket.on('close', (hadError) => {
     log.error(DEBUG, { msg: `${connData.id.toString()}: close`, var_name: 'hadError', var_value: hadError });
+    const accessLogFields = Object.create(null);
+
+    accessLogFields.req_line = connData.reqMeta.reqLineRaw;
+    accessLogFields.remote_addr = `${connData.addr.address}:${connData.addr.port}`;
+    accessLogFields.status_code = connData.resMeta.statusCode;
+
+    if ('Content-Length' in connData.resMeta.headers) {
+      accessLogFields.content_length = connData.resMeta.headers['Content-Length'];
+    }
+
+    if ('User-Agent' in connData.reqMeta.headers) {
+      accessLogFields.user_agent = connData.reqMeta.headers['User-Agent'];
+    }
+
+    log.access(accessLogFields);
     clientConnections.delete(id);
   });
 
@@ -105,7 +121,24 @@ const clientConnection = (clientConnections, id, socket) => {
       if (err) {
         log.error(DEBUG, { msg: `${connData.id.toString()} stat error:`, var_name: 'error', var_value: err });
         const isFinalSend = true;
-        sendMeta(400, {}, isFinalSend);
+        let statusCode;
+
+        if (err.code === 'EACCESS') {
+          statusCode = 403;
+        } else if (err.code === 'ENOENT') {
+          statusCode = 404;
+        } else {
+          statusCode = 503;
+        }
+
+        sendMeta(statusCode, {}, isFinalSend);
+        return;
+      }
+
+      if (!stats.isFile()) {
+        log.error(DEBUG, { msg: `${connData.id.toString()}: file being accessed is not a regular file` });
+        const isFinalSend = true;
+        sendMeta(403, {}, isFinalSend);
         return;
       }
 
@@ -113,40 +146,41 @@ const clientConnection = (clientConnections, id, socket) => {
 
       sendMeta(200, responseHeaders);
 
-      // TODO can it throw?
       const readStream = fs.createReadStream(filePath, {
         flags: 'r',
+        highWaterMark: CONFIG.read_buffer,
       });
+
+      readStream.pipe(socket);
 
       readStream.on('close', () => {
         log.error(DEBUG, { msg: `${connData.id.toString()}: readStream closed` });
       });
 
       readStream.on('data', (data) => {
-        const canWriteMore = socket.write(data, () => {
-          log.error(DEBUG, { msg: `${connData.id.toString()}: data sent to socket`, var_name: 'data.length', var_value: data.length });
-        });
-
-        if (!canWriteMore) {
-          log.error(DEBUG, { msg: `${connData.id.toString()}: socket send buffer filled` });
-          readStream.pause();
-        }
+        log.error(DEBUG, { msg: `${connData.id.toString()}: sending data to socket`, var_name: 'data.length', var_value: data.length });
       });
 
       readStream.on('end', () => {
         log.error(DEBUG, { msg: `${connData.id.toString()}: all data from readStream consumed` });
-        socket.removeAllListeners('drain');
-        socket.end();
       });
 
       readStream.on('error', (error) => {
         log.error(ERROR, { var_name: 'error', var_value: error, msg: `${connData.id.toString()}: readStream error` });
-        // TODO sent error to client in some cases
+
+        if (
+          connData.state === clientConnStates.ESTABLISHED ||
+          connData.state === clientConnStates.RECEIVING
+        ) {
+          const isFinalSend = true;
+          sendMeta(400, {}, isFinalSend);
+        } else {
+          socket.destroy();
+        }
       });
 
       socket.on('drain', () => {
         log.error(DEBUG, { msg: `${connData.id.toString()} socket send buffer drained` });
-        readStream.resume();
       });
     });
   };
