@@ -20,6 +20,8 @@ const accessLog = createWriteStream(CONFIG.access_log, {
   mode: 0o666,
 });
 
+let accessLogAvailable = true;
+
 accessLog.on('close', () => {
   error(errorLogLevels.DEBUG, { msg: 'closed access log' });
 });
@@ -67,7 +69,7 @@ const error = (level, fields) => {
 };
 
 const access = (fields) => {
-  if (CONFIG.access_log_enabled) {
+  if (CONFIG.access_log_enabled && accessLogAvailable) {
     // TODO assert access log initialized
     const fieldsList = [];
 
@@ -103,7 +105,19 @@ const access = (fields) => {
     const accessLogEntry = fieldsList.join(CONFIG.access_log_field_sep);
 
     // TODO check what happens on error
-    accessLog.write(accessLogEntry, 'utf-8');
+    const canWriteMore = accessLog.write(accessLogEntry, 'utf-8', () => {
+      error(errorLogLevels.DEBUG, { msg: 'write to access log' });
+    });
+
+    if (!canWriteMore) {
+      error(errorLogLevels.ERROR, { msg: 'access log write stream buffer filled. logging temporarily turned off. logs might be missing' });
+      accessLogAvailable = false;
+      accessLog.on('drain', () => {
+        error(errorLogLevels.ERROR, { msg: 'access log write stream buffer drained. logging turned on.' });
+        accessLogAvailable = true;
+        accessLog.removeAllListeners('drain');
+      });
+    }
   }
 };
 

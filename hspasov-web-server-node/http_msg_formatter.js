@@ -9,6 +9,7 @@ const allowedHTTPMethods = Object.freeze([
 
 const responseReasonPhrases = new Map([
   [ 200, 'OK' ],
+  [ 400, 'Bad Request' ],
 ]);
 
 const parseReqMeta = (reqMeta) => {
@@ -82,15 +83,15 @@ const parseReqMeta = (reqMeta) => {
   };
 };
 
-const buildResMeta = (resMeta) => {
-  assert(isObject(resMeta));
-  assert(responseReasonPhrases.has(resMeta.statusCode));
+const buildResMeta = (statusCode, headers) => {
+  assert(responseReasonPhrases.has(statusCode));
+  assert(isObject(headers));
 
-  const headers = Object.entries(resMeta.headers)
+  const headersStringified = Object.entries(headers)
     .map(([name, val]) => `${name}: ${val}`)
     .join('\r\n');
 
-  return `HTTP/1.1 ${resMeta.statusCode} ${responseReasonPhrases.get(resMeta.statusCode)}\r\n${headers}\r\n\r\n`;
+  return `HTTP/1.1 ${statusCode} ${responseReasonPhrases.get(statusCode)}\r\n${headersStringified}\r\n\r\n`;
 };
 
 module.exports = {

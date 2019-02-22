@@ -14,6 +14,7 @@ const {
   parseReqMeta,
   buildResMeta,
 } = require('./http_msg_formatter.js');
+const { assert, isObject } = require('./web_server_utils.js');
 
 const clientConnStates = Object.freeze({
   ESTABLISHED: 1,
@@ -36,7 +37,8 @@ const clientConnection = (clientConnections, id, socket) => {
   socket.setEncoding('utf-8');
 
   socket.on('data', (data) => {
-    // TODO handle buffer overfilled, use socket.pause() and socket.resume()
+    log.error(DEBUG, { msg: `${connData.id.toString()}: data received`, var_name: 'data', var_value: data });
+
     if (connData.state === clientConnStates.ESTABLISHED) {
       connData.state = clientConnStates.RECEIVING;
     }
@@ -52,103 +54,127 @@ const clientConnection = (clientConnections, id, socket) => {
         // ignoring body, if any
         connData.reqMetaRaw = connData.reqMetaRaw.substring(0, reqMetaEnd);
 
-        // TODO error handling, parseReqMeta may throw
-        connData.reqMeta = parseReqMeta(connData.reqMetaRaw);
+        try {
+          connData.reqMeta = parseReqMeta(connData.reqMetaRaw);
+        } catch (error) {
+          const isFinalSend = true;
+          log.error(DEBUG, { msg: `${connData.id.toString()}: ${error}` });
+          sendMeta(400, {}, isFinalSend);
+          return;
+        }
 
-        connData.state = clientConnStates.SENDING;
-
-        const responseHeaders = Object.create(null);
-
-        const targetResolvedPath = path.join(
+        serveStaticFile(path.join(
           CONFIG.web_server_root,
           CONFIG.document_root,
           connData.reqMeta.path
-        );
-
-        fs.stat(targetResolvedPath, (err, stats) => {
-          if (err) {
-            console.log(err);
-            // TODO handle
-          }
-
-          responseHeaders['Content-Length'] = stats.size.toString();
-
-          // TODO can it throw?
-          const readStream = fs.createReadStream(targetResolvedPath, {
-            flags: 'r',
-          });
-
-          readStream.on('close', () => {
-            log.error(DEBUG, { msg: `${connData.id.toString()}: readStream closed` });
-          });
-
-          readStream.on('data', (data) => {
-            socket.write(data, () => {
-              log.error(DEBUG, { msg: `${connData.id.toString()}: data sent to socket` });
-              console.log(data);
-            });
-
-            if (socket.bufferSize >= CONFIG.send_buffer) {
-              log.error(DEBUG, { msg: `${connData.id.toString()}: socket send buffer filled` });
-              readStream.pause();
-            }
-          });
-
-          readStream.on('end', () => {
-            log.error(DEBUG, { msg: `${connData.id.toString()}: all data from readStream consumed` });
-            socket.removeAllListeners('drain');
-            socket.end();
-          });
-
-          readStream.on('error', (error) => {
-            log.error(ERROR, { var_name: 'error', var_value: error, msg: `${connData.id.toString()}: readStream error` });
-            // TODO sent error to client in some cases
-          });
-
-          socket.on('drain', () => {
-            log.error(DEBUG, { msg: `${connData.id.toString()} socket send buffer drained` });
-            readStream.resume();
-          });
-
-          // TODO do this in a separate function
-          connData.resMeta = {
-            statusCode: 200,
-            headers: responseHeaders,
-          };
-
-          const resMetaMsg = buildResMeta(connData.resMeta);
-          socket.write(resMetaMsg, 'binary', () => {
-            log.error(DEBUG, { msg: `${connData.id.toString()}: data sent to socket` });
-            console.log(resMetaMsg);
-          });
-        });
+        ));
       } else if (connData.reqMetaRaw.length > CONFIG.req_meta_limit) {
-        // TODO handle error
+        const isFinalSend = true;
+        sendMeta(400, {}, isFinalSend);
       }
     } else {
-      socket.end();
+      // if state is SENDING or CLOSED, drop data
       log.error(DEBUG, { msg: `${connData.id.toString()}: data received while in SENDING or CLOSED state` });
     }
-
-    log.error(DEBUG, { msg: `${connData.id.toString()}: data received`, var_name: 'data', var_value: data });
   });
 
   socket.on('timeout', () => {
     log.error(DEBUG, { msg: `${connData.id.toString()}: timeout` });
+    socket.destroy();
   });
 
   socket.on('end', () => {
+    // socket will automatically send FIN back, because allowHalfOpen is set to false
     log.error(DEBUG, { msg: `${connData.id.toString()}: FIN sent by other side` });
   });
 
   socket.on('error', (error) => {
+    // socket will automatically close
     log.error(ERROR, { msg: `${connData.id.toString()}: socket error`, var_name: 'error', var_value: error });
   });
 
   socket.on('close', (hadError) => {
-    clientConnections.delete(id);
     log.error(DEBUG, { msg: `${connData.id.toString()}: close`, var_name: 'hadError', var_value: hadError });
+    clientConnections.delete(id);
   });
+
+  const serveStaticFile = (filePath) => {
+    const responseHeaders = Object.create(null);
+
+    fs.stat(filePath, (err, stats) => {
+      if (err) {
+        log.error(DEBUG, { msg: `${connData.id.toString()} stat error:`, var_name: 'error', var_value: err });
+        const isFinalSend = true;
+        sendMeta(400, {}, isFinalSend);
+        return;
+      }
+
+      responseHeaders['Content-Length'] = stats.size.toString();
+
+      sendMeta(200, responseHeaders);
+
+      // TODO can it throw?
+      const readStream = fs.createReadStream(filePath, {
+        flags: 'r',
+      });
+
+      readStream.on('close', () => {
+        log.error(DEBUG, { msg: `${connData.id.toString()}: readStream closed` });
+      });
+
+      readStream.on('data', (data) => {
+        const canWriteMore = socket.write(data, () => {
+          log.error(DEBUG, { msg: `${connData.id.toString()}: data sent to socket`, var_name: 'data.length', var_value: data.length });
+        });
+
+        if (!canWriteMore) {
+          log.error(DEBUG, { msg: `${connData.id.toString()}: socket send buffer filled` });
+          readStream.pause();
+        }
+      });
+
+      readStream.on('end', () => {
+        log.error(DEBUG, { msg: `${connData.id.toString()}: all data from readStream consumed` });
+        socket.removeAllListeners('drain');
+        socket.end();
+      });
+
+      readStream.on('error', (error) => {
+        log.error(ERROR, { var_name: 'error', var_value: error, msg: `${connData.id.toString()}: readStream error` });
+        // TODO sent error to client in some cases
+      });
+
+      socket.on('drain', () => {
+        log.error(DEBUG, { msg: `${connData.id.toString()} socket send buffer drained` });
+        readStream.resume();
+      });
+    });
+  };
+
+  const sendMeta = (statusCode, headers, isFinalSend = false) => {
+    assert(Number.isSafeInteger(statusCode));
+    assert(isObject(headers));
+    assert(typeof isFinalSend === 'boolean');
+
+    connData.state = clientConnStates.SENDING;
+
+    connData.resMeta = {
+      statusCode,
+      headers,
+    };
+
+    const resMetaMsg = buildResMeta(statusCode, headers);
+
+    log.error(DEBUG, { msg: `${connData.id.toString()}: sending meta to socket`, var_name: 'data.length', var_value: resMetaMsg.length });
+
+    if (isFinalSend) {
+      socket.end(resMetaMsg, 'utf-8', () => {
+        socket.destroy();
+      });
+    } else {
+      socket.write(resMetaMsg, 'utf-8');
+    }
+  };
 
   return connData;
 };
