@@ -102,11 +102,11 @@ const clientConnection = (clientConnections, id, socket) => {
     accessLogFields.remote_addr = `${connData.addr.address}:${connData.addr.port}`;
     accessLogFields.status_code = connData.resMeta.statusCode;
 
-    if ('Content-Length' in connData.resMeta.headers) {
+    if ('headers' in connData.resMeta && 'Content-Length' in connData.resMeta.headers) {
       accessLogFields.content_length = connData.resMeta.headers['Content-Length'];
     }
 
-    if ('User-Agent' in connData.reqMeta.headers) {
+    if ('headers' in connData.reqMeta && 'User-Agent' in connData.reqMeta.headers) {
       accessLogFields.user_agent = connData.reqMeta.headers['User-Agent'];
     }
 

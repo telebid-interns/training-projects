@@ -39,39 +39,41 @@ const error = (level, fields) => {
   assert(Object.values(errorLogLevels).includes(level));
   assert(isObject(fields));
 
-  const fieldsList = [];
+  if (level <= CONFIG.error_log_level) {
+    const fieldsList = [];
 
-  if (CONFIG.error_log_fields.includes('pid')) {
-    fieldsList.push(process.pid);
+    if (CONFIG.error_log_fields.includes('pid')) {
+      fieldsList.push(process.pid);
+    }
+
+    if (CONFIG.error_log_fields.includes('timestamp')) {
+      const now = new Date();
+      fieldsList.push(now.toISOString());
+    }
+
+    if (CONFIG.error_log_fields.includes('level')) {
+      fieldsList.push(level);
+    }
+
+    if (CONFIG.error_log_fields.includes('context')) {
+      const callStackCallerFuncPos = 2;
+      fieldsList.push(new Error().stack.split('\n')[callStackCallerFuncPos]);
+    }
+
+    if (CONFIG.error_log_fields.includes('var_name')) {
+      fieldsList.push('var_name' in fields ? fields.var_name : CONFIG.error_log_empty_field);
+    }
+
+    if (CONFIG.error_log_fields.includes('var_value')) {
+      fieldsList.push('var_value' in fields ? `${fields.var_value} /${typeof fields.var_value}/` : CONFIG.error_log_empty_field);
+    }
+
+    if (CONFIG.error_log_fields.includes('msg')) {
+      fieldsList.push('msg' in fields ? fields.msg : CONFIG.error_log_empty_field);
+    }
+
+    console.error(fieldsList.join(CONFIG.error_log_field_sep));
   }
-
-  if (CONFIG.error_log_fields.includes('timestamp')) {
-    const now = new Date();
-    fieldsList.push(now.toISOString());
-  }
-
-  if (CONFIG.error_log_fields.includes('level')) {
-    fieldsList.push(level);
-  }
-
-  if (CONFIG.error_log_fields.includes('context')) {
-    const callStackCallerFuncPos = 2;
-    fieldsList.push(new Error().stack.split('\n')[callStackCallerFuncPos]);
-  }
-
-  if (CONFIG.error_log_fields.includes('var_name')) {
-    fieldsList.push('var_name' in fields ? fields.var_name : CONFIG.error_log_empty_field);
-  }
-
-  if (CONFIG.error_log_fields.includes('var_value')) {
-    fieldsList.push('var_value' in fields ? `${fields.var_value} /${typeof fields.var_value}/` : CONFIG.error_log_empty_field);
-  }
-
-  if (CONFIG.error_log_fields.includes('msg')) {
-    fieldsList.push('msg' in fields ? fields.msg : CONFIG.error_log_empty_field);
-  }
-
-  console.error(fieldsList.join(CONFIG.error_log_field_sep));
 };
 
 const access = (fields) => {
