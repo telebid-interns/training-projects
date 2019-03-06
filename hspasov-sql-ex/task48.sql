@@ -8,4 +8,9 @@ SELECT Ships.class
 FROM Outcomes
 JOIN Ships ON Ships.name = Outcomes.ship
 WHERE Outcomes.result = 'sunk'
-GROUP BY Ships.class;
+GROUP BY Ships.class
+UNION
+SELECT Classes.class
+FROM Classes
+JOIN Outcomes ON Classes.class = Outcomes.ship
+WHERE Outcomes.result = 'sunk';
