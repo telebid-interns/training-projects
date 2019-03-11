@@ -4,15 +4,20 @@
 
 -- not working
 
-SELECT Ships.class
+SELECT class
 FROM Ships
-GROUP BY Ships.class
-HAVING Count(Ships.name) = 1
+WHERE class NOT IN (
+SELECT class
+FROM Classes
+INNER JOIN Outcomes ON Classes.class = Outcomes.ship
+)
+GROUP BY class
+HAVING Count(name) = 1
 UNION
-SELECT Classes.class
-FROM Outcomes
-JOIN Classes ON Outcomes.ship = Classes.class
-AND Classes.class NOT IN (
-SELECT Ships.class
+SELECT class
+FROM Classes
+INNER JOIN Outcomes ON Classes.class = Outcomes.ship
+WHERE Classes.class NOT IN (
+SELECT class
 FROM Ships
 );
