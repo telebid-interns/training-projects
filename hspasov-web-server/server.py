@@ -48,11 +48,6 @@ class Server:
                 if pid == 0:  # child process
                     try:
                         signal.signal(signal.SIGTERM, signal.SIG_DFL)
-                        # TODO ask if init_access_log_file fails, we get
-                        # into an endless loop. But what could the
-                        # alternative be? Stop the server? Count how
-                        # often new worker is created and stop the server
-                        # only when new workers are created too often?
                         log.init_access_log_file()
 
                         worker = Worker(self._socket)

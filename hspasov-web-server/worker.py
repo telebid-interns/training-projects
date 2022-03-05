@@ -56,9 +56,6 @@ class Worker:
                         while True:
                             try:
                                 log.error(DEBUG, msg='going to accept...')
-                                # TODO fix when SSL enabled, when client
-                                # connects with http from browser, accept
-                                # blocks
                                 conn, addr = self._socket.accept()
                                 log.error(DEBUG, msg='conn accepted')
                             except OSError as error:
@@ -186,8 +183,6 @@ class Worker:
 
             log.error(DEBUG, msg='requested file in web server document root')
 
-            # TODO make cgi-bin not accessible
-
             if file_path.startswith(CONFIG['cgi_dir']):
                 yield from client_conn.serve_cgi_script(
                     resolve_cgi_file_path(file_path)
@@ -222,23 +217,6 @@ class Worker:
             client_conn_monit = client_conn.close()
 
             if len(self._profiler._client_conn_monits) >= CONFIG['max_monits']:
-                # log.error(ERROR,
-                #          var_name='averages',
-                #          var_value=self._profiler.get_averages())
-                # TODO it should be ERROR only for dev purposes
-                #log.error(ERROR,
-                #          var_name='event_loop_time',
-                #          var_value=self._profiler._event_loop_time.microseconds)
-                #log.error(ERROR,
-                #          var_name='event loop iterations length',
-                #          var_value=len(self._profiler._event_loop_iterations))
-                #log.error(ERROR,
-                #          var_name='unsuccessful locks',
-                #          var_value=self._profiler._unsuccessful_locks)
-                #log.error(ERROR,
-                #          var_name='registering time',
-                #          var_value=self._profiler._registering_time.microseconds)
-
                 self._profiler = Profiler()
 
             self._profiler.add_monit(client_conn_monit)

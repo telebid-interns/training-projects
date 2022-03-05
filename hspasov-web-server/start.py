@@ -3,10 +3,6 @@ import sys
 
 
 def start():
-    # TODO ask are imports inside function OK?
-    # they are inside this function because logging is initilized when
-    # log is imported. Logging should not be initialized until running this
-    # function
     import traceback
     from config import CONFIG
     from log import log, ERROR, DEBUG
@@ -35,9 +31,7 @@ if __name__ == '__main__':
     pid = os.fork()
 
     if pid == 0:  # child process
-        # TODO ask is the order of the steps for turning a process into daemon
-        # important?
-        os.umask(0)  # TODO ask is 0 ok?
+        os.umask(0)
         os.setsid()
         os.chdir('/')
 

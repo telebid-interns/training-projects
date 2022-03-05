@@ -192,7 +192,6 @@ class ClientConnection:
             bytes_sent = self._conn.send(data_to_send)
 
             if bytes_sent == 0:
-                # TODO error
                 log.error(DEBUG, var_name='bytes_sent', var_value=bytes_sent)
 
             total_bytes_sent += bytes_sent

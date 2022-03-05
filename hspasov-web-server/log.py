@@ -12,7 +12,6 @@ INFO = 4
 
 
 class Log:
-    # TODO fix redundancy
     log_lvls = {
         1: 'ERROR',
         2: 'WARNING',
@@ -41,10 +40,6 @@ class Log:
                 fields.append(format(Log.resolve_log_lvl_name(lvl)))
             if 'context' in CONFIG['error_log_fields']:
                 current_frame = inspect.currentframe()
-                # TODO why does the following line cause the process to exit
-                # caller_frame = inspect.getouterframes(current_frame, 2)
-                # caller_function = caller_frame[1][3]
-                # fields.append(format(caller_function))
             if 'var_name' in CONFIG['error_log_fields']:
                 fields.append(
                     CONFIG['error_log_empty_field']
@@ -97,7 +92,7 @@ class Log:
                         if content_length is None else format(content_length))
 
                 print(CONFIG['access_log_field_sep'].join(fields),
-                      file=self.access_log_file)
+                      file=self.access_log_file, flush=True)
 
     def init_access_log_file(self):
         self.access_log_file = open(CONFIG['access_log'], mode='a')
