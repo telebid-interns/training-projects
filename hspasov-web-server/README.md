@@ -1,4 +1,4 @@
-### Non-blocking HTTP web server
+### HTTP web server with non-blocking IO
 
 #### Features
 - Uses non-blocking IO with ```epoll```
